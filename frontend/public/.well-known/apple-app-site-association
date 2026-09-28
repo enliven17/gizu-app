@@ -1,5 +1,8 @@
 {
   "webcredentials": {
-    "apps": ["588X2UZY3L.com.example.gizu.dev"]
+    "apps": [
+      "588X2UZY3L.com.example.gizu.dev",
+      "588X2UZY3L.io.gizu.ios"
+    ]
   }
 }
