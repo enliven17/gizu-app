@@ -62,7 +62,7 @@ test("native access opens existing Home and Account with live units and no fixtu
   expect(await screen.findByText("Monad mainnet · Browse only")).toBeVisible();
   expect(screen.queryByRole("button", { name: "View Helix Alpha" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Swap tab"));
-  expect(await screen.findByRole("header", { name: /Swap.*coming soon/s })).toBeVisible();
+  expect(await screen.findByRole("header", { name: "Swap" })).toBeVisible();
   await userEvent.press(screen.getByLabelText("Settings tab"));
   expect(await screen.findByLabelText("Account address: " + address)).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Copy account address" }));

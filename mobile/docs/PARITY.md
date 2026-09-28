@@ -14,7 +14,7 @@ simulated passkey startup has been removed.
 | Request access                  | Development mock; no real waitlist submission                  | Same mock                                    |
 | Home                            | Actual Monad testnet MON balance, error/retry, address actions | Fixture portfolio and charts                 |
 | Vaults                          | Read-only Monad mainnet catalog; no investment actions         | Search/filter, details, charts and sharing   |
-| Swap                            | Coming soon                                                    | Coming soon                                  |
+| Swap                            | Development-only mock swap; release coming soon                | Same mock                                    |
 | Deposit                         | Receiving address/network/copy; no signing                     | Simulated transfer journey                   |
 | Withdraw                        | <=0.1 MON, expected sender binding, native approval            | Simulated review/signing/result              |
 | Activity                        | Account-filtered local outgoing journal only                   | Fixture activity                             |
@@ -69,8 +69,7 @@ focused on reusable approaches. They supplement the journey statuses above.
   or Other. The range is not a commitment. Preserve answers on retry, lock controls
   while pending, ignore late results on dismissal and clear answers on reopening.
   Completion is user-dismissed. Its mock creates no real waitlist entry or session.
-- Exchange keeps its route/deep link and is presented as Swap with the animated
-  coming-soon heading. Demo buy/sell remains available from vault details; native buy/sell is unavailable.
+- Exchange keeps its route/deep link and is presented as Swap. Development builds show an explicitly simulated USDG-to-stock-token journey: selection, amount, expiring quote, review, pending/completed status and session-local history. Fixed sample prices and a separate 1,000 USDG balance never affect wallet balances; no backend, passkey signing or transactions are used. Release builds retain the coming-soon heading. Demo buy/sell remains available from vault details; native buy/sell is unavailable.
   Deposit/withdraw remains available from Home, with explicit review, signing,
   submission, pending/unknown and result states.
   Notifications/account actions are implemented in M5; use a distinct sell tone without

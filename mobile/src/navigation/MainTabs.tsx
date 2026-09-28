@@ -2,6 +2,7 @@ import { AccountScreen } from "@/features/account/AccountScreen";
 import { PortfolioScreen } from "@/features/investments/PortfolioScreen";
 import { VaultsScreen } from "@/features/investments/VaultsScreen";
 import { SwapComingSoonScreen } from "@/features/shell/SwapComingSoonScreen";
+import { SwapScreen } from "@/features/swap/SwapScreen";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { FloatingTabs } from "./FloatingTabs";
 import type { MainTabParamList } from "./types";
@@ -18,7 +19,7 @@ export function MainTabs() {
     >
       <Tabs.Screen name="Home" component={PortfolioScreen} />
       <Tabs.Screen name="Vaults" component={VaultsScreen} />
-      <Tabs.Screen name="Exchange" component={SwapComingSoonScreen} />
+      <Tabs.Screen name="Exchange" component={__DEV__ ? SwapScreen : SwapComingSoonScreen} />
       <Tabs.Screen name="Settings" component={AccountScreen} />
     </Tabs.Navigator>
   );
