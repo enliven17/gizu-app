@@ -10,6 +10,7 @@ private final class FakeRPC: StoredTransferRPC {
       sent.append(params[0] as! String)
       throw WalletFailure.unavailable  // Simulate losing the response after dispatch.
     }
+
     switch method {
     case "eth_chainId": return "0x279f"
     case "eth_gasPrice", "eth_maxPriorityFeePerGas": return "0x1"
@@ -36,21 +37,12 @@ private final class FailingFiles: WalletFiles {
   }
 }
 final class TransferTests: XCTestCase {
-  func testAuthorityExpiresAndNeverRevivesAfterCancel() throws {
-    var lifetime = AuthorizationLifetime(now: 100)
-    try lifetime.check(now: 219, active: true, protected: true)
-    XCTAssertThrowsError(try lifetime.check(now: 220, active: true, protected: true))
-    XCTAssertThrowsError(try lifetime.check(now: 101, active: false, protected: true))
-    XCTAssertThrowsError(try lifetime.check(now: 101, active: true, protected: false))
-    lifetime.cancel()
-    XCTAssertThrowsError(try lifetime.check(now: 102, active: true, protected: true))
-  }
   @MainActor func testJournalCommitFailureNeverBroadcastsEvenAfterRename() async throws {
     for committed in [false, true] {
       let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
       defer { try? FileManager.default.removeItem(at: root) }
       let files = try FailingFiles(root)
-      let store = WalletStorage(files: files, keys: StoredWalletTests.Keys())
+      let store = WalletStorage(files: files, keys: WalletTestCase.Keys())
       let key = P256.Signing.PrivateKey().publicKey.x963Representation
       let record = try WalletRecord(
         id: UUID().uuidString,
@@ -73,6 +65,12 @@ final class TransferTests: XCTestCase {
         ],
       ])
       let review = try await engine.prepare(operation.operationId, revision: operation.revision)
+      do {
+        try await engine.execute(review, authority: { throw WalletFailure.cancelled })
+        XCTFail("Cancelled authorization should stop signing")
+      } catch {}
+      XCTAssertTrue(rpc.sent.isEmpty)
+      XCTAssertNil(try journal.get(operation.operationId).steps[0].raw)
       files.failAfterCommit = committed
       do {
         try await engine.execute(review, authority: {})
@@ -82,7 +80,7 @@ final class TransferTests: XCTestCase {
       files.failAfterCommit = nil
       let recovered = try journal.get(operation.operationId)
       XCTAssertEqual(recovered.steps[0].raw != nil, committed)
-      XCTAssertEqual(recovered.steps[0].status, committed ? "unknown" : "planned")
+      XCTAssertEqual(recovered.steps[0].status, committed ? .unknown : .planned)
     }
   }
   @MainActor func testUncertainBroadcastPersistsAndResumeUsesIdenticalBytes() async throws {
@@ -94,7 +92,7 @@ final class TransferTests: XCTestCase {
       credential: StoredCredential(id: Data([1]), x: Data(key[1..<33]), y: Data(key[33..<65])),
       entropy: Data(repeating: 0, count: 32), verified: true)
     defer { record.close() }
-    let store = WalletStorage(files: try ProtectedFiles(root: root), keys: StoredWalletTests.Keys())
+    let store = WalletStorage(files: try ProtectedFiles(root: root), keys: WalletTestCase.Keys())
     try store.create(record)
     let journal = try StoredOperationJournal(store: store, record: record)
     let rpc = FakeRPC()
@@ -116,7 +114,7 @@ final class TransferTests: XCTestCase {
       XCTFail("RPC response should be lost")
     } catch {}
     let uncertain = try journal.get(operation.operationId)
-    XCTAssertEqual(uncertain.steps[0].status, "unknown")
+    XCTAssertEqual(uncertain.steps[0].status, .unknown)
     XCTAssertEqual(rpc.sent.count, 1)
     XCTAssertNotNil(uncertain.steps[0].raw)
     try await reconcile(journal, rpc: rpc)

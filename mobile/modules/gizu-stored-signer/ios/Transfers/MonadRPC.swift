@@ -4,6 +4,7 @@ internal protocol StoredTransferRPC {
   func call(_ method: String, _ params: [Any]) async throws -> Any
   func text(_ method: String, _ params: [Any]) async throws -> String
 }
+
 internal final class StoredMonadRPC: NSObject, URLSessionTaskDelegate, StoredTransferRPC {
   func urlSession(
     _ session: URLSession, task: URLSessionTask,
@@ -30,16 +31,19 @@ internal final class StoredMonadRPC: NSObject, URLSessionTaskDelegate, StoredTra
       guard data.count < 1_048_576 else { throw WalletFailure.invalid }
       data.append(byte)
     }
+
     guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
       object["error"] == nil, object["id"] as? Int == 1, object["jsonrpc"] as? String == "2.0",
       let result = object["result"]
     else { throw WalletFailure.invalid }
     return result
   }
+
   func text(_ method: String, _ params: [Any] = []) async throws -> String {
     guard let result = try await call(method, params) as? String else {
       throw WalletFailure.invalid
     }
+
     return result
   }
 }

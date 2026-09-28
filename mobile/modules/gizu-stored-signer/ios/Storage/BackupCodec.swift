@@ -3,10 +3,11 @@ import Foundation
 
 internal enum StoredBackupCodec {
   private static func header(_ bytes: Data) throws -> [String: Any] {
-    try require(!bytes.isEmpty && bytes.count <= 65536)
+    try require(!bytes.isEmpty && bytes.count <= WalletLimits.backupBytes)
     guard let h = try JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
       throw WalletFailure.invalid
     }
+
     guard let version = h["version"] as? NSNumber, CFGetTypeID(version) != CFBooleanGetTypeID(),
       version.stringValue == "1"
     else { throw WalletFailure.invalid }
@@ -17,18 +18,22 @@ internal enum StoredBackupCodec {
     guard let id = h["walletId"] as? String, UUID(uuidString: id) != nil else {
       throw WalletFailure.invalid
     }
+
     return h
   }
+
   private static func text(_ h: [String: Any], _ key: String) throws -> String {
     guard let value = h[key] as? String else { throw WalletFailure.invalid }
     return value
   }
+
   private static func aad(_ h: [String: Any]) throws -> Data {
     try Data(
       (["gizu-stored-wallet", "1", "gizu.io", "gizu-stored-evm-v1"]
         + ["walletId", "credentialId", "x", "y"].map { try text(h, $0) }).joined(separator: ":")
         .utf8)
   }
+
   static func credential(_ bytes: Data) throws -> StoredCredential {
     let h = try header(bytes)
     let key = try StoredCredential(
@@ -37,6 +42,7 @@ internal enum StoredBackupCodec {
     try key.validate()
     return key
   }
+
   static func encrypt(_ record: WalletRecord, prf: Data) throws -> Data {
     try require(prf.count == 32)
     var h: [String: Any] = [
@@ -50,6 +56,7 @@ internal enum StoredBackupCodec {
     ).base64URL
     return try JSONSerialization.data(withJSONObject: h, options: [.sortedKeys])
   }
+
   static func decrypt(_ bytes: Data, prf: Data) throws -> WalletRecord {
     try require(prf.count == 32)
     let h = try header(bytes)

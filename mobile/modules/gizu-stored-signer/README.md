@@ -110,3 +110,28 @@ or keys to the app. Generated Swift bindings and XCFrameworks are ignored. The
 retired signer remains untouched and excluded. Native simulator tests and an app
 build do not establish physical iPhone, passkey-provider, Keychain or file-picker
 acceptance. Real-device validation and independent security review remain pending.
+
+### iOS source map
+
+- `ios/GizuStoredSignerModule.swift`: Expo public contract, ceremony serialization and timeout.
+- `ios/Access/`: ceremony lifetime, passkey provider and verification. `WalletCeremony`
+  owns cancellation and presentation; its backup and transfer extensions keep each
+  workflow together without introducing a second owner of authorization.
+- `ios/Storage/`: device-bound Keychain key, protected atomic files, encrypted wallet
+  records and the versioned backup codec.
+- `ios/Transfers/`: bridge proposal validation, quote loading, native review text,
+  Rust signing orchestration, encrypted journal and read-only reconciliation.
+- `ios/UI/`: shared native confirmation and document-picker presentation.
+- `ios/Support/`: named limits used by the native implementation.
+- `ios/Tests/`: behavior-focused credential, backup, storage, authorization and
+  transfer tests; `WalletTestCase` provides synthetic test fixtures only.
+
+Follow transfers from `WalletCeremony+Transfers` into `TransferEngine.prepare`,
+then native approval/passkey authorization and `TransferEngine.execute`. Fresh
+signatures are durably journaled before submission. Explicit retries use the saved
+bytes; reconciliation never broadcasts. Keep these ordering and cleanup boundaries
+intact when refactoring. Journal states retain their existing serialized strings.
+
+SwiftPM discovers the nested source folders; the podspec's recursive Swift glob
+includes them as well. Keep `Generated/` separate and regenerate bindings rather
+than editing them.

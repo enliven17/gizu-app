@@ -5,17 +5,21 @@ import Security
 internal enum WalletFailure: Error {
   case invalid, unavailable, cancelled, busy, insufficientBalance
 }
+
 internal func require(_ condition: Bool) throws {
   guard condition else { throw WalletFailure.invalid }
 }
+
 internal func randomBytes(_ count: Int = 32) throws -> Data {
   var bytes = Data(count: count)
   let result = bytes.withUnsafeMutableBytes {
     SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
   }
+
   try require(result == errSecSuccess)
   return bytes
 }
+
 internal func digest(_ data: Data) -> Data { Data(SHA256.hash(data: data)) }
 extension Data {
   var base64URL: String {
@@ -23,6 +27,7 @@ extension Data {
       of: "/", with: "_"
     ).replacingOccurrences(of: "=", with: "")
   }
+
   init(urlEncoded value: String) throws {
     try require(
       value.count <= 90_000
@@ -33,13 +38,16 @@ extension Data {
     guard let data = Data(base64Encoded: padded), data.base64URL == value else {
       throw WalletFailure.invalid
     }
+
     self = data
   }
+
   mutating func wipe() {
     resetBytes(in: 0..<count)
     removeAll()
   }
 }
+
 internal enum WalletEnvelope {
   static let magic = Data("GSW1".utf8)
   static func encrypt(_ clear: Data, key: SymmetricKey, aad: Data) throws -> Data {
@@ -47,12 +55,14 @@ internal enum WalletEnvelope {
     guard let combined = box.combined else { throw WalletFailure.invalid }
     return magic + combined
   }
+
   static func decrypt(_ data: Data, key: SymmetricKey, aad: Data) throws -> Data {
     try require(data.count >= 32 && data.prefix(4) == magic)
     return try AES.GCM.open(
       AES.GCM.SealedBox(combined: data.dropFirst(4)), using: key, authenticating: aad)
   }
 }
+
 internal struct StoredCredential: Codable, Equatable {
   let id: Data
   let x: Data
@@ -82,6 +92,7 @@ internal final class WalletRecord {
     self.journalId = journalId ?? id
     try require(UUID(uuidString: self.journalId) != nil)
   }
+
   deinit { entropy.wipe() }
   func close() { entropy.wipe() }
 }

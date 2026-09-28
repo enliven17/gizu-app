@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
     modalPresentationStyle = .fullScreen
     isModalInPresentation = true
   }
+
   required init?(coder: NSCoder) { fatalError("Unavailable") }
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -39,6 +40,7 @@ import UniformTypeIdentifiers
       stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -40),
     ])
   }
+
   func show(_ title: String, _ message: String, action: String? = nil) {
     loadViewIfNeeded()
     stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -53,9 +55,11 @@ import UniformTypeIdentifiers
       label.textColor = style == .caption1 ? accent : .white
       stack.addArrangedSubview(label)
     }
+
     if let action { button(action, primary: true, selector: #selector(accept)) }
     button("Cancel", primary: false, selector: #selector(cancel))
   }
+
   private func button(_ title: String, primary: Bool, selector: Selector) {
     let button = UIButton(type: .system)
     var config = UIButton.Configuration.filled()
@@ -69,12 +73,14 @@ import UniformTypeIdentifiers
     button.addTarget(self, action: selector, for: .touchUpInside)
     stack.addArrangedSubview(button)
   }
+
   @objc private func accept() {
     let callback = approval
     approval = nil
     show("Please wait", "Completing the approved operation…")
     callback?.resume()
   }
+
   @objc private func cancel() { onCancel?() }
   func stop() {
     let pending = approval
@@ -85,6 +91,7 @@ import UniformTypeIdentifiers
     picker?.resume(throwing: WalletFailure.cancelled)
     presentedViewController?.dismiss(animated: false)
   }
+
   func confirm(_ title: String, _ message: String, action: String = "Continue") async throws {
     try Task.checkCancellation()
     try await withCheckedThrowingContinuation { continuation in
@@ -110,6 +117,7 @@ import UniformTypeIdentifiers
     document = nil
     callback?.resume(throwing: WalletFailure.cancelled)
   }
+
   func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL])
   {
     let callback = document
@@ -118,6 +126,7 @@ import UniformTypeIdentifiers
       callback?.resume(throwing: WalletFailure.invalid)
       return
     }
+
     // Wait for picker dismissal before presenting another system prompt.
     controller.dismiss(animated: true) { callback?.resume(returning: urls[0]) }
   }

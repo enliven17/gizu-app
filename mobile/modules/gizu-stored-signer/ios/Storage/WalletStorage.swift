@@ -1,0 +1,83 @@
+import CryptoKit
+import Foundation
+
+internal final class WalletStorage {
+  let files: WalletFiles
+  let keys: WalletKeyStore
+  private let aad = Data("io.gizu.storedwallet.v1:wallet:gizu.io:gizu-stored-evm-v1".utf8)
+  init(files: WalletFiles, keys: WalletKeyStore = DeviceWalletKey()) {
+    self.files = files
+    self.keys = keys
+  }
+
+  func exists() throws -> Bool { try files.exists("wallet.enc") }
+  func state() -> String {
+    do {
+      if try !exists() { return "absent" }
+      let record = try load()
+      defer { record.close() }
+      return record.verified ? "ready" : "backupRequired"
+    } catch { return "recoveryRequired" }
+  }
+
+  func load() throws -> WalletRecord {
+    guard let key = try keys.existing() else { throw WalletFailure.unavailable }
+    var clear = try WalletEnvelope.decrypt(
+      files.read("wallet.enc", limit: WalletLimits.walletRecordBytes), key: key, aad: aad)
+    defer { clear.wipe() }
+    // Public metadata is JSON; entropy is a fixed binary suffix, never a JSON string.
+    try require(clear.count > 32)
+    let metadata = try JSONDecoder().decode(Metadata.self, from: clear.dropLast(32))
+    try require(metadata.version == 1)
+    return try WalletRecord(
+      id: metadata.id, credential: metadata.credential, entropy: Data(clear.suffix(32)),
+      verified: metadata.verified, journalId: metadata.journalId)
+  }
+
+  func save(_ record: WalletRecord, allowKeyCreation: Bool = false) throws {
+    var clear = try JSONEncoder().encode(
+      Metadata(
+        version: 1, id: record.id, journalId: record.journalId, credential: record.credential,
+        verified: record.verified))
+    clear.append(record.entropy)
+    defer { clear.wipe() }
+    let key: SymmetricKey
+    if let existing = try keys.existing() {
+      key = existing
+    } else if allowKeyCreation {
+      key = try keys.create()
+    } else {
+      throw WalletFailure.unavailable
+    }
+
+    try files.write("wallet.enc", bytes: WalletEnvelope.encrypt(clear, key: key, aad: aad))
+    let committed = try load()
+    defer { committed.close() }
+    try require(
+      committed.id == record.id && committed.entropy == record.entropy
+        && committed.verified == record.verified)
+  }
+
+  func create(_ record: WalletRecord) throws {
+    try require(!exists())
+    try save(record, allowKeyCreation: true)
+  }
+
+  func restore(_ record: WalletRecord) throws {
+    try require(["absent", "recoveryRequired"].contains(state()))
+    // Reuse an accessible storage key, or create one if lost. Never replace a healthy wallet.
+    let restored = try WalletRecord(
+      id: record.id, credential: record.credential, entropy: record.entropy, verified: true,
+      journalId: UUID().uuidString)
+    defer { restored.close() }
+    try save(restored, allowKeyCreation: true)
+  }
+
+  private struct Metadata: Codable {
+    let version: Int
+    let id: String
+    let journalId: String
+    let credential: StoredCredential
+    let verified: Bool
+  }
+}

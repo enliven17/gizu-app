@@ -14,6 +14,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
   func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
     window
   }
+
   func authorizationController(
     controller: ASAuthorizationController,
     didCompleteWithAuthorization authorization: ASAuthorization
@@ -27,11 +28,13 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
     controller = nil
     pending?.resume(with: result)
   }
+
   func cancel() {
     let active = controller
     finish(.failure(WalletFailure.cancelled))
     active?.cancel()
   }
+
   private func request(_ request: ASAuthorizationRequest) async throws -> ASAuthorizationCredential
   {
     try Task.checkCancellation()
@@ -67,6 +70,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
       id: result.credentialID, clientData: result.rawClientDataJSON, attestation: attestation,
       challenge: challenge)
   }
+
   func authorize(
     _ credential: StoredCredential, walletId: String, purpose: String, recovery: Bool = false
   ) async throws -> Data? {
@@ -83,6 +87,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
       assertion.prf = .inputValues(
         .saltInput1(digest(Data("gizu.stored-wallet.recovery-prf.v1".utf8))))
     }
+
     guard
       let result = try await request(assertion)
         as? ASAuthorizationPlatformPublicKeyCredentialAssertion
@@ -97,6 +102,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
       try require(bytes.count == 32)
       return bytes
     }
+
     return nil
   }
 }
