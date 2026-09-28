@@ -6,9 +6,13 @@ encrypted backup before app access. Withdraw and Activity use native exact-trans
 approval, encrypted operation history and explicit resume. The user reported phase-3
 onboarding/backup checks passed. Guided phase-4 cancellation, withdrawal, restart and resume checks were also
 user-reported successful. Extended device failure-path checks, second-device restore
-and phase-5 validation remain pending. Android APK exclusion is verified; iOS binary
+and phase-5 validation remain pending. Android APK exclusion and iOS simulator binary exclusion are verified; physical iOS
 acceptance remains unverified. Existing installed clients require rebuilding.
 This document details the migration tracked by the [mobile roadmap](../PLAN.md).
+
+The original Android-only scope below is retained as migration history. The iOS
+replacement is now implemented; current platform behavior and pending acceptance
+are documented in [the native contract](NATIVE_SIGNER.md).
 
 ## Summary
 

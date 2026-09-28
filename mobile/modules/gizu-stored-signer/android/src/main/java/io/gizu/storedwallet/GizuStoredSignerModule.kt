@@ -1,12 +1,19 @@
 package io.gizu.storedwallet
 
 import android.app.Activity
-import android.app.AlertDialog
+import android.app.Dialog
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
+import android.view.Gravity
+import android.view.View
+import android.view.Window
 import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -28,7 +35,7 @@ class GizuStoredSignerModule : Module() {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private var task: Job? = null
-  private var dialog: AlertDialog? = null
+  private var dialog: Dialog? = null
   private var awaitingProvider = false
   private var foreground = true
 
@@ -46,27 +53,77 @@ class GizuStoredSignerModule : Module() {
 
   private suspend fun confirm(activity: Activity, create: Boolean) =
     suspendCancellableCoroutine<Unit> { continuation ->
-      val alert =
-        AlertDialog.Builder(activity)
-          .setTitle(if (create) "Create Gizu testnet wallet" else "Open Gizu testnet wallet")
-          .setMessage(
+      val alert = Dialog(activity)
+      alert.requestWindowFeature(Window.FEATURE_NO_TITLE)
+      // Same dismissal semantics as the former AlertDialog: back and outside touch cancel.
+      alert.setCancelable(true)
+      alert.setCanceledOnTouchOutside(true)
+      alert.setOnCancelListener { continuation.cancel() }
+      alert.setContentView(
+        confirmationView(
+          activity,
+          title = if (create) "Create Gizu testnet wallet" else "Open Gizu testnet wallet",
+          message =
             if (create)
               "Create a passkey and a new wallet stored encrypted on this phone. A verified backup is required before this wallet can be used."
-            else "Confirm your passkey to check this wallet. This does not authorize transfers."
-          )
-          .setPositiveButton("Continue") { _, _ ->
+            else "Confirm your passkey to check this wallet. This does not authorize transfers.",
+          onContinue = {
             if (continuation.isActive) continuation.resume(Unit)
-          }
-          .setNegativeButton("Cancel") { _, _ -> continuation.cancel() }
-          .setOnCancelListener { continuation.cancel() }
-          .create()
+            alert.dismiss()
+          },
+          onCancel = {
+            continuation.cancel()
+            alert.dismiss()
+          },
+        )
+      )
       dialog = alert
-      alert.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-      if (Build.VERSION.SDK_INT >= 31) alert.window?.setHideOverlayWindows(true)
+      alert.window?.apply {
+        addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (Build.VERSION.SDK_INT >= 31) setHideOverlayWindows(true)
+        setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+        setGravity(Gravity.CENTER)
+        setDimAmount(0.72f)
+      }
       alert.show()
-      alert.getButton(AlertDialog.BUTTON_POSITIVE).filterTouchesWhenObscured = true
       continuation.invokeOnCancellation { scope.launch { alert.dismiss() } }
     }
+
+  private fun confirmationView(
+    activity: Activity,
+    title: String,
+    message: String,
+    onContinue: () -> Unit,
+    onCancel: () -> Unit,
+  ): View {
+    fun dp(value: Int) = NativeStyle.dp(activity, value)
+    val card =
+      LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        background = NativeStyle.rounded(activity, NativeStyle.surface, 24, NativeStyle.glassBorder)
+        setPadding(dp(24), dp(24), dp(24), dp(20))
+        filterTouchesWhenObscured = true
+        addView(NativeStyle.title(activity, title, 22f))
+        addView(NativeStyle.body(activity, message), NativeStyle.fullWidth(activity, 10))
+        addView(
+          NativeStyle.button(activity, "Continue", primary = true).apply {
+            setOnClickListener { onContinue() }
+          },
+          NativeStyle.fullWidth(activity, 24),
+        )
+        addView(
+          NativeStyle.button(activity, "Cancel", primary = false).apply {
+            setOnClickListener { onCancel() }
+          },
+          NativeStyle.fullWidth(activity, 10),
+        )
+      }
+    return FrameLayout(activity).apply {
+      setPadding(dp(20), dp(20), dp(20), dp(20))
+      addView(card)
+    }
+  }
 
   private fun runCeremony(
     promise: Promise,

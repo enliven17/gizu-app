@@ -3,64 +3,77 @@ import { View } from "react-native";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
-import { Surface } from "@/components/molecules/Surface";
-import { GroupedRow } from "@/components/molecules/GroupedRow";
+import { FadeIn } from "@/components/molecules/FadeIn";
 import { BackAction } from "@/navigation/BackAction";
+import { sectionDelay } from "@/theme/motion";
 import { useNotifications } from "./NotificationProvider";
+import { MarkAllButton } from "./components/MarkAllButton";
+import { NotificationCard } from "./components/NotificationCard";
+
+/** Frontend Notifications list stagger: 0.04·i seconds per card. */
+const cardStep = 40;
+
 export function NotificationsScreen() {
   const { items, loading, busy, error, reload, mark, unread } = useNotifications();
   const [opened, setOpened] = useState<string | null>(null);
+  const locked = loading || busy;
   return (
     <Screen>
-      <BackAction fallback="Home" />
-      <Typography variant="title">Notifications</Typography>
-      <Typography accessibilityLiveRegion="polite">{unread} unread</Typography>
-      <Button
-        label="Mark all as read"
-        disabled={loading || busy || unread === 0}
-        onPress={() =>
-          void mark(
-            items.filter((item) => !item.read).map((item) => item.id),
-            true,
-          )
-        }
-      />
-      {loading && <Typography>Loading notifications…</Typography>}
-      {error && <Typography accessibilityRole="alert">{error}</Typography>}
-      <Button
-        label={error ? "Retry notifications" : "Refresh notifications"}
-        variant="quiet"
-        disabled={loading || busy}
-        onPress={() => void reload()}
-      />
-      {!loading && !error && items.length === 0 && <Typography>No notifications yet.</Typography>}
-      {items.map((item) => (
-        <Surface key={item.id}>
-          <GroupedRow
-            label={item.title}
-            value={item.read ? "Read" : "Unread"}
-            detail={`${item.category} · ${item.time}`}
-            disabled={busy || loading}
-            accessibilityLabel={`${item.title}, ${item.read ? "read" : "unread"}`}
-            onPress={() => {
-              setOpened(item.id);
-              if (!item.read) void mark([item.id], true);
-            }}
+      <View className="flex-row items-center justify-between gap-3">
+        <BackAction fallback="Home" />
+        <MarkAllButton
+          disabled={locked || unread === 0}
+          onPress={() =>
+            void mark(
+              items.filter((item) => !item.read).map((item) => item.id),
+              true,
+            )
+          }
+        />
+      </View>
+      <FadeIn delay={sectionDelay(0)} className="mt-4 gap-1">
+        <Typography variant="pageTitle">Notifications</Typography>
+        <View className="flex-row flex-wrap items-center justify-between gap-3">
+          <Typography variant="eyebrow" accessibilityLiveRegion="polite">
+            {unread} unread
+          </Typography>
+          <Button
+            label={error ? "Retry" : "Refresh"}
+            accessibilityLabel={error ? "Retry notifications" : "Refresh notifications"}
+            variant="quiet"
+            disabled={locked}
+            onPress={() => void reload()}
           />
-          {opened === item.id && (
-            <View className="gap-3 p-5">
-              <Typography>{item.body}</Typography>
-              <Button
-                label={item.read ? "Mark as unread" : "Mark as read"}
-                variant="quiet"
-                disabled={busy || loading}
-                onPress={() => void mark([item.id], !item.read)}
-              />
-              <Button label="Close notification" variant="quiet" onPress={() => setOpened(null)} />
-            </View>
-          )}
-        </Surface>
-      ))}
+        </View>
+      </FadeIn>
+      {loading && <Typography variant="micro">Loading notifications…</Typography>}
+      {error && (
+        <Typography variant="rowTitle" className="!text-danger" accessibilityRole="alert">
+          {error}
+        </Typography>
+      )}
+      {!loading && !error && items.length === 0 && (
+        <Typography variant="rowValue" className="!text-fg-45">
+          No notifications yet.
+        </Typography>
+      )}
+      <View className="gap-2">
+        {items.map((item, index) => (
+          <FadeIn key={item.id} delay={sectionDelay(1) + index * cardStep}>
+            <NotificationCard
+              item={item}
+              open={opened === item.id}
+              disabled={locked}
+              onOpen={() => {
+                setOpened(item.id);
+                if (!item.read) void mark([item.id], true);
+              }}
+              onToggleRead={() => void mark([item.id], !item.read)}
+              onClose={() => setOpened(null)}
+            />
+          </FadeIn>
+        ))}
+      </View>
     </Screen>
   );
 }

@@ -25,8 +25,10 @@ See [capabilities and accepted UI decisions](docs/PARITY.md).
 Follow the agreed [signer migration plan](docs/SIGNER_MIGRATION.md): replace
 PRF-derived wallets with locally encrypted random entropy, reuse the Rust core,
 require verified onboarding backups and add explicitly authorized operation resume.
-This migration targets Android only and fresh development wallets; iOS signing
-will be unavailable until its replacement is implemented. Phase 1 disconnects the
+The Android migration is implemented for fresh development wallets. iOS 18+ now has
+stored-wallet storage, authorization, verified backup/restore and exact-transfer
+recovery using the same app contract. Simulator/build verification and physical-device
+acceptance are recorded separately in the signer verification document. Phase 1 disconnects the
 old signer and declares the replacement contract. Phase 2 implements isolated
 Android encrypted storage and native passkey create/open. Phase 3 connects access
 to native save/reopen backup verification, recovery and Account backup management.
@@ -89,6 +91,11 @@ pass-through wrappers, a second live ledger or a generic JavaScript signer.
   capabilities only with truthful data and explicit action guards.
 
 ## Release readiness — M7 / N4
+
+TestFlight preparation now targets external testers with `io.gizo.ios`, using an
+explicit Release-build native testnet gate. See [TestFlight setup](README.md#ios-testflight-beta)
+for the build path and remaining account, domain, backend, metadata and device gates.
+This does not enable production/mainnet signing or complete physical acceptance.
 
 - [ ] Complete the open [native security and device acceptance](docs/NATIVE_SIGNER_VERIFICATION.md#remaining-acceptance).
 - [ ] Independently review signer, native review, FFI copies, dependency/license

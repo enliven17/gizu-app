@@ -5,12 +5,14 @@ import { TransactionScreen } from "@/features/transactions/TransactionScreen";
 import { RequestAccessScreen } from "@/features/access/RequestAccessScreen";
 import { VaultDetailScreen } from "@/features/investments/VaultDetailScreen";
 import { ActivityScreen } from "@/features/investments/ActivityScreen";
+import { OpportunityDetailScreen } from "@/features/opportunities/OpportunityDetailScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useSession } from "@/application/SessionProvider";
 import { WelcomeScreen } from "@/features/access/WelcomeScreen";
 import { AccessScreen } from "@/features/access/AccessScreen";
 import { MainTabs } from "./MainTabs";
 import type { RootStackParamList } from "./types";
+import { durations } from "@/theme/motion";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const { session } = useSession();
@@ -18,23 +20,32 @@ export function RootNavigator() {
   return (
     <Stack.Navigator
       initialRouteName={session ? "Main" : "Welcome"}
-      screenOptions={{ headerShown: false }}
+      // Frontend screens cross-fade in 350 ms (plus a small shift and blur that
+      // native stacks cannot express). Fade keeps native gestures and is motion-safe;
+      // modals keep their platform sheet transition and swipe-to-dismiss.
+      screenOptions={{
+        headerShown: false,
+        animation: "fade",
+        animationDuration: durations.screen,
+      }}
     >
       {session ? (
         <Stack.Group navigationKey={session.kind + ":" + session.accountId}>
           <Stack.Screen name="AccountPage" component={AccountPageScreen} />
-          <Stack.Screen
-            name="Notifications"
-            component={native ? UnavailableScreen : NotificationsScreen}
-          />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen
             name="Transaction"
             component={TransactionScreen}
-            options={{ presentation: "modal" }}
+            options={{ presentation: "modal", animation: "default" }}
           />
           <Stack.Screen
             name="VaultDetail"
             component={native ? UnavailableScreen : VaultDetailScreen}
+            options={{ title: "Vault details" }}
+          />
+          <Stack.Screen
+            name="OpportunityDetail"
+            component={OpportunityDetailScreen}
             options={{ title: "Vault details" }}
           />
           <Stack.Screen
@@ -50,7 +61,7 @@ export function RootNavigator() {
           <Stack.Screen
             name="RequestAccess"
             component={RequestAccessScreen}
-            options={{ presentation: "modal" }}
+            options={{ presentation: "modal", animation: "default" }}
           />
           <Stack.Screen name="Access" component={AccessScreen} options={{ title: "Demo access" }} />
         </Stack.Group>

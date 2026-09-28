@@ -13,6 +13,7 @@ export type RootStackParamList = {
   RequestAccess: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   VaultDetail: { id: string };
+  OpportunityDetail: { id: string };
   Activity: undefined;
   Notifications: undefined;
   AccountPage: { page: AccountPage };

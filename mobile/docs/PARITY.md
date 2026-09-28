@@ -13,7 +13,7 @@ simulated passkey startup has been removed.
 | Welcome/access                  | Native passkey create/open; Account 0 viewing session          | Simulated passkey access                     |
 | Request access                  | Development mock; no real waitlist submission                  | Same mock                                    |
 | Home                            | Actual Monad testnet MON balance, error/retry, address actions | Fixture portfolio and charts                 |
-| Vaults                          | Read-only Monad mainnet catalog; no investment actions         | Search/filter, details, charts and sharing   |
+| Vaults                          | Read-only mainnet catalog, TVL charts and details; no signing  | Search/filter, details, charts and sharing   |
 | Swap                            | Development-only mock swap; release coming soon                | Same mock                                    |
 | Deposit                         | Receiving address/network/copy; no signing                     | Simulated transfer journey                   |
 | Withdraw                        | <=0.1 MON, expected sender binding, native approval            | Simulated review/signing/result              |
@@ -57,9 +57,14 @@ focused on reusable approaches. They supplement the journey statuses above.
   in content, with safe direct-link fallbacks. Keep bottom tabs on main screens.
 - Bottom navigation is a floating capsule over a transparent overlay. Reserve its
   measured height in scroll padding and pass touches through outside the capsule.
-  Selection uses a centered measured circle, icon pop, outgoing fade (150 ms) and
-  incoming fade (180 ms). Motion follows accepted navigation, retargets on interruption,
-  honors reduced motion and does not replay on repeated selection.
+  It matches the frontend glass capsule (19 px icons, inactive white/45) and enters
+  from 60 px below with a 260/26 spring. Selection slides a
+  measured neon pill with a 380/30 spring. Motion follows accepted navigation,
+  retargets on interruption and does not replay on repeated selection; reduced
+  motion skips the entrance and snaps the pill.
+- Stack screens use a native 350 ms fade approximating the frontend's shift/blur
+  fade (native stacks cannot blur). Modals keep the platform sheet transition;
+  native back and swipe dismissal are unchanged.
 - Prioritize balances or vault identity before metadata. Vault tiles show ticker,
   change, chart, name, TVL and APY; use one column for narrow/large-text layouts.
   Keep financial values readable and feature state intact during text-size changes.
@@ -75,20 +80,38 @@ focused on reusable approaches. They supplement the journey statuses above.
   Notifications/account actions are implemented in M5; use a distinct sell tone without
   making successful sales look like failures. See `TRADING.md` for current rules.
 
-- Welcome uses a fixed, non-scrolling screen with safe-area padding.
-- Welcome animates only the word “Stealth”: a 360 ms opening tear after a short
-  delay, then smaller 240 ms bursts approximately seven seconds apart. The large Gizu
-  symbol stays still with a green light sweep over a five-second cycle. Artwork and headline form a centered group above the bottom actions.
-  The symbol is omitted on short screens or enlarged text to prioritize content. Copy and access
-  buttons remain steady and immediately usable. Both effects stop off-screen,
-  in the background or with reduced motion; non-default text sizes keep native
-  heading wrapping without decorative slices. This effect uses Reanimated and
-  the shared SVG logo, with no new Lottie asset or dependency.
+- Welcome follows the frontend Onboarding: a fixed, non-scrolling, full-bleed screen
+  (safe-area padded) over the shared Skia wave field and an ink scrim. The wave renders
+  at about 1.5 device pixels per point (smaller canvas scaled up, like the frontend DPR
+  cap), pauses while Welcome is unfocused or the app is inactive, and shows a still
+  frame under reduced motion. The large Gizu symbol artwork is no longer shown.
+- The 46 pt headline enters as in the frontend: “DeFi in” at 150 ms, then “Stealth”
+  and “Mode” at 0.85 s + 0.3 s per word (280 ms each, opacity and rise in place of
+  blur), tagline at 1.5 s and the Get started action at 1.7 s. “DeFi” and “Stealth”
+  use the shared glitch label; “in” and “Mode” are 55% white. The header is read as
+  “DeFi in Stealth Mode”. Entrances do not block pressing, glitching stops off-screen,
+  in the background or with reduced motion, and text sizes above 130% keep native
+  heading wrapping without glitch slices. Negative display tracking applies on iOS only;
+  Android mis-measures tracked text and can clip a wrapped word.
+- Get started uses the frontend bubble-up fill (300/32 spring, snaps with reduced
+  motion); Request access is a sentence-case text action with normal tracking.
+- Access follows the frontend Auth layout: glitch heading, a full-width primary
+  passkey button and a 60 ms section stagger (no footnote captions). Request access uses the
+  frontend sheet look (36 pt top radius, glass fields, range tiles, platform pills) and
+  a glass check tile on completion; it keeps its completion copy because the mock
+  does not add anyone to a list.
 
 ## Mainnet catalog
 
 Native-mode Vaults reads the backend opportunity catalog on chain 143, with search,
-protocol filters, pagination, APR and TVL. It does not change the wallet network
-(chain 10143), expose deposit links or invoke signing. Unsupported demo risk, APY,
-price and performance values are not synthesized. Details and investment execution
-remain unavailable in native mode. Backend responses may be cached for five minutes.
+protocol filters, pagination, APR and TVL. Cards on Vaults and the Home preview draw a
+sparkline from the latest 30 TVL records (`/v1/opportunities/:id/tvl-records`), loaded
+lazily per card and cached per vault for the app session; a failed history omits the
+sparkline, an empty one draws a flat line at zero. Tapping a card opens the browse-only
+mainnet vault detail (`/v1/opportunities/:id`), ported from the frontend: glitch name,
+total APR, TVL chart, stat tiles, about, how-to, tokens, details, tags and campaigns,
+with loading and error/retry states. Like the frontend, the header offers an external
+Deposit link to the protocol page (https only, opened in the browser). The app never
+changes the wallet network (chain 10143) or signs for mainnet vaults, and has no
+buy/sell/withdraw actions there. Unsupported demo risk, APY and price values are not
+synthesized. Backend responses may be cached for five minutes.

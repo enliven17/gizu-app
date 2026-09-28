@@ -1,133 +1,175 @@
 import { useSession } from "@/application/SessionProvider";
 import { Switch, View } from "react-native";
+import { Bell } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import type { StatementFrequency } from "@/domain/preferences";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
-import { Surface } from "@/components/molecules/Surface";
+import { FadeIn } from "@/components/molecules/FadeIn";
 import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { PreferenceOption } from "@/components/molecules/PreferenceOption";
 import { BackAction } from "@/navigation/BackAction";
+import { sectionDelay } from "@/theme/motion";
 import colors from "@/theme/colors.json";
 import { useAccount } from "./AccountProvider";
 import { AccountAddress } from "./AccountAddress";
 import { PreferenceFeedback } from "./PreferenceFeedback";
-import { informationPages, nativeInformationPages } from "./pages";
+import { SettingsGroup } from "./components/SettingsGroup";
+import { PageIntro } from "./components/PageIntro";
+import { informationPages, nativeInformationPages, type AccountPage } from "./pages";
+
 const frequencies: StatementFrequency[] = ["Monthly", "Quarterly", "On request"];
+
+function PageActions({ labels, delay }: { labels: string[]; delay: number }) {
+  return (
+    <FadeIn delay={delay} className="mt-5 gap-3">
+      {labels.map((label) => (
+        <Button key={label} label={label} disabled onPress={() => {}} />
+      ))}
+    </FadeIn>
+  );
+}
+
+function InformationPage({ page, native }: { page: AccountPage; native: boolean }) {
+  const info = (native ? nativeInformationPages[page] : undefined) ?? informationPages[page];
+  if (!info) return null;
+  return (
+    <>
+      <PageIntro title={info.title} body={info.body} />
+      {info.rows.length > 0 && (
+        <SettingsGroup delay={sectionDelay(1)}>
+          {info.rows.map((row, index) => (
+            <GroupedRow key={row.label} {...row} last={index === info.rows.length - 1} />
+          ))}
+        </SettingsGroup>
+      )}
+      {page === "passkey-wallet" && (
+        <SettingsGroup title="Account address" delay={sectionDelay(2)}>
+          <View className="pt-5">
+            <AccountAddress />
+          </View>
+        </SettingsGroup>
+      )}
+      {info.actions && <PageActions labels={info.actions} delay={sectionDelay(3)} />}
+    </>
+  );
+}
+
+function AlertsPage() {
+  const { preferences, loading, busy, save } = useAccount();
+  const unavailable = loading || busy || !preferences;
+  const enabled = preferences?.alerts ?? false;
+  return (
+    <>
+      <PageIntro
+        title="Push alerts"
+        body="Saved on this device. Push delivery is not available yet, so this does not request system permission."
+      />
+      <PreferenceFeedback />
+      <SettingsGroup delay={sectionDelay(1)}>
+        <View className="min-h-14 flex-row items-center gap-3 px-5 py-4">
+          <Bell size={18} color={colors.fg["45"]} />
+          <Typography variant="rowTitle" className="min-w-0 flex-1">
+            Receive push alerts
+          </Typography>
+          <Switch
+            accessible
+            accessibilityRole="switch"
+            accessibilityLabel="Receive push alerts"
+            accessibilityState={{ checked: enabled, disabled: unavailable }}
+            value={enabled}
+            disabled={unavailable}
+            trackColor={{ false: colors.fg["20"], true: colors.neon.DEFAULT }}
+            thumbColor={enabled ? colors.ink : colors.fg["85"]}
+            ios_backgroundColor={colors.fg["20"]}
+            onValueChange={(alerts) => void save({ alerts })}
+          />
+        </View>
+      </SettingsGroup>
+    </>
+  );
+}
+
+function CurrencyPage({ native }: { native: boolean }) {
+  const currencies = native ? ["MON"] : ["USD", "EUR", "GBP", "TRY"];
+  const selected = native ? "MON" : "USD";
+  return (
+    <>
+      <PageIntro
+        title="Currency"
+        body={
+          native
+            ? "Balances are shown in MON. Fiat values are not available yet."
+            : "USD is the only display currency for now."
+        }
+      />
+      <PreferenceFeedback />
+      <SettingsGroup delay={sectionDelay(1)}>
+        {currencies.map((currency) => (
+          <PreferenceOption
+            key={currency}
+            label={currency}
+            selected={currency === selected}
+            disabled
+            onSelect={() => {}}
+          />
+        ))}
+      </SettingsGroup>
+    </>
+  );
+}
+
+function StatementsPage() {
+  const { preferences, loading, busy, save } = useAccount();
+  const unavailable = loading || busy || !preferences;
+  return (
+    <>
+      <PageIntro title="Statements" body="Statement delivery is not available yet." />
+      <PreferenceFeedback />
+      <SettingsGroup title="Frequency" delay={sectionDelay(1)}>
+        {frequencies.map((frequency) => (
+          <PreferenceOption
+            key={frequency}
+            label={frequency}
+            selected={preferences?.statements === frequency}
+            disabled={unavailable}
+            onSelect={() => void save({ statements: frequency })}
+          />
+        ))}
+      </SettingsGroup>
+      <SettingsGroup title="Archive" delay={sectionDelay(2)}>
+        <GroupedRow label="No statements available." last />
+      </SettingsGroup>
+      <PageActions labels={["Request statement"]} delay={sectionDelay(3)} />
+    </>
+  );
+}
+
+// Frontend SubPage: glass back button, 30px title, sections staggered below.
 export function AccountPageScreen({
   route,
 }: NativeStackScreenProps<RootStackParamList, "AccountPage">) {
-  const { preferences, loading, busy, save } = useAccount();
   const page = route.params.page;
   const { session } = useSession();
   const native = session?.kind === "testnet";
-  const info = (native ? nativeInformationPages[page] : undefined) ?? informationPages[page];
-  const unavailable = loading || busy || !preferences;
+  const hasInfo = Boolean(
+    (native ? nativeInformationPages[page] : undefined) ?? informationPages[page],
+  );
   return (
     <Screen>
       <BackAction fallback="Settings" />
-      {info ? (
-        <>
-          <Typography variant="title">{info.title}</Typography>
-          <Typography>{info.body}</Typography>
-          <Surface>
-            {info.rows.map((row) => (
-              <GroupedRow key={row.label} {...row} />
-            ))}
-          </Surface>
-          {page === "passkey-wallet" && (
-            <Surface>
-              <AccountAddress />
-            </Surface>
-          )}
-          {info.actions?.map((label) => (
-            <Button key={label} label={label} disabled onPress={() => {}} />
-          ))}
-        </>
+      {hasInfo ? (
+        <InformationPage page={page} native={native} />
       ) : page === "alerts" ? (
-        <>
-          <Typography variant="title">Push alerts</Typography>
-          <Typography>
-            Save your alert preference on this device. Push registration and delivery are not
-            available yet; this setting does not request system permission.
-          </Typography>
-          <PreferenceFeedback />
-          <Surface>
-            <View className="flex-row flex-wrap items-center justify-between gap-4 p-5">
-              <Typography variant="row">Receive push alerts</Typography>
-              <Switch
-                accessible
-                accessibilityRole="switch"
-                accessibilityLabel="Receive push alerts"
-                accessibilityState={{
-                  checked: preferences?.alerts ?? false,
-                  disabled: unavailable,
-                }}
-                value={preferences?.alerts ?? false}
-                disabled={unavailable}
-                trackColor={{ true: colors.accent }}
-                onValueChange={(alerts) => void save({ alerts })}
-              />
-            </View>
-          </Surface>
-          <Typography variant="caption">
-            {native
-              ? "The inbox is not connected yet."
-              : "The in-app inbox remains available regardless of this preference."}
-          </Typography>
-        </>
+        <AlertsPage />
       ) : page === "currency" ? (
-        <>
-          <Typography variant="title">Currency</Typography>
-          <Typography>
-            {native
-              ? "Balances are shown in MON. Fiat valuation is unavailable until a pricing service is connected."
-              : "USD is the supported display currency. EUR, GBP and TRY will become available when exchange-rate data is connected. Orders and transfers retain their stated asset units."}
-          </Typography>
-          <PreferenceFeedback />
-          <Surface>
-            {(native ? ["MON"] : ["USD", "EUR", "GBP", "TRY"]).map((currency) => (
-              <PreferenceOption
-                key={currency}
-                label={currency}
-                selected={currency === (native ? "MON" : "USD")}
-                disabled
-                onSelect={() => {}}
-              />
-            ))}
-          </Surface>
-        </>
+        <CurrencyPage native={native} />
       ) : page === "statements" ? (
-        <>
-          <Typography variant="title">Statements</Typography>
-          <Typography>
-            Choose a preferred frequency. Delivery, statement requests and the document archive are
-            not available yet.
-          </Typography>
-          <PreferenceFeedback />
-          <Typography variant="heading">Preferred frequency</Typography>
-          <Surface>
-            {frequencies.map((frequency) => (
-              <PreferenceOption
-                key={frequency}
-                label={frequency}
-                selected={preferences?.statements === frequency}
-                disabled={unavailable}
-                onSelect={() => void save({ statements: frequency })}
-              />
-            ))}
-          </Surface>
-          <Typography variant="heading">Archive</Typography>
-          <Typography>No statements available.</Typography>
-          <Button label="Request statement" disabled onPress={() => {}} />
-        </>
+        <StatementsPage />
       ) : (
-        <>
-          <Typography variant="title">Page unavailable</Typography>
-          <Typography>This account page is not supported.</Typography>
-        </>
+        <PageIntro title="Page unavailable" body="This account page is not supported." />
       )}
     </Screen>
   );

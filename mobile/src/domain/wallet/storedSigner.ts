@@ -1,4 +1,4 @@
-/** Frozen replacement contract. Android storage/access/backup implemented; exact transfers and explicit resume supported. */
+/** Frozen replacement contract. Android and iOS native storage/access/backup implemented; exact transfers and explicit resume supported. */
 export const storedSignerIdentity = {
   moduleName: "GizuStoredSigner",
   storageNamespace: "io.gizu.storedwallet.v1",

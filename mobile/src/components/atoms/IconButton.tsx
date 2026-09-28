@@ -1,6 +1,7 @@
-import { ActivityIndicator, Pressable } from "react-native";
+import { ActivityIndicator } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import colors from "@/theme/colors.json";
+import { PressableScale } from "./PressableScale";
 export function IconButton({
   icon: Icon,
   label,
@@ -14,20 +15,22 @@ export function IconButton({
   disabled?: boolean;
   loading?: boolean;
 }) {
+  // Frontend: `glass-soft h-11 w-11 rounded-2xl text-white/60`.
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
-      className={`h-12 w-12 items-center justify-center rounded-2xl border border-border bg-surface ${disabled ? "opacity-50" : "active:opacity-70"}`}
+      hitSlop={4}
+      className={`h-11 w-11 items-center justify-center rounded-2xl border border-borderSoft bg-glassSoft ${disabled ? "opacity-50" : ""}`}
     >
       {loading ? (
         <ActivityIndicator color={colors.accent} />
       ) : (
-        <Icon size={20} color={colors.muted} />
+        <Icon size={18} color={colors.fg["55"]} />
       )}
-    </Pressable>
+    </PressableScale>
   );
 }

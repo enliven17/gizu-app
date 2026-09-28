@@ -15,6 +15,19 @@ class BackupCodecTest {
   private val prf = ByteArray(32) { (it + 7).toByte() }
 
   @Test
+  fun sharedIosFixtureUsesTheSameBackupEnvelope() {
+    val bytes =
+      checkNotNull(javaClass.getResourceAsStream("/android-compatible-backup.json")).use {
+        it.readBytes()
+      }
+    BackupCodec.decrypt(bytes, ByteArray(32) { 7 }).use { record ->
+      assertEquals("7aafcc2e-0891-4e31-a7d4-03780d7b4f12", record.id)
+      assertArrayEquals(ByteArray(32), record.entropy)
+      assertArrayEquals(byteArrayOf(1, 2, 3), record.credential.credentialId)
+    }
+  }
+
+  @Test
   fun savedFileRoundTripPreservesWalletAndCredential() {
     record().use { original ->
       val file = BackupCodec.encrypt(original, prf)

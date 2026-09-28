@@ -15,8 +15,8 @@ const labels = {
   rejected: "Signing rejected",
 };
 export function OperationFeedback({ onReview }: { onReview: () => void }) {
-  const { operation, checking, checkStatus, cancelSigning, error, loading, refresh } =
-    useTransactions();
+  // Cancel signing lives on the sign overlay that covers this view while signing.
+  const { operation, checking, checkStatus, error, loading, refresh } = useTransactions();
   if (!operation) return <Typography>No operation to display.</Typography>;
   const { phase, quote, key } = operation;
   return (
@@ -35,9 +35,6 @@ export function OperationFeedback({ onReview }: { onReview: () => void }) {
       </Surface>
       {operation.message && (
         <Notice error={phase === "failed" || phase === "rejected"} message={operation.message} />
-      )}
-      {phase === "signing" && (
-        <Button label="Cancel signing" variant="secondary" onPress={cancelSigning} />
       )}
       {["signing", "submitting", "pending", "unknown"].includes(phase) && (
         <Typography>

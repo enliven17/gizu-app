@@ -9,6 +9,8 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -110,6 +112,8 @@ class BackupActivity : Activity() {
   private var restore = false
   private lateinit var message: TextView
   private lateinit var action: Button
+  private lateinit var steps: LinearLayout
+  private lateinit var status: LinearLayout
   private val store by lazy { walletStore(applicationContext) }
 
   override fun onCreate(state: Bundle?) {
@@ -133,48 +137,100 @@ class BackupActivity : Activity() {
     restore = intent.getBooleanExtra("restore", false)
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     if (Build.VERSION.SDK_INT >= 31) window.setHideOverlayWindows(true)
-    val layout =
+    window.decorView.setBackgroundColor(NativeStyle.ink)
+    setContentView(buildLayout())
+  }
+
+  private fun dp(value: Int) = NativeStyle.dp(this, value)
+
+  private val stepLabels
+    get() =
+      if (restore) listOf("Choose backup file", "Confirm original passkey", "Done")
+      else listOf("Save file", "Reopen & confirm passkey", "Done")
+
+  private fun buildLayout(): View {
+    val content =
       LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(32, 64, 32, 32)
-        setBackgroundColor(0xff080d09.toInt())
-      }
-    message =
-      TextView(this).apply {
-        textSize = 20f
-        setTextColor(0xffe0e8e2.toInt())
-      }
-    message.text =
-      if (restore)
-        "Restore Gizu wallet\n\nChoose your encrypted backup. You need the original passkey. Recovery restores wallet accounts, not transaction history."
-      else
-        "Back up your Gizu wallet\n\nSave the encrypted file, then reopen it to verify recovery. You need BOTH this file and your original passkey to recover your wallet. Keep them available independently of this phone. You will confirm your passkey twice."
-    action =
-      Button(this).apply {
-        text = if (restore) "Choose backup" else "Save encrypted backup"
         filterTouchesWhenObscured = true
-        setOnClickListener {
-          if (!busy) {
-            if (restore || saved) choose() else save()
+      }
+    content.addView(
+      NativeStyle.title(
+        this,
+        if (restore) "Restore Gizu wallet" else "Back up your Gizu wallet",
+        28f,
+      )
+    )
+    content.addView(
+      NativeStyle.body(
+        this,
+        if (restore)
+          "Choose your encrypted backup, then confirm the original passkey. Recovery restores wallet accounts, not transaction history."
+        else
+          "Save the encrypted file, then reopen it to verify recovery. You will confirm your passkey twice.",
+      ),
+      NativeStyle.fullWidth(this, 10),
+    )
+    steps =
+      LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = NativeStyle.card(this@BackupActivity)
+        setPadding(dp(20), dp(8), dp(20), dp(8))
+      }
+    content.addView(steps, NativeStyle.fullWidth(this, 24))
+    status =
+      LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = NativeStyle.card(this@BackupActivity)
+        setPadding(dp(20), dp(18), dp(20), dp(18))
+      }
+    message = NativeStyle.body(this, "", NativeStyle.primaryText)
+    message.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+    status.addView(message)
+    content.addView(status, NativeStyle.fullWidth(this, 12))
+    message.text =
+      if (restore) "You need the encrypted backup file and the original passkey."
+      else
+        "You need BOTH this file and your original passkey to recover your wallet. Keep them available independently of this phone."
+    renderSteps()
+
+    action =
+      NativeStyle.button(this, if (restore) "Choose backup" else "Save encrypted backup", true)
+        .apply {
+          setOnClickListener {
+            if (!busy) {
+              if (restore || saved) choose() else save()
+            }
           }
         }
-      }
-    layout.addView(message)
-    layout.addView(action)
-    layout.addView(
-      Button(this).apply {
-        text = "Cancel"
+    val actions =
+      LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
         filterTouchesWhenObscured = true
-        setOnClickListener { BackupHost.close(false) }
+        addView(action, NativeStyle.fullWidth(this@BackupActivity))
+        addView(
+          NativeStyle.button(this@BackupActivity, "Cancel", false).apply {
+            setOnClickListener { BackupHost.close(false) }
+          },
+          NativeStyle.fullWidth(this@BackupActivity, 10),
+        )
       }
-    )
     val scroll =
       ScrollView(this).apply {
-        addView(layout)
-        setBackgroundColor(0xff080d09.toInt())
+        isFillViewport = true
+        isVerticalScrollBarEnabled = false
+        addView(content)
       }
-    val padding = (24 * resources.displayMetrics.density).toInt()
-    scroll.setOnApplyWindowInsetsListener { _, insets ->
+    val root =
+      LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundColor(NativeStyle.ink)
+        filterTouchesWhenObscured = true
+        addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        addView(actions, NativeStyle.fullWidth(this@BackupActivity, 16))
+      }
+    val padding = dp(24)
+    root.setOnApplyWindowInsetsListener { _, insets ->
       @Suppress("DEPRECATION")
       val top =
         if (Build.VERSION.SDK_INT >= 30)
@@ -185,10 +241,90 @@ class BackupActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 30)
           insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom
         else insets.systemWindowInsetBottom
-      layout.setPadding(padding, padding + top, padding, padding + bottom)
+      root.setPadding(padding, padding + top, padding, dp(16) + bottom)
       insets
     }
-    setContentView(scroll)
+    return root
+  }
+
+  /** Presentation only: reflects the existing `saved` flag, never drives the ceremony. */
+  private fun renderSteps() {
+    val current = if (!restore && saved) 1 else 0
+    steps.removeAllViews()
+    stepLabels.forEachIndexed { index, label ->
+      val done = index < current
+      val active = index == current
+      val badge =
+        TextView(this).apply {
+          text = if (done) "✓" else "${index + 1}"
+          textSize = 13f
+          gravity = Gravity.CENTER
+          typeface = NativeStyle.font(this@BackupActivity, true)
+          setTextColor(
+            when {
+              active -> NativeStyle.ctaText
+              done -> NativeStyle.neon
+              else -> NativeStyle.secondary
+            }
+          )
+          background =
+            NativeStyle.rounded(
+              this@BackupActivity,
+              when {
+                active -> NativeStyle.neon
+                done -> NativeStyle.neonDeep
+                else -> NativeStyle.glassSoft
+              },
+              14,
+              if (active || done) null else NativeStyle.glassBorder,
+            )
+          importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+      val name =
+        NativeStyle.body(
+            this,
+            label,
+            if (active) NativeStyle.primaryText else NativeStyle.secondary,
+          )
+          .apply {
+            typeface = NativeStyle.font(this@BackupActivity, active)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+          }
+      val row =
+        LinearLayout(this).apply {
+          orientation = LinearLayout.HORIZONTAL
+          gravity = Gravity.CENTER_VERTICAL
+          minimumHeight = dp(48)
+          contentDescription =
+            "Step ${index + 1} of ${stepLabels.size}: $label" +
+              when {
+                done -> ", complete"
+                active -> ", current"
+                else -> ""
+              }
+          importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+          addView(badge, LinearLayout.LayoutParams(dp(28), dp(28)))
+          addView(
+            name,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+              marginStart = dp(14)
+            },
+          )
+        }
+      steps.addView(row, NativeStyle.fullWidth(this))
+    }
+  }
+
+  private fun showStatus(value: String, failed: Boolean) {
+    message.text = value
+    message.setTextColor(if (failed) NativeStyle.danger else NativeStyle.primaryText)
+    status.background =
+      NativeStyle.rounded(
+        this,
+        NativeStyle.glass,
+        24,
+        if (failed) NativeStyle.dangerBorder else NativeStyle.glassBorder,
+      )
   }
 
   private fun unlocked() {
@@ -225,8 +361,10 @@ class BackupActivity : Activity() {
       } catch (_: CancellationException) {
         BackupHost.close(false)
       } catch (_: Exception) {
-        message.text =
-          "Backup could not be verified. Use the original passkey and an unchanged Gizu backup. Your current wallet has not been replaced. You can retry or cancel."
+        showStatus(
+          "Backup could not be verified. Use the original passkey and an unchanged Gizu backup. Your current wallet has not been replaced. You can retry or cancel.",
+          failed = true,
+        )
       } finally {
         busy = false
         action.isEnabled = true
@@ -305,9 +443,12 @@ class BackupActivity : Activity() {
     encrypted?.fill(0)
     encrypted = null
     saved = true
-    message.text =
-      "Backup saved. Now reopen that file and confirm your original passkey so Gizu can verify all wallet accounts."
+    showStatus(
+      "Backup saved. Now reopen that file and confirm your original passkey so Gizu can verify all wallet accounts.",
+      failed = false,
+    )
     action.text = "Open saved backup to verify"
+    renderSteps()
   }
 
   private suspend fun readBackup(uri: Uri): ByteArray {

@@ -32,7 +32,11 @@
     "stored-signer:test": "cargo test --locked --manifest-path modules/gizu-stored-signer/core/Cargo.toml",
     "debug:stored-wallet": "node scripts/start-app.cjs stored-wallet",
     "format:kotlin": "node scripts/format-kotlin.cjs write",
-    "format:kotlin:check": "node scripts/format-kotlin.cjs check"
+    "format:kotlin:check": "node scripts/format-kotlin.cjs check",
+    "stored-signer:build:ios": "bash modules/gizu-stored-signer/scripts/build.sh ios",
+    "stored-signer:test:ios": "bash modules/gizu-stored-signer/scripts/test-ios.sh",
+    "stored-signer:check:ios": "node scripts/check-ios-signer.cjs",
+    "eas-build-pre-install": "bash scripts/eas-build-pre-install.sh"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -44,6 +48,7 @@
     "expo": "57.0.25",
     "expo-clipboard": "~57.0.2",
     "expo-dev-client": "~57.0.19",
+    "expo-font": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",

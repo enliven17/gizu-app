@@ -1,4 +1,5 @@
-import { Pressable, Text, useWindowDimensions } from "react-native";
+import { Text, useWindowDimensions } from "react-native";
+import { PressableScale } from "@/components/atoms/PressableScale";
 export function Choice({
   label,
   selected,
@@ -13,18 +14,22 @@ export function Choice({
   // Remeasure native text after Dynamic Type changes, including on inactive screens.
   // Remount only the text node so feature and navigation state are retained.
   const { fontScale } = useWindowDimensions();
+  // Frontend filter pill: selected `bg-neon/10 text-neon`, otherwise `glass-soft text-white/45`.
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
       onPress={onPress}
-      className={`min-h-12 justify-center rounded-full border px-4 py-3 ${selected ? "border-transparent bg-accent/10" : "border-border"}`}
+      className={`min-h-11 justify-center rounded-full border px-4 py-2.5 ${selected ? "border-transparent bg-neon/10" : "border-borderSoft bg-glassSoft"} ${disabled ? "opacity-50" : ""}`}
     >
-      <Text key={fontScale} className={selected ? "text-sm text-accent" : "text-sm text-muted"}>
+      <Text
+        key={fontScale}
+        className={`font-sans text-[12px] ${selected ? "text-neon" : "text-fg-45"}`}
+      >
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }

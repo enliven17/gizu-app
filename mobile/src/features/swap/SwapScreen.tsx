@@ -1,17 +1,142 @@
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
+import { ArrowRight } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
 import { Typography } from "@/components/atoms/Typography";
-import { Choice } from "@/components/molecules/Choice";
+import { FadeIn } from "@/components/molecules/FadeIn";
+import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
-import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { Screen } from "@/components/templates/Screen";
 import { formatSwapAmount, parseSwapAmount, swapAssets, type SwapService } from "@/domain/swap";
-import colors from "@/theme/colors.json";
+import { BubbleUpButton } from "@/features/access/components/BubbleUpButton";
+import { sectionDelay } from "@/theme/motion";
+import { AssetPicker } from "./components/AssetPicker";
+import { DirectionMarker, PayCard, ReceiveCard } from "./components/SwapCards";
+import { SwapResult } from "./components/SwapResult";
+import { QuoteRows, SheetAmount, SwapSheet } from "./components/SwapSheet";
 import { useSwapController } from "./useSwapController";
 
-export function SwapScreen({ service }: { service?: SwapService }) {
-  const swap = useSwapController(service);
+type Swap = ReturnType<typeof useSwapController>;
+
+function ErrorNotice({ swap }: { swap: Swap }) {
+  return swap.error ? <Notice message={swap.error} error /> : null;
+}
+
+function EditStep({ swap }: { swap: Swap }) {
+  const asset = swapAssets.find((item) => item.symbol === swap.symbol);
+  const value = parseSwapAmount(swap.amount);
+  const estimate = value !== null && asset ? formatSwapAmount(value / asset.price) : "0";
+  return (
+    <>
+      <FadeIn delay={sectionDelay(1)} className="gap-1">
+        <PayCard
+          amount={swap.amount}
+          available={`Available: ${formatSwapAmount(swap.balance)} USDG (mock)`}
+          editable={!swap.busy}
+          onChange={swap.setAmount}
+          onQuickFill={(p) => swap.setAmount(formatSwapAmount((swap.balance * BigInt(p)) / 100n))}
+        />
+        <DirectionMarker />
+        <ReceiveCard estimate={estimate} symbol={swap.symbol} name={asset?.name ?? ""} />
+      </FadeIn>
+      <FadeIn delay={sectionDelay(2)}>
+        <AssetPicker
+          assets={swapAssets}
+          selected={swap.symbol}
+          disabled={swap.busy}
+          onSelect={swap.setSymbol}
+        />
+      </FadeIn>
+      <FadeIn delay={sectionDelay(3)} className="gap-4">
+        <View className="rounded-3xl border border-glassBorder bg-glass px-5 py-5">
+          <QuoteRows
+            rows={[
+              ["Rate", asset ? `1 ${asset.symbol} = ${asset.price.toString()} USDG` : "—"],
+              ["Network preview", "Robinhood Chain"],
+              ["Fees", "Not modeled"],
+            ]}
+          />
+        </View>
+        {swap.amount !== "" && swap.validation ? <Notice message={swap.validation} error /> : null}
+        <ErrorNotice swap={swap} />
+        <BubbleUpButton
+          label={swap.busy ? "Getting quote" : "Review swap"}
+          icon={ArrowRight}
+          disabled={!!swap.validation || swap.busy}
+          onPress={swap.review}
+        />
+      </FadeIn>
+    </>
+  );
+}
+
+function ReviewStep({ swap, quote }: { swap: Swap; quote: NonNullable<Swap["quote"]> }) {
+  const name = swapAssets.find((item) => item.symbol === quote.symbol)?.name ?? quote.symbol;
+  return (
+    <SwapSheet>
+      <View className="flex-row items-center gap-3">
+        <View className="min-h-10 min-w-10 items-center justify-center rounded-xl bg-neon/10 px-2.5">
+          <Typography variant="eyebrow" className="!font-bold !text-neon">
+            {quote.symbol}
+          </Typography>
+        </View>
+        <View className="min-w-0 flex-1">
+          <Typography variant="section">Review swap</Typography>
+          <Typography variant="micro">{name}</Typography>
+        </View>
+      </View>
+      <View className="gap-1">
+        <SheetAmount label="You pay" value={`${quote.input} USDG`} />
+        <DirectionMarker />
+        <SheetAmount label="Expected output" value={`${quote.output} ${quote.symbol}`} />
+      </View>
+      <QuoteRows
+        rows={[
+          ["Minimum output", `${quote.minimum} ${quote.symbol}`],
+          ["Network preview", "Robinhood Chain"],
+        ]}
+      />
+      <Typography variant="micro" className="px-1">
+        Sample quote, valid 60 seconds. No passkey approval.
+      </Typography>
+      <ErrorNotice swap={swap} />
+      <Button label="Simulate swap" loading={swap.busy} onPress={swap.confirm} />
+      <Button label="Back to amount" variant="secondary" disabled={swap.busy} onPress={swap.edit} />
+    </SwapSheet>
+  );
+}
+
+function OrderStep({ swap, order }: { swap: Swap; order: NonNullable<Swap["order"]> }) {
+  const filled = order.status === "filled";
+  return (
+    <FadeIn className="gap-4">
+      <SwapResult filled={filled} />
+      <View className="rounded-3xl border border-glassBorder bg-glass px-5 py-5">
+        <QuoteRows
+          rows={[
+            ["You paid", `${order.quote.input} USDG`],
+            [
+              filled ? "You received" : "Expected output",
+              `${order.quote.output} ${order.quote.symbol}`,
+            ],
+            ["Status", filled ? "Completed (mock)" : "Pending (mock)"],
+          ]}
+        />
+      </View>
+      <Typography variant="micro" className="px-1 text-center">
+        Tokens stay in the simulated wallet.
+      </Typography>
+      <ErrorNotice swap={swap} />
+      {filled ? (
+        <Button label="New swap" onPress={swap.reset} />
+      ) : (
+        <Button label="Refresh simulated status" loading={swap.busy} onPress={swap.refresh} />
+      )}
+    </FadeIn>
+  );
+}
+
+function Activity({ swap }: { swap: Swap }) {
   const holdings = swapAssets
     .map((asset) => ({
       symbol: asset.symbol,
@@ -21,136 +146,59 @@ export function SwapScreen({ service }: { service?: SwapService }) {
     }))
     .filter((asset) => asset.amount > 0n);
   return (
-    <Screen>
-      <Typography variant="title">Swap</Typography>
-      <Notice message="Preview with mock data. Prices, USDG and orders are simulated; no funds move. Resets when this session ends." />
-      {swap.order ? (
-        <>
-          <Typography variant="heading">
-            {swap.order.status === "filled" ? "Swap simulated" : "Simulation pending"}
-          </Typography>
-          <Surface>
-            <GroupedRow label="You paid" value={`${swap.order.quote.input} USDG`} />
-            <GroupedRow
-              label={swap.order.status === "filled" ? "You received" : "Expected output"}
-              value={`${swap.order.quote.output} ${swap.order.quote.symbol}`}
-            />
-            <GroupedRow
-              label="Status"
-              value={swap.order.status === "filled" ? "Completed (mock)" : "Pending (mock)"}
-            />
-          </Surface>
-          <Typography>
-            Purchased tokens stay in the simulated source wallet. No consolidation or distribution
-            is performed.
-          </Typography>
-          {swap.order.status === "pending" ? (
-            <Button label="Refresh simulated status" loading={swap.busy} onPress={swap.refresh} />
-          ) : (
-            <Button label="New swap" onPress={swap.reset} />
-          )}
-        </>
-      ) : swap.quote ? (
-        <>
-          <Typography variant="heading">Review swap</Typography>
-          <Surface>
-            <GroupedRow label="Network preview" value="Robinhood Chain" />
-            <GroupedRow label="You pay" value={`${swap.quote.input} USDG`} />
-            <GroupedRow
-              label="Expected output"
-              value={`${swap.quote.output} ${swap.quote.symbol}`}
-            />
-            <GroupedRow
-              label="Minimum output"
-              value={`${swap.quote.minimum} ${swap.quote.symbol}`}
-            />
-          </Surface>
-          <Typography variant="caption">
-            Sample quote expires after 60 seconds. Fees and execution pricing are not modeled. No
-            passkey approval is requested for this simulation.
-          </Typography>
-          <Button label="Simulate swap" loading={swap.busy} onPress={swap.confirm} />
-          <Button
-            label="Back to amount"
-            variant="secondary"
-            disabled={swap.busy}
-            onPress={swap.edit}
-          />
-        </>
-      ) : (
-        <>
-          <Typography variant="heading">Buy stock tokens</Typography>
-          <Typography>Choose a token to receive</Typography>
-          <View className="flex-row flex-wrap gap-3">
-            {swapAssets.map((asset) => (
-              <Choice
-                key={asset.symbol}
-                label={`${asset.symbol} · ${asset.name}`}
-                selected={swap.symbol === asset.symbol}
-                disabled={swap.busy}
-                onPress={() => swap.setSymbol(asset.symbol)}
-              />
-            ))}
-          </View>
-          <Surface>
-            <View className="gap-3 p-5">
-              <Typography variant="label">You pay · USDG</Typography>
-              <TextInput
-                accessibilityLabel="Amount in USDG"
-                value={swap.amount}
-                onChangeText={swap.setAmount}
-                editable={!swap.busy}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.muted}
-                className="min-h-14 rounded-xl border border-border px-4 py-3 text-3xl text-text"
-              />
-              <Typography variant="caption">
-                Available: {formatSwapAmount(swap.balance)} USDG (mock)
-              </Typography>
-            </View>
-          </Surface>
-          {swap.amount !== "" && swap.validation ? (
-            <Notice message={swap.validation} error />
-          ) : null}
-          <Button
-            label="Review swap"
-            loading={swap.busy}
-            disabled={!!swap.validation}
-            onPress={swap.review}
-          />
-        </>
-      )}
-      {swap.error ? <Notice message={swap.error} error /> : null}
+    <>
       {holdings.length > 0 && (
-        <>
-          <Typography variant="heading">Simulated holdings</Typography>
+        <FadeIn delay={sectionDelay(4)} className="mt-5 gap-4">
+          <Typography variant="section">Holdings</Typography>
           <Surface>
-            {holdings.map((asset) => (
+            {holdings.map((asset, index) => (
               <GroupedRow
                 key={asset.symbol}
                 label={asset.symbol}
                 value={formatSwapAmount(asset.amount)}
+                last={index === holdings.length - 1}
               />
             ))}
           </Surface>
-        </>
+        </FadeIn>
       )}
       {swap.history.length > 0 && (
-        <>
-          <Typography variant="heading">Simulated activity</Typography>
+        <FadeIn delay={sectionDelay(5)} className="mt-5 gap-4">
+          <Typography variant="section">Recent</Typography>
           <Surface>
-            {swap.history.map((item) => (
+            {swap.history.map((item, index) => (
               <GroupedRow
                 key={item.id}
                 label={`${item.quote.input} USDG → ${item.quote.symbol}`}
                 value={item.status === "filled" ? "Completed" : "Pending"}
                 detail={item.id}
+                last={index === swap.history.length - 1}
               />
             ))}
           </Surface>
-        </>
+        </FadeIn>
       )}
+    </>
+  );
+}
+
+export function SwapScreen({ service }: { service?: SwapService }) {
+  const swap = useSwapController(service);
+  const { order, quote } = swap;
+  return (
+    <Screen>
+      <FadeIn className="gap-1">
+        <Typography variant="pageTitle">Swap</Typography>
+        <Typography variant="micro">Preview with mock data. No funds move.</Typography>
+      </FadeIn>
+      {order ? (
+        <OrderStep swap={swap} order={order} />
+      ) : quote ? (
+        <ReviewStep swap={swap} quote={quote} />
+      ) : (
+        <EditStep swap={swap} />
+      )}
+      <Activity swap={swap} />
     </Screen>
   );
 }
