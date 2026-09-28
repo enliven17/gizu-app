@@ -5,7 +5,7 @@ import Onboarding from './components/Onboarding'
 import Auth from './components/Auth'
 import Home from './components/Home'
 import Vaults from './components/Vaults'
-import ComingSoon from './components/ComingSoon'
+import TokenCatalog from './components/TokenCatalog'
 import Settings from './components/Settings'
 import OpportunityDetail from './components/OpportunityDetail'
 import SwapSheet from './components/SwapSheet'
@@ -72,7 +72,7 @@ export default function App() {
             />
           )}
           {screen === 'app' && tab === 'vaults' && <Vaults onOpenOpportunity={openOpportunity} />}
-          {screen === 'app' && tab === 'swap' && <ComingSoon />}
+          {screen === 'app' && tab === 'swap' && <TokenCatalog />}
           {screen === 'app' && tab === 'settings' && (
             <Settings
               onOpen={openSub}
