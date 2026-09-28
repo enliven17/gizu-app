@@ -46,7 +46,11 @@ pub fn derive_account_addresses(entropy: Vec<u8>) -> Result<Vec<String>, SignerE
         })
         .collect()
 }
+mod roles;
+mod swap;
 mod transfers;
+pub use roles::*;
+pub use swap::*;
 pub use transfers::*;
 
 #[cfg(test)]
