@@ -1,5 +1,12 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { Text, View, useWindowDimensions, type TextProps } from "react-native";
+import {
+  Image,
+  Text,
+  View,
+  useWindowDimensions,
+  type ImageSourcePropType,
+  type TextProps,
+} from "react-native";
 import { Lock } from "lucide-react-native";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { FadeIn } from "@/components/molecules/FadeIn";
@@ -20,6 +27,8 @@ export type VaultCardProps = {
   index: number;
   /** Ticker chip text (frontend: ticker or first four protocol letters). */
   ticker: string;
+  /** Protocol logo shown in the chip instead of the ticker text. */
+  logo?: ImageSourcePropType;
   name: string;
   /** Formatted TVL, rendered as the uppercase `… tvl` caption. */
   tvl: string;
@@ -44,13 +53,17 @@ function CardText(props: TextProps) {
   return <Text key={fontScale} {...props} />;
 }
 
-function TickerChip({ ticker }: { ticker: string }) {
+function TickerChip({ ticker, logo }: { ticker: string; logo?: ImageSourcePropType }) {
   // Frontend: `h-10 w-10 rounded-xl bg-neon/10 font-mono text-[11px] font-bold text-neon`.
   return (
     <View className="relative min-h-10 min-w-10 max-w-[72px] items-center justify-center rounded-xl bg-neon/10 px-1.5">
-      <CardText numberOfLines={1} className="font-sans text-[11px] font-bold text-neon">
-        {ticker}
-      </CardText>
+      {logo ? (
+        <Image source={logo} className="h-7 w-7 rounded-lg" accessibilityIgnoresInvertColors />
+      ) : (
+        <CardText numberOfLines={1} className="font-sans text-[11px] font-bold text-neon">
+          {ticker}
+        </CardText>
+      )}
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
@@ -64,6 +77,7 @@ function TickerChip({ ticker }: { ticker: string }) {
 
 function CardBody({
   ticker,
+  logo,
   name,
   tvl,
   rate,
@@ -76,7 +90,7 @@ function CardBody({
   return (
     <>
       <View className="flex-row items-start justify-between gap-2">
-        <TickerChip ticker={ticker} />
+        <TickerChip ticker={ticker} logo={logo} />
         {trailing !== undefined && (
           <CardText
             className={`font-sans shrink text-right text-[10px] ${trailingTones[trailingTone]}`}

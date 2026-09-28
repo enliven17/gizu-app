@@ -1,4 +1,4 @@
-import { Text, View, useWindowDimensions } from "react-native";
+import { Image, Text, View, useWindowDimensions } from "react-native";
 import { Lock } from "lucide-react-native";
 import { GlitchLabel } from "@/components/atoms/GlitchLabel";
 import { Typography } from "@/components/atoms/Typography";
@@ -7,6 +7,7 @@ import type { OpportunityDetail } from "@/domain/opportunities";
 import colors from "@/theme/colors.json";
 import { sectionDelay } from "@/theme/motion";
 import { percent } from "../format";
+import { protocolLogo } from "../protocolLogos";
 
 const tabular = { fontVariant: ["tabular-nums" as const] };
 
@@ -15,17 +16,22 @@ export function OpportunityHero({ opportunity }: { opportunity: OpportunityDetai
   // Remeasure native text after Dynamic Type changes.
   const { fontScale } = useWindowDimensions();
   const apr = `${percent.format(opportunity.totalApr)}%`;
+  const logo = protocolLogo(opportunity.protocol.name);
   return (
     <FadeIn delay={sectionDelay(1)} className="mt-4 gap-7">
       <View className="flex-row items-center gap-3">
         <View className="h-14 min-w-14 max-w-[88px] items-center justify-center rounded-2xl border border-glassBorder bg-glass px-3">
-          <Text
-            key={fontScale}
-            numberOfLines={1}
-            className="font-sans text-[13px] font-bold text-neon"
-          >
-            {opportunity.protocol.name.slice(0, 4)}
-          </Text>
+          {logo ? (
+            <Image source={logo} className="h-9 w-9 rounded-xl" accessibilityIgnoresInvertColors />
+          ) : (
+            <Text
+              key={fontScale}
+              numberOfLines={1}
+              className="font-sans text-[13px] font-bold text-neon"
+            >
+              {opportunity.protocol.name.slice(0, 4)}
+            </Text>
+          )}
         </View>
         <View className="min-w-0 flex-1 gap-1">
           <GlitchLabel

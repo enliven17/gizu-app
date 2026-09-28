@@ -2,6 +2,7 @@ import { VaultCard } from "@/components/organisms/VaultList";
 import { tvlChange, type Opportunity } from "@/domain/opportunities";
 import { useTvlSeries } from "../useTvlSeries";
 import { money, percent } from "../format";
+import { protocolLogo } from "../protocolLogos";
 
 /** No history yet: a flat line at zero rather than an empty-state message. */
 const flat = [0, 0];
@@ -34,6 +35,7 @@ export function OpportunityCard({
     <VaultCard
       index={index}
       ticker={opportunity.protocol.name.slice(0, 4)}
+      logo={protocolLogo(opportunity.protocol.name)}
       name={opportunity.name}
       tvl={tvl}
       rate={`${apr}%`}
