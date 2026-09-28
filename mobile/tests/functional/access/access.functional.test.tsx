@@ -67,9 +67,11 @@ test("prevents duplicate requests and ignores a late success after cancellation"
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   const loading = screen.getByRole("button", { name: "Opening access" });
   expect(loading).toBeDisabled();
+  expect(screen.getByText("Waiting for passkey")).toBeVisible();
   await userEvent.press(loading);
   expect(request).toHaveBeenCalledTimes(1);
   await userEvent.press(screen.getByRole("button", { name: "Cancel access" }));
+  expect(screen.queryByText("Waiting for passkey")).toBeNull();
   await act(async () => pending.resolve({ kind: "demo", method: "Demo passkey" }));
   expect(screen.getByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByRole("header", { name: "Your portfolio" })).toBeNull();
