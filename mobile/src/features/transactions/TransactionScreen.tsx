@@ -1,7 +1,8 @@
 import { useSession } from "@/application/SessionProvider";
 import { NativeTransaction } from "./NativeTransaction";
 import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
+import { Fingerprint } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { BackAction } from "@/navigation/BackAction";
@@ -9,12 +10,12 @@ import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
-import { Surface } from "@/components/molecules/Surface";
-import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { decimal, operationLabels } from "@/domain/transactions";
 import { unresolved, useTransactions } from "./TransactionProvider";
 import { useOrderController } from "./useOrderController";
 import { OperationFeedback } from "./OperationFeedback";
+import { OperationSignOverlay } from "./components/OperationSignOverlay";
+import { AmountField, PercentChips, ReviewRows, Sheet, SheetRow } from "./components/TransferSheet";
 import colors from "@/theme/colors.json";
 
 export function TransactionScreen(
@@ -43,137 +44,122 @@ function DemoTransaction({ route }: NativeStackScreenProps<RootStackParamList, "
         ? context.account.wallet
         : context.account.cash);
   const showOperation = observing || unresolved(context.operation);
+  const verb = kind === "withdraw" ? "withdrawal" : kind;
   return (
-    <Screen>
-      <BackAction fallback="Home" />
-      <Typography variant="title">
-        {showOperation ? "Operation status" : `${title}${vault ? ` ${vault.ticker}` : ""}`}
-      </Typography>
-      {showOperation ? (
-        <OperationFeedback
-          onReview={() => {
-            setObserving(false);
-            c.edit();
-          }}
-        />
-      ) : (
-        <>
-          {context.loading && <Typography>Loading available balances…</Typography>}
-          {context.error && (
-            <>
-              <Notice error message={context.error} />
-              <Button label="Reload balances" onPress={() => void context.refresh()} />
-            </>
-          )}
-          {c.quote ? (
-            <>
-              <Typography variant="heading">
-                Review {kind === "withdraw" ? "withdrawal" : kind}
+    <View className="flex-1 bg-ink">
+      <Screen>
+        <BackAction fallback="Home" />
+        <Typography variant="title">
+          {showOperation ? "Operation status" : `${title}${vault ? ` ${vault.ticker}` : ""}`}
+        </Typography>
+        {showOperation ? (
+          <OperationFeedback
+            onReview={() => {
+              setObserving(false);
+              c.edit();
+            }}
+          />
+        ) : (
+          <>
+            {context.loading && <Typography>Loading available balances…</Typography>}
+            {context.error && (
+              <>
+                <Notice error message={context.error} />
+                <Button label="Reload balances" onPress={() => void context.refresh()} />
+              </>
+            )}
+            {vault && (
+              <Typography variant="micro">
+                {vault.name} · 1 {vault.ticker} = {decimal(vault.price)} USDC
               </Typography>
-              <Surface>
-                <GroupedRow label="From" value={c.quote.from} />
-                <GroupedRow label="To" value={c.quote.to} />
-                <GroupedRow label="Total debit" value={`${decimal(c.quote.debit)} ${unit}`} />
-                <GroupedRow
-                  label="You receive"
-                  value={`${decimal(c.quote.credit)} ${c.quote.to}`}
-                />
-                <GroupedRow label="Fees included" value={`${decimal(c.quote.fee)} USDC`} />
-                <GroupedRow label="Network" value="Monad" />
-                {vault && <GroupedRow label="Lockup" value={vault.lockup} />}
-              </Surface>
-              <Typography variant="caption">
-                Quote valid for 60 seconds. It is checked again before submission. Confirmation
-                determines the final status.
-              </Typography>
-              <Button
-                label={`Confirm ${kind === "withdraw" ? "withdrawal" : kind}`}
-                variant={kind === "sell" ? "destructive" : "primary"}
-                disabled={c.blocked}
-                onPress={() => {
-                  setObserving(true);
-                  void context.execute(c.quote!);
-                }}
-              />
-              <Button label="Edit amount" variant="secondary" onPress={() => c.edit()} />
-            </>
-          ) : (
-            <>
-              {vault && (
-                <Typography>
-                  {vault.name} · 1 {vault.ticker} = {decimal(vault.price)} USDC
-                </Typography>
-              )}
-              <Surface>
-                <View className="gap-4 p-5">
-                  <Typography variant="caption">
-                    {kind === "sell" ? "Unlocked" : "Available"}: {balance ? decimal(balance) : "—"}{" "}
-                    {unit}
-                  </Typography>
-                  <Typography variant="row">Amount · {unit}</Typography>
-                  <TextInput
-                    accessibilityLabel={`Amount in ${unit}`}
-                    value={c.amount}
-                    onChangeText={c.edit}
-                    editable={!c.quoting && !c.blocked}
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                    placeholderTextColor={colors.muted}
-                    maxLength={25}
-                    className="min-h-14 text-3xl text-text"
+            )}
+            <Sheet>
+              {c.quote ? (
+                <>
+                  <Typography variant="section">Review {verb}</Typography>
+                  <ReviewRows
+                    rows={[
+                      ["From", c.quote.from],
+                      ["To", c.quote.to],
+                      ["Total debit", `${decimal(c.quote.debit)} ${unit}`],
+                      ["You receive", `${decimal(c.quote.credit)} ${c.quote.to}`],
+                      ["Fees included", `${decimal(c.quote.fee)} USDC`],
+                      ["Network", "Monad"],
+                      ...(vault ? [["Lockup", vault.lockup] as const] : []),
+                    ]}
                   />
-                  <View className="flex-row flex-wrap gap-2">
-                    {[25, 50, 75, 100].map((p) => (
-                      <Button
-                        key={p}
-                        label={p === 100 ? "Max" : `${p}%`}
-                        variant="secondary"
-                        disabled={c.quoting || c.blocked}
-                        onPress={() => c.percentage(p)}
-                      />
-                    ))}
+                  <Typography variant="micro">
+                    Quote valid for 60 seconds. It is checked again before submission. Confirmation
+                    determines the final status.
+                  </Typography>
+                  <Button
+                    label={`Confirm ${verb}`}
+                    variant={kind === "sell" ? "destructive" : "primary"}
+                    disabled={c.blocked}
+                    onPress={() => {
+                      setObserving(true);
+                      void context.execute(c.quote!);
+                    }}
+                  />
+                  <Button label="Edit amount" variant="secondary" onPress={() => c.edit()} />
+                </>
+              ) : (
+                <>
+                  <AmountField
+                    unit={unit}
+                    label={`Amount · ${unit}`}
+                    available={`${kind === "sell" ? "Unlocked" : "Available"}: ${balance ? decimal(balance) : "—"} ${unit}`}
+                    value={c.amount}
+                    onChange={c.edit}
+                    editable={!c.quoting && !c.blocked}
+                  />
+                  <PercentChips disabled={c.quoting || c.blocked} onSelect={c.percentage} />
+                  <SheetRow
+                    icon={<Fingerprint size={18} color={colors.accent} accessible={false} />}
+                  >
+                    <Typography variant="rowTitle">
+                      {kind === "deposit"
+                        ? "Passkey wallet → Account"
+                        : kind === "withdraw"
+                          ? "Account → Passkey wallet"
+                          : kind === "buy"
+                            ? `Account USDC → ${unit === "USDC" ? (vault?.ticker ?? "vault") : unit}`
+                            : `${unit} → Account USDC`}{" "}
+                      · Monad
+                    </Typography>
+                  </SheetRow>
+                  <View className="gap-1.5 px-1">
+                    {vault && (
+                      <Typography variant="micro">
+                        Minimum buy: {decimal(vault.minimum)} USDC · Lockup: {vault.lockup}
+                        {kind === "sell"
+                          ? `. Total held: ${decimal(vault.units)} ${vault.ticker}; only unlocked units can be sold.`
+                          : ""}
+                      </Typography>
+                    )}
+                    <Typography variant="micro">
+                      Network fee: 0.42 USDC
+                      {kind === "buy" || kind === "sell" ? " · Trading fee: 0.05%" : ""}. Max
+                      reserves applicable fees.
+                    </Typography>
                   </View>
-                </View>
-              </Surface>
-              <Typography variant="caption">
-                {kind === "deposit"
-                  ? "Passkey wallet → Account"
-                  : kind === "withdraw"
-                    ? "Account → Passkey wallet"
-                    : kind === "buy"
-                      ? `Account USDC → ${unit === "USDC" ? (vault?.ticker ?? "vault") : unit}`
-                      : `${unit} → Account USDC`}{" "}
-                · Monad
-              </Typography>
-              {vault && (
-                <Typography variant="caption">
-                  Minimum buy: {decimal(vault.minimum)} USDC · Lockup: {vault.lockup}
-                  {kind === "sell"
-                    ? `. Total held: ${decimal(vault.units)} ${vault.ticker}; only unlocked units can be sold.`
-                    : ""}
-                </Typography>
+                  {c.error && <Notice error message={c.error} />}
+                  <Button
+                    label={c.quoting ? "Getting quote" : `Review ${verb}`}
+                    loading={c.quoting}
+                    disabled={c.blocked}
+                    variant={kind === "sell" ? "destructive" : "primary"}
+                    onPress={() => void c.review()}
+                  />
+                </>
               )}
-              <Typography variant="caption">
-                Network fee: 0.42 USDC
-                {kind === "buy" || kind === "sell" ? " · Trading fee: 0.05%" : ""}. Max reserves
-                applicable fees.
-              </Typography>
-              {c.error && <Notice error message={c.error} />}
-              <Button
-                label={
-                  c.quoting
-                    ? "Getting quote"
-                    : `Review ${kind === "withdraw" ? "withdrawal" : kind}`
-                }
-                loading={c.quoting}
-                disabled={c.blocked}
-                variant={kind === "sell" ? "destructive" : "primary"}
-                onPress={() => void c.review()}
-              />
-            </>
-          )}
-        </>
+            </Sheet>
+          </>
+        )}
+      </Screen>
+      {showOperation && (
+        <OperationSignOverlay phase={context.operation?.phase} onCancel={context.cancelSigning} />
       )}
-    </Screen>
+    </View>
   );
 }
