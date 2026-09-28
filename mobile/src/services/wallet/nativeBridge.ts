@@ -12,7 +12,8 @@ function supportedPlatform() {
   );
 }
 function nativeModule(): StoredSignerContract | null {
-  return __DEV__ && supportedPlatform()
+  // iOS Release eligibility is reported by the signed native binary, not a JS flag.
+  return (__DEV__ || Platform.OS === "ios") && supportedPlatform()
     ? requireOptionalNativeModule<StoredSignerContract>("GizuStoredSigner")
     : null;
 }

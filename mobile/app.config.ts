@@ -1,25 +1,29 @@
 import type { ExpoConfig } from "expo/config";
 import { identity, validatePasskeyMode } from "./src/config/passkeys";
 
+import { distributionConfig } from "./src/config/distribution";
+
 validatePasskeyMode(process.env.EXPO_PUBLIC_PASSKEY_MODE);
 
-// Release identity and real services must be selected before shipping this demo.
-if (process.env.EAS_BUILD_PROFILE === "production") {
-  throw new Error(
-    "Production builds are blocked until release identity and services are configured.",
-  );
-}
+const { testflight, testFlightBundleIdentifier } = distributionConfig(process.env);
 
 const config: ExpoConfig = {
-  name: "Gizu Dev",
+  name: testflight ? "Gizu Beta" : "Gizu Dev",
   slug: "gizu-mobile",
   version: "0.1.0",
-  scheme: "gizu-dev",
+  icon: "./assets/icon.png",
+  scheme: testflight ? "gizu" : "gizu-dev",
   userInterfaceStyle: "dark",
   ios: {
-    bundleIdentifier: identity.iosBundleIdentifier,
+    bundleIdentifier: testflight ? testFlightBundleIdentifier : identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
+    buildNumber: "1",
+    infoPlist: {
+      GizuTestnetWalletEnabled: testflight,
+      // Rust performs encryption outside Apple's OS libraries; do not assert an exemption.
+      ITSAppUsesNonExemptEncryption: true,
+    },
     associatedDomains: [`webcredentials:${identity.rpId}`],
   },
   android: { package: identity.androidPackage },

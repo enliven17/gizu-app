@@ -202,3 +202,25 @@ cases passed as part of documentation work.
 
 Record future results with revision, device/OS/provider, build type, prompts and
 public hashes/statuses. Never capture real credential secrets or heap dumps.
+
+## TestFlight Release preparation — 2026-09-28
+
+Target: external testers, bundle `io.gizu.ios`, Monad testnet only. Release wallet
+availability requires the signed native `GizuTestnetWalletEnabled` opt-in; public
+JavaScript configuration cannot enable another chain or bypass native approval.
+
+Local verification: 249 app tests with coverage, TypeScript, lint, formatting and
+21/21 Expo Doctor checks passed. Thirteen native tests passed in Release mode with
+test-only internal visibility enabled. The unsigned iPhone Release archive built
+successfully and contains its JavaScript bundle, iOS 18 minimum and expected beta
+identity/flag. Test-only internal visibility was not enabled for the app archive.
+These results do not establish real passkey/provider, Keychain or backup behavior.
+
+Distribution is still pending: no valid local signing identity was found; EAS
+project ownership/signing and App Store Connect metadata are not configured here.
+The live gizu.io association still lists only the development app; the prepared
+frontend association addition must be deployed. The app icon now uses the existing
+white Gizu mark on its dark background. The TestFlight profile points to
+`https://gizu-backend.onrender.com`. Export compliance and
+external Beta App Review are unresolved. No build was uploaded or distributed.
+See [TestFlight setup](../README.md#ios-testflight-beta).

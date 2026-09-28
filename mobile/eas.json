@@ -1,8 +1,32 @@
 {
-  "cli": { "version": ">=16.0.0", "appVersionSource": "local" },
+  "cli": {
+    "version": ">=16.0.0",
+    "appVersionSource": "local"
+  },
   "build": {
-    "development": { "developmentClient": true, "distribution": "internal" },
-    "preview": { "distribution": "internal" },
-    "production": { "autoIncrement": true }
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+    },
+    "testflight": {
+      "distribution": "store",
+      "developmentClient": false,
+      "environment": "preview",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_PASSKEY_MODE": "native",
+        "EXPO_PUBLIC_API_URL": "https://gizu-backend.onrender.com"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "node": "24.15.0"
+    }
   }
 }

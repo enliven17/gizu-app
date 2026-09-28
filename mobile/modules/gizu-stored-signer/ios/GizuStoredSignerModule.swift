@@ -5,12 +5,7 @@ public final class GizuStoredSignerModule: Module {
   @MainActor private static var occupied = false
   @MainActor private var ceremony: WalletCeremony?
   @MainActor private var task: Task<Void, Never>?
-  private static var supported: Bool {
-    #if DEBUG
-      if #available(iOS 18.0, *) { return true }
-    #endif
-    return false
-  }
+  private static var supported: Bool { WalletBuildPolicy.isAvailable() }
 
   private func run(
     _ promise: Promise, action: @escaping @MainActor (WalletCeremony) async throws -> Any
@@ -20,7 +15,7 @@ public final class GizuStoredSignerModule: Module {
         let presenter = self.appContext?.utilities?.currentViewController(),
         presenter.view.window != nil
       else {
-        promise.reject("UNAVAILABLE", "iOS development wallet unavailable.")
+        promise.reject("UNAVAILABLE", "iOS wallet unavailable in this build.")
         return
       }
 

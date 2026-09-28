@@ -35,7 +35,8 @@
     "format:kotlin:check": "node scripts/format-kotlin.cjs check",
     "stored-signer:build:ios": "bash modules/gizu-stored-signer/scripts/build.sh ios",
     "stored-signer:test:ios": "bash modules/gizu-stored-signer/scripts/test-ios.sh",
-    "stored-signer:check:ios": "node scripts/check-ios-signer.cjs"
+    "stored-signer:check:ios": "node scripts/check-ios-signer.cjs",
+    "eas-build-pre-install": "bash scripts/eas-build-pre-install.sh"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

@@ -9,7 +9,6 @@ import {
   type SkRuntimeEffect,
 } from "@shopify/react-native-skia";
 import { useDerivedValue, useSharedValue } from "react-native-reanimated";
-import colors from "@/theme/colors.json";
 
 // Port of the web GradientWaves fragment shader (same raymarch, same constants).
 const source: SkRuntimeEffect | null = Skia.RuntimeEffect.Make(`

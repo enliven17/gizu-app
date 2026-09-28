@@ -1,10 +1,17 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.resolve(__dirname, "../ios");
-const provider = fs.readFileSync(
-  path.join(root, "Pods/Target Support Files/Pods-GizuDev/ExpoModulesProvider.swift"),
-  "utf8",
-);
+const support = path.join(root, "Pods/Target Support Files");
+const providers = fs
+  .readdirSync(support)
+  .filter((name) => /^Pods-Gizu(?:Dev|Beta)$/.test(name))
+  .map((name) => path.join(support, name, "ExpoModulesProvider.swift"))
+  .filter((file) => fs.existsSync(file));
+if (providers.length !== 1)
+  throw new Error(
+    "Expected one generated Gizu app registration. Run iOS prebuild and pod install.",
+  );
+const provider = fs.readFileSync(providers[0], "utf8");
 const lock = fs.readFileSync(path.join(root, "Podfile.lock"), "utf8");
 if (
   !provider.includes("GizuStoredSignerModule.self") ||

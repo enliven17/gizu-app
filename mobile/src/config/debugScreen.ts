@@ -5,7 +5,6 @@ export function resolveDebugScreen(
   development: boolean,
 ): DebugScreen | undefined {
   if (!screen) {
-    if (!development) throw new Error("Native access is development-only.");
     return undefined;
   }
   if (!development) throw new Error("Debug screens are development-only.");

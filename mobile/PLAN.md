@@ -92,6 +92,11 @@ pass-through wrappers, a second live ledger or a generic JavaScript signer.
 
 ## Release readiness — M7 / N4
 
+TestFlight preparation now targets external testers with `io.gizu.ios`, using an
+explicit Release-build native testnet gate. See [TestFlight setup](README.md#ios-testflight-beta)
+for the build path and remaining account, domain, backend, metadata and device gates.
+This does not enable production/mainnet signing or complete physical acceptance.
+
 - [ ] Complete the open [native security and device acceptance](docs/NATIVE_SIGNER_VERIFICATION.md#remaining-acceptance).
 - [ ] Independently review signer, native review, FFI copies, dependency/license
       obligations, update provenance and redacted release diagnostics.

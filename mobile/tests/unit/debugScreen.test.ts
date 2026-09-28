@@ -1,8 +1,8 @@
 import { resolveDebugScreen } from "@/config/debugScreen";
 
-test("normal startup uses native access and remains development-only", () => {
+test("normal startup supports release while diagnostics remain development-only", () => {
   expect(resolveDebugScreen(undefined, true)).toBeUndefined();
-  expect(() => resolveDebugScreen(undefined, false)).toThrow("development-only");
+  expect(resolveDebugScreen(undefined, false)).toBeUndefined();
 });
 test.each(["ui", "stored-wallet"])("explicit %s launch requires development", (screen) => {
   expect(resolveDebugScreen(screen, true)).toBe(screen);

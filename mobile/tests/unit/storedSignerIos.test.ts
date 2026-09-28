@@ -77,3 +77,29 @@ test("locking while capabilities load prevents a late native ceremony", async ()
   await expect(creation).rejects.toThrow(/cancelled/);
   expect(native.createWallet).not.toHaveBeenCalled();
 });
+
+test("iOS Release uses native capabilities while Android Release stays disabled", async () => {
+  const development = __DEV__;
+  Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: false });
+  try {
+    jest.mocked(requireOptionalNativeModule).mockReturnValue({
+      getCapabilities: jest.fn().mockResolvedValue({
+        contractVersion: 1,
+        available: true,
+        walletStorage: true,
+        backup: true,
+        transfers: true,
+      }),
+    });
+    expect((await getSignerCapabilities()).available).toBe(true);
+    jest.mocked(requireOptionalNativeModule).mockReturnValue({
+      getCapabilities: jest.fn().mockResolvedValue({ contractVersion: 1, available: false }),
+    });
+    expect((await getSignerCapabilities()).available).toBe(false);
+    Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+    Object.defineProperty(Platform, "Version", { configurable: true, value: 35 });
+    expect(getStoredSigner()).toBeNull();
+  } finally {
+    Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: development });
+  }
+});
