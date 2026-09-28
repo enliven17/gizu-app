@@ -1,5 +1,33 @@
 # Native signer verification
 
+## 2026-09-28 — iOS stored-wallet implementation
+
+- Implemented Swift native storage/passkey verification, verified backup/restore,
+  exact-transfer review, encrypted operation journal, read-only reconciliation and
+  fresh-authorized identical-byte resume. Existing app screens use capability-checked
+  iOS adapters; the debug harness uses the same adapter boundary.
+- Rust device and Apple Silicon simulator libraries built. Full unsigned iOS
+  simulator app build passed with iOS 18 minimum deployment target. Generated Expo
+  registration, Pods graph and compiled symbols include `GizuStoredSignerModule`
+  and exclude the retired `GizuSignerModule` and its core.
+- Native simulator suite: 10 tests passed. Includes registration/assertion rejection,
+  encrypted storage corruption/missing-key recovery, shared backup fixture and account
+  derivation, cancellation/expiry policy, journal restart, stale revisions, exact-byte
+  retry after an uncertain broadcast, and commit failures before/after rename that
+  prevent any broadcast. Keychain and passkey services are not mocked into the app;
+  tests use native-only test dependencies.
+- Android JVM suite: 33 tests passed, including the same backup fixture. Rust core:
+  11 tests passed. JavaScript: 237 tests passed with coverage thresholds; TypeScript,
+  formatting and changed-file lint passed. Repository-wide lint remains blocked by
+  the pre-existing unused `colors` import in `WaveBackdrop.tsx`.
+- CI now builds the iOS Rust library, runs native simulator tests and checks native
+  registration before its existing app build. Remote CI has not been run here.
+- **Not accepted yet:** physical iPhone passkey/provider ceremonies, Keychain/file
+  protection under device lock/passcode removal, Files-provider save/reopen flows,
+  iPhone-to-iPhone recovery, live transfers/batches and lifecycle acceptance. Android↔iOS
+  provider/recovery acceptance, production builds and independent security review remain
+  deferred. No real transaction was submitted during these automated checks.
+
 ## 2026-09-25 — Checked persistence and journal retention
 
 - Android arm64 debug build and all 32 native JVM tests passed. Added failure

@@ -1,8 +1,8 @@
-# Stored-wallet Android signer
+# Stored-wallet native signer
 
 Phases 2–4 implement a separate local Expo module, `GizuStoredSigner`, under native
 package `io.gizu.storedwallet`. The retained `gizu-signer` module is unchanged and
-excluded from app linking. This module is Android-only and development-only.
+excluded from app linking. This module supports Android and iOS 18+ development builds; physical iOS acceptance remains pending.
 
 ## Implemented boundary
 
@@ -60,7 +60,7 @@ acceptance remains pending.
 - `android/`: Expo lifecycle, native prompts, credential verification and storage.
   `rpc/` owns bounded Monad transport; `transfers/` owns operation persistence,
   reconciliation, exact-transfer orchestration and native review.
-- `scripts/build.sh`: generates Kotlin bindings and the arm64 Android library.
+- `scripts/build.sh`: generates native bindings and Android libraries by default; `ios` builds device/simulator XCFramework slices on macOS.
 - Generated bindings, targets and binaries are ignored; never edit them manually.
 
 From `mobile/`:
@@ -81,3 +81,32 @@ The prototype supplied the starting credential verifier/envelope and their tests
 The crypto core retains the original pinned Rust dependencies. Android adds CBOR
 4.5.6 for parsing authenticator registration data and uses existing OkHttp 4.9.2
 for Monad RPC; no wallet secrets go through JS.
+
+## iOS stored signer
+
+The iOS 18+ implementation uses the same public contract and Rust policy, with
+Swift/AuthenticationServices, CryptoKit, Keychain and native document pickers.
+Run `npm run stored-signer:build:ios` before iOS prebuild or pod installation.
+`npm run stored-signer:test:ios` runs native tests on an available iPhone simulator;
+set `GIZU_IOS_TEST_DEVICE` to choose a simulator UDID. `npm run stored-signer:check:ios`
+checks generated Expo registration and the Pods graph for legacy-signer exclusion.
+
+Local records use a binary entropy suffix and encrypted public metadata. Files use
+complete protection, atomic checked writes and exclusion from automatic backups.
+The non-synchronizing Keychain encryption key uses
+`kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`. Removing the device passcode can
+make the key unavailable; recovery requires the encrypted backup and original
+PRF-capable passkey. The key is not a Secure Enclave secp256k1 signer, and spending
+approval remains enforced by native application code.
+
+Backup format v1 is unchanged. Swift and JVM tests consume the same known-answer
+fixture under `ios/Tests/Fixtures`; its entropy, PRF and credential are synthetic
+public test values. Cross-platform provider/recovery acceptance is deferred.
+Restoration verifies the recovered address, discards plaintext before confirmation,
+then obtains fresh PRF authorization for committing local storage.
+
+`Package.swift` builds a native-only test target; it never supplies fake credentials
+or keys to the app. Generated Swift bindings and XCFrameworks are ignored. The
+retired signer remains untouched and excluded. Native simulator tests and an app
+build do not establish physical iPhone, passkey-provider, Keychain or file-picker
+acceptance. Real-device validation and independent security review remain pending.

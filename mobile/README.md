@@ -6,12 +6,12 @@ balance; Account shows its address, copy, local preferences and disconnect.
 Wallet secrets remain in the native signer. This is local wallet access, not
 backend authentication; production and physical-iOS acceptance remain pending.
 
-From welcome choose **Get started**, then **Continue with passkey**. New Android
+From welcome choose **Get started**, then **Continue with passkey**. New development
 wallets must save and reopen an encrypted backup before Home opens. Recovery needs
 the file and original passkey. Vault services, notifications, fiat valuations and
 performance history remain unavailable. Deposit shows the receiving address;
 Withdraw uses native approval; Activity shows local outgoing history and explicit resume.
-iOS wallet access is unavailable. Incoming/external activity is not indexed.
+iOS 18+ stored-wallet support is implemented; physical-device acceptance is pending. Incoming/external activity is not indexed.
 
 Normal startup supports native access only. Historical M2–M5 fixture flows remain
 in automated tests; the isolated UI playground retains visual fixtures.
@@ -34,7 +34,8 @@ From the repository root:
 ```sh
 npm --prefix mobile ci
 npm --prefix mobile run android -- --no-bundler
-# macOS only:
+# macOS only (requires Rust 1.94.1 and Apple Rust targets):
+npm --prefix mobile run stored-signer:build:ios
 npm --prefix mobile run ios -- --no-bundler
 ```
 
@@ -214,10 +215,9 @@ with `npm run ios` or `npm run android` from `mobile/` before testing this versi
 ## Signer migration and developer diagnostics
 
 The old Gizu signer is preserved but disconnected from app access, diagnostics and
-native autolinking. `npm start` opens the existing app. Android development wallets
+native autolinking. `npm start` opens the existing app. Android and iOS 18+ development wallets
 require native save-and-reopen backup verification before entering Home. Account
-includes backup management; Withdraw and Activity use native approval and history. iOS signing is
-unsupported during this migration. No fallback creates a demo or legacy wallet.
+includes backup management; Withdraw and Activity use native approval and history. iOS signing uses the replacement Swift module; physical-device acceptance is pending. No fallback creates a demo or legacy wallet.
 
 The isolated UI playground remains available without a simulated passkey mode:
 
@@ -278,3 +278,17 @@ by USB, run `adb reverse tcp:3000 tcp:3000` in addition to the Metro port forwar
 For other hosts, set `EXPO_PUBLIC_API_URL` to a reachable backend URL and restart Metro.
 Release builds require an explicit HTTPS URL. The public configuration contains no
 Merkl API key; that stays on the backend.
+
+### iOS stored-wallet development
+
+Install Rust 1.94.1 targets `aarch64-apple-ios` and `aarch64-apple-ios-sim`, then run
+`npm run stored-signer:build:ios` from `mobile/`. Rebuild with `npm run ios`; Expo Go
+cannot load the signer. The config plugin sets the app deployment target to iOS 18.
+The existing Team ID, bundle ID and `webcredentials:gizu.io` association are retained;
+physical builds still require working signing and domain association.
+
+`npm run stored-signer:test:ios` runs native simulator tests. Use
+`GIZU_IOS_TEST_DEVICE=<simulator UDID>` to select a simulator.
+`npm run stored-signer:check:ios` checks generated native registration after pod install.
+These checks do not prove real passkey, Keychain, Files-provider or iPhone recovery
+behavior; no simulator authentication bypass is included.

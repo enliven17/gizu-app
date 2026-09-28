@@ -10,11 +10,11 @@ are retained under `src/development/legacySigner`; normal wallet composition req
 a stored-wallet identity and never selects these adapters.
 
 The replacement is named `GizuStoredSigner`; its versioned public contract is
-`src/domain/wallet/storedSigner.ts`. Android development builds implement native
+`src/domain/wallet/storedSigner.ts`. Android and iOS 18+ development builds implement native
 storage, passkey create/open, verified backup/restore and exact transfers in
 `modules/gizu-stored-signer`.
 Only backup-verified wallets enter app sessions. Other platforms are unsupported;
-demo mode stays opt-in. Withdraw and Activity use the replacement operation journal.
+normal startup remains native-only. Withdraw and Activity use the replacement operation journal.
 
 The contract provides wallet states (absent, backupRequired, ready, recoveryRequired),
 native create/open/backup/restore ceremonies and operation execute/status/resume/
@@ -36,7 +36,32 @@ use; PRF encrypts backups rather than determining wallet addresses.
 
 Storage, passkey authorization, verified onboarding backup and transfer/resume are
 implemented; see [the migration plan](SIGNER_MIGRATION.md). No old state or provider passkeys
-are deleted or migrated. Web wallet sharing and iOS signing are deferred.
+are deleted or migrated. Web wallet sharing and physical iOS acceptance are deferred.
+
+## iOS storage and authorization
+
+The replacement includes a Swift Expo module backed by the stored-wallet Rust core.
+Local AES-GCM records and the operation journal live in completely protected,
+backup-excluded Application Support files. A non-synchronizing Keychain key uses
+`kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`; missing keys require recovery,
+not automatic wallet replacement. This protects storage at rest, not hardware-enforced
+transaction authorization. Native code owns verification, approval and secret use.
+
+AuthenticationServices registration/assertions are checked for the expected credential,
+challenge, RP, `https://gizu.io` origin, presence, verification and P-256 signature.
+Creation proves PRF availability before generating entropy. iOS uses the same backup
+format v1 and derivation, but a platform-local wallet record and journal format.
+Document selection, save/reopen verification and restore remain native. Restore asks
+for address confirmation without retaining entropy/PRF across that confirmation;
+fresh PRF authorization commits the recovery. Initial acceptance is iPhone-to-iPhone;
+Android/iOS recovery-provider interoperability is not yet accepted.
+
+Native full-screen review uses the existing visual language and keeps Cancel available
+through preparation. Exact-transfer limits, encrypted signed-before-broadcast journaling,
+read-only reconciliation and explicitly authorized identical-byte retries match Android.
+Capability adapters query native capabilities before entering each operation; module
+presence alone is insufficient. Release builds remain unavailable. Simulator checks
+are separate from pending physical-device/provider and independent security acceptance.
 
 ## Verified backup and recovery
 
@@ -56,7 +81,7 @@ PRF never cross Expo; owned buffers are cleared before document selection. Provi
 and managed-runtime copies cannot be guaranteed to be erased. Two fresh passkey
 checks are expected for save and reopen verification.
 
-Local binary storage version 3 adds a journal-generation UUID. Version-2 records
+Android local binary storage version 3 adds a journal-generation UUID. Version-2 records
 retain readiness and use their wallet UUID as journal generation; version-1 records
 load as backup-required without changing entropy. Restore requires the encrypted
 file and its original passkey, validates authenticated metadata and derivation,
@@ -74,7 +99,7 @@ picker acceptance or independent security review.
 The non-exported `TransferActivity` owns preparation, complete native review and a
 fresh verified passkey assertion. Its challenge binds wallet, operation ID, revision
 and review digest. JavaScript supplies proposals and receives public status only.
-Approval requires scrolling through the review. Cancellation, screen lock,
+Android approval requires scrolling through the review; iOS places approval after all review content. Cancellation, screen lock,
 unexpected backgrounding and the two-minute ceremony deadline end authority.
 
 The adapted Rust policy permits Monad testnet (10143) EIP-1559 native MON transfers

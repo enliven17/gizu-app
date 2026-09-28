@@ -32,6 +32,7 @@ const config: ExpoConfig = {
       },
     ],
     "./plugins/withAndroidDevelopmentSigning.cjs",
+    "./plugins/withStoredSignerIos.cjs",
   ],
 };
 export default config;

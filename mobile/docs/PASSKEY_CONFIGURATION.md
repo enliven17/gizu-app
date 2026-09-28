@@ -5,7 +5,7 @@ implement `GizuStoredSigner`: encrypted wallet storage, passkey create/open,
 verified backup/restore, native transfer approval and explicit operation resume.
 Access requires Android API 28+, the installed native module and a compatible
 credential provider. New wallets must complete backup verification before app access.
-iOS wallet access is unsupported; production builds remain blocked.
+iOS 18+ development wallet support is implemented; physical-device/provider acceptance remains pending. Production builds remain blocked.
 See [native signer architecture](NATIVE_SIGNER.md) for the active contract. Wallet
 entropy is randomly generated and encrypted locally; the passkey authorizes access
 and its PRF protects backups. It no longer determines wallet addresses.

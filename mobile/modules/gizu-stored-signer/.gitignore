@@ -3,3 +3,8 @@ generated/
 android/src/main/jniLibs/
 android/build/
 android/.cxx/
+ios/Generated/
+ios/GizuStoredSignerCore.xcframework/
+ios/.build/
+.build/
+.swiftpm/

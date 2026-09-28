@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
-import { requireOptionalNativeModule } from "expo";
+import { getStoredSigner } from "@/services/wallet/nativeBridge";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
-import {
-  storedSignerIdentity,
-  type StoredSignerContract,
-  type StoredWalletState,
-} from "@/domain/wallet/storedSigner";
+import { type StoredSignerContract, type StoredWalletState } from "@/domain/wallet/storedSigner";
 
 type Probe = Pick<StoredSignerContract, "getWalletState" | "createWallet" | "openWallet" | "lock">;
 export function StoredWalletDebugScreen({ service }: { service: Probe | null }) {
@@ -60,7 +55,9 @@ export function StoredWalletDebugScreen({ service }: { service: Probe | null }) 
         backup and recovery.
       </Typography>
       <Typography>
-        {service ? message : "Android native module unavailable. Install the phase 2 build."}
+        {service
+          ? message
+          : "Native module unavailable. Rebuild the Android or iOS development app."}
       </Typography>
       <Typography>State: {state?.status ?? "not checked"}</Typography>
       {state && "walletId" in state && <Typography>Wallet ID: {state.walletId}</Typography>}
@@ -89,10 +86,7 @@ export function StoredWalletDebugScreen({ service }: { service: Probe | null }) 
     </Screen>
   );
 }
-const service =
-  __DEV__ && Platform.OS === "android"
-    ? requireOptionalNativeModule<Probe>(storedSignerIdentity.moduleName)
-    : null;
+const service = getStoredSigner();
 export function StoredWalletDebugApp() {
   return (
     <SafeAreaProvider>

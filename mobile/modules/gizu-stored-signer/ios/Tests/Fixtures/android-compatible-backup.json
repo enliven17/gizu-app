@@ -1,0 +1,11 @@
+{
+  "format": "gizu-stored-wallet",
+  "version": 1,
+  "rpId": "gizu.io",
+  "derivationVersion": "gizu-stored-evm-v1",
+  "walletId": "7aafcc2e-0891-4e31-a7d4-03780d7b4f12",
+  "credentialId": "AQID",
+  "x": "axfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpY",
+  "y": "T-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
+  "envelope": "R1NXMQABAgMEBQYHCAkKCxiB6XAdCdlJd7LlnOJYbPrhPLaOGGJ3MRbOY7qO120Ff_q91LA0btO21GQlwUg3gw"
+}

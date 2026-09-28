@@ -8,6 +8,7 @@ android {
   namespace 'io.gizu.storedwallet'
   defaultConfig { minSdk 24; versionCode 1; versionName "0.1.0" }
   sourceSets.main.java.srcDirs += '../generated'
+  sourceSets.test.resources.srcDirs += '../ios/Tests/Fixtures'
 }
 dependencies {
   implementation 'com.squareup.okhttp3:okhttp:4.9.2'
