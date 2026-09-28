@@ -8,7 +8,7 @@ validatePasskeyMode(process.env.EXPO_PUBLIC_PASSKEY_MODE);
 const { testflight, testFlightBundleIdentifier } = distributionConfig(process.env);
 
 const config: ExpoConfig = {
-  name: testflight ? "Gizu Beta" : "Gizu Dev",
+  name: testflight ? "Gizu" : "Gizu Dev",
   slug: "gizu-mobile",
   owner: "okanaslan",
   extra: {

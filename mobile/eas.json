@@ -3,6 +3,17 @@
     "version": ">=16.0.0",
     "appVersionSource": "local"
   },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6815255408",
+        "appleTeamId": "588X2UZY3L"
+      }
+    },
+    "testflight": {
+      "extends": "production"
+    }
+  },
   "build": {
     "development": {
       "developmentClient": true,

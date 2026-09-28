@@ -4,7 +4,7 @@ const root = path.resolve(__dirname, "../ios");
 const support = path.join(root, "Pods/Target Support Files");
 const providers = fs
   .readdirSync(support)
-  .filter((name) => /^Pods-Gizu(?:Dev|Beta)$/.test(name))
+  .filter((name) => /^Pods-Gizu(?:Dev)?$/.test(name))
   .map((name) => path.join(support, name, "ExpoModulesProvider.swift"))
   .filter((file) => fs.existsSync(file));
 if (providers.length !== 1)

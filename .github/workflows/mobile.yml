@@ -107,7 +107,7 @@ jobs:
           EXPO_NO_DOTENV: "1"
       - run: npm run stored-signer:check:ios
         working-directory: mobile
-      - run: xcodebuild -workspace ios/GizuBeta.xcworkspace -scheme GizuBeta -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
+      - run: xcodebuild -workspace ios/Gizu.xcworkspace -scheme Gizu -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
         working-directory: mobile
         env:
           EAS_BUILD_PROFILE: testflight

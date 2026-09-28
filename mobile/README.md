@@ -295,7 +295,7 @@ behavior; no simulator authentication bypass is included.
 
 ## iOS TestFlight beta
 
-The `testflight` EAS profile builds **Gizu Beta** (`io.gizu.ios`) in Release for
+The `testflight` EAS profile builds **Gizu** (`io.gizu.ios`) in Release for
 App Store distribution. Its wallet remains restricted to Monad testnet (10143).
 The profile sets `GIZU_BUILD_VARIANT=testflight` so local EAS configuration and
 credential selection use `io.gizu.ios` too. Build numbers are managed manually:
@@ -337,12 +337,13 @@ native libraries/bindings **before CocoaPods**. The ordinary EAS post-install ho
 is too late for this. Android build behavior is unchanged. Successful local tests
 do not prove the remote build worker or distribution credentials are configured.
 
-The profile increments the local build number. Keep EAS's resulting version update
-in Git before the next build. After inspecting the signed artifact, submit the
+Increment `ios.buildNumber` manually before each new TestFlight upload. Configure
+the existing Gizu app's numeric Apple ID as `submit.testflight.ios.ascAppId` before
+submission so EAS does not create another app record. After inspecting the signed artifact, submit the
 specific build through EAS Submit or Xcode Organizer, then select it for an external
 TestFlight group and Beta App Review. Uploading alone does not distribute it.
 
-Reviewer notes draft: Gizu Beta is a testnet wallet preview. Create a passkey, save
+Reviewer notes draft: Gizu is a testnet wallet preview. Create a passkey, save
 and reopen an encrypted backup, then use Home/Account and testnet MON transfers.
 No real-money investment or mainnet transaction signing is available. Recovery
 requires the encrypted file and the original passkey. Vault discovery depends on
@@ -355,7 +356,7 @@ GIZU_IOS_TEST_CONFIGURATION=Release npm run stored-signer:test:ios
 ```
 
 For a local beta prebuild, use `EXPO_NO_DOTENV=1 EAS_BUILD_PROFILE=testflight npx expo
-prebuild --platform ios`; this creates the `GizuBeta` project. A regular development
+prebuild --platform ios`; this creates the `Gizu` project. A regular development
 prebuild returns to `GizuDev`. Neither command supplies signing credentials.
 
 References: [Expo build hooks](https://docs.expo.dev/build-reference/npm-hooks/),
