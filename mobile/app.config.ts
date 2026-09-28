@@ -10,6 +10,10 @@ const { testflight, testFlightBundleIdentifier } = distributionConfig(process.en
 const config: ExpoConfig = {
   name: testflight ? "Gizu Beta" : "Gizu Dev",
   slug: "gizu-mobile",
+  owner: "okanaslan",
+  extra: {
+    eas: { projectId: "6f1c36fc-416b-46ec-a3fd-0d5302cbbdce" },
+  },
   version: "0.1.0",
   icon: "./assets/icon.png",
   scheme: testflight ? "gizu" : "gizu-dev",

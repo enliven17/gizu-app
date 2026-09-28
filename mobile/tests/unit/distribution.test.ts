@@ -10,6 +10,7 @@ test("TestFlight explicitly selects the iOS beta identity", () => {
     testFlightBundleIdentifier: "io.gizu.ios",
   });
   expect(distributionConfig({}).testflight).toBe(false);
+  expect(distributionConfig({ GIZU_BUILD_VARIANT: "testflight" }).testflight).toBe(true);
 });
 
 test("production, diagnostic entry points and Android TestFlight builds remain blocked", () => {

@@ -297,6 +297,9 @@ behavior; no simulator authentication bypass is included.
 
 The `testflight` EAS profile builds **Gizu Beta** (`io.gizu.ios`) in Release for
 App Store distribution. Its wallet remains restricted to Monad testnet (10143).
+The profile sets `GIZU_BUILD_VARIANT=testflight` so local EAS configuration and
+credential selection use `io.gizu.ios` too. Build numbers are managed manually:
+increment `ios.buildNumber` in `app.config.ts` before each new TestFlight upload.
 The profile embeds `GizuTestnetWalletEnabled` in the native Info.plist; ordinary
 Release builds without that opt-in cannot use the signer. Diagnostic screens and
 mock swap UI remain development-only. Production builds remain blocked.

@@ -10,7 +10,9 @@ function distributionConfig(env) {
       "Production builds remain blocked. Use the testflight profile for testnet beta testing.",
     );
   }
-  const testflight = env.EAS_BUILD_PROFILE === "testflight";
+  // Profile env is available during local EAS credential/config resolution too.
+  const testflight =
+    env.GIZU_BUILD_VARIANT === "testflight" || env.EAS_BUILD_PROFILE === "testflight";
   if (testflight && env.EXPO_PUBLIC_DEBUG_SCREEN) {
     throw new Error("TestFlight builds cannot select diagnostic screens.");
   }

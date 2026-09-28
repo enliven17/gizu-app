@@ -18,8 +18,9 @@
       "distribution": "store",
       "developmentClient": false,
       "environment": "preview",
-      "autoIncrement": true,
+      "autoIncrement": false,
       "env": {
+        "GIZU_BUILD_VARIANT": "testflight",
         "EXPO_PUBLIC_PASSKEY_MODE": "native",
         "EXPO_PUBLIC_API_URL": "https://gizu-backend.onrender.com"
       },
