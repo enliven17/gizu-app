@@ -1,9 +1,7 @@
 const { spawn } = require("node:child_process");
 const screen = process.argv[2];
-if (!["app", "demo", "ui", "stored-wallet"].includes(screen)) {
-  throw new Error(
-    "Expected app, demo, ui or stored-wallet. Legacy signer diagnostics are disconnected.",
-  );
+if (!["app", "ui", "stored-wallet"].includes(screen)) {
+  throw new Error("Expected app, ui or stored-wallet. Legacy signer diagnostics are disconnected.");
 }
 const child = spawn(
   process.execPath,
@@ -12,8 +10,8 @@ const child = spawn(
     stdio: "inherit",
     env: {
       ...process.env,
-      EXPO_PUBLIC_DEBUG_SCREEN: screen === "app" || screen === "demo" ? "" : screen,
-      EXPO_PUBLIC_PASSKEY_MODE: screen === "app" || screen === "stored-wallet" ? "native" : "mock",
+      EXPO_PUBLIC_DEBUG_SCREEN: screen === "app" ? "" : screen,
+      EXPO_PUBLIC_PASSKEY_MODE: "native",
     },
   },
 );

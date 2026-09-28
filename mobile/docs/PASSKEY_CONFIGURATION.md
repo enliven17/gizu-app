@@ -39,10 +39,10 @@ Changing the RP or derivation requires a reviewed recovery/migration strategy.
 
 `npm start` selects `native` and opens the normal app using the Android replacement.
 Unsupported platforms or missing native modules fail explicitly without a legacy
-or mock fallback. `npm run start:demo` explicitly selects mock mode.
+or mock fallback. Simulated passkey startup is no longer supported.
 `npm run debug:stored-wallet` opens the isolated replacement diagnostic;
-`npm run debug:ui` opens the UI playground. Both `probe` and `native-probe`
-and the former wallet/signer debug selections are rejected. See [README](../README.md)
+`npm run debug:ui` opens the UI playground. `native` is the only valid
+passkey mode and defaults when the variable is omitted. See [README](../README.md)
 for launch and rebuild instructions.
 
 Configuration alone does not prove domain ownership, installed signing or provider

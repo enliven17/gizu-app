@@ -13,8 +13,8 @@ performance history remain unavailable. Deposit shows the receiving address;
 Withdraw uses native approval; Activity shows local outgoing history and explicit resume.
 iOS wallet access is unavailable. Incoming/external activity is not indexed.
 
-Run `npm run start:demo` for the historical M2–M5 fixture flows described below.
-Those simulated balances/orders are isolated from native wallets.
+Normal startup supports native access only. Historical M2–M5 fixture flows remain
+in automated tests; the isolated UI playground retains visual fixtures.
 
 ## Prerequisites
 
@@ -219,7 +219,7 @@ require native save-and-reopen backup verification before entering Home. Account
 includes backup management; Withdraw and Activity use native approval and history. iOS signing is
 unsupported during this migration. No fallback creates a demo or legacy wallet.
 
-Use `npm run start:demo` explicitly for fixture flows. The UI playground remains:
+The isolated UI playground remains available without a simulated passkey mode:
 
     npm run debug:ui -- --port 8087
 
@@ -267,7 +267,7 @@ harness and retained legacy source remain separate from normal entry.
 
 Normal wallet mode lists Monad mainnet opportunities from the backend; wallet balances
 and signing remain on Monad testnet. The catalog is read-only: no deposit, withdrawal,
-or external deposit link is exposed. Explicit demo mode retains fixture vaults.
+or external deposit link is exposed. Fixture vaults remain in tests and the isolated UI playground.
 
 Start PostgreSQL with `docker compose up -d` in `backend/`. Set the backend local
 `DATABASE_URL` to match `backend/.env.example` (port 54329), then run `npm run build`

@@ -28,7 +28,6 @@
     "signer:build": "bash modules/gizu-signer/scripts/build.sh",
     "signer:test": "cargo test --locked --manifest-path modules/gizu-signer/core/Cargo.toml",
     "debug:ui": "node scripts/start-app.cjs ui",
-    "start:demo": "node scripts/start-app.cjs demo",
     "stored-signer:build": "bash modules/gizu-stored-signer/scripts/build.sh",
     "stored-signer:test": "cargo test --locked --manifest-path modules/gizu-stored-signer/core/Cargo.toml",
     "debug:stored-wallet": "node scripts/start-app.cjs stored-wallet",

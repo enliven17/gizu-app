@@ -5,9 +5,10 @@ service availability differs by mode. Future work belongs in [PLAN](../PLAN.md).
 
 The native-mode entries describe the Android app using the stored-wallet signer.
 Platform acceptance and remaining migration work are tracked in
-[the migration plan](SIGNER_MIGRATION.md). Explicit demo mode remains separate.
+[the migration plan](SIGNER_MIGRATION.md). Historical fixture journeys remain in tests and the isolated UI playground;
+simulated passkey startup has been removed.
 
-| Journey                         | Normal native mode                                             | Explicit demo mode                           |
+| Journey                         | Normal native mode                                             | Test/preview fixtures                        |
 | ------------------------------- | -------------------------------------------------------------- | -------------------------------------------- |
 | Welcome/access                  | Native passkey create/open; Account 0 viewing session          | Simulated passkey access                     |
 | Request access                  | Development mock; no real waitlist submission                  | Same mock                                    |
@@ -39,7 +40,7 @@ explicitly demo-only; see [Trading](TRADING.md).
 These feature-specific decisions live here so engineering instructions can remain
 focused on reusable approaches. They supplement the journey statuses above.
 
-- Access is passkey-only. Native and demo sessions are separate and memory-only.
+- Access is passkey-only. Native sessions are memory-only; simulated sessions are retained for tests.
   Restart/disconnect clears access; protected links cannot grant it. Developer UI
   previews are hidden from normal navigation and opened by explicit debug commands.
 - Keep user-facing copy free of demo/simulated prefixes and repetitive banners.

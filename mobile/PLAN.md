@@ -16,7 +16,7 @@ in [signer architecture](docs/NATIVE_SIGNER.md), and evidence in
 | Main app (M6.1a–d)    | Native passkey access, Account 0 MON balance, address/copy, Deposit/Withdraw and Activity in existing routes            | Main-app physical acceptance; incoming/external history is not indexed |
 | Structure             | Hidden developer harnesses; wallet domain/adapters; native RPC, storage and transfer folders                            | Further decomposition only where it improves ownership/testing         |
 
-`npm start` uses native access. `npm run start:demo` selects fixtures. No separate
+`npm start` uses native access only. Fixtures remain in tests and UI previews. No separate
 wallet product screen, new wallet tab or mock financial fallback for real sessions.
 See [capabilities and accepted UI decisions](docs/PARITY.md).
 
