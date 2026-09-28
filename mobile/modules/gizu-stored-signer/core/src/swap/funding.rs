@@ -175,6 +175,7 @@ pub fn user_operation_hash(op: &UserOperation, authorization: Option<&UnsignedAu
 }
 
 /// Accepts only: optional approve(paymaster, feeCap) then transfer(deposit, amount), with amount + fee inside the budget.
+#[allow(clippy::too_many_arguments)]
 pub fn check_funding(
     op: &UserOperation,
     authorization: Option<&UnsignedAuthorization>,
