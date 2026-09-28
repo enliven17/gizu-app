@@ -72,8 +72,7 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
         <Surface>
           <View className="pt-5">
             <AccountAddress
-              compact
-              leading={<AccountInitials initials={native ? "G" : profile.initials} />}
+              leading={<AccountInitials initials={native ? undefined : profile.initials} />}
               heading={
                 <>
                   <Typography variant="rowTitle" className="!text-[16px]">
