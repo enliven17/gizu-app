@@ -1,11 +1,13 @@
 import { Text, View, useWindowDimensions } from "react-native";
 import { Bell } from "lucide-react-native";
+import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { ScrambleText } from "@/components/atoms/ScrambleText";
 import colors from "@/theme/colors.json";
 
 type Props = {
-  initials: string;
+  /** Account initials; the Gizu mark is shown when omitted. */
+  initials?: string;
   /** Optional decorative scrambled eyebrow; its accessible name is the final text. */
   eyebrow?: string;
   greeting: string;
@@ -31,13 +33,17 @@ export function PortfolioHeader({
     <View className="flex-row items-center justify-between gap-3">
       <View className="min-w-0 flex-1 flex-row items-center gap-3">
         <View className="h-11 w-11 items-center justify-center rounded-2xl border border-glassBorder bg-glass">
-          <Text
-            key={fontScale}
-            className="font-sans text-sm text-neon"
-            style={{ fontVariant: ["tabular-nums"] }}
-          >
-            {initials}
-          </Text>
+          {initials === undefined ? (
+            <GizuLogo width={(20 * 638) / 866} height={20} />
+          ) : (
+            <Text
+              key={fontScale}
+              className="font-sans text-sm text-neon"
+              style={{ fontVariant: ["tabular-nums"] }}
+            >
+              {initials}
+            </Text>
+          )}
         </View>
         <View className="min-w-0 flex-1">
           {eyebrow !== undefined && <ScrambleText variant="eyebrow" text={eyebrow} />}

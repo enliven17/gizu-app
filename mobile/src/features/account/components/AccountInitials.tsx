@@ -1,7 +1,11 @@
 import { Text, View, useWindowDimensions } from "react-native";
+import { GizuLogo } from "@/components/atoms/GizuLogo";
 
-/** Frontend Account card tile: `h-14 w-14 rounded-2xl bg-neon/10 text-[15px] text-neon`. */
-export function AccountInitials({ initials }: { initials: string }) {
+/**
+ * Frontend Account card tile: `h-14 w-14 rounded-2xl bg-neon/10 text-[15px] text-neon`.
+ * Shows the Gizu mark when no initials are given (native wallet).
+ */
+export function AccountInitials({ initials }: { initials?: string }) {
   // Remeasure native text after Dynamic Type changes.
   const { fontScale } = useWindowDimensions();
   return (
@@ -10,13 +14,17 @@ export function AccountInitials({ initials }: { initials: string }) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Text
-        key={fontScale}
-        className="font-sans text-[15px] text-neon"
-        style={{ fontVariant: ["tabular-nums"] }}
-      >
-        {initials}
-      </Text>
+      {initials === undefined ? (
+        <GizuLogo width={(24 * 638) / 866} height={24} />
+      ) : (
+        <Text
+          key={fontScale}
+          className="font-sans text-[15px] text-neon"
+          style={{ fontVariant: ["tabular-nums"] }}
+        >
+          {initials}
+        </Text>
+      )}
     </View>
   );
 }
