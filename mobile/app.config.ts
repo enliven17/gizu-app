@@ -22,11 +22,11 @@ const config: ExpoConfig = {
     bundleIdentifier: testflight ? testFlightBundleIdentifier : identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "2",
+    buildNumber: "3",
     infoPlist: {
       GizuTestnetWalletEnabled: testflight,
-      // Rust performs encryption outside Apple's OS libraries; do not assert an exemption.
-      ITSAppUsesNonExemptEncryption: true,
+      // Standard cryptography only; France is excluded from distribution (see README).
+      ITSAppUsesNonExemptEncryption: false,
     },
     associatedDomains: [`webcredentials:${identity.rpId}`],
   },

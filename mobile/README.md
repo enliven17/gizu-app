@@ -320,9 +320,14 @@ Apple approval or physical-device acceptance. Before distributing:
 - Supply a beta description, feedback email, review contact,
   privacy-policy URL and reviewer instructions in App Store Connect. Do not
   invent credentials: wallet creation uses the reviewer's own supported passkey.
-- Resolve Apple's export-compliance questionnaire for the bundled cryptography.
-  `ITSAppUsesNonExemptEncryption` is conservatively true; this is not an export
-  classification or an assertion that paperwork is complete.
+- `ITSAppUsesNonExemptEncryption` is false for the current standard-cryptography
+  implementation and distribution excluding France. iOS encrypts wallet records,
+  backups and journals with Apple CryptoKit; Rust provides standard key derivation
+  and signatures. No Apple export-compliance code is configured. See
+  [Apple's documentation requirements](https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption).
+  Keep France excluded from distribution and revisit this declaration before
+  changing cryptography or distribution territories. This setting does not disable
+  encryption or establish that all export-reporting obligations are complete.
 - Complete the deferred physical-iPhone acceptance, especially create → verified
   backup → reopen, iPhone-to-iPhone recovery, cancellation and testnet transfers.
 
