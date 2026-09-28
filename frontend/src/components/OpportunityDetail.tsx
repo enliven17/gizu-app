@@ -177,67 +177,6 @@ export default function OpportunityDetail({
               ))}
             </div>
 
-            <div className="mt-7">
-              <h3 className="mb-3 text-[20px] font-medium tracking-tight">About</h3>
-              <div className="glass rounded-3xl p-5 text-[14px] leading-relaxed text-white/65">
-                {load.opportunity.description}
-              </div>
-            </div>
-
-            {load.opportunity.howToSteps.length > 0 && (
-              <div className="mt-7">
-                <h3 className="mb-3 text-[20px] font-medium tracking-tight">How to</h3>
-                <div className="glass divide-y divide-white/5 rounded-3xl">
-                  {load.opportunity.howToSteps.map((step, index) => (
-                    <div key={step} className="flex gap-3 px-5 py-4">
-                      <span className="font-mono text-[11px] text-neon/70">{index + 1}</span>
-                      <span className="text-[14px] text-white/70">{step}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-7">
-              <h3 className="mb-3 text-[20px] font-medium tracking-tight">Tokens</h3>
-              <div className="glass divide-y divide-white/5 rounded-3xl">
-                {load.opportunity.tokens.map((token) => (
-                  <div key={token.id} className="flex items-center justify-between gap-3 px-5 py-4">
-                    <div className="min-w-0">
-                      <div className="truncate text-[14px] text-white/80">{token.symbol}</div>
-                      <div className="mt-1 truncate font-mono text-[10px] text-white/30">{token.address}</div>
-                    </div>
-                    <span className="shrink-0 font-mono text-[13px] text-white/50">{money(token.price)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-7">
-              <h3 className="mb-3 text-[20px] font-medium tracking-tight">Details</h3>
-              <div className="glass divide-y divide-white/5 rounded-3xl">
-                {[
-                  ['Type', load.opportunity.type],
-                  ['Identifier', load.opportunity.identifier],
-                  ['Explorer', load.opportunity.explorerAddress],
-                  ['Opportunity id', load.opportunity.id],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-start justify-between gap-4 px-5 py-4">
-                    <span className="shrink-0 text-[13px] text-white/40">{k}</span>
-                    <span className="break-all text-right font-mono text-[12px] text-white/80">{v}</span>
-                  </div>
-                ))}
-                {load.opportunity.tags.length > 0 && (
-                  <div className="flex items-start justify-between gap-4 px-5 py-4">
-                    <span className="shrink-0 text-[13px] text-white/40">Tags</span>
-                    <span className="text-right font-mono text-[12px] text-white/80">
-                      {load.opportunity.tags.join(', ')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {load.opportunity.campaigns.length > 0 && (
               <div className="mt-7">
                 <h3 className="mb-3 text-[20px] font-medium tracking-tight">Campaigns</h3>
