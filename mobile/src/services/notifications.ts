@@ -45,6 +45,14 @@ export const notificationFixture: NotificationItem[] = [
     read: true,
   },
 ];
+/** Native wallet inbox: no notification source is integrated yet, so it is empty. */
+export const emptyNotificationService: NotificationService = {
+  async load() {
+    return [];
+  },
+  async setRead() {},
+};
+
 export function createMockNotificationService(seed = notificationFixture): NotificationService {
   let items = seed.map((item) => ({ ...item }));
   return {

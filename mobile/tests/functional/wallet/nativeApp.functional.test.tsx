@@ -129,23 +129,20 @@ test("disconnect aborts a balance request and late results cannot leak into the 
   expect(await screen.findByLabelText("Account address: 0x" + "2".repeat(40))).toBeVisible();
 });
 
-test.each(["notifications", "vault/helix"])(
-  "native deep link %s cannot reach a mock service",
-  async (path) => {
-    const subscribe = jest.spyOn(Linking, "addEventListener");
-    setup();
-    await open();
-    await screen.findByLabelText("19.990574 MON");
-    const listener = subscribe.mock.calls.filter(([type]) => type === "url").at(-1)?.[1];
-    if (!listener) throw new Error("Missing listener");
-    await act(async () => listener({ url: "gizu-dev://" + path }));
-    expect(
-      await screen.findByText("This service is not connected to your wallet yet."),
-    ).toBeVisible();
-    await userEvent.press(screen.getByRole("button", { name: "Back" }));
-    expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
-  },
-);
+test.each(["vault/helix"])("native deep link %s cannot reach a mock service", async (path) => {
+  const subscribe = jest.spyOn(Linking, "addEventListener");
+  setup();
+  await open();
+  await screen.findByLabelText("19.990574 MON");
+  const listener = subscribe.mock.calls.filter(([type]) => type === "url").at(-1)?.[1];
+  if (!listener) throw new Error("Missing listener");
+  await act(async () => listener({ url: "gizu-dev://" + path }));
+  expect(
+    await screen.findByText("This service is not connected to your wallet yet."),
+  ).toBeVisible();
+  await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
+});
 
 const recipient = "0x" + "3".repeat(40);
 const hash = "0x" + "a".repeat(64);
@@ -258,4 +255,12 @@ test("closing withdrawal preserves the operation and Activity observes its resul
   expect(await screen.findByText("Pending")).toBeVisible();
   expect(transfers.send).toHaveBeenCalledTimes(1);
   expect(transfers.cancel).not.toHaveBeenCalled();
+});
+
+test("native notifications open an empty inbox instead of mock alerts", async () => {
+  setup();
+  await open();
+  await screen.findByLabelText("19.990574 MON");
+  await userEvent.press(screen.getByRole("button", { name: "Notifications, 0 unread" }));
+  expect(await screen.findByText("No notifications yet.")).toBeVisible();
 });

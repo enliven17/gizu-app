@@ -7,7 +7,7 @@ import type { WalletBalanceService } from "@/services/wallet/balance";
 import type { ReactNode } from "react";
 import { AccountProvider, type AccountDependencies } from "@/features/account/AccountProvider";
 import { NotificationProvider } from "@/features/notifications/NotificationProvider";
-import type { NotificationService } from "@/services/notifications";
+import { emptyNotificationService, type NotificationService } from "@/services/notifications";
 import { TransactionProvider } from "@/features/transactions/TransactionProvider";
 import type { TransactionService } from "@/services/transactions";
 import { EarlyAccessProvider } from "@/features/access/EarlyAccessProvider";
@@ -73,7 +73,9 @@ function AppNavigation({
         >
           <OpportunityServiceContext.Provider value={opportunityService}>
             <AccountProvider {...accountDependencies}>
-              <RootNavigator />
+              <NotificationProvider service={emptyNotificationService}>
+                <RootNavigator />
+              </NotificationProvider>
             </AccountProvider>
           </OpportunityServiceContext.Provider>
         </WalletProvider>

@@ -156,19 +156,25 @@ function DemoPortfolio({ navigation }: Props) {
   );
 }
 
+function NativeHeader({ onNotifications }: { onNotifications: () => void }) {
+  const { unread } = useNotifications();
+  return (
+    <PortfolioHeader
+      greeting="Gizu"
+      notificationsLabel={`Notifications, ${unread} unread`}
+      unread={unread}
+      onNotifications={onNotifications}
+    />
+  );
+}
+
 function NativePortfolio({ navigation }: Props) {
   const wallet = useWallet();
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <Screen>
       <FadeIn delay={sectionDelay(0)}>
-        <PortfolioHeader
-          initials="G"
-          greeting="Welcome back"
-          notificationsLabel="Notifications unavailable"
-          notificationsDisabled
-          onNotifications={() => {}}
-        />
+        <NativeHeader onNotifications={() => root.navigate("Notifications")} />
       </FadeIn>
       <FadeIn delay={sectionDelay(1)} className="mt-5 gap-2">
         <View className="flex-row items-center justify-between gap-3">

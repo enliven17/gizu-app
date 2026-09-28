@@ -32,10 +32,7 @@ export function RootNavigator() {
       {session ? (
         <Stack.Group navigationKey={session.kind + ":" + session.accountId}>
           <Stack.Screen name="AccountPage" component={AccountPageScreen} />
-          <Stack.Screen
-            name="Notifications"
-            component={native ? UnavailableScreen : NotificationsScreen}
-          />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen
             name="Transaction"
             component={TransactionScreen}
