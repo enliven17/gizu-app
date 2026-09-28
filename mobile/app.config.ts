@@ -31,6 +31,26 @@ const config: ExpoConfig = {
         android: { image: "./assets/splash-logo.png", imageWidth: 80 },
       },
     ],
+    [
+      // iOS ships Helvetica Neue; Android embeds the owner-licensed frontend files as
+      // one weighted family so fontWeight selects the right face.
+      "expo-font",
+      {
+        android: {
+          fonts: [
+            {
+              fontFamily: "HelveticaNeue",
+              fontDefinitions: [
+                { path: "./assets/fonts/HelveticaNeue-400.ttf", weight: 400 },
+                { path: "./assets/fonts/HelveticaNeue-500.ttf", weight: 500 },
+                { path: "./assets/fonts/HelveticaNeue-700.ttf", weight: 700 },
+                { path: "./assets/fonts/HelveticaNeue-800.ttf", weight: 800 },
+              ],
+            },
+          ],
+        },
+      },
+    ],
     "./plugins/withAndroidDevelopmentSigning.cjs",
   ],
 };
