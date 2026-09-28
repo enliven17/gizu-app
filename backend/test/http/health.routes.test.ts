@@ -10,6 +10,8 @@ test("health reports database unavailable when postgres is unreachable", async (
     MERKL_API_URL: "https://api.merkl.xyz",
     MERKL_API_KEY: "merkl-api-key",
     ONEINCH_API_KEY: "oneinch-api-key",
+    AURORA_API_KEY: "aurora-api-key",
+    PIMLICO_API_KEY: "pimlico-api-key",
   });
   const response = await app.inject({
     method: "GET",

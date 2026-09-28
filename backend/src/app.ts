@@ -7,7 +7,11 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from "@fastify/type-provider-zod";
+import { AuroraIntents } from "./adapters/aurora/aurora-intents.ts";
+import { OneInchFusion } from "./adapters/oneinch/fusion.ts";
 import { OneInchTokenCatalog } from "./adapters/oneinch/token-catalog.ts";
+import { PimlicoMonadFunding } from "./adapters/pimlico/monad-funding.ts";
+import { registerSwapRoutes } from "./http/routes/swap.routes.ts";
 import { registerTokenRoutes } from "./http/routes/tokens.routes.ts";
 import { HttpMerklOpportunities } from "./adapters/merkl/http-merkl-opportunities.ts";
 import { PgCache } from "./adapters/postgres/pg-cache.ts";
@@ -55,6 +59,11 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
 
   registerHealthRoutes(app, healthController);
   registerTokenRoutes(app, new OneInchTokenCatalog(secret.ONEINCH_API_KEY));
+  registerSwapRoutes(app, {
+    aurora: new AuroraIntents(secret.AURORA_API_KEY),
+    funding: new PimlicoMonadFunding(secret.PIMLICO_API_KEY),
+    fusion: new OneInchFusion(secret.ONEINCH_API_KEY),
+  });
   const opportunities = new HttpMerklOpportunities(
     secret.MERKL_API_URL,
     secret.MERKL_API_KEY,
