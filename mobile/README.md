@@ -262,3 +262,19 @@ Phase-3 guided checks were user-reported successful. Guided phase-4 cancellation
 user-reported successful. Extended failure paths and second-device restore remain pending. Test restore only where the original
 passkey is available and compare Account 0. The explicit `npm run debug:stored-wallet`
 harness and retained legacy source remain separate from normal entry.
+
+## Local vault catalog
+
+Normal wallet mode lists Monad mainnet opportunities from the backend; wallet balances
+and signing remain on Monad testnet. The catalog is read-only: no deposit, withdrawal,
+or external deposit link is exposed. Explicit demo mode retains fixture vaults.
+
+Start PostgreSQL with `docker compose up -d` in `backend/`. Set the backend local
+`DATABASE_URL` to match `backend/.env.example` (port 54329), then run `npm run build`
+and `npm start`. `GET http://127.0.0.1:3000/v1/health` should return status `ok`.
+
+Development mobile defaults to `http://127.0.0.1:3000`. With an Android phone connected
+by USB, run `adb reverse tcp:3000 tcp:3000` in addition to the Metro port forwarding.
+For other hosts, set `EXPO_PUBLIC_API_URL` to a reachable backend URL and restart Metro.
+Release builds require an explicit HTTPS URL. The public configuration contains no
+Merkl API key; that stays on the backend.

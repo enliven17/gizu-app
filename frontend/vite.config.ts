@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   server: {
     proxy: {
-      '/v1': 'http://127.0.0.1:3017',
+      '/v1': 'http://127.0.0.1:3000',
     },
   },
 })

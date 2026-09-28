@@ -1,3 +1,6 @@
+import { OpportunityServiceContext } from "@/features/opportunities/useOpportunities";
+import { opportunityService as defaultOpportunityService } from "@/services/opportunities";
+import type { OpportunityService } from "@/domain/opportunities";
 import type { WalletTransferService } from "@/domain/wallet/types";
 import { WalletProvider } from "@/features/wallet/WalletProvider";
 import type { WalletBalanceService } from "@/services/wallet/balance";
@@ -33,6 +36,7 @@ const theme = {
 };
 function AppNavigation({
   investmentService,
+  opportunityService = defaultOpportunityService,
   transactionService,
   accountDependencies,
   notificationService,
@@ -41,6 +45,7 @@ function AppNavigation({
   walletTransferService,
 }: {
   investmentService?: InvestmentService;
+  opportunityService?: OpportunityService;
   transactionService?: TransactionService;
   accountDependencies?: AccountDependencies;
   notificationService?: NotificationService;
@@ -66,9 +71,11 @@ function AppNavigation({
           balance={walletBalanceService}
           transfers={walletTransferService}
         >
-          <AccountProvider {...accountDependencies}>
-            <RootNavigator />
-          </AccountProvider>
+          <OpportunityServiceContext.Provider value={opportunityService}>
+            <AccountProvider {...accountDependencies}>
+              <RootNavigator />
+            </AccountProvider>
+          </OpportunityServiceContext.Provider>
         </WalletProvider>
       ) : session ? (
         <InvestmentProvider service={investmentService}>
@@ -90,6 +97,7 @@ export function AppRoot({
   accessService,
   earlyAccessService,
   investmentService,
+  opportunityService = defaultOpportunityService,
   transactionService,
   accountDependencies,
   notificationService,
@@ -100,6 +108,7 @@ export function AppRoot({
   accessService?: AccessService;
   earlyAccessService?: EarlyAccessService;
   investmentService?: InvestmentService;
+  opportunityService?: OpportunityService;
   transactionService?: TransactionService;
   accountDependencies?: AccountDependencies;
   notificationService?: NotificationService;
@@ -119,6 +128,7 @@ export function AppRoot({
               renderNativeSession={renderNativeSession}
               accountDependencies={accountDependencies}
               notificationService={notificationService}
+              opportunityService={opportunityService}
               investmentService={investmentService}
               transactionService={transactionService}
             />

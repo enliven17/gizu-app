@@ -1,3 +1,4 @@
+import { MainnetVaults } from "@/features/opportunities/MainnetVaults";
 import { useSession } from "@/application/SessionProvider";
 import { useState } from "react";
 import { View } from "react-native";
@@ -15,13 +16,7 @@ import { useInvestments } from "./InvestmentProvider";
 import { DataStatus } from "./DataStatus";
 export function VaultsScreen(props: BottomTabScreenProps<MainTabParamList, "Vaults">) {
   const { session } = useSession();
-  if (session?.kind === "testnet")
-    return (
-      <Screen>
-        <Typography variant="heading">Confidential vaults</Typography>
-        <Typography>Vault discovery and investment services are not connected yet.</Typography>
-      </Screen>
-    );
+  if (session?.kind === "testnet") return <MainnetVaults />;
   return <DemoVaults {...props} />;
 }
 function DemoVaults({ navigation }: BottomTabScreenProps<MainTabParamList, "Vaults">) {

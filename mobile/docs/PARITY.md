@@ -3,24 +3,22 @@
 Consolidated 2026-09-24. Existing frontend-inspired mobile design is retained;
 service availability differs by mode. Future work belongs in [PLAN](../PLAN.md).
 
-Migration status (2026-09-25): native wallet access is temporarily unavailable on
-Android and unsupported on iOS while the stored-wallet replacement is built.
-The table below records the pre-migration native integration to reconnect later;
-its native features are not currently reachable through app access. Explicit demo
-mode remains available. See [the migration plan](SIGNER_MIGRATION.md).
+The native-mode entries describe the Android app using the stored-wallet signer.
+Platform acceptance and remaining migration work are tracked in
+[the migration plan](SIGNER_MIGRATION.md). Explicit demo mode remains separate.
 
-| Journey                         | Normal native mode                                              | Explicit demo mode                           |
-| ------------------------------- | --------------------------------------------------------------- | -------------------------------------------- |
-| Welcome/access                  | Native passkey create/open; Account 0 viewing session           | Simulated passkey access                     |
-| Request access                  | Development mock; no real waitlist submission                   | Same mock                                    |
-| Home                            | Actual Monad testnet MON balance, error/retry, address actions  | Fixture portfolio and charts                 |
-| Vaults                          | Destination retained, discovery/investment services unavailable | Search/filter, details, charts and sharing   |
-| Swap                            | Coming soon                                                     | Coming soon                                  |
-| Deposit                         | Receiving address/network/copy; no signing                      | Simulated transfer journey                   |
-| Withdraw                        | <=0.1 MON, expected sender binding, native approval             | Simulated review/signing/result              |
-| Activity                        | Account-filtered local outgoing journal only                    | Fixture activity                             |
-| Account                         | Real address/copy, local preferences, disconnect                | Fixture profile and secondary pages          |
-| Notifications/support/documents | Unsupported service actions guarded                             | Local fixture interactions, no real delivery |
+| Journey                         | Normal native mode                                             | Explicit demo mode                           |
+| ------------------------------- | -------------------------------------------------------------- | -------------------------------------------- |
+| Welcome/access                  | Native passkey create/open; Account 0 viewing session          | Simulated passkey access                     |
+| Request access                  | Development mock; no real waitlist submission                  | Same mock                                    |
+| Home                            | Actual Monad testnet MON balance, error/retry, address actions | Fixture portfolio and charts                 |
+| Vaults                          | Read-only Monad mainnet catalog; no investment actions         | Search/filter, details, charts and sharing   |
+| Swap                            | Coming soon                                                    | Coming soon                                  |
+| Deposit                         | Receiving address/network/copy; no signing                     | Simulated transfer journey                   |
+| Withdraw                        | <=0.1 MON, expected sender binding, native approval            | Simulated review/signing/result              |
+| Activity                        | Account-filtered local outgoing journal only                   | Fixture activity                             |
+| Account                         | Real address/copy, local preferences, disconnect               | Fixture profile and secondary pages          |
+| Notifications/support/documents | Unsupported service actions guarded                            | Local fixture interactions, no real delivery |
 
 Native sessions mount no mock financial providers. Unsupported balances/positions
 are not zero-valued fictional holdings. No standalone wallet product UI is added.
@@ -86,3 +84,11 @@ focused on reusable approaches. They supplement the journey statuses above.
   in the background or with reduced motion; non-default text sizes keep native
   heading wrapping without decorative slices. This effect uses Reanimated and
   the shared SVG logo, with no new Lottie asset or dependency.
+
+## Mainnet catalog
+
+Native-mode Vaults reads the backend opportunity catalog on chain 143, with search,
+protocol filters, pagination, APR and TVL. It does not change the wallet network
+(chain 10143), expose deposit links or invoke signing. Unsupported demo risk, APY,
+price and performance values are not synthesized. Details and investment execution
+remain unavailable in native mode. Backend responses may be cached for five minutes.
