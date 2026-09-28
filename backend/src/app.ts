@@ -7,6 +7,8 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from "@fastify/type-provider-zod";
+import { OneInchTokenCatalog } from "./adapters/oneinch/token-catalog.ts";
+import { registerTokenRoutes } from "./http/routes/tokens.routes.ts";
 import { HttpMerklOpportunities } from "./adapters/merkl/http-merkl-opportunities.ts";
 import { PgCache } from "./adapters/postgres/pg-cache.ts";
 import { PgDatabaseProbe } from "./adapters/postgres/pg-database-probe.ts";
@@ -52,6 +54,7 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   );
 
   registerHealthRoutes(app, healthController);
+  registerTokenRoutes(app, new OneInchTokenCatalog(secret.ONEINCH_API_KEY));
   const opportunities = new HttpMerklOpportunities(
     secret.MERKL_API_URL,
     secret.MERKL_API_KEY,

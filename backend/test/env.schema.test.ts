@@ -11,6 +11,7 @@ const apiEnv = {
   DATABASE_URL: databaseUrl,
   MERKL_API_URL: "https://api.merkl.xyz",
   MERKL_API_KEY: "merkl-api-key",
+  ONEINCH_API_KEY: "oneinch-api-key",
 };
 
 test("parses a complete api env", () => {
@@ -20,7 +21,13 @@ test("parses a complete api env", () => {
     DATABASE_URL: databaseUrl,
     MERKL_API_URL: "https://api.merkl.xyz",
     MERKL_API_KEY: "merkl-api-key",
+    ONEINCH_API_KEY: "oneinch-api-key",
   });
+});
+
+test("rejects a missing 1inch key", () => {
+  const { ONEINCH_API_KEY: _key, ...withoutKey } = apiEnv;
+  assert.throws(() => parseApiEnv(withoutKey), /ONEINCH_API_KEY/);
 });
 
 test("rejects a missing database url", () => {

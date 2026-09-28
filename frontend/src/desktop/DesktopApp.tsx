@@ -4,7 +4,7 @@ import DesktopEntry from './DesktopEntry'
 import DesktopShell from './DesktopShell'
 import DesktopHome from './DesktopHome'
 import DesktopVaults from './DesktopVaults'
-import ComingSoon from '../components/ComingSoon'
+import TokenCatalog from '../components/TokenCatalog'
 import DesktopSettings from './DesktopSettings'
 import OpportunityDetail from '../components/OpportunityDetail'
 import SwapSheet from '../components/SwapSheet'
@@ -69,7 +69,7 @@ export default function DesktopApp() {
           {screen === 'app' && tab === 'vaults' && (
             <DesktopVaults onOpenOpportunity={openOpportunity} />
           )}
-          {screen === 'app' && tab === 'swap' && <ComingSoon />}
+          {screen === 'app' && tab === 'swap' && <TokenCatalog />}
           {screen === 'app' && tab === 'settings' && <DesktopSettings onOpen={openSub} />}
           {screen === 'vault' && opportunityId.length > 0 && (
             <div className="mx-auto flex min-h-0 w-full max-w-[920px] flex-1 flex-col">
