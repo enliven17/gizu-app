@@ -40,7 +40,7 @@ const logo = readFileSync(join(HERE, '../diagrams/site/gizulogo.svg'), 'utf8')
   .replace(/^<svg[^>]*>|<\/svg>\s*$/g, '')
   .replace(/#FEFEFE/g, NEON)
 
-const font = (w) => pathToFileURL(join(HERE, `../diagrams/site/fonts/HelveticaNeue-${w}.ttf`)).href
+const font = (w) => `fonts/HelveticaNeue-${w}.ttf`
 
 // glitch echo headline, same treatment as the X cover
 const headline = (x, y, s, fill) => `

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
   <defs>
     <style>
-      @font-face { font-family: 'HN'; font-weight: 500; src: url('file:///C:/Users/enliven/Documents/GitHub/private-investment-app/brand/diagrams/site/fonts/HelveticaNeue-500.ttf'); }
-      @font-face { font-family: 'HN'; font-weight: 700; src: url('file:///C:/Users/enliven/Documents/GitHub/private-investment-app/brand/diagrams/site/fonts/HelveticaNeue-700.ttf'); }
+      @font-face { font-family: 'HN'; font-weight: 500; src: url('fonts/HelveticaNeue-500.ttf'); }
+      @font-face { font-family: 'HN'; font-weight: 700; src: url('fonts/HelveticaNeue-700.ttf'); }
       text { font-family: 'HN', 'Helvetica Neue', Arial, sans-serif; }
       .h { font-size: 72px; font-weight: 700; letter-spacing: -1.8px; }
       .s { font-size: 30px; font-weight: 500; letter-spacing: -0.3px; }
