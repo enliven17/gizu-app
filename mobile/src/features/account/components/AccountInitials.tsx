@@ -10,12 +10,12 @@ export function AccountInitials({ initials }: { initials?: string }) {
   const { fontScale } = useWindowDimensions();
   return (
     <View
-      className="h-14 w-14 items-center justify-center rounded-2xl bg-neon/10"
+      className={`h-14 w-14 items-center justify-center rounded-2xl ${initials === undefined ? "" : "bg-neon/10"}`}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
       {initials === undefined ? (
-        <GizuLogo width={(24 * 638) / 866} height={24} />
+        <GizuLogo width={(32 * 638) / 866} height={32} />
       ) : (
         <Text
           key={fontScale}

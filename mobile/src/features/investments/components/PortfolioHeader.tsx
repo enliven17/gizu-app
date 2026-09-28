@@ -32,10 +32,11 @@ export function PortfolioHeader({
   return (
     <View className="flex-row items-center justify-between gap-3">
       <View className="min-w-0 flex-1 flex-row items-center gap-3">
-        <View className="h-11 w-11 items-center justify-center rounded-2xl border border-glassBorder bg-glass">
-          {initials === undefined ? (
-            <GizuLogo width={(20 * 638) / 866} height={20} />
-          ) : (
+        {initials === undefined ? (
+          // Brand header: bare Gizu mark, no tile.
+          <GizuLogo width={(30 * 638) / 866} height={30} />
+        ) : (
+          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-glassBorder bg-glass">
             <Text
               key={fontScale}
               className="font-sans text-sm text-neon"
@@ -43,11 +44,14 @@ export function PortfolioHeader({
             >
               {initials}
             </Text>
-          )}
-        </View>
+          </View>
+        )}
         <View className="min-w-0 flex-1">
           {eyebrow !== undefined && <ScrambleText variant="eyebrow" text={eyebrow} />}
-          <Text key={fontScale} className="font-sans text-[15px] font-medium text-text">
+          <Text
+            key={fontScale}
+            className={`font-sans font-medium text-text ${initials === undefined ? "text-[24px]" : "text-[15px]"}`}
+          >
             {greeting}
           </Text>
         </View>
