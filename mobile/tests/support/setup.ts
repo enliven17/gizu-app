@@ -8,8 +8,14 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn().mockResolvedValue(true) }));
 jest.mock("react-native-safe-area-context", () => mockSafeAreaContext);
 // Native animation runtime is unavailable in Jest.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock("react-native-reanimated", () => require("react-native-reanimated/mock"));
+jest.mock("react-native-reanimated", () => ({
+  __esModule: true,
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ...require("react-native-reanimated/mock"),
+  // The official mock omits this hook; tests run with motion enabled.
+  useReducedMotion: jest.fn(() => false),
+  useFrameCallback: () => ({ setActive: () => undefined, isActive: false, callbackId: -1 }),
+}));
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock("react-native-worklets", () => require("react-native-worklets/lib/module/mock"));
 jest.mock("lottie-react-native", () => ({ __esModule: true, default: "LottieView" }));
@@ -20,7 +26,17 @@ jest.mock("@shopify/react-native-skia", () => ({
   Fill: "SkiaFill",
   Shader: "SkiaShader",
   Points: "SkiaPoints",
-  Skia: { RuntimeEffect: { Make: () => ({}) } },
+  Atlas: "SkiaAtlas",
+  FilterMode: { Linear: 1 },
+  MipmapMode: { Linear: 2 },
+  TileMode: { Clamp: 0 },
+  Skia: {
+    RuntimeEffect: { Make: () => ({}) },
+    Surface: { Make: () => null },
+    Color: () => new Float32Array(4),
+    XYWHRect: (x: number, y: number, width: number, height: number) => ({ x, y, width, height }),
+  },
+  useRSXformBuffer: () => ({ value: [] }),
   useClock: () => ({ value: 0 }),
   vec: (x: number, y: number) => ({ x, y }),
 }));

@@ -46,7 +46,9 @@ export function GlitchText({
       accessibilityLabel={accessibilityLabel}
       className="h-24 items-center justify-center overflow-hidden rounded-3xl border border-border bg-ink"
     >
-      {text ? <Text className="text-5xl font-bold tracking-[8px] text-accent">{text}</Text> : null}
+      {text ? (
+        <Text className="font-sans text-5xl font-bold tracking-[8px] text-accent">{text}</Text>
+      ) : null}
       <LottieView
         ref={animation}
         source={source}

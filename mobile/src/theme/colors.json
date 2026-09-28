@@ -5,5 +5,25 @@
   "text": "#dfe8e3",
   "muted": "#a7b2ab",
   "danger": "#ff9b9b",
-  "border": "#1d2821"
+  "border": "#1d2821",
+  "neon": { "DEFAULT": "#31c47e", "dim": "#238a5a", "deep": "#123423" },
+  "sell": "#c4576a",
+  "sellText": "#1b0508",
+  "ctaText": "#05140d",
+  "rose": "#fb7185",
+  "glass": "rgba(14,19,16,0.72)",
+  "glassBorder": "rgba(255,255,255,0.055)",
+  "glassSoft": "rgba(255,255,255,0.032)",
+  "borderSoft": "rgba(255,255,255,0.045)",
+  "divider": "rgba(255,255,255,0.05)",
+  "glitchTop": "#49c9a0",
+  "glitchBottom": "#8fbf5a",
+  "fg": {
+    "20": "rgba(255,255,255,0.2)",
+    "35": "rgba(255,255,255,0.35)",
+    "45": "rgba(255,255,255,0.45)",
+    "55": "rgba(255,255,255,0.55)",
+    "70": "rgba(255,255,255,0.7)",
+    "85": "rgba(255,255,255,0.85)"
+  }
 }
