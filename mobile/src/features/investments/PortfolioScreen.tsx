@@ -5,7 +5,8 @@ import { useNotifications } from "@/features/notifications/NotificationProvider"
 import { useTransactions } from "@/features/transactions/TransactionProvider";
 import { OperationLink } from "@/features/transactions/OperationLink";
 import { decimal } from "@/domain/transactions";
-import { View } from "react-native";
+import { Image, View } from "react-native";
+import monadMark from "../../../assets/logos/monad-white.png";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
@@ -201,7 +202,17 @@ function NativePortfolio({ navigation }: Props) {
               Balance unavailable. Please retry.
             </Typography>
           ) : wallet.balance !== null ? (
-            <Balance value={wallet.balance + " MON"} />
+            <Balance
+              value={wallet.balance + " MON"}
+              icon={
+                <Image
+                  source={monadMark}
+                  className="h-7 w-7"
+                  accessibilityIgnoresInvertColors
+                  accessible={false}
+                />
+              }
+            />
           ) : null}
         </View>
         {wallet.error && (
