@@ -295,10 +295,10 @@ behavior; no simulator authentication bypass is included.
 
 ## iOS TestFlight beta
 
-The `testflight` EAS profile builds **Gizu** (`io.gizu.ios`) in Release for
+The `testflight` EAS profile builds **Gizu** (`io.gizo.ios`) in Release for
 App Store distribution. Its wallet remains restricted to Monad testnet (10143).
 The profile sets `GIZU_BUILD_VARIANT=testflight` so local EAS configuration and
-credential selection use `io.gizu.ios` too. Build numbers are managed manually:
+credential selection use `io.gizo.ios` too. Build numbers are managed manually:
 increment `ios.buildNumber` in `app.config.ts` before each new TestFlight upload.
 The profile embeds `GizuTestnetWalletEnabled` in the native Info.plist; ordinary
 Release builds without that opt-in cannot use the signer. Diagnostic screens and
@@ -307,11 +307,11 @@ mock swap UI remain development-only. Production builds remain blocked.
 The first distribution targets external testers. Preparing an archive is not
 Apple approval or physical-device acceptance. Before distributing:
 
-- Register `io.gizu.ios` with Associated Domains under team `588X2UZY3L`, and
+- Register `io.gizo.ios` with Associated Domains under team `588X2UZY3L`, and
   create the matching App Store Connect app record.
 - Deploy the frontend association change and verify
   `https://gizu.io/.well-known/apple-app-site-association` includes
-  `588X2UZY3L.io.gizu.ios`. The development app entry must remain present.
+  `588X2UZY3L.io.gizo.ios`. The development app entry must remain present.
 - Link this mobile project to the intended Expo account/project using EAS CLI.
   Obtain Apple distribution credentials and the matching provisioning profile.
 - The TestFlight profile sets `EXPO_PUBLIC_API_URL` to

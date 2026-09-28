@@ -205,7 +205,7 @@ public hashes/statuses. Never capture real credential secrets or heap dumps.
 
 ## TestFlight Release preparation — 2026-09-28
 
-Target: external testers, bundle `io.gizu.ios`, Monad testnet only. Release wallet
+Target: external testers, bundle `io.gizo.ios`, Monad testnet only. Release wallet
 availability requires the signed native `GizuTestnetWalletEnabled` opt-in; public
 JavaScript configuration cannot enable another chain or bypass native approval.
 

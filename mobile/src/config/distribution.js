@@ -1,7 +1,7 @@
 // @ts-check
 // Build-time values only. Wallet authority is enforced by the signed native binary.
 const { isIP } = require("node:net");
-const testFlightBundleIdentifier = "io.gizu.ios";
+const testFlightBundleIdentifier = "io.gizo.ios";
 
 /** @param {Record<string, string | undefined>} env */
 function distributionConfig(env) {

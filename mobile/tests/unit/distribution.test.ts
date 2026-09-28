@@ -7,7 +7,7 @@ test("TestFlight explicitly selects the iOS beta identity", () => {
     distributionConfig({ EAS_BUILD_PROFILE: "testflight", EAS_BUILD_PLATFORM: "ios" }),
   ).toEqual({
     testflight: true,
-    testFlightBundleIdentifier: "io.gizu.ios",
+    testFlightBundleIdentifier: "io.gizo.ios",
   });
   expect(distributionConfig({}).testflight).toBe(false);
   expect(distributionConfig({ GIZU_BUILD_VARIANT: "testflight" }).testflight).toBe(true);

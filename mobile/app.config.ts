@@ -22,7 +22,7 @@ const config: ExpoConfig = {
     bundleIdentifier: testflight ? testFlightBundleIdentifier : identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "1",
+    buildNumber: "2",
     infoPlist: {
       GizuTestnetWalletEnabled: testflight,
       // Rust performs encryption outside Apple's OS libraries; do not assert an exemption.
