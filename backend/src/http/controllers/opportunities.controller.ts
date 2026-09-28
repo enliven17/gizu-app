@@ -1,10 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { supportedProtocols } from "../../domain/protocol.ts";
 import type { GetOpportunityTvlRecordsUseCase } from "../../usecase/opportunities/get-opportunity-tvl-records.usecase.ts";
 import type { GetOpportunityUseCase } from "../../usecase/opportunities/get-opportunity.usecase.ts";
 import type { ListOpportunitiesUseCase } from "../../usecase/opportunities/list-opportunities.usecase.ts";
 import type {
   ListOpportunitiesQuery,
   OpportunityParams,
+  ProtocolParams,
   TvlRecordsParams,
   TvlRecordsQuery,
 } from "../routes/opportunities.routes.ts";
@@ -16,11 +18,38 @@ export class OpportunitiesController {
     private readonly getOpportunityTvlRecords: GetOpportunityTvlRecordsUseCase,
   ) {}
 
+  protocols = async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.code(200).send({ list: supportedProtocols });
+  };
+
   list = async (
     request: FastifyRequest<{ Querystring: ListOpportunitiesQuery }>,
     reply: FastifyReply,
   ) => {
     const response = await this.listOpportunities.execute({
+      protocol: "all",
+      search: request.query.search,
+      page: request.query.page,
+      items: request.query.items,
+      chainId: request.query.chainId,
+    });
+    return reply.code(200).send({
+      list: response.list,
+      page: request.query.page,
+      items: request.query.items,
+      total: response.total,
+    });
+  };
+
+  listByProtocol = async (
+    request: FastifyRequest<{
+      Params: ProtocolParams;
+      Querystring: ListOpportunitiesQuery;
+    }>,
+    reply: FastifyReply,
+  ) => {
+    const response = await this.listOpportunities.execute({
+      protocol: request.params.protocolId,
       search: request.query.search,
       page: request.query.page,
       items: request.query.items,

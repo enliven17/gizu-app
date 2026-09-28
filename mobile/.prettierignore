@@ -6,5 +6,5 @@ ios
 android
 package-lock.json
 
-modules/gizu-signer/core/target
-modules/gizu-signer/generated
+modules/*/core/target
+modules/*/generated

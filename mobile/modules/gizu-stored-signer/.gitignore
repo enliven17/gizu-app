@@ -1,0 +1,5 @@
+core/target/
+generated/
+android/src/main/jniLibs/
+android/build/
+android/.cxx/

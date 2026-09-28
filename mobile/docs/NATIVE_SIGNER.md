@@ -1,5 +1,131 @@
 # Native signer architecture and contract
 
+## Stored-wallet replacement boundary
+
+The retained `modules/gizu-signer` implementation is disconnected from the app
+and excluded from Android/iOS autolinking. No legacy lookup or fallback remains
+in application access or diagnostic entry points. Existing installed binaries
+require rebuilding to remove the old native registration. Legacy JavaScript adapters
+are retained under `src/development/legacySigner`; normal wallet composition requires
+a stored-wallet identity and never selects these adapters.
+
+The replacement is named `GizuStoredSigner`; its versioned public contract is
+`src/domain/wallet/storedSigner.ts`. Android development builds implement native
+storage, passkey create/open, verified backup/restore and exact transfers in
+`modules/gizu-stored-signer`.
+Only backup-verified wallets enter app sessions. Other platforms are unsupported;
+demo mode stays opt-in. Withdraw and Activity use the replacement operation journal.
+
+The contract provides wallet states (absent, backupRequired, ready, recoveryRequired),
+native create/open/backup/restore ceremonies and operation execute/status/resume/
+cancel methods. Only ready wallets expose account metadata for app sessions;
+backup-required wallets cannot fund or transact. Native code owns file selection,
+backup plaintext, secret material and approval. Resume checks the operation
+revision, reconciles first and obtains fresh native authorization. `lock` ends
+authority without deleting wallet storage or broadcast evidence. Native failures
+will use sanitized errors; no key material, raw signed bytes or file contents cross
+the app bridge.
+
+The replacement storage namespace is `io.gizu.storedwallet.v1`; backup format
+`gizu-stored-wallet` version 1; derivation `gizu-stored-evm-v1`; recovery PRF salt
+is SHA-256 of UTF-8 `gizu.stored-wallet.recovery-prf.v1`. These identities are distinct
+from the preserved signer. RP remains gizu.io. Random 32-byte wallet entropy uses
+English BIP-39, empty passphrase and m/44'/60'/0'/0/i for indices 0–15. Account 0
+remains the app account. The registered passkey authorizes locally stored-wallet
+use; PRF encrypts backups rather than determining wallet addresses.
+
+Storage, passkey authorization, verified onboarding backup and transfer/resume are
+implemented; see [the migration plan](SIGNER_MIGRATION.md). No old state or provider passkeys
+are deleted or migrated. Web wallet sharing and iOS signing are deferred.
+
+## Verified backup and recovery
+
+Native `BackupActivity` owns Android document selection, credential prompts and file IO.
+It is not exported. A process-local operation token and the module mutex bind it to
+one pending native request; recreation/process death requires restarting the ceremony.
+An encrypted file is saved with `ACTION_CREATE_DOCUMENT`, reopened with
+`ACTION_OPEN_DOCUMENT`, then decrypted using a fresh verified passkey PRF result.
+Native comparison checks wallet identity, credential, entropy and all 16 derived
+addresses before atomically persisting `ready`. Cancellation/failure preserves the
+same wallet in `backupRequired`; repeating backup on a ready wallet preserves readiness.
+
+Backup version 1 encrypts 32-byte entropy using AES-256-GCM and the 32-byte recovery
+PRF result as key. AAD binds format/version, RP, derivation version, wallet UUID and
+credential ID/P-256 public key. Files are limited to 64 KiB. Backup plaintext and
+PRF never cross Expo; owned buffers are cleared before document selection. Provider
+and managed-runtime copies cannot be guaranteed to be erased. Two fresh passkey
+checks are expected for save and reopen verification.
+
+Local binary storage version 3 adds a journal-generation UUID. Version-2 records
+retain readiness and use their wallet UUID as journal generation; version-1 records
+load as backup-required without changing entropy. Restore requires the encrypted
+file and its original passkey, validates authenticated metadata and derivation,
+and re-encrypts under a local Keystore key. Only absent/unreadable storage can be
+restored; readable wallets cannot be overwritten. Restore does not recover local
+transaction history. Lost-passkey recovery and web sharing remain deferred.
+
+The two-minute ceremony deadline includes document selection. Backgrounding outside
+native credential/document UI cancels; foreground/unlocked checks apply on return.
+Automated tests cover codec/storage and mocked app flows, not device/provider/file
+picker acceptance or independent security review.
+
+## Exact transfers and operation recovery
+
+The non-exported `TransferActivity` owns preparation, complete native review and a
+fresh verified passkey assertion. Its challenge binds wallet, operation ID, revision
+and review digest. JavaScript supplies proposals and receives public status only.
+Approval requires scrolling through the review. Cancellation, screen lock,
+unexpected backgrounding and the two-minute ceremony deadline end authority.
+
+The adapted Rust policy permits Monad testnet (10143) EIP-1559 native MON transfers
+only: account indices 0–15, up to 32 steps, at most 0.1 MON per step, 1 MON total and
+0.1 MON maximum total fees. Only 21,000-gas EOA transfers are allowed; calldata,
+contract recipients/senders and mainnet are rejected. Account 0 remains the app account.
+
+`OperationJournal` encrypts JSON using AES-GCM and the local Keystore key, with AAD
+binding format, wallet and journal generation. Atomic writes in `noBackupFilesDir`
+persist signed bytes, hash, nonce, quote and step state **before any broadcast**.
+Raw signed bytes and preparation quotes never cross Expo. Reads are bounded to
+4 MiB and 256 active operations. Writes explicitly sync the temporary file, close it,
+rename it, sync the parent directory and verify committed bytes. Any failure prevents
+broadcast; a failure after rename retains the possibly committed record for reconciliation.
+Legacy AtomicFile backups remain readable.
+
+Before creating another operation, unsigned cancelled records are removed. At capacity
+(256 entries or 3 MiB, reserving 1 MiB for new signed records),
+the oldest settled operation is durably archived in a separate encrypted, generation-scoped
+file before removing its active entry. Archive failure leaves the active journal intact;
+a crash between writes may leave a harmless duplicate. Unresolved signed operations
+are never compacted. Activity displays the active window; archive files are retained
+locally for later diagnostics, are not currently browsable in the app, and are not
+included in wallet backups. Archives can accumulate; storage failures fail closed.
+
+Refresh and reopening only reconcile receipts, canonical finalized blocks and
+sender nonces. They never sign, rebroadcast or continue a batch. A missing transaction
+with an unchanged nonce can be explicitly retried after fresh native review and
+passkey authorization, using identical saved bytes and fees. Pending or conflicting
+nonces block further execution. There is no automatic fee replacement or conflict
+resolution. RPC failures preserve evidence and require another successful refresh.
+
+Unsigned remainder is newly prepared and reviewed on every resume. Revision checks
+reject stale requests. Execution waits for each step to finalize before proceeding;
+a pending result stops the batch. Cancellation prevents unsigned remaining steps but
+cannot revoke a signed transaction; its status and explicit retry remain available.
+Restore creates a fresh journal generation and cannot resume another installation's
+operations. Activity shows local outgoing records only, not indexed incoming history.
+
+Android RPC uses OkHttp 4.9.2, matching the existing React Native dependency. The
+fixed Monad endpoint and bounded, cancellable transport live in `rpc/`; orchestration,
+reconciliation, journal and native approval live in `transfers/`. The inactive module
+is not a runtime dependency. Guided phone checks were user-reported successful; extended failure-path
+acceptance remains pending. See [verification evidence](NATIVE_SIGNER_VERIFICATION.md).
+
+## Retained signer reference (inactive)
+
+The remaining sections document the preserved implementation, not current app
+capabilities. Its no-secret-persistence/no-rebroadcast rules apply to that module;
+the replacement intentionally changes those rules under the migration plan.
+
 Updated 2026-09-24 against current source. Development implementation exists on
 Android and iOS; full security/device acceptance is open. Work is tracked only in
 [the roadmap](../PLAN.md); dated results and acceptance gaps live in

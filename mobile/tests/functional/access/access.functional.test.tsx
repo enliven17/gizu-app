@@ -1,3 +1,4 @@
+import { nativeWalletAccess } from "@/services/wallet/access";
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, Linking } from "react-native";
 import { AccessRejectedError, type DemoSession } from "@/services/access";
@@ -190,3 +191,16 @@ test.each([true, false])(
     expect(await screen.findByLabelText("Email address")).toBeVisible();
   },
 );
+
+test("disconnected native access stays on access screen without creating a demo session", async () => {
+  renderApp(nativeWalletAccess);
+  await openAccess();
+  await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
+  expect(
+    await screen.findByText(
+      /Wallet access is (temporarily unavailable|unavailable on this platform)/,
+    ),
+  ).toBeVisible();
+  expect(screen.queryByRole("header", { name: "Your portfolio" })).toBeNull();
+  expect(screen.queryByLabelText("Settings tab")).toBeNull();
+});

@@ -5,6 +5,7 @@ import { formatMon } from "@/domain/wallet/amounts";
 import type { WalletTransfer } from "@/domain/wallet/types";
 const labels: Record<string, string> = {
   pending: "Pending",
+  signed: "Signed — approval required to retry",
   unknown: "Unknown — refresh status",
   finalized: "Finalized",
   reverted: "Failed on-chain",

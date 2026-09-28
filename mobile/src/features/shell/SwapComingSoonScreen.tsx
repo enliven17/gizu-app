@@ -8,7 +8,7 @@ export function SwapComingSoonScreen() {
     <Screen scrollable={false}>
       <View className="flex-1 items-center justify-center gap-6 px-4">
         <ComingSoonHeading />
-        <Typography style={{ textAlign: "center" }}>
+        <Typography className="text-center">
           In-app swaps are not available yet. Explore confidential vaults and your portfolio.
         </Typography>
       </View>

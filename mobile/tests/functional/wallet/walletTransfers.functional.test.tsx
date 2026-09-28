@@ -104,3 +104,50 @@ test("history failure blocks signing; recovery renders a reverted legacy record 
   expect(screen.getByText(/Earlier transfer/)).toBeVisible();
   expect(service.send).not.toHaveBeenCalled();
 });
+
+test("late history from a previous wallet cannot replace the current wallet history", async () => {
+  const oldHistory = deferred<WalletHistory>();
+  const oldService = {
+    history: jest.fn(() => oldHistory.promise),
+    send: jest.fn(),
+    cancel: jest.fn(),
+  };
+  const currentService = {
+    history: jest.fn().mockResolvedValue({ entries: [], blocked: false }),
+    send: jest.fn(),
+    cancel: jest.fn(),
+  };
+  const onSettled = jest.fn().mockResolvedValue(undefined);
+  const view = render(
+    <WalletTransfers address={address} service={oldService} onSettled={onSettled} />,
+  );
+  view.rerender(
+    <WalletTransfers address={recipient} service={currentService} onSettled={onSettled} />,
+  );
+  expect(await screen.findByText("No outgoing transfers recorded for this wallet.")).toBeVisible();
+  await act(async () => oldHistory.resolve(result));
+  expect(screen.queryByLabelText("Transaction hash: " + hash)).toBeNull();
+  expect(screen.getByRole("button", { name: "Review transfer" })).toBeEnabled();
+  expect(oldService.cancel).toHaveBeenCalledTimes(1);
+});
+
+test("late transfer completion cannot update a replacement wallet or refresh its balance", async () => {
+  const { service, onSettled, view } = setup();
+  const pending = deferred<WalletHistory>();
+  service.send.mockReturnValueOnce(pending.promise);
+  await enter();
+  await userEvent.press(screen.getByRole("button", { name: "Review transfer" }));
+  const currentService = {
+    history: jest.fn().mockResolvedValue({ entries: [], blocked: false }),
+    send: jest.fn(),
+    cancel: jest.fn(),
+  };
+  view.rerender(
+    <WalletTransfers address={recipient} service={currentService} onSettled={onSettled} />,
+  );
+  expect(await screen.findByText("No outgoing transfers recorded for this wallet.")).toBeVisible();
+  await act(async () => pending.resolve(result));
+  expect(screen.queryByLabelText("Transaction hash: " + hash)).toBeNull();
+  expect(screen.getByLabelText("Transfer recipient")).toHaveDisplayValue("");
+  expect(onSettled).not.toHaveBeenCalled();
+});

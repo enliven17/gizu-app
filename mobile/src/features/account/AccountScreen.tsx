@@ -1,3 +1,4 @@
+import { WalletBackupAction } from "./WalletBackupAction";
 import { View } from "react-native";
 import { Fingerprint, ShieldCheck, Bell, Globe, FileText, LifeBuoy } from "lucide-react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
@@ -65,6 +66,7 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
       <Typography variant="caption">
         Access method: {session?.method === "Demo passkey" ? "Passkey" : session?.method}
       </Typography>
+      {session?.kind === "testnet" && session.walletId && <WalletBackupAction />}
       <PreferenceFeedback />
       {groups.map((group) => (
         <View key={group.title} className="gap-3">

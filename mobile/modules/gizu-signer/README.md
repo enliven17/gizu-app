@@ -1,6 +1,7 @@
 # Native signer ownership and structure
 
-This is the app-owned native signing integration. It is not a copied Mera SDK.
+This is the retained, inactive native signing integration. It is excluded from
+app autolinking on both platforms and is not a fallback. It is not a copied Mera SDK.
 Compatibility with the frozen Mera derivation is covered by the reference vectors;
 third-party cryptography is consumed through Cargo dependencies and Cargo.lock.
 Credential Manager, AuthenticationServices and Expo supply platform integration.
@@ -27,26 +28,28 @@ Credential Manager, AuthenticationServices and Expo supply platform integration.
 
 ## JavaScript boundary
 
-Application adapters live in [src/services/wallet](../../src/services/wallet).
-`nativeBridge.ts` owns the app-facing Expo lookup and public method types;
-`access.ts` validates public identity, `transfers.ts` binds the sender to a
-reviewed operation, `journal.ts` validates/filters public journal records, and
-`balance.ts` performs read-only RPC. Pure formatting, proposal validation and
-public service contracts live in [src/domain/wallet](../../src/domain/wallet).
-The retained developer probe has its own fixed-message interface.
+The app no longer looks up this module or launches its diagnostics. Its native
+exports and source are preserved for deliberate future reuse. The replacement
+contract lives separately in `src/domain/wallet/storedSigner.ts`.
 
 Do not introduce PRF/key exports, arbitrary digest signing, or JavaScript approval.
 Do not replace native policy with client validation. Retain write-before-broadcast,
 unknown-result reconciliation, operation expiry, cancellation and sender binding.
 Storage keys, journal schema, module names, derivation and native ABI were preserved.
 
-## Verification after reorganizing
+## Independent verification and deliberate reactivation
 
-Run mobile TypeScript/lint/coverage checks. Android builds recursively discover
-Kotlin sources. Run `:app:assembleDebug` and `:gizu-signer:testDebugUnitTest` in
-the generated Android project. After adding/moving Swift sources run `pod install
---no-repo-update` in `mobile/ios`, then build the supported arm64 simulator target.
-No Rust binding regeneration is required for this source-only reorganization.
+From `mobile/`, `npm run signer:test` tests this Rust core and
+`npm run signer:build -- android` (or `ios` on macOS) builds its native artifacts.
+These commands do not reconnect it to the app. Source, tests and bindings remain
+here; the app CI builds no longer compile or link this module. Rust CI remains.
 
-Native UI changes require rebuilding/reinstalling the client. Mocked functional
-tests and native compilation do not replace physical-device passkey acceptance.
+Platform wrapper tests need an isolated Expo host with this local module linked.
+In that host, run `:gizu-signer:testDebugUnitTest` for Android and the usual iOS
+pod/build steps. The disconnected application cannot run that Gradle task.
+
+To reactivate deliberately, review the preserved identity/policy, remove the
+`gizu-signer` autolinking exclusion in an isolated host, wire its explicit adapter
+and rebuild the native client. Never enable it as an automatic fallback or merely
+change a runtime environment variable. Check native registration and repeat device
+acceptance before use. A Metro reload cannot add or remove the native module.

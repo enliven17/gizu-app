@@ -1,309 +1,198 @@
-# Passkey wallet research: Mera, Turnkey and the native signing design
+# Native wallet specification: confidential balance and Aurora Intent distribution
 
-Research consolidated: 24 September 2026.
+Updated: 25 September 2026.
 
-**Decision:** prototype a user-device wallet engine inside our React Native mobile app. Use a passkey to authorize a bounded operation, and an independently generated local wallet seed to derive and sign for its accounts. The proposed prototype uses neither Mera's PRF-derived wallets nor Turnkey's hosted signing.
+**Decision:** continue the shielding and distribution prototype using our own [combined wallet prototype](combined-wallet-prototype/README.md). Wallet creation, account derivation, operation authorization, signing and encrypted backup/restore belong to the native wallet engine inside the React Native app. Aurora Intent is the intended routing integration for the next research stage.
 
-**Evidence status:** Mera source and documentation were inspected; Turnkey documentation and pricing were researched; the native architecture and Android test specification were written. No native prototype, physical-device signing test, recovery drill or production security audit has been completed. “Addresses a requirement by design” must not be read as “verified in a working product.”
+**Current baseline:** the combined Android app contains the signing module and native recovery flow. The user has confirmed that the signing module is ready for the next research step. This revision was checked against the checked-in source and README; it does not report a new device test or security audit. Confidential-balance and Aurora adapters are still to be implemented and verified.
 
-## 1. Product context and the six criteria
+**Protocol baseline:** the earlier research has been recovered and the [confidential balance and distribution specification](outputs/confidential-balance-distribution-spec.md) revised for our native wallet. It preserves the Monad USDC → confidential account C → Ethereum USDC investment-wallet flow, allocation contract and Aurora-hosted quote/generate/submit path. The [endpoint verification note](outputs/aurora-signed-spending-verification.md) records evidence from 22 September 2026. A standalone 25 September mainnet test funded C from Monad and settled three confidential payouts to Ethereum; a corrected proof later authenticated C through Aurora and reconciled its 0.098009 USDC residual. Provider history is invite-only; refundable failures and Android wallet integration remain open.
 
-The Earn app needs one user identity to manage a funding wallet, a confidential-balance signer, multiple investment wallets and fresh withdrawal wallets. A teammate's allocation algorithm will decide the number of investment wallets and their amounts. One investment or withdrawal may require more than twelve signatures at different times as routing and settlement complete.
+## 1. Product requirements
 
-The six criteria below preserve the user's original five requirements and the later requirement about platform experience. Affordability is an additional binding constraint, rather than silently replacing one of the six.
+The Earn app needs one user identity to manage a funding wallet, a confidential-balance signer, multiple investment wallets and fresh return wallets. A teammate's allocation algorithm will propose how many investment wallets to use and the amount for each. An investment or withdrawal may need more than twelve signatures at different times as routing and settlement complete.
 
-| # | Requirement | Practical meaning |
+| # | Requirement | Implementation contract |
 | --- | --- | --- |
-| 1 | One identity controls all derived wallets | No wallet switching, separate passkeys or separate unlocks for each account. The app can act across all accounts in an approved operation. |
-| 2 | One unlock, many signatures | One intent confirmation and one passkey authentication permit the operation's subsequent signatures, including delayed steps. |
-| 3 | No wallet secrets exposed to the frontend | Seed, private keys, PRF root and signing shares must not enter Earn JavaScript. The stronger web requirement also excludes secrets in a separate popup's JavaScript. |
-| 4 | User control and independent access | A company-backend outage must not remove ownership or make the company a mandatory cosigner. Users need an independently usable recovery/access path. |
-| 5 | No direct public ownership link | Do not publish a common passkey public key, master wallet, owner registry or shared authorization that explicitly joins the accounts. This does not guarantee transaction anonymity. |
-| 6 | One usable interface across the intended platforms | React Native mobile stays inside the app with the OS authentication sheet. Web may use a popup, but must not require an extension installation or repeated app switching. |
+| 1 | One identity controls all derived wallets | One native wallet manages account allocation and authorization without wallet switching or a separate passkey per account. |
+| 2 | One unlock, many signatures | One native intent confirmation and passkey authentication authorize a bounded operation. Subsequent signatures may occur after delays while that authorization remains valid. |
+| 3 | No wallet secrets exposed to the frontend | Wallet entropy, private keys, PRF output and backup plaintext stay outside React Native JavaScript. Any confidential spending/viewing secrets must follow the same boundary. |
+| 4 | User control and independent access | Normal signing requires no company cosigner. Users need recoverable wallet and protocol state plus an independently usable access path. |
+| 5 | No direct public ownership link | Do not publish a shared passkey owner, root wallet identifier or registry joining all accounts. Distinct addresses alone do not guarantee transaction anonymity. |
+| 6 | One usable interface across intended platforms | Mobile uses the app and OS authentication sheet. Android is the current implementation; iOS and web require separate work. |
 
-**Economic constraint:** the user expects possibly $1 or less in revenue per user, depending on invested amount. A $5-per-user signing bill is unacceptable. The user therefore selected local self-custody over purchasing per-signature infrastructure. Development, audits, RPC, gas and protocol fees still cost money.
+**Economic constraint:** normal signing runs locally, avoiding a hosted signing fee per signature. Gas, protocol fees, RPC, development, maintenance and audits still cost money.
 
-**Resumption constraint:** a new unlock after termination or expiry is acceptable. Progress, account allocation and submitted transactions must survive; retries must not duplicate payments.
+**Resumption constraint:** another unlock after termination or expiry is acceptable. Losing allocations, repeating a deposit or duplicating a distribution is not.
 
-## 2. What we found about Mera
+## 2. What the combined wallet already implements
 
-### 2.1 Why we initially considered it
+### 2.1 Wallet identity, derivation and storage
 
-Mera offers a convenient way to obtain a reproducible secret from a passkey's WebAuthn PRF extension and use it for blockchain accounts. Its account recipe converts PRF output into BIP39 seed material and derives numbered EVM accounts at `m/44'/60'/0'/0/{index}`. It also demonstrates a separate Ed25519 derivation for Solana. A signing session can then produce multiple signatures without invoking the authenticator for each one. [Mera account recipe, inspected commit](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/docs/src/content/docs/recipes/create-passkey-accounts.mdx).
+The native engine generates independent 32-byte wallet entropy with `SecureRandom`. Trust Wallet Core 4.8.3 derives six EVM accounts at `m/44'/60'/0'/0/{index}`, with indices **1 through 6**. The passkey authenticates the user; it does not generate this wallet entropy. See [WalletEngine](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/WalletEngine.kt) and [WalletCoreSigner](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/WalletCoreSigner.kt).
 
-This matched the intended UX: unlock once, derive A1…AN, and manage them without switching wallet applications. Using separate EVM derivation indices gives separate addresses; using the same key across EVM chains repeats the address.
+The entropy, registered passkey data, public accounts and operation journal are stored in an encrypted native state file using AES-GCM and an Android Keystore key. That key has `setUserAuthenticationRequired(false)`: passkey verification gates operations in native application code. This is software policy enforcement, not hardware-enforced passkey access to the seed. See [EncryptedWalletStore](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/EncryptedWalletStore.kt).
 
-Logging out and back in can reproduce the same wallets **when the same credential, PRF input, derivation scheme and account indices are retained**. Creating another passkey is a different operation. The inspected implementation uses a documented default PRF salt and returns the resulting bytes to its caller. [Mera passkey implementation](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/passkey.ts).
+The current six accounts are test accounts. Funding, investment, return and confidential-account roles have not yet been assigned or implemented. Extending account allocation must preserve existing derivation paths and persist newly allocated indices; it must not silently replace the wallet root or reuse an allocated return address.
 
-### 2.2 The security mismatch
+### 2.2 Operation authorization and signing
 
-The passkey's authentication private key and the derived blockchain keys are different things. Mera's documented model keeps the former in the authenticator while the PRF output and derived software keys enter the calling runtime. Its documentation explicitly treats the host environment as trusted and describes hostile scripts intercepting the PRF output or using a live signing session. It also explains that zeroing buffers is not proof that every copy disappeared. [Mera security model, inspected commit](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/docs/src/content/docs/concepts/security-model.mdx).
+The current native operation is deliberately fixed:
 
-For our threat model, this means a compromised Earn page could capture enough material to reproduce the wallets, or misuse an active signer. The attacker would not need to extract the authenticator's own private key. Ending the session later cannot revoke a wallet key that was already copied.
+- Chain ID 31337; six owned EVM accounts.
+- Twelve self-transfers: six zero-wei transfers followed by six one-wei transfers.
+- The second batch begins at least 60 seconds after all first-batch transfers confirm.
+- Native confirmation followed by a fresh verified passkey assertion authorizes the operation. The challenge includes the operation ID, revision, action and fresh randomness.
+- Authorization lasts 15 minutes in memory; the operation deadline is 24 hours.
+- Signing constrains the account, self-recipient, value, chain and gas parameters.
+- The engine persists signed raw transactions before submission and reconciles interrupted submissions using stored transaction information.
 
-The inspected secp256k1 API accepts private-key bytes and exposes `signDigest` for a 32-byte digest. The session implementation holds a copy until `end()` clears its owned buffer. These are useful low-level primitives, but they do not enforce an investment amount, allowed recipients, approved vaults or an aggregate operation budget. [Signing implementation](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/secp256k1.ts), [session implementation](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/session.ts).
+These mechanics provide the foundation for the next stage. They do not yet implement arbitrary recipients, token approvals, contract calls, protocol messages, confidential transfers or a general cross-chain budget policy. See [NativeWalletModule](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/NativeWalletModule.kt), [PasskeyGate](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/PasskeyGate.kt), [PasskeyVerifier](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/PasskeyVerifier.kt) and [OperationRules](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/OperationRules.kt).
 
-React Native alone does not fix that boundary. The inspected Mera adapter invokes a native passkey library and returns PRF output into the TypeScript-facing API. A native authentication prompt does not mean derivation and signing stay native. [React Native adapter](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/react-native-webauthn-client-internal.ts).
+### 2.3 Backup and restore
 
-**Conclusion:** this was a mismatch with our hostile-frontend model, not evidence that Mera's cryptography was broken or that it is unsuitable for every mainnet application. The review covered npm `@category-labs/mera` 0.2.0 and commit `a3102f4fa7b89ce4e58e843a2d6da2201035ff25`, not an unspecified future release.
+The native recovery screen requires explicit confirmation and a fresh passkey assertion. For backup, passkey PRF output AES-GCM encrypts the **existing wallet entropy** and fixed six-account derivation metadata. Android's document picker saves the encrypted JSON file. PRF output is a backup wrapping key, not the source of the wallet's account keys.
 
-### 2.3 The Mera team's response and our assessment
+Restoration requires the encrypted file and access to the original passkey. The native engine decrypts the backup and reconstructs the same six addresses under local Keystore protection. The backup exposes format/version, RP ID, credential ID and passkey public key; wallet addresses and entropy are not plaintext fields. See [RecoveryActivity](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/RecoveryActivity.kt) and [RecoveryBackupCodec](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/RecoveryBackupCodec.kt).
 
-The user supplied a response attributed to Kai Jun Eer proposing an IndexedDB-stored, non-extractable `CryptoKey`, with a qualification about the level of frontend compromise. This is user-provided correspondence, not a verified public roadmap or a promise that Mera implements that design.
+The current backup excludes operation history. Restore deliberately creates an empty journal, so it cannot resume a distribution lost with the original device's data. Second-phone recovery is not reported as tested in the README. The test RP uses a temporary tunnel; durable recovery needs a stable domain and maintained app association. These limitations must be addressed as the wallet gains protocol balances and dynamically allocated accounts.
 
-The suggestion provides a useful distinction: preventing raw key export can reduce exposure. However, `extractable: false` controls export/wrapping; it does not itself prohibit operations allowed by the key's usages. [MDN: CryptoKey extractability](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey/extractable).
+## 3. Responsibility boundaries for the next stage
 
-Our assessment:
+| Component | Responsibility |
+| --- | --- |
+| React Native interface | Present balances, proposed allocations and progress; request typed native operations. Receive public accounts, operation views and redacted errors/evidence. |
+| Native wallet engine | Own entropy and account allocation, verify passkey assertions, display the actual approval, enforce policy, sign and persist execution state. |
+| Native confidential-balance adapter — to build | Implement C’s NEAR/FAR Confidential Intents account identity and ERC-191 authorization, balance access and deposit recognition through the selected Aurora gateway, without exposing secret material through JavaScript. |
+| `ConfidentialIntentsGateway` — to build | Use Aurora-hosted authentication, balance/history, quote, generate-intent, submit-intent and status APIs. Bind routes to approved recipients and limits, and track settlement. Maintain one C account and reconciliation model per user. |
+| Allocation algorithm | Propose wallet count and amounts. It receives no signing authority; native code validates its result. |
+| App backend, if needed | Support orchestration or access to provider APIs. It must not become the owner of wallet secrets or an implicit mandatory cosigner. Record any provider availability or credential dependencies. |
 
-- A same-origin attacker that obtains a key handle may still invoke its permitted signing/decryption operations. Full arbitrary JavaScript XSS is not automatically contained by non-extractability.
-- If PRF/root bytes first enter JavaScript and are then imported, hostile code can capture them before import.
-- Standard WebCrypto ECDSA curves do not provide a general secp256k1 signing replacement for Mera's EVM keys. Wrapping those bytes with a non-extractable AES key still leaves the question of where plaintext is decrypted. [WebCrypto specification](https://www.w3.org/TR/webcrypto/).
-- A timer or UI confirmation in the same compromised JavaScript context cannot enforce a security boundary against that context.
+The [existing React Native bridge](combined-wallet-prototype/specs/NativeWallet.ts) exposes wallet status, test-wallet creation, public accounts, recovery-screen opening, operation preparation/authorization/execution/status/cancellation and redacted evidence. It exposes no generic `signDigest`, private-key export or arbitrary-calldata signing method.
 
-We therefore needed both **key isolation** and **an independent decision about what may be signed**.
+Extend this boundary with typed shielding and distribution operations. Native code must parse and validate the full meaning of a request before signing. A JavaScript `approved: true` flag or opaque payload cannot grant authority. Native code, dependencies and release integrity remain trusted; this boundary does not claim protection from arbitrary native or OS compromise.
 
-## 3. Alternatives we explored before choosing the native design
-
-These are architecture conclusions from our requirements analysis, not claims that we implemented every alternative.
-
-| Proposal | What it could help with | Why it did not settle all requirements |
-| --- | --- | --- |
-| Collect all signatures immediately after one unlock | Reduces later prompts for transactions already fully known | Leaves exposed root keys exposed; future quotes, nonces, settlement and fees may not be known. A batch of signed transactions can also remain usable after the UI session ends. |
-| Short-lived Mera session plus CSP/dependency controls | Reduces attack opportunities and duration | Valuable defense in depth; does not survive arbitrary hostile code in the trusted runtime or undo root-key theft. |
-| Move derivation into WASM or a worker | Changes execution organization | Does not establish a trusted signer against malicious code controlling the caller, messages and code delivery. |
-| Independent Mera signer origin/iframe/popup | Same-origin policy can separate Earn code from wallet code | Wallet-origin JavaScript still sees secrets. It needs independent deployment and a narrowly scoped RP ID; a broad parent RP can undermine separation. User rejected treating a second wallet app as the main solution. |
-| Browser extension plus a native helper | Can keep signing outside website JavaScript | Requires installation. User explicitly rejected that onboarding requirement. |
-| Our backend holds the complete seed | Removes keys from frontend code | Gives the operator signing power and creates a backend availability dependency unless another independently usable path is built. Not the chosen self-custody model. |
-| Noir/zero-knowledge proofs | Can prove authorization statements without publishing their witnesses | A proof system does not itself supply secure key storage, independent recovery or an offline signer. Requires a separate, concrete account/protocol design. |
-| Passkey plus PRF key, either one sufficient | Allows alternative authorization | The exposed PRF-derived key remains sufficient to spend, so the second factor does not close the original attack. |
-| Fresh passkey approval plus second signer for every transaction | Adds authorization checks | Requiring a fresh WebAuthn ceremony per transaction undermines the intended many-signature UX. Approving one bounded session is a different design. |
-| User/server 2-of-2 threshold signing | Neither share alone signs | Mandatory server participation blocks signing during server outages. Recovery/quorum alternatives must be explicitly designed. |
-| Smart accounts with one public passkey owner | Can support delegation and session permissions | Reusing a visible owner/public key across accounts can directly join them. Privacy-preserving ownership requires additional design, not an assumption. |
-
-The browser isolation and extension mechanisms are real capabilities; the rejection above is about fit with our requirements. [Same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy), [Chrome Native Messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging).
-
-### Why “combine PRF with WebAuthn” was not enough
-
-WebAuthn's PRF extension deliberately exposes its output to the relying-party client. It does not offer a standard command that privately derives an arbitrary family of EVM keys and signs an unlimited transaction sequence inside the authenticator. [WebAuthn PRF extension](https://www.w3.org/TR/webauthn-3/#sctn-prf-extension).
-
-A P-256 passkey key and a secp256k1 wallet key are not automatically shares of one threshold signature. Treating them as two required approvals is possible at another layer, but that layer must define verification, delegation and availability. Combining two outputs already visible to the frontend does not create a secret from that frontend.
-
-The useful idea that survived was **one authenticated approval of a bounded operation**, followed by a signer enforcing that operation. We needed to decide where that signer lived.
-
-## 4. What we found about Turnkey
-
-### 4.1 Why it was a serious candidate
-
-Turnkey provides protected signing infrastructure with passkey-authenticated access and session mechanisms. We investigated it as a way to keep blockchain private keys out of Earn JavaScript while retaining multiple actions per login. Its sessions use client-side authentication keys to stamp requests; its documentation distinguishes those keys from session JWT metadata. The authorization credential therefore still needs protection even when the blockchain key is elsewhere. [Turnkey sessions](https://docs.turnkey.com/features/authentication/sessions/overview).
-
-Scoped session profiles are evaluated on each request and can constrain allowed activities/resources and expiry. Profiles are immutable; omitting a profile yields a session without those scope restrictions. This supported the bounded-session direction, but did not prove that our full cross-chain aggregate budget could be enforced by a default configuration. That would require policy-specific integration and tests. [Session profiles](https://docs.turnkey.com/features/authentication/sessions/session-profiles).
-
-Our security inference was that a frontend compromised during a broadly authorized session could still request damaging signatures. Protected custody is not a substitute for scoped authority or trustworthy confirmation. A non-extractable API authentication key can also be usable by malicious same-origin code without being exportable.
-
-### 4.2 Users, sub-organizations and scale
-
-One sub-organization per user was a natural model, with that user configured as the root authority and an HD wallet containing multiple accounts. Turnkey documents no count limit on sub-organizations, parent read-only visibility, and billing aggregation to the parent. Thus, 10,000 users was not ruled out by the sub-organization model itself. Root/quorum configuration determines who can act; sub-organizations can model either user-controlled or custodial wallets. [Sub-organizations](https://docs.turnkey.com/features/sub-organizations).
-
-A wallet and its derived wallet accounts are separate concepts; six addresses do not inherently require six separately provisioned HD wallets. Plan wallet allowances, API throughput and commercial terms still matter. [Turnkey wallets](https://docs.turnkey.com/features/wallets).
-
-The parent visibility also means there is no claim of account unlinkability from our organization or the signing provider. The criterion about avoiding a common owner on-chain is narrower.
-
-### 4.3 Custody and outage distinctions
-
-Turnkey was not automatically equivalent to giving our backend control of users' funds. A user-root configuration and directly authenticated API requests can avoid making our application server the sole authorization path. [Request authentication and stamps](https://docs.turnkey.com/api-reference/overview/stamps).
-
-It nevertheless introduces a hosted signing service. Independence from **our backend** differs from independence from **Turnkey**. An alternate client would still need valid credentials, identifiers, RP access and service availability.
-
-Turnkey supports an export encrypted to a user-controlled target encryption key, including one created offline. This could support an independent recovery path if completed and safely stored before a service outage. Export capability is not the same as an already usable backup; decrypting an export in Earn JavaScript would also violate our strict secret-isolation requirement. [Wallet export](https://docs.turnkey.com/features/wallets/export-wallets).
-
-We did not deploy or validate that recovery arrangement.
-
-### 4.4 Pricing and the decision to move away
-
-Pricing rechecked on 24 September 2026. Published plan tables show $0.10/signature for Pay as You Go with 25 free monthly signatures, and Pro at $0.05/signature with a $99 monthly minimum. Enterprise advertises a negotiated floor of $0.0015/signature, not an available quote for us. [Turnkey pricing](https://www.turnkey.com/pricing).
-
-For **500 users × 100 signatures each per month = 50,000 signatures**:
-
-| Option | Calculation | Signing estimate/month |
-| --- | --- | ---: |
-| Pay as You Go | `(50,000 − 25) × $0.10` | **$4,997.50** |
-| Pro | `50,000 × $0.05`, above the minimum | **$2,500** |
-| Enterprise advertised floor | `50,000 × $0.0015`, only if negotiated | **$75 hypothetical** |
-
-Pro therefore implied **$5/user/month**, before other expenses. This is a usage estimate, assuming the monthly minimum is a floor rather than an additional fee; no invoice or contract was obtained. The FAQ also mentions lower volume pricing, but we did not assume a discount or a flat unlimited-signature allowance.
-
-Published wallet allowances were 1,000 Pay as You Go, 2,000 Pro and unlimited Enterprise. The research did not establish commercial terms for 10,000 users.
-
-**Why we rotated:** the concrete $5/user estimate did not fit the user's stated unit economics, and the user preferred eliminating paid signing infrastructure and keeping normal signing on the user's device. This was not a finding that Turnkey cannot support passkeys, multiple accounts or user-controlled configurations. Local development may cost more initially; no total-cost-of-ownership study was completed.
-
-## 5. The chosen mobile design
-
-### 5.1 What replaces Mera and Turnkey
+## 4. Intended flow: funding, shielding and distribution
 
 ```text
-User opens the React Native Earn app
-                  │
-        Proposes an investment/withdrawal
-                  ▼
-Native engine parses the operation and displays its actual limits
-                  │
-        One passkey authentication
-                  ▼
-Native verifier opens a bounded, expiring operation session
-                  │
-        Independent local HD wallet seed
-                  ├── Funding account
-                  ├── Investment accounts A1…AN
-                  ├── Fresh return accounts R1…RN
-                  └── Confidential signer through a separately verified adapter
-                  │
-Native policy checks each step → signs → records/submits → reports progress
+User funds an owned account
+          |
+Native engine prepares and confirms a bounded shielding operation
+          |
+Passkey authentication -> native session -> authorized deposit/signature
+          |
+Confidential adapter verifies the credited confidential balance
+          |
+Allocation algorithm proposes amounts for owned investment accounts
+          |
+Native engine validates accounts, amounts, route and aggregate limits
+          |
+User confirms distribution -> passkey-authorized native session
+          |
+Confidential spending authorization + Aurora Intent routing/settlement
+          |
+Verify each intended recipient's receipt and record remaining balance
 ```
 
-The passkey is still the user's authentication anchor. It is no longer the source of blockchain key material. Multiple accounts share a protected local root and authorization session, not a publicly recorded master-wallet owner.
+The selected integration uses Aurora APIs to access the underlying NEAR/FAR Confidential Intents system; C is not a confidential balance on Aurora EVM. Funding uses `ORIGIN_CHAIN → CONFIDENTIAL_INTENTS`, with F as refund recipient. Distribution uses `CONFIDENTIAL_INTENTS → DESTINATION_CHAIN`, with each Ai as recipient and C as refund recipient. Explicitly select a supported non-public confidentiality mode. The detailed spec retains quote fields, payload envelopes, asset mapping and completion rules from the earlier research. A quote response or request acknowledgement is not evidence of recipient settlement.
 
-React Native continues to provide the product interface. A Kotlin module on Android, and eventually a Swift integration on iOS, connects platform authentication/storage to native wallet primitives. Trust Wallet Core is the selected prototype candidate for HD derivation and chain signing; it does not supply our authorization policy or execution journal. [React Native native modules](https://reactnative.dev/docs/turbo-native-modules-introduction), [Trust Wallet Core](https://developer.trustwallet.com/developer/wallet-core).
+Shielding and distribution are separately bounded operations by default. Each can involve multiple signatures after its initial unlock. If a future combined operation is approved, its native confirmation must include both phases and their complete limits. A signing session expiring during settlement requires a new unlock for further signatures; it does not require another deposit.
 
-Mera is absent from the selected prototype. We retain the product idea of one unlock controlling many accounts, not its PRF-to-wallet implementation. Reintroducing its default TypeScript signer would reintroduce the boundary we are trying to remove.
+### 4.1 Step 3: shield the funded balance
 
-### 5.2 How this addresses the initial key-exposure problem
+1. Select the owned funding account, source chain, asset and amount. Persist the operation identity and account references before any spending step.
+2. Establish the confidential account's identity and recovery mapping in native code. Verify the required key type, derivation and message format before implementing its signer. Existing EVM transfer support does not establish protocol-signature compatibility.
+3. Obtain the protocol's deposit instructions and any applicable route. Validate destination, chain, asset, amount, fees, expiry and confidential beneficiary against the prepared operation.
+4. Display the normalized operation in native UI and authenticate once. Sign only the approved deposit and any explicitly bounded approvals or protocol messages.
+5. Persist the signed transaction or authorized request before sending it. Track submission and source confirmation separately from protocol credit.
+6. Mark shielding complete only when the adapter can verify the expected confidential account was credited under the protocol's completion rules. Record credited amount, fees and any unresolved remainder.
 
-The proposed engine generates random wallet entropy locally and never returns it, derived keys, decryption results or a wallet-root PRF to React Native. It exposes public account data and operation results. Since wallet generation does not depend on the passkey PRF, an attacker obtaining that PRF from a permitted web context would not thereby reconstruct this independent wallet root.
+The application may display the confidential balance to its user. Whether the operator or routing provider can see it is a separate privacy question to document. Public funding transactions still expose their public fields.
 
-Stored entropy is encrypted under an Android Keystore key. Keystore can keep its own key material non-exportable and can provide hardware-backed storage on supported configurations. That does **not** mean the decrypted wallet seed and secp256k1 keys stay in hardware while our native signer uses them. [Android Keystore](https://developer.android.com/privacy-and-security/keystore).
+### 4.2 Step 4: distribute through Aurora Intent
 
-The protection target is hostile JavaScript using the exposed app interfaces. Native code, libraries and release integrity remain trusted. We must inspect every installed native module, including generic storage, file and execution bridges, so an unrelated API cannot bypass the narrow wallet interface. Native memory corruption, malicious native updates or an OS compromise remain outside this proposed boundary.
+1. Read the available confidential balance using the verified adapter. Accept the allocation algorithm's proposed amounts and wallet count.
+2. Allocate and persist the owned recipient accounts natively. The demo's fixed six indices do not yet support arbitrary wallet counts; the derivation registry and backup format must be extended together.
+3. Obtain route/quote information for the proposed recipients, destination chains and assets. Validate source debit, minimum destination receipts, fees, expiry and any refund/return destinations. Follow the existing specification’s quote and signed-spend request per allocation; bound execution concurrency and validate it against provider behavior.
+4. Prepare one normalized distribution manifest covering the recipients and all debit/fee limits. Reserve the aggregate spend so concurrent or repeated requests cannot spend the same balance twice.
+5. Display those limits in native UI and obtain a passkey authorization. Generate each protocol-specific signature natively only when its request matches the manifest and the session is valid.
+6. Persist each request identity and authorization before submission. Record protocol acceptance and individual recipient settlement separately; an ambiguous timeout must not create another spend.
+7. Reconcile partial completion, failures, unused balance and refunds. Confirm each destination receipt before marking its allocation complete, and mark the whole operation complete only after every allocation and remainder is accounted for.
 
-An ordinary secure-storage wrapper returning a seed to JavaScript fails our requirement. AsyncStorage is unencrypted and unsuitable for wallet secrets; React Native itself is not a secure-wallet facility. [React Native security guidance](https://reactnative.dev/docs/security).
+Vault deposits and later withdrawals remain downstream integrations. Fresh return accounts must use persisted, newly allocated wallet indices; they do not require a new passkey. Contract methods, beneficiaries and return routes require their own native validation before they can use the signing session.
 
-### 5.3 How this addresses the signing-oracle problem
+## 5. Authorization policy required by those flows
 
-Hiding keys is insufficient if compromised JavaScript can ask the native code to sign any hash. The engine must instead authorize a parsed operation with enforced constraints:
+The current fixed transfer policy must be extended to a versioned operation manifest containing at least:
 
-- Total value and per-wallet allocations.
-- Permitted chains, assets, recipients, contract methods and vault beneficiaries.
-- Token allowance, fee and slippage limits.
-- Validity period, required dependencies, step ordering and nonces.
-- Atomic aggregate-budget reservations so concurrent calls cannot overspend.
-- Retry/replay protection and a durable record of submitted transactions.
+- Operation ID, revision, action, creation time, authorization expiry and overall deadline.
+- Owned funding/confidential account references and allocated recipient indices/addresses.
+- Source and destination chains, assets and asset identifiers.
+- Total source debit, per-recipient allocation, minimum receipts and explicit fee/slippage limits.
+- Allowed protocol targets, contract methods, token spenders and allowance caps, where applicable.
+- Quote/request identifiers, signed-message domain, nonce/replay protection and expiry required by the verified protocol.
+- Refund/return recipients, step dependencies and completion conditions.
 
-The native confirmation uses the same normalized operation the policy executes. A JS `approved: true` flag, opaque digest or arbitrary calldata is not sufficient. Assertion verification binds the approved manifest to a fresh native challenge and registered credential. The passkey sheet proves authentication; it is not by itself an independently rendered transaction review.
+Native confirmation must render the same normalized data that execution checks. Bind authorization to that manifest's identity and revision; reject changes to recipients or increased spending authority until the user approves the revised operation. Quote refreshes may proceed only within already approved constraints and verified protocol rules.
 
-A compromised frontend can still propose something harmful. The engine must reject actions outside the permitted product policy and display actual approved consequences. It cannot prevent a user from knowingly approving every harmful action, nor eliminate all protocol/contract risk.
+Extend the journal to reserve, submit, reconcile and settle each allocation exactly once economically. The existing single-operation test engine is a starting point; it does not prove concurrent budget enforcement or idempotent protocol spending.
 
-### 5.4 Why many signatures need only one intended unlock
+## 6. Persistence, recovery and outages
 
-The passkey authorizes the session once; the engine later signs with each account's key after policy checks. It does not ask the authenticator to sign each blockchain transaction. The proposed Android session lasts 15 minutes, with delayed steps supported while valid. New permissions require new approval; expired or terminated sessions require another unlock.
+Preserve the existing rule: save the exact signed EVM transaction before broadcasting and reconcile its hash/nonce after an interruption. For confidential spending and intent requests, determine and persist the equivalent protocol identifiers, replay protections and status queries. Do not assume a new request is safe because the previous request timed out.
 
-There is an explicit storage tradeoff in the prototype: the Keystore encryption key is not configured to require an additional authentication prompt for every decryption. Native passkey verification gates use at the application layer. This avoids assuming that a Credential Manager authentication automatically authorizes a separate Keystore operation. It is **not a cryptographic 2-of-2 construction or hardware-enforced passkey-to-seed binding**.
-
-The platform can show credential selection or additional screens. The exact normal single-unlock experience remains a physical-device acceptance test, not a promise inferred from APIs. [Android Credential Manager](https://developer.android.com/identity/credential-manager).
-
-## 6. Assessment against all six criteria
-
-Every native-design entry below is a proposed property until its listed test passes.
-
-| Criterion | Mera as inspected | Turnkey option | Proposed native design and remaining proof |
-| --- | --- | --- | --- |
-| 1. One identity controls many wallets | Numbered accounts and live sessions fit | HD accounts plus authenticated sessions fit in principle | Local HD root derives accounts; one session manages them. Prove six accounts and persist allocation metadata. |
-| 2. One unlock, many signatures | Available through software sessions, with host-runtime exposure | Documented sessions; operation policy still needed | One assertion opens bounded local authority. Prove 12+ signatures, including delayed steps, on physical devices. |
-| 3. No frontend wallet secrets | Fails our hostile-JS requirement in the inspected flow | Can keep blockchain keys out of the frontend; session credentials and export paths still need care | No root/key/PRF crosses the RN bridge. Review APIs and test malicious JS. Does not promise protection from arbitrary native compromise. |
-| 4. User control and independent access | Local derivation, but credential/RP continuity or export is necessary | User-root/direct access possible; service availability and advance backup matter | Local signing requires no company cosigner. Independent portable recovery/tool still must be built and tested. |
-| 5. No direct public ownership link | Distinct EOAs need not expose a common root | Individual EOAs need not expose provider/account grouping | Only individual EOA signatures go on-chain; common passkey/manifest remain local. Funding and transaction correlation remain separate risks. |
-| 6. Same usable interface, no extension | Convenient embedded UX but problematic secret boundary | Embedded UX possible; economics rejected | Mobile can keep everything in-app. Android prompt behavior is untested; iOS untested; strict zero-install web remains unresolved. |
-
-**Cost comparison:** the native design removes vendor fees per locally generated signature. It does not remove gas, protocol costs, RPC costs, security engineering, maintenance or support. Economics motivated the choice; total cost has not been proven lower at every scale.
-
-## 7. User control, recovery and backend outages
-
-We must distinguish four situations:
-
-| Situation | Intended behavior / dependency |
+| Situation | Required behavior |
 | --- | --- |
-| Our backend is unavailable but the installed app and RPC work | Local keys remain usable. Product orchestration may need alternate direct access; unavailable quotes/routes cannot be invented. |
-| App terminated or signing session expired | Reload the operation journal, reconcile chain/protocol outcomes and ask for another unlock before remaining signatures. |
-| Phone lost, app data erased or Keystore key invalidated | Restore from independent user-held recovery material. Passkey sync alone cannot restore the independent wallet seed. |
-| Aurora/FAR, a chain or a vault is unavailable | Ownership does not remove external protocol availability constraints. A recovered key cannot force an unavailable system to settle. |
+| App restart or expired session, local state intact | Restore allocations and progress, reconcile unknown outcomes and request another unlock before new signatures. |
+| Route expires before execution | Requote within the approved constraints or require revised approval; reconcile any prior submission first. |
+| Some recipients settle and others remain pending | Preserve completed allocations and resume only unresolved work after reconciliation. |
+| Wallet restored after device/data loss | Recover or reconstruct confidential-account metadata, allocated indices, positions and pending spending state before enabling new spending. The current entropy-only recovery payload is insufficient for this workflow. |
+| Company backend unavailable | Wallet keys remain locally controlled. Document a usable alternative for any required provider credentials, discovery or orchestration; local signing alone does not supply it. |
+| Protocol, provider or chain unavailable | Preserve pending state and show the unresolved dependency. Recovery cannot force an unavailable protocol to settle. |
 
-Before real deposits, recovery needs portable seed material, derivation/version information, allocated account indices and relevant confidential-account/position metadata, plus a separately usable restoration tool. It must work without the company's API secret, database, original device or authorization. A backup encrypted only to a lost device's Keystore is insufficient.
+Extend encrypted recovery metadata with versioned derivation/role allocation, confidential identity and any required recovery secrets, plus the information needed to discover positions and reconcile outstanding operations. Define how stale backups catch up safely; restoring keys must not reset spent protocol nonces or silently replay an old distribution. Any sensitive payload stays native and encrypted outside the device.
 
-Passkeys are RP-bound, and Android apps need an association with the RP. A new arbitrary recovery website cannot simply request the old credential. Independent recovery must therefore have an established alternative to relying on the original domain and app association. [Android association requirements](https://developer.android.com/identity/credential-manager/prerequisites).
+A user-held encrypted file plus the original passkey is the current recovery mechanism. Passkey sync alone cannot recreate independent wallet entropy. Independent recovery also needs a tested access path for RP/app continuity and protocol access; those requirements remain beyond the current test backup flow.
 
-The tradeoff versus Mera is deliberate: we give up passkey-PRF-only reconstruction to remove that root from the frontend-accessible derivation path. We have specified recovery as mandatory but have not implemented or validated it.
+## 7. Privacy requirements
 
-## 8. Progress preservation and safe resume
+The wallet can derive different account addresses without publishing its common root or passkey. Preserve that property when integrating confidential balances and intents: verify what each authorization, recipient list and settlement record exposes publicly and to providers.
 
-The accepted UX permits another unlock, not another deposit. Native state must durably track the operation manifest, allocated accounts, step IDs, budget reservations, nonces, signed transaction bytes, hashes and observed outcomes.
+Shielding must be evaluated separately from splitting funds. Common gas funding, exact amounts, timing, public fan-out/fan-in, RPC logs, telemetry and later consolidation may correlate accounts. A confidential balance does not automatically hide destination payments or their association from a routing service.
 
-Persist the exact signed transaction before broadcasting. If the app dies after submission but before receiving an acknowledgement, restart by checking the stored hash and nonce. A timeout is not proof of failure. Rebroadcasting the same transaction differs from creating another transfer with a new nonce. Resolve unknown outcomes before repeating economic actions.
+The next research report must state who can observe the funding account, confidential account, balance, recipients and allocation mapping at each step: public chain observers, the app operator, routing providers and the user. Record findings from actual payloads and transactions rather than assuming unlinkability from distinct addresses.
 
-Session authorization is memory-only and expires. The journal persists progress but does not silently restore spending authority. Reorgs, replacement transactions, expired quotes, partial completion and consumed unknown nonces must be reconciled. A fresh unlock resumes the same account allocations and unfinished steps within their approved limits.
+## 8. Next research deliverables and acceptance criteria
 
-The mobile acceptance criteria and build specification define these tests. They have not yet been run.
+The signing module is the starting point for this phase. The next work is to establish the concrete confidential-balance and Aurora Intent integration, then extend the combined prototype against that contract.
 
-## 9. Privacy and the Earn integration
-
-“No direct public link” means the wallet layer need not disclose its common controller. It does not mean that A1…AN are guaranteed untraceable. Common gas funding, exact amounts, timing, public fan-out/fan-in, RPC logs, application telemetry or later consolidation can expose relationships. The app can also see the accounts it orchestrates. Do not equate privacy from public chain observers with privacy from the app operator or routing providers.
-
-The allocation algorithm remains a teammate-supplied component. It proposes how much to send to how many accounts; native authorization must verify aggregate bounds and account ownership. Choosing wallet counts or splitting amounts does not itself prove anonymity.
-
-Our earlier Aurora research identified a separate confidential-balance layer behind Aurora's routing interfaces. Replacing the wallet implementation does not eliminate that protocol or prove that every signature format is supported. The confidential account signer, quote binding, payout recipients, return routes and vault methods need their own native adapters. The Android prototype's twelve EVM transfers do not validate those adapters. See the [steps 3–4 specification](outputs/steps-3-4-confidential-balance-distribution-spec.md) and [signed-spending research](outputs/aurora-signed-spending-verification.md).
-
-Fresh return wallets are new addresses under the local wallet, not necessarily new passkey credentials. Their keys remain user-controlled, and reusing a common passkey locally does not require publishing that passkey on-chain.
-
-## 10. Required proof before proceeding (In progress)
-
-The user made real-device testing a blocking requirement. An Android phone is available; no app repository existed when the prototype was specified. At the last environment inspection, this Mac lacked a working Android SDK and full Xcode installation. These are recorded setup facts, not permanent limitations.
-
-The Android prototype must demonstrate:
-
-1. A real passkey ceremony and native verification; no mocked unlock.
-2. One intent confirmation and one intended authentication ceremony followed by 12+ valid signatures across six distinct accounts.
-3. Delayed signing within the same authorized operation, including a wait simulating bridge settlement.
-4. Rejection of unauthorized recipients, values, calldata, raw hashes, replay and concurrent overspending.
-5. No wallet secrets in bridge payloads, JavaScript storage, logs or diagnostics.
-6. Termination, expiry, lock, background and network-loss handling without lost allocations or duplicate payments.
-7. An evidence report with device/OS/provider/build/storage configuration, actual prompt counts and independently verified signatures.
-
-Production approval additionally requires independent recovery, full routing/vault adapters, broader device/provider coverage, native dependency/release review and a security audit appropriate to holding user funds. Neither this research report nor a successful twelve-signature demo replaces that work.
-
-## 11. Evidence index and related artifacts
-
-### Primary sources
-
-| Source | Finding supported |
+| Research deliverable | Required evidence |
 | --- | --- |
-| [Mera security model at inspected commit](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/docs/src/content/docs/concepts/security-model.mdx) | Software-key exposure, trusted host and zeroization limits |
-| [Mera account recipe](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/docs/src/content/docs/recipes/create-passkey-accounts.mdx) | PRF-based account derivation |
-| [Mera passkey source](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/passkey.ts) | Returned PRF material and salt behavior |
-| [Mera session source](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/session.ts) | Session-owned private-key buffer |
-| [Mera secp256k1 source](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/secp256k1.ts) | Digest-signing interface |
-| [Mera RN adapter](https://github.com/category-labs/mera/blob/a3102f4fa7b89ce4e58e843a2d6da2201035ff25/library/src/react-native-webauthn-client-internal.ts) | PRF result crosses into the library's JS-facing path |
-| [WebAuthn](https://www.w3.org/TR/webauthn-3/) | Credential ceremonies, assertions and PRF semantics |
-| [WebCrypto](https://www.w3.org/TR/webcrypto/) | CryptoKey operations and standard algorithm interface |
-| [Turnkey pricing](https://www.turnkey.com/pricing) | Published pricing basis; not a negotiated quote |
-| [Turnkey sub-organizations](https://docs.turnkey.com/features/sub-organizations) | User model, parent visibility and count support |
-| [Turnkey wallets](https://docs.turnkey.com/features/wallets) | Wallet/account distinction |
-| [Turnkey sessions](https://docs.turnkey.com/features/authentication/sessions/overview) | Session authentication and multiple actions |
-| [Turnkey session profiles](https://docs.turnkey.com/features/authentication/sessions/session-profiles) | Request scope and expiry enforcement |
-| [Turnkey exports](https://docs.turnkey.com/features/wallets/export-wallets) | User-targeted encrypted export |
-| [Turnkey request stamps](https://docs.turnkey.com/api-reference/overview/stamps) | Direct authenticated API requests |
-| [Android Credential Manager](https://developer.android.com/identity/credential-manager) | Native passkey interface |
-| [Android RP association](https://developer.android.com/identity/credential-manager/prerequisites) | Domain/application setup |
-| [Android Keystore](https://developer.android.com/privacy-and-security/keystore) | Storage-key protection and access controls |
-| [Apple Secure Enclave](https://developer.apple.com/documentation/security/protecting-keys-with-the-secure-enclave) | Platform key protection; not proof of this implementation |
-| [React Native native modules](https://reactnative.dev/docs/turbo-native-modules-introduction) | Native integration boundary |
-| [React Native security](https://reactnative.dev/docs/security) | Storage cautions |
-| [Wallet Core](https://developer.trustwallet.com/developer/wallet-core) | Native cryptographic primitives |
-| [Chrome Native Messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) | Rejected extension/helper transport |
+| Authenticated environment validation | Use the existing Aurora-only API design and Monad USDC → C → Ethereum USDC route target. Confirm project credentials, supported exact asset IDs, liquidity and current schema compatibility. Endpoint discovery is already recorded; funded execution is still unproven. |
+| Native signer compatibility | Exact key type, derivation, serialization, message domain and signature verification for every deposit/spending/intent action. Confirm any public linkage introduced by key registration. |
+| Shielding path | Trace a funded account through authorized submission to a verified credit in the intended confidential account, with amounts and fees reconciled. |
+| Distribution path | Trace authorized confidential spending through Aurora routing to receipts in multiple owned accounts; reconcile totals, fees, remaining funds and refunds. |
+| Policy enforcement | Reject modified recipients, excess debits/fees/allowances, unsupported targets, expired requests, replay and concurrent overspending. Confirm secrets stay outside the RN bridge. |
+| Interrupted execution | Demonstrate expiry, termination, network loss, unknown submission outcomes and partial settlement without duplicate deposits or payouts. |
+| Recovery | Extend the backup for new accounts/protocol state and demonstrate second-device recovery and reconciliation, including a stale-backup case. |
+| Privacy assessment | Capture public transaction fields and provider-visible request fields; identify links that remain visible. |
 
-### Local research and implementation handoff
+Keep existing signing and recovery behavior as regression requirements while adding adapters. Record device/OS/provider/build configuration, prompt counts, operation IDs and independently checked outcomes for new integration tests. A successful local transfer demo is not evidence that shielding or intent settlement works.
 
-- [Android prototype build specification](outputs/android-wallet-signing-prototype-spec.md): implementation contract and test order.
-- [Mobile signing acceptance criteria](outputs/mobile-signing-acceptance.md): mandatory physical-device evidence.
-- [Wallet custody requirements](outputs/wallet-custody-requirements.md): detailed product constraints.
-- [Earlier Mera hardening research](outputs/mera-signing-hardening/hardening.md): historical alternatives; its isolated-signer recommendation predates the later constraints and is superseded by the decision in this report.
-- [Captured Mera npm package](work/mera-review/package/package/package.json): inspected version 0.2.0.
-- [Captured Mera source security model](work/mera-review/source/mera-a3102f4fa7b89ce4e58e843a2d6da2201035ff25/docs/src/content/docs/concepts/security-model.mdx): immutable local evidence.
+Production work still includes stable RP infrastructure, independently usable recovery, broader device/provider coverage, iOS implementation, dependency/release review and an appropriate security audit. The strict web secret-isolation requirement remains unresolved by this Android implementation.
 
-The selected direction moves key handling and authorization out of Earn JavaScript while keeping normal signing on the user's device. It is a justified architecture to test, with explicit recovery and platform gaps; it is not yet a demonstrated solution to all six criteria.
+## 9. Local implementation reference
+
+| Artifact | Use |
+| --- | --- |
+| [Combined prototype README](combined-wallet-prototype/README.md) | Build instructions, current scope and recovery limitations. |
+| [Native bridge contract](combined-wallet-prototype/specs/NativeWallet.ts) | Existing public methods and returned operation/account views. |
+| [Wallet engine](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/WalletEngine.kt) | Entropy creation, account/state persistence, sessions and transfer execution. |
+| [Wallet Core signer](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/WalletCoreSigner.kt) | Actual derivation paths and restricted EVM signing support. |
+| [Operation rules](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/OperationRules.kt) | Fixed batches and delayed-step authorization. |
+| [Passkey gate](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/PasskeyGate.kt) / [verifier](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/PasskeyVerifier.kt) | Registration/assertions, challenge binding and native verification. |
+| [Native recovery UI](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/RecoveryActivity.kt) | User confirmation and encrypted file import/export. |
+| [Backup codec](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/RecoveryBackupCodec.kt) / [PRF protocol](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/RecoveryPrfProtocol.kt) | Versioned encrypted entropy backup and native PRF handling. |
+| [Encrypted store](combined-wallet-prototype/android/app/src/main/java/com/walletsigningprototype/EncryptedWalletStore.kt) | Local AES-GCM/Keystore storage boundary. |
+
+Related protocol artifacts: [confidential balance and distribution specification, v0.8](outputs/confidential-balance-distribution-spec.md) and [Aurora signed-spending evidence](outputs/aurora-signed-spending-verification.md). The detailed specification is the implementation contract for allocation fields, quote configuration, per-allocation state machines, accounting, gas readiness and settlement evidence; this document establishes the native wallet baseline and integration boundaries.

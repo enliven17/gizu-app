@@ -1,3 +1,5 @@
+import type { ProtocolSelection } from "../domain/protocol.ts";
+
 export type Opportunity = {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ export type TvlRecord = {
 };
 
 export type ListOpportunitiesQuery = {
+  protocol: ProtocolSelection;
   search: string;
   page: number;
   items: number;

@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'io.gizu.storedwallet'
+version = '0.1.0'
+android {
+  namespace 'io.gizu.storedwallet'
+  defaultConfig { minSdk 24; versionCode 1; versionName "0.1.0" }
+  sourceSets.main.java.srcDirs += '../generated'
+}
+dependencies {
+  implementation 'com.squareup.okhttp3:okhttp:4.9.2'
+  implementation 'androidx.credentials:credentials:1.6.0'
+  implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+  implementation 'net.java.dev.jna:jna:5.17.0@aar'
+  implementation 'com.upokecenter:cbor:4.5.6'
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.json:json:20240303'
+}

@@ -1,3 +1,4 @@
+import { WalletOperations } from "@/features/wallet/WalletOperations";
 import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { BackAction } from "@/navigation/BackAction";
@@ -8,7 +9,8 @@ import { useWallet } from "@/features/wallet/WalletProvider";
 import { WalletHistoryRows } from "@/features/wallet/WalletHistoryRows";
 
 export function NativeActivity() {
-  const c = useWallet().transfers;
+  const wallet = useWallet();
+  const c = wallet.transfers;
   const { refresh } = c;
   useFocusEffect(
     useCallback(() => {
@@ -28,6 +30,7 @@ export function NativeActivity() {
       {c.ready && c.history.entries.length === 0 && (
         <Typography>No outgoing transfers recorded for this wallet.</Typography>
       )}
+      <WalletOperations />
       <WalletHistoryRows entries={c.history.entries} />
     </Screen>
   );

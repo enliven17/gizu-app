@@ -5,6 +5,22 @@ module.exports = defineConfig([
   { files: ["scripts/*.cjs"], languageOptions: { globals: { __dirname: "readonly" } } },
   { ignores: ["coverage/**", "dist/**", "ios/**", "android/**", ".expo/**"] },
   {
+    files: ["src/{application,features,services,navigation}/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/development/legacySigner/*", "**/development/legacySigner/*"],
+              message: "Legacy signer adapters belong only in explicit development harnesses.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["src/components/atoms/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [

@@ -12,6 +12,7 @@ const variants = {
 };
 export function Typography({
   variant = "body",
+  className = "",
   ...props
 }: TextProps & { variant?: keyof typeof variants }) {
   // Remeasure native text after Dynamic Type changes, including on inactive screens.
@@ -22,7 +23,7 @@ export function Typography({
       key={fontScale}
       accessibilityRole={variant === "title" || variant === "heading" ? "header" : undefined}
       {...props}
-      className={variants[variant]}
+      className={`${variants[variant]} ${className}`}
     />
   );
 }

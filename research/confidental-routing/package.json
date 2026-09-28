@@ -1,0 +1,22 @@
+{
+  "name": "confidental-routing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --env-file-if-exists=.env src/cli.mjs check",
+    "tokens": "node --env-file-if-exists=.env src/cli.mjs tokens",
+    "quote": "node --env-file-if-exists=.env src/cli.mjs prepare",
+    "status": "node --env-file-if-exists=.env src/cli.mjs status"
+  },
+  "dependencies": {
+    "@scure/base": "^2.4.0",
+    "ox": "^0.11.3",
+    "permissionless": "^0.4.1",
+    "viem": "2.55.1"
+  }
+}

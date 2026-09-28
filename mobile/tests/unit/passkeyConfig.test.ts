@@ -21,10 +21,8 @@ test("freezes shared RP and deterministic account-zero recipe without wallet sec
 });
 
 test("native modes are explicit and invalid modes cannot silently use demo success", () => {
-  expect(validatePasskeyMode(undefined)).toBe("mock");
-  expect(validatePasskeyMode("mock")).toBe("mock");
-  expect(validatePasskeyMode("native-probe")).toBe("native-probe");
-  expect(() => validatePasskeyMode("probe")).toThrow("removed");
+  expect(validatePasskeyMode(undefined)).toBe("native");
+  expect(() => validatePasskeyMode("mock")).toThrow("PASSKEY_MODE must be native.");
   expect(() => validatePasskeyMode("typo")).toThrow("PASSKEY_MODE");
   expect(validatePasskeyMode("native")).toBe("native");
 });

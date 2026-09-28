@@ -23,6 +23,7 @@ export default function DesktopHome({
   const [whole, cents] = total.toFixed(2).split('.')
   const chart = useSize<HTMLDivElement>()
   const vaults = useOpportunities({
+    protocol: 'all',
     search: '',
     page: 0,
     items: 4,

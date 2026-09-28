@@ -17,6 +17,9 @@ jobs:
       - run: cargo fmt --check
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --manifest-path ../../gizu-stored-signer/core/Cargo.toml
+      - run: cargo fmt --check --manifest-path ../../gizu-stored-signer/core/Cargo.toml
+      - run: cargo clippy --locked --all-targets --manifest-path ../../gizu-stored-signer/core/Cargo.toml -- -D warnings
   check:
     strategy:
       matrix:
@@ -31,7 +34,7 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - uses: extractions/setup-just@v3
         with:
-          just-version: '1.40.0'
+          just-version: "1.40.0"
       - run: just mobile-install
       - run: just mobile-check
       - uses: actions/upload-artifact@v4
@@ -51,14 +54,18 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - run: npm ci
         working-directory: mobile
       - run: rustup toolchain install 1.94.1 --profile minimal
       - run: rustup target add --toolchain 1.94.1 aarch64-linux-android
       - run: sdkmanager "ndk;27.1.12297006"
-      - run: npm run signer:build -- android
+      - run: npm run format:kotlin:check
+        working-directory: mobile
+      - run: npm run stored-signer:build
         working-directory: mobile
       # Ephemeral CI-only key. Never add its fingerprint to the gizu.io association.
       - run: |
@@ -67,7 +74,7 @@ jobs:
         working-directory: mobile
       - run: npx expo prebuild --platform android --no-install
         working-directory: mobile
-      - run: ./gradlew :gizu-signer:testDebugUnitTest assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a
+      - run: ./gradlew :gizu-stored-signer:testDebugUnitTest assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a
         working-directory: mobile/android
   ios-build:
     runs-on: macos-26
@@ -82,10 +89,6 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
-        working-directory: mobile
-      - run: rustup toolchain install 1.94.1 --profile minimal
-      - run: rustup target add --toolchain 1.94.1 aarch64-apple-ios aarch64-apple-ios-sim
-      - run: npm run signer:build -- ios
         working-directory: mobile
       - run: npx expo prebuild --platform ios
         working-directory: mobile

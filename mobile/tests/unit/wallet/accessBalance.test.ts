@@ -1,4 +1,4 @@
-import { createNativeWalletAccess } from "@/services/wallet/access";
+import { createNativeWalletAccess } from "@/development/legacySigner/access";
 import { formatMon } from "@/domain/wallet/amounts";
 import { monadBalanceService } from "@/services/wallet/balance";
 const address = "0x" + "1".repeat(40);

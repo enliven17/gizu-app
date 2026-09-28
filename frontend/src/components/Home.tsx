@@ -28,6 +28,7 @@ export default function Home({
   const total = holdings.reduce((a, h) => a + h.value, 0)
   const [whole, cents] = total.toFixed(2).split('.')
   const vaults = useOpportunities({
+    protocol: 'all',
     search: '',
     page: 0,
     items: 4,

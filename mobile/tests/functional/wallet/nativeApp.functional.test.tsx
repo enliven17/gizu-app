@@ -2,7 +2,7 @@ import type { WalletHistory } from "@/domain/wallet/types";
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
-import { createNativeWalletAccess } from "@/services/wallet/access";
+import { createNativeWalletAccess } from "@/development/legacySigner/access";
 import { defaultPreferences } from "@/domain/preferences";
 import { deferred } from "../../support/renderApp";
 
@@ -33,6 +33,9 @@ function setup() {
   render(
     <AppRoot
       accessService={createNativeWalletAccess(() => bridge)}
+      opportunityService={{
+        list: jest.fn().mockResolvedValue({ list: [], page: 0, items: 8, total: 0 }),
+      }}
       walletBalanceService={balance}
       walletTransferService={transfers}
       accountDependencies={{ clipboard, store }}
@@ -56,9 +59,7 @@ test("native access opens existing Home and Account with live units and no fixtu
   expect(screen.getByRole("button", { name: "Withdraw" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "View activity" })).toBeEnabled();
   await userEvent.press(screen.getByLabelText("Vaults tab"));
-  expect(
-    await screen.findByText("Vault discovery and investment services are not connected yet."),
-  ).toBeVisible();
+  expect(await screen.findByText("Monad mainnet · Browse only")).toBeVisible();
   expect(screen.queryByRole("button", { name: "View Helix Alpha" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Swap tab"));
   expect(await screen.findByRole("header", { name: /Swap.*coming soon/s })).toBeVisible();

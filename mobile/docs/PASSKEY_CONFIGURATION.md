@@ -1,13 +1,21 @@
 # Passkey identity and configuration
 
-Native credential handling and authorization are implemented in the
-[native signer](NATIVE_SIGNER.md). Account 0 remains compatible with the frozen
-identity below; diagnostic indexed derivation is bounded to indices 0–15.
+The previous native signer is retained but disconnected. Android development builds
+implement `GizuStoredSigner`: encrypted wallet storage, passkey create/open,
+verified backup/restore, native transfer approval and explicit operation resume.
+Access requires Android API 28+, the installed native module and a compatible
+credential provider. New wallets must complete backup verification before app access.
+iOS wallet access is unsupported; production builds remain blocked.
+See [native signer architecture](NATIVE_SIGNER.md) for the active contract. Wallet
+entropy is randomly generated and encrypted locally; the passkey authorizes access
+and its PRF protects backups. It no longer determines wallet addresses.
+The frozen derivation below documents the retained module only, not the new wallet
+model. App identifiers/domain associations remain valid configuration inputs.
 See [Android signing](ANDROID_SIGNING.md) for development association setup and
 [verification](NATIVE_SIGNER_VERIFICATION.md) for device evidence and limitations.
 Apple Team ID `588X2UZY3L` is configured; production release acceptance remains open.
 
-## Frozen contract
+## Retained signer identity
 
 The source of truth is `src/config/passkey-identity.json`:
 
@@ -29,10 +37,13 @@ Changing the RP or derivation requires a reviewed recovery/migration strategy.
 
 ## Modes and native validation
 
-The default is `native`: normal app routes use passkey-backed access in a compatible
-development client. `npm run start:demo` explicitly selects mock mode. The retired
-`probe` mode and unknown values are rejected. Developer diagnostics use explicit
-commands in [README](../README.md) and are hidden from normal navigation.
+`npm start` selects `native` and opens the normal app using the Android replacement.
+Unsupported platforms or missing native modules fail explicitly without a legacy
+or mock fallback. Simulated passkey startup is no longer supported.
+`npm run debug:stored-wallet` opens the isolated replacement diagnostic;
+`npm run debug:ui` opens the UI playground. `native` is the only valid
+passkey mode and defaults when the variable is omitted. See [README](../README.md)
+for launch and rebuild instructions.
 
 Configuration alone does not prove domain ownership, installed signing or provider
 capability. Rebuild native clients after changing

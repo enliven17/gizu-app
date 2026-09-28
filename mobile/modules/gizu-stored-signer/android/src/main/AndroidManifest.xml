@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+  <application>
+    <activity android:name="io.gizu.storedwallet.BackupActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
+    <activity android:name="io.gizu.storedwallet.TransferActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
+  </application>
+</manifest>

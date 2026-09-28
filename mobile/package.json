@@ -27,10 +27,12 @@
     "precommit": "node scripts/precommit.cjs",
     "signer:build": "bash modules/gizu-signer/scripts/build.sh",
     "signer:test": "cargo test --locked --manifest-path modules/gizu-signer/core/Cargo.toml",
-    "debug:wallet": "node scripts/start-app.cjs wallet",
-    "debug:signer": "node scripts/start-app.cjs signer",
     "debug:ui": "node scripts/start-app.cjs ui",
-    "start:demo": "node scripts/start-app.cjs demo"
+    "stored-signer:build": "bash modules/gizu-stored-signer/scripts/build.sh",
+    "stored-signer:test": "cargo test --locked --manifest-path modules/gizu-stored-signer/core/Cargo.toml",
+    "debug:stored-wallet": "node scripts/start-app.cjs stored-wallet",
+    "format:kotlin": "node scripts/format-kotlin.cjs write",
+    "format:kotlin:check": "node scripts/format-kotlin.cjs check"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -39,7 +41,7 @@
     "@react-navigation/native": "^7.0.0",
     "@react-navigation/native-stack": "^7.0.0",
     "@shopify/react-native-skia": "2.6.2",
-    "expo": "57.0.24",
+    "expo": "57.0.25",
     "expo-clipboard": "~57.0.2",
     "expo-dev-client": "~57.0.19",
     "expo-splash-screen": "~57.0.9",
@@ -72,5 +74,12 @@
     "react-test-renderer": "19.2.3",
     "tailwindcss": "3.4.17",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "autolinking": {
+      "exclude": [
+        "gizu-signer"
+      ]
+    }
   }
 }

@@ -35,6 +35,7 @@ test("returns the page unchanged", async () => {
     cache,
   );
   const result = await useCase.execute({
+    protocol: "all",
     search: "USDC",
     page: 0,
     items: 20,
@@ -79,6 +80,7 @@ test("returns the cached page without listing", async () => {
     cache,
   );
   const result = await useCase.execute({
+    protocol: "all",
     search: "USDC",
     page: 0,
     items: 20,
@@ -86,4 +88,33 @@ test("returns the cached page without listing", async () => {
   });
   assert.equal(result, page);
   assert.equal(lists, 0);
+});
+
+test("uses a separate cache key for each protocol filter", async () => {
+  const keys: string[] = [];
+  const cache: Cache = {
+    get: async (key) => {
+      keys.push(key);
+      return null;
+    },
+    set: async () => {},
+    deleteExpired: async () => 0,
+  };
+  const useCase = new ListOpportunitiesUseCase(
+    {
+      list: async () => ({ list: [], total: 0 }),
+      getById: async () => {
+        throw new Error("unused");
+      },
+      tvlRecords: async () => [],
+    },
+    cache,
+  );
+  const query = { search: "", page: 0, items: 20, chainId: 143 };
+
+  await useCase.execute({ ...query, protocol: "aave" });
+  await useCase.execute({ ...query, protocol: "morpho" });
+  await useCase.execute({ ...query, protocol: "curvance" });
+
+  assert.equal(new Set(keys).size, 3);
 });

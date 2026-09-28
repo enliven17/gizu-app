@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search } from 'lucide-react'
 import OpportunityCard from './OpportunityCard'
-import { MONAD_MAINNET_CHAIN_ID } from '../opportunities'
+import ProtocolFilters from './ProtocolFilters'
+import { MONAD_MAINNET_CHAIN_ID, type ProtocolSelection } from '../opportunities'
 import { useOpportunities } from '../useOpportunities'
 
 export default function Vaults({ onOpenOpportunity }: { onOpenOpportunity: (id: string) => void }) {
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
+  const [protocol, setProtocol] = useState<ProtocolSelection>('all')
   const [page, setPage] = useState(0)
   const items = 8
   const load = useOpportunities({
+    protocol,
     search,
     page,
     items,
@@ -52,10 +55,21 @@ export default function Vaults({ onOpenOpportunity }: { onOpenOpportunity: (id: 
               setQuery(e.target.value)
               setPage(0)
             }}
-            placeholder="Search"
+            aria-label="Search opportunities"
+            placeholder="Search tokens, tags, campaigns"
             className="h-12 w-full min-w-0 bg-transparent text-[14px] outline-none placeholder:text-white/25"
           />
         </div>
+      </div>
+
+      <div className="mt-4">
+        <ProtocolFilters
+          value={protocol}
+          onChange={(next) => {
+            setProtocol(next)
+            setPage(0)
+          }}
+        />
       </div>
 
       {load.kind === 'loading' && (

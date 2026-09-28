@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Text, View } from "react-native";
 import LottieView, { type AnimationObject } from "lottie-react-native";
 import { glitchWordmark } from "@/animations/glitchWordmark";
-import colors from "@/theme/colors.json";
 
 type GlitchTextProps = {
   source?: AnimationObject;
@@ -47,18 +46,7 @@ export function GlitchText({
       accessibilityLabel={accessibilityLabel}
       className="h-24 items-center justify-center overflow-hidden rounded-3xl border border-border bg-ink"
     >
-      {text ? (
-        <Text
-          style={{
-            color: colors.accent,
-            fontSize: 48,
-            fontWeight: "700",
-            letterSpacing: 8,
-          }}
-        >
-          {text}
-        </Text>
-      ) : null}
+      {text ? <Text className="text-5xl font-bold tracking-[8px] text-accent">{text}</Text> : null}
       <LottieView
         ref={animation}
         source={source}

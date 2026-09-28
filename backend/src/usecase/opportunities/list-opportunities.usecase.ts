@@ -12,7 +12,7 @@ export class ListOpportunitiesUseCase {
   ) {}
 
   async execute(input: ListOpportunitiesQuery): Promise<OpportunityPage> {
-    const cacheKey = `opportunities:list:${input.chainId}:${input.page}:${input.items}:${input.search}`;
+    const cacheKey = `opportunities:list:${input.protocol}:${input.chainId}:${input.page}:${input.items}:${input.search}`;
     const cached = await this.cache.get<OpportunityPage>(cacheKey);
     if (cached !== null) {
       return cached;

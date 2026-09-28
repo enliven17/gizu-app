@@ -1,5 +1,5 @@
 import { WalletTransfers } from "./WalletTransfers";
-import { nativeWalletTransfers } from "@/services/wallet/transfers";
+import { nativeWalletTransfers } from "@/development/legacySigner/transfers";
 import { type WalletTransferService } from "@/domain/wallet/types";
 import { View } from "react-native";
 import { GizuLogo } from "@/components/atoms/GizuLogo";

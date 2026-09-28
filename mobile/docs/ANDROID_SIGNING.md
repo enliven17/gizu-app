@@ -53,14 +53,11 @@ certificate, not merely the upload certificate.
 
 Reference: https://developer.android.com/identity/credential-manager/prerequisites
 
-## Run after the legacy probe removal
+## Run with the native signer
 
-The old JavaScript Mera probe and its raw native PRF bridge were removed on
-2026-09-24. Use `EXPO_PUBLIC_PASSKEY_MODE=mock` for the demo. Neither `probe` nor
-`native` is currently available. Keep the local signing key and association
-configuration for the native signer described in [N0](NATIVE_SIGNER.md).
+`npm start` opens the normal app using the stored-wallet signer. Native access is
+the only supported passkey mode; simulated access and the old PRF probe are
+disconnected. See [the signer guide](NATIVE_SIGNER.md) for the trust boundary.
 
-Rebuild and replace existing Android development clients with `npm run android`
-after clearing an old probe-mode environment setting. Metro reload alone does not
-remove the bridge embedded in a previously installed APK. The native replacement
-has not been implemented, and no old provider passkeys are deleted by this change.
+Rebuild installed Android clients with `npm run android` after native module
+changes. Metro reload alone cannot remove a bridge embedded in an older APK.

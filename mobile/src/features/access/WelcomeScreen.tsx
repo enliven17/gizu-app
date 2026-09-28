@@ -14,7 +14,7 @@ export function WelcomeScreen({
 }: NativeStackScreenProps<RootStackParamList, "Welcome">) {
   const native = useSession().accessService.method === "Passkey";
   const animate = useWelcomeMotion();
-  const { height, fontScale } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions();
   return (
     <Screen scrollable={false}>
       <View className="flex-row items-center gap-3">
@@ -22,9 +22,7 @@ export function WelcomeScreen({
         <Typography variant="row">Gizu</Typography>
       </View>
       <View className="flex-1 justify-center gap-6">
-        {fontScale <= 1.3 && height >= 650 && (
-          <WelcomeArtwork animate={animate} height={Math.min(230, height * 0.25)} />
-        )}
+        {fontScale <= 1.3 && <WelcomeArtwork animate={animate} />}
         <View className="gap-4">
           <WelcomeHeading animate={animate} />
           <Typography>

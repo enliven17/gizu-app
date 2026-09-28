@@ -1,6 +1,6 @@
 # Gizu mobile roadmap
 
-Updated 2026-09-24. One active implementation roadmap. Completed work is summarized
+Updated 2026-09-25. One active implementation roadmap. Completed work is summarized
 below; implementation does not imply device/security acceptance. Setup belongs in
 [README](README.md), product behavior in [parity](docs/PARITY.md), native contracts
 in [signer architecture](docs/NATIVE_SIGNER.md), and evidence in
@@ -16,11 +16,30 @@ in [signer architecture](docs/NATIVE_SIGNER.md), and evidence in
 | Main app (M6.1a–d)    | Native passkey access, Account 0 MON balance, address/copy, Deposit/Withdraw and Activity in existing routes            | Main-app physical acceptance; incoming/external history is not indexed |
 | Structure             | Hidden developer harnesses; wallet domain/adapters; native RPC, storage and transfer folders                            | Further decomposition only where it improves ownership/testing         |
 
-`npm start` uses native access. `npm run start:demo` selects fixtures. No separate
+`npm start` uses native access only. Fixtures remain in tests and UI previews. No separate
 wallet product screen, new wallet tab or mock financial fallback for real sessions.
 See [capabilities and accepted UI decisions](docs/PARITY.md).
 
-## Next work — M6.1e acceptance and integration quality
+## Next work — Android stored-wallet signer migration
+
+Follow the agreed [signer migration plan](docs/SIGNER_MIGRATION.md): replace
+PRF-derived wallets with locally encrypted random entropy, reuse the Rust core,
+require verified onboarding backups and add explicitly authorized operation resume.
+This migration targets Android only and fresh development wallets; iOS signing
+will be unavailable until its replacement is implemented. Phase 1 disconnects the
+old signer and declares the replacement contract. Phase 2 implements isolated
+Android encrypted storage and native passkey create/open. Phase 3 connects access
+to native save/reopen backup verification, recovery and Account backup management.
+Only verified wallets enter Home. Phase 4 connects Withdraw and Activity to native
+exact-transfer approval, encrypted operation history and explicit resume. Next is
+phase 5: device acceptance and retained-module isolation checks. Phase-3 guided
+checks were user-reported successful; second-device restore and extended phase-4 failure-path
+acceptance remain pending. Guided phase-4 phone checks were user-reported successful. The table above
+summarizes the previous implementation, not current signer availability.
+Preserve the existing Gizu signer module for future reuse, but disconnect its app
+wiring and exclude it from app native builds. Only the replacement will be active.
+
+## Follow-up — M6.1e acceptance and integration quality
 
 - [ ] Verify normal native entry, protected/deep-link routing, Home, Account,
       Deposit/Withdraw and Activity together on supported physical devices.
@@ -61,8 +80,9 @@ pass-through wrappers, a second live ledger or a generic JavaScript signer.
   authoritative service contracts before enabling actions in native mode.
 - Notifications, support, statements, profile/backend authentication and real
   request-access submission: demo/local behavior is not a backend integration.
-- Independent recovery, domain/provider loss and multi-account discovery: separate
-  design and acceptance required before real-funds release.
+- Encrypted backup plus original-passkey recovery is included in the signer
+  migration. Independent recovery, lost-passkey/domain/provider recovery and
+  multi-account discovery require further design and acceptance before real funds.
 - Wider native account/asset/chain scope, ERC-4337 and privacy guarantees: separate
   decisions; no claim that derived accounts are publicly unlinkable.
 - Preserve existing visual design when integrating services. Restore unavailable

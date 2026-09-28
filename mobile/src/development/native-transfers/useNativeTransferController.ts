@@ -5,7 +5,7 @@ import {
   transferProposal,
   type TransferStatus,
 } from "@/domain/wallet/transfers";
-import { type NativeTransfers } from "@/services/wallet/nativeBridge";
+import { type NativeTransfers } from "@/development/legacySigner/nativeBridge";
 export function useNativeTransferController(service: NativeTransfers | null) {
   const [account, setAccount] = useState("0");
   const [recipient, setRecipient] = useState("");

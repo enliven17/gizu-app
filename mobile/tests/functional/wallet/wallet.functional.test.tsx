@@ -1,8 +1,8 @@
 import { act, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { WalletDebugApp } from "@/development/WalletDebugApp";
-import { createNativeWalletAccess } from "@/services/wallet/access";
-import { type NativeWalletBridge } from "@/services/wallet/nativeBridge";
+import { createNativeWalletAccess } from "@/development/legacySigner/access";
+import { type NativeWalletBridge } from "@/development/legacySigner/nativeBridge";
 import { deferred } from "../../support/renderApp";
 
 const address = "0x" + "1".repeat(40);
@@ -78,7 +78,7 @@ test("native errors are sanitized and existing-passkey retry is available", asyn
   };
   setup(bridge);
   await open();
-  expect(await screen.findByText(/Try opening your existing passkey/)).toBeVisible();
+  expect(await screen.findByText(/Continue to retry the same wallet/)).toBeVisible();
   expect(screen.queryByText(/private provider diagnostics/)).toBeNull();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   expect(await screen.findByText("0.001000000000000001 MON")).toBeVisible();

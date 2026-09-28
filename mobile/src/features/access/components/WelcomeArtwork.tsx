@@ -1,4 +1,4 @@
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { View } from "react-native";
 import { Defs, LinearGradient, Stop } from "react-native-svg";
 import Animated, {
@@ -15,7 +15,9 @@ import colors from "@/theme/colors.json";
 
 const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
 
-export function WelcomeArtwork({ animate, height }: { animate: boolean; height: number }) {
+export function WelcomeArtwork({ animate }: { animate: boolean }) {
+  // NativeWind owns the layout; measured height preserves the SVG aspect ratio.
+  const [height, setHeight] = useState(0);
   const id = `welcome-${useId().replace(/:/g, "")}`;
   const progress = useSharedValue(0);
   useEffect(() => {
@@ -40,7 +42,8 @@ export function WelcomeArtwork({ animate, height }: { animate: boolean; height: 
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ height, alignItems: "center", justifyContent: "center" }}
+      className="hidden h-[25vh] max-h-[230px] items-center justify-center tall:flex"
+      onLayout={({ nativeEvent }) => setHeight(nativeEvent.layout.height)}
     >
       <GizuLogo width={(height * 638) / 866} height={height} fill={`url(#${id})`}>
         <Defs>

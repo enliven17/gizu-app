@@ -151,7 +151,7 @@ export function WaveBackdrop({ height = 220, testID = "gizu-wave-backdrop" }: Wa
   );
 
   if (!source) {
-    return <View testID={testID} style={{ height, backgroundColor: colors.ink }} />;
+    return <View testID={testID} className="bg-ink" style={{ height }} />;
   }
 
   return (

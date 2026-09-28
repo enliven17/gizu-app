@@ -18,7 +18,7 @@ export function AccessScreen() {
       <Typography variant="title">{native ? "Your testnet wallet" : "Create access"}</Typography>
       <Typography>
         {native
-          ? "Create or open a passkey for your Monad testnet wallet. The native prompt lets you choose. No transaction is signed."
+          ? "Create or open your Monad testnet wallet. Before first use, save and verify an encrypted backup. Recovery needs both that file and your original passkey."
           : "Continue with a passkey to access Gizu."}
       </Typography>
       <AccessCard
@@ -27,6 +27,14 @@ export function AccessScreen() {
         loading={controller.pending}
         onPress={() => void controller.start()}
       />
+      {controller.canRestore && (
+        <Button
+          label="Restore wallet from backup"
+          variant="secondary"
+          disabled={controller.pending}
+          onPress={() => void controller.restore()}
+        />
+      )}
       {controller.error && <Notice error message={controller.error} />}
       {controller.pending && (
         <Button label="Cancel access" variant="secondary" onPress={controller.cancel} />

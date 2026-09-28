@@ -7,11 +7,14 @@ export type WalletSession = {
   address: string;
   accountIndex: 0;
   chainId: 10143;
+  walletId?: string;
 };
 export type AppSession = DemoSession | WalletSession;
 export interface AccessService {
   method?: AccessMethod;
   cancel?(): void;
+  canRestore?(): Promise<boolean>;
+  restore?(): Promise<AppSession>;
   request(method: AccessMethod): Promise<AppSession>;
 }
 export class AccessRejectedError extends Error {}

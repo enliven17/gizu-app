@@ -1,5 +1,6 @@
 import { InfrastructureError } from "../../domain/errors/infrastructure-error.ts";
 import { NotFoundError } from "../../domain/errors/not-found-error.ts";
+import { supportedProtocolIds } from "../../domain/protocol.ts";
 import type {
   ListOpportunitiesQuery,
   Opportunities,
@@ -16,12 +17,14 @@ import {
   type TvlRecord,
 } from "./merkl-opportunity.schema.ts";
 
-const MAIN_PROTOCOL_IDS = "aave,morpho,curvance";
+const MAIN_PROTOCOL_IDS = supportedProtocolIds.join(",");
+const REQUEST_TIMEOUT_MS = 8_000;
 
 export class HttpMerklOpportunities implements Opportunities {
   constructor(
     private readonly apiUrl: string,
     private readonly apiKey: string,
+    private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
   async list(query: ListOpportunitiesQuery): Promise<OpportunityPage> {
@@ -30,10 +33,14 @@ export class HttpMerklOpportunities implements Opportunities {
     listUrl.searchParams.set("page", String(query.page));
     listUrl.searchParams.set("items", String(query.items));
     listUrl.searchParams.set("chainId", String(query.chainId));
-    listUrl.searchParams.set("mainProtocolId", MAIN_PROTOCOL_IDS);
+    let protocolIds: string = query.protocol;
+    if (query.protocol === "all") {
+      protocolIds = MAIN_PROTOCOL_IDS;
+    }
+    listUrl.searchParams.set("mainProtocolId", protocolIds);
     const countUrl = new URL("/v4/opportunities/count", this.apiUrl);
     countUrl.searchParams.set("chainId", String(query.chainId));
-    countUrl.searchParams.set("mainProtocolId", MAIN_PROTOCOL_IDS);
+    countUrl.searchParams.set("mainProtocolId", protocolIds);
     if (query.search.length > 0) {
       listUrl.searchParams.set("search", query.search);
       countUrl.searchParams.set("search", query.search);
@@ -43,8 +50,14 @@ export class HttpMerklOpportunities implements Opportunities {
     let countResponse: Response;
     try {
       [listResponse, countResponse] = await Promise.all([
-        fetch(listUrl, { headers }),
-        fetch(countUrl, { headers }),
+        this.fetchImpl(listUrl, {
+          headers,
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        }),
+        this.fetchImpl(countUrl, {
+          headers,
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        }),
       ]);
     } catch (err) {
       throw new InfrastructureError(503, "MERKL_UNAVAILABLE", "merkl unavailable", {
@@ -57,8 +70,8 @@ export class HttpMerklOpportunities implements Opportunities {
       });
     }
 
-    const listBody: unknown = await listResponse.json();
-    const countBody: unknown = await countResponse.json();
+    const listBody = await this.readJson(listResponse);
+    const countBody = await this.readJson(countResponse);
     const listParsed = opportunityListSchema.safeParse(listBody);
     const countParsed = opportunityCountSchema.safeParse(countBody);
     if (!listParsed.success || !countParsed.success) {
@@ -76,12 +89,15 @@ export class HttpMerklOpportunities implements Opportunities {
   }
 
   async getById(id: string): Promise<OpportunityDetail> {
-    const url = new URL(`/v4/opportunities/${id}`, this.apiUrl);
+    const url = new URL(`/v4/opportunities/${encodeURIComponent(id)}`, this.apiUrl);
     url.searchParams.set("campaigns", "true");
 
     let response: Response;
     try {
-      response = await fetch(url, { headers: { "X-API-Key": this.apiKey } });
+      response = await this.fetchImpl(url, {
+        headers: { "X-API-Key": this.apiKey },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
     } catch (err) {
       throw new InfrastructureError(503, "MERKL_UNAVAILABLE", "merkl unavailable", {
         cause: err,
@@ -96,7 +112,7 @@ export class HttpMerklOpportunities implements Opportunities {
       });
     }
 
-    const body: unknown = await response.json();
+    const body = await this.readJson(response);
     const parsed = opportunityDetailSchema.safeParse(body);
     if (!parsed.success) {
       throw new InfrastructureError(503, "MERKL_UNAVAILABLE", "merkl unavailable", {
@@ -107,13 +123,19 @@ export class HttpMerklOpportunities implements Opportunities {
   }
 
   async tvlRecords(query: TvlRecordsQuery): Promise<TvlRecord[]> {
-    const url = new URL(`/v4/opportunities/${query.id}/tvl-records`, this.apiUrl);
+    const url = new URL(
+      `/v4/opportunities/${encodeURIComponent(query.id)}/tvl-records`,
+      this.apiUrl,
+    );
     url.searchParams.set("page", "0");
     url.searchParams.set("items", String(query.items));
 
     let response: Response;
     try {
-      response = await fetch(url, { headers: { "X-API-Key": this.apiKey } });
+      response = await this.fetchImpl(url, {
+        headers: { "X-API-Key": this.apiKey },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
     } catch (err) {
       throw new InfrastructureError(503, "MERKL_UNAVAILABLE", "merkl unavailable", {
         cause: err,
@@ -125,7 +147,7 @@ export class HttpMerklOpportunities implements Opportunities {
       });
     }
 
-    const body: unknown = await response.json();
+    const body = await this.readJson(response);
     const parsed = tvlRecordListSchema.safeParse(body);
     if (!parsed.success) {
       throw new InfrastructureError(503, "MERKL_UNAVAILABLE", "merkl unavailable", {
@@ -133,5 +155,15 @@ export class HttpMerklOpportunities implements Opportunities {
       });
     }
     return parsed.data;
+  }
+
+  private async readJson(response: Response): Promise<unknown> {
+    try {
+      return await response.json();
+    } catch (err) {
+      throw new InfrastructureError(503, "MERKL_UNAVAILABLE", "merkl unavailable", {
+        cause: err,
+      });
+    }
   }
 }

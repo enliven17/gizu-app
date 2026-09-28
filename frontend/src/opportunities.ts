@@ -1,5 +1,7 @@
 export const MONAD_MAINNET_CHAIN_ID = 143
 
+export type ProtocolSelection = 'all' | 'aave' | 'morpho' | 'curvance'
+
 export type Opportunity = {
   id: string
   name: string
@@ -56,18 +58,23 @@ export type OpportunityDetail = Opportunity & {
 }
 
 export async function listOpportunities(query: {
+  protocol: ProtocolSelection
   search: string
   page: number
   items: number
   chainId: number
-}): Promise<OpportunityPage> {
+}, signal: AbortSignal): Promise<OpportunityPage> {
   const params = new URLSearchParams({
     search: query.search,
     page: String(query.page),
     items: String(query.items),
     chainId: String(query.chainId),
   })
-  const response = await fetch(`/v1/opportunities?${params}`)
+  let path = '/v1/opportunities'
+  if (query.protocol !== 'all') {
+    path = `/v1/protocols/${query.protocol}/opportunities`
+  }
+  const response = await fetch(`${path}?${params}`, { signal })
   if (!response.ok) {
     throw new Error('opportunities unavailable')
   }

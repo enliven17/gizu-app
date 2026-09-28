@@ -3,7 +3,7 @@ import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
 import { useNativeTransferController } from "./useNativeTransferController";
-import type { NativeTransfers } from "@/services/wallet/nativeBridge";
+import type { NativeTransfers } from "@/development/legacySigner/nativeBridge";
 
 export function NativeTransferScreen({
   service,

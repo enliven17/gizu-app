@@ -4,6 +4,7 @@ import {
   listOpportunities,
   type OpportunityDetail,
   type OpportunityPage,
+  type ProtocolSelection,
 } from './opportunities'
 
 type Load =
@@ -17,6 +18,7 @@ type DetailLoad =
   | { kind: 'failed'; message: string }
 
 export function useOpportunities(query: {
+  protocol: ProtocolSelection
   search: string
   page: number
   items: number
@@ -27,7 +29,7 @@ export function useOpportunities(query: {
   useEffect(() => {
     const controller = new AbortController()
     setLoad({ kind: 'loading' })
-    listOpportunities(query)
+    listOpportunities(query, controller.signal)
       .then((page) => {
         if (controller.signal.aborted) {
           return
@@ -44,7 +46,7 @@ export function useOpportunities(query: {
         setLoad({ kind: 'failed', message: 'Could not load vaults' })
       })
     return () => controller.abort()
-  }, [query.search, query.page, query.items, query.chainId])
+  }, [query.protocol, query.search, query.page, query.items, query.chainId])
 
   return load
 }

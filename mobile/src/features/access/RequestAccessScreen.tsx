@@ -1,4 +1,4 @@
-import { Pressable, TextInput, View, useWindowDimensions } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/templates/Screen";
@@ -14,8 +14,6 @@ export function RequestAccessScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, "RequestAccess">) {
   const c = useEarlyAccessController();
-  const { width, fontScale } = useWindowDimensions();
-  const stacked = width < 370 || fontScale > 1.2;
   const pending = c.status === "pending";
   return (
     <Screen>
@@ -52,7 +50,7 @@ export function RequestAccessScreen({
           <Typography variant="caption">Select one, not a commitment.</Typography>
           <View className="flex-row flex-wrap gap-2">
             {investmentRanges.map((label) => (
-              <View key={label} style={{ width: stacked ? "100%" : "47%", flexGrow: 1 }}>
+              <View key={label} className="w-full grow xs:w-[47%]">
                 <Choice
                   label={label}
                   selected={c.amount === label}
