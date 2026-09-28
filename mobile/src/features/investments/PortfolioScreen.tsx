@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useSession } from "@/application/SessionProvider";
 import { useWallet } from "@/features/wallet/WalletProvider";
 import { useNotifications } from "@/features/notifications/NotificationProvider";
@@ -5,25 +6,35 @@ import { useTransactions } from "@/features/transactions/TransactionProvider";
 import { OperationLink } from "@/features/transactions/OperationLink";
 import { decimal } from "@/domain/transactions";
 import { View } from "react-native";
-import { Bell, MoreHorizontal } from "lucide-react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
-import { IconButton } from "@/components/atoms/IconButton";
 import { Badge } from "@/components/atoms/Badge";
 import { Balance } from "@/components/molecules/Balance";
+import { FadeIn } from "@/components/molecules/FadeIn";
 import { Surface } from "@/components/molecules/Surface";
-import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { HistoryChart } from "@/components/organisms/HistoryChart";
 import { VaultList } from "@/components/organisms/VaultList";
 import { dollars, portfolioTotal } from "@/domain/investments";
 import { profileFixture as profile } from "@/services/fixtures/profile";
+import { sectionDelay } from "@/theme/motion";
 import { useInvestments } from "./InvestmentProvider";
 import { DataStatus } from "./DataStatus";
-export function PortfolioScreen(props: BottomTabScreenProps<MainTabParamList, "Home">) {
+import { HoldingRow } from "./components/HoldingRow";
+import { PortfolioActions } from "./components/PortfolioActions";
+import { PortfolioHeader } from "./components/PortfolioHeader";
+import { PerformanceUnavailable } from "./components/PerformanceUnavailable";
+import { VaultPreview } from "./components/VaultPreview";
+
+type Props = BottomTabScreenProps<MainTabParamList, "Home">;
+
+// Frontend Home section stagger: header 0, balance 1, chart 2, actions 3, lists 4.
+// Screen already applies a 16px gap, so `mt-*` below tops up to the frontend rhythm.
+
+export function PortfolioScreen(props: Props) {
   const { session } = useSession();
   return session?.kind === "testnet" ? (
     <NativePortfolio {...props} />
@@ -31,31 +42,48 @@ export function PortfolioScreen(props: BottomTabScreenProps<MainTabParamList, "H
     <DemoPortfolio {...props} />
   );
 }
-function DemoPortfolio({ navigation }: BottomTabScreenProps<MainTabParamList, "Home">) {
+
+function PortfolioTitle({ detail }: { detail?: string }) {
+  return (
+    <View className="gap-1">
+      <Typography variant="eyebrow" accessibilityRole="header">
+        Your portfolio
+      </Typography>
+      {detail !== undefined && <Typography variant="micro">{detail}</Typography>}
+    </View>
+  );
+}
+
+function SectionHeading({ title, action }: { title: string; action?: ReactNode }) {
+  return (
+    <View className="mb-1 flex-row flex-wrap items-center justify-between gap-3">
+      <Typography variant="section">{title}</Typography>
+      {action}
+    </View>
+  );
+}
+
+function DemoPortfolio({ navigation }: Props) {
   const { unread } = useNotifications();
   const { data } = useInvestments();
   const { account, error: balanceError } = useTransactions();
   const holdings = account && account.revision > 0 ? account.holdings : (data?.holdings ?? []);
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
+  const openVault = (id: string) => root.navigate("VaultDetail", { id });
   return (
     <Screen>
-      <View className="flex-row items-center gap-3">
-        <View className="rounded-2xl border border-border bg-surface p-3">
-          <Typography variant="label">{profile.initials}</Typography>
-        </View>
-        <View className="flex-1">
-          <Typography variant="caption">{profile.member}</Typography>
-          <Typography variant="row">{profile.greeting}</Typography>
-        </View>
-        <IconButton
-          icon={Bell}
-          label={`Notifications, ${unread} unread`}
-          onPress={() => root.navigate("Notifications")}
+      <FadeIn delay={sectionDelay(0)}>
+        <PortfolioHeader
+          initials={profile.initials}
+          eyebrow={profile.member}
+          greeting={profile.greeting}
+          notificationsLabel={`Notifications, ${unread} unread`}
+          unread={unread}
+          onNotifications={() => root.navigate("Notifications")}
         />
-      </View>
-      <View className="mt-4 gap-2">
-        <Typography variant="heading">Your portfolio</Typography>
-        <Typography variant="caption">Vault holdings · USD</Typography>
+      </FadeIn>
+      <FadeIn delay={sectionDelay(1)} className="mt-5 gap-3">
+        <PortfolioTitle detail="Vault holdings · USD" />
         {data && <Balance value={portfolioTotal(holdings)} />}
         {data && holdings.length > 0 && (
           <View className="flex-row flex-wrap items-center gap-2">
@@ -63,151 +91,140 @@ function DemoPortfolio({ navigation }: BottomTabScreenProps<MainTabParamList, "H
               label={`${data.dailyChange.percent}%`}
               negative={Number(data.dailyChange.percent) < 0}
             />
-            <Typography variant="caption">{`${BigInt(data.dailyChange.valueCents) >= 0n ? "+" : ""}${dollars(data.dailyChange.valueCents)} today`}</Typography>
+            <Typography variant="micro" className="!text-fg-35">
+              {`${BigInt(data.dailyChange.valueCents) >= 0n ? "+" : ""}${dollars(data.dailyChange.valueCents)} today`}
+            </Typography>
           </View>
         )}
-      </View>
-      <DataStatus />
-      {account && (
-        <Typography variant="row">
-          {balanceError
-            ? "Available USDC: refresh required"
-            : `Available USDC: ${decimal(account.cash)}`}
-        </Typography>
-      )}
-      <OperationLink />
+        <DataStatus />
+        {account && (
+          <Typography variant="rowTitle">
+            {balanceError
+              ? "Available USDC: refresh required"
+              : `Available USDC: ${decimal(account.cash)}`}
+          </Typography>
+        )}
+        <OperationLink />
+      </FadeIn>
       {data && (
         <>
-          <HistoryChart series={data.portfolioSeries} />
-          <View className="flex-row flex-wrap gap-3">
-            <View className="min-w-24 flex-1">
-              <Button
-                label="Deposit"
-                onPress={() => root.navigate("Transaction", { kind: "deposit" })}
-              />
-            </View>
-            <View className="min-w-24 flex-1">
-              <Button
-                label="Withdraw"
-                onPress={() => root.navigate("Transaction", { kind: "withdraw" })}
-              />
-            </View>
-            <IconButton
-              icon={MoreHorizontal}
-              label="View activity"
-              onPress={() => root.navigate("Activity")}
+          <FadeIn delay={sectionDelay(2)} className="mt-1">
+            <HistoryChart series={data.portfolioSeries} height={140} />
+          </FadeIn>
+          <FadeIn delay={sectionDelay(3)} className="mt-2">
+            <PortfolioActions
+              onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}
+              onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
+              onActivity={() => root.navigate("Activity")}
             />
-          </View>
-          {holdings.length === 0 ? (
-            <>
-              <Typography>No holdings yet.</Typography>
-              <View className="mt-3 flex-row flex-wrap items-center justify-between gap-2">
-                <Typography variant="heading">Confidential vaults</Typography>
-                <Button
-                  label="See all vaults"
-                  variant="quiet"
-                  onPress={() => navigation.navigate("Vaults")}
+          </FadeIn>
+          <FadeIn delay={sectionDelay(4)} className="mt-5 gap-3">
+            {holdings.length === 0 ? (
+              <>
+                <Typography variant="body">No holdings yet.</Typography>
+                <SectionHeading
+                  title="Confidential vaults"
+                  action={
+                    <Button
+                      label="See all vaults"
+                      variant="quiet"
+                      onPress={() => navigation.navigate("Vaults")}
+                    />
+                  }
                 />
-              </View>
-              <VaultList
-                vaults={data.vaults}
-                onOpen={(id) => root.navigate("VaultDetail", { id })}
-              />
-            </>
-          ) : (
-            <>
-              <Typography variant="heading">Holdings</Typography>
-              <Surface>
-                {holdings.map((holding) => (
-                  <GroupedRow
-                    key={holding.id}
-                    label={holding.name}
-                    detail={`${holding.units} ${holding.ticker} units · ${holding.change}%`}
-                    value={dollars(holding.valueCents)}
-                    accessibilityLabel={`Open ${holding.ticker} holding`}
-                    onPress={() => root.navigate("VaultDetail", { id: holding.id })}
-                  />
-                ))}
-              </Surface>
-            </>
-          )}
+                <VaultList vaults={data.vaults} onOpen={openVault} />
+              </>
+            ) : (
+              <>
+                <SectionHeading title="Holdings" />
+                <Surface>
+                  {holdings.map((holding, index) => (
+                    <HoldingRow
+                      key={holding.id}
+                      holding={holding}
+                      last={index === holdings.length - 1}
+                      onOpen={openVault}
+                    />
+                  ))}
+                </Surface>
+              </>
+            )}
+          </FadeIn>
         </>
       )}
     </Screen>
   );
 }
 
-function NativePortfolio({ navigation }: BottomTabScreenProps<MainTabParamList, "Home">) {
+function NativePortfolio({ navigation }: Props) {
   const wallet = useWallet();
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <Screen>
-      <View className="flex-row items-center gap-3">
-        <View className="rounded-2xl border border-border bg-surface p-3">
-          <Typography variant="label">G</Typography>
-        </View>
-        <View className="flex-1">
-          <Typography variant="caption">
-            Monad testnet · Account {wallet.session.accountIndex}
-          </Typography>
-          <Typography variant="row">Welcome back</Typography>
-        </View>
-        <IconButton icon={Bell} label="Notifications unavailable" disabled onPress={() => {}} />
-      </View>
-      <View className="mt-4 gap-2">
-        <Typography variant="heading">Your portfolio</Typography>
-        <Typography variant="caption">Available balance · Testnet MON</Typography>
-        {wallet.loading ? (
-          <Typography>Loading balance…</Typography>
-        ) : wallet.error ? (
-          <Typography accessibilityRole="alert">Balance unavailable. Please retry.</Typography>
-        ) : wallet.balance !== null ? (
-          <Balance value={wallet.balance + " MON"} />
-        ) : null}
-      </View>
-      <Button
-        label={wallet.error ? "Retry balance" : "Refresh balance"}
-        disabled={wallet.loading}
-        onPress={() => void wallet.refresh()}
-      />
-      <Typography variant="caption">
-        Testnet MON has no real monetary value. USD valuation and performance data are unavailable.
-      </Typography>
-      <View className="flex-row flex-wrap gap-3">
-        <View className="min-w-24 flex-1">
-          <Button
-            label="Deposit"
-            onPress={() => root.navigate("Transaction", { kind: "deposit" })}
-          />
-        </View>
-        <View className="min-w-24 flex-1">
-          <Button
-            label="Withdraw"
-            onPress={() => root.navigate("Transaction", { kind: "withdraw" })}
-          />
-        </View>
-        <IconButton
-          icon={MoreHorizontal}
-          label="View activity"
-          onPress={() => root.navigate("Activity")}
+      <FadeIn delay={sectionDelay(0)}>
+        <PortfolioHeader
+          initials="G"
+          greeting="Welcome back"
+          notificationsLabel="Notifications unavailable"
+          notificationsDisabled
+          onNotifications={() => {}}
         />
-      </View>
-      <Typography variant="caption">
-        Transfers use native approval. Activity lists outgoing transfers recorded on this device.
-      </Typography>
-      <View className="mt-3 flex-row flex-wrap items-center justify-between gap-2">
-        <Typography variant="heading">Confidential vaults</Typography>
-        <Button
-          label="See all vaults"
-          variant="quiet"
-          onPress={() => navigation.navigate("Vaults")}
-        />
-      </View>
-      <Surface>
-        <View className="p-5">
-          <Typography>Vault holdings and investment services are unavailable.</Typography>
+      </FadeIn>
+      <FadeIn delay={sectionDelay(1)} className="mt-5 gap-2">
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="min-w-0 flex-1">
+            <PortfolioTitle />
+          </View>
+          {!wallet.error && (
+            <Button
+              label="Refresh balance"
+              variant="quiet"
+              disabled={wallet.loading}
+              onPress={() => void wallet.refresh()}
+            />
+          )}
         </View>
-      </Surface>
+        {/* Reserve the 46px balance line so loading/error states do not shift the page. */}
+        <View className="min-h-[52px] justify-end">
+          {wallet.loading ? (
+            <Typography variant="micro" accessibilityLiveRegion="polite">
+              Loading balance…
+            </Typography>
+          ) : wallet.error ? (
+            <Typography variant="rowTitle" accessibilityRole="alert" className="!text-danger">
+              Balance unavailable. Please retry.
+            </Typography>
+          ) : wallet.balance !== null ? (
+            <Balance value={wallet.balance + " MON"} />
+          ) : null}
+        </View>
+        {wallet.error && (
+          <View className="self-start">
+            <Button
+              label="Retry balance"
+              variant="secondary"
+              disabled={wallet.loading}
+              onPress={() => void wallet.refresh()}
+            />
+          </View>
+        )}
+      </FadeIn>
+      <FadeIn delay={sectionDelay(2)} className="mt-1">
+        <PerformanceUnavailable />
+      </FadeIn>
+      <FadeIn delay={sectionDelay(3)} className="mt-2">
+        <PortfolioActions
+          onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}
+          onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
+          onActivity={() => root.navigate("Activity")}
+        />
+      </FadeIn>
+      <FadeIn delay={sectionDelay(4)} className="mt-5">
+        <VaultPreview
+          onSeeAll={() => navigation.navigate("Vaults")}
+          onOpen={(id) => root.navigate("OpportunityDetail", { id })}
+        />
+      </FadeIn>
     </Screen>
   );
 }
