@@ -107,15 +107,10 @@ export function FloatingTabs({ state, descriptors, navigation, insets }: BottomT
     <View
       pointerEvents="box-none"
       onLayout={({ nativeEvent }) => reportHeight?.(nativeEvent.layout.height)}
+      className="absolute inset-x-0 bottom-0 bg-transparent pt-3"
       style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
         paddingBottom: Math.max(insets.bottom, 12),
-        paddingTop: 12,
         paddingHorizontal: Math.max(insets.left, insets.right, 20),
-        backgroundColor: "transparent",
       }}
     >
       <View className="self-center rounded-full border border-border bg-surface p-2.5">
@@ -127,33 +122,15 @@ export function FloatingTabs({ state, descriptors, navigation, insets }: BottomT
                 pointerEvents="none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                style={[
-                  {
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    borderRadius: 999,
-                    backgroundColor: colors.accent,
-                  },
-                  outgoingStyle,
-                ]}
+                className="absolute left-0 top-0 rounded-full bg-accent"
+                style={outgoingStyle}
               />
               <Animated.View
                 pointerEvents="none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                style={[
-                  {
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: bounds.width,
-                    height: bounds.height,
-                    borderRadius: 999,
-                    backgroundColor: colors.accent,
-                  },
-                  indicatorStyle,
-                ]}
+                className="absolute left-0 top-0 rounded-full bg-accent"
+                style={[{ width: bounds.width, height: bounds.height }, indicatorStyle]}
               />
             </>
           )}

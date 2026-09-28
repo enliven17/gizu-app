@@ -3,10 +3,10 @@ import { AccessibilityInfo, AppState, View, useWindowDimensions } from "react-na
 import { useIsFocused } from "@react-navigation/native";
 import { ComingSoonGlitch } from "./ComingSoonGlitch";
 import { Typography } from "@/components/atoms/Typography";
-import colors from "@/theme/colors.json";
 
 export function ComingSoonHeading() {
-  const { width, fontScale } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions();
+  const [animationWidth, setAnimationWidth] = useState(0);
   const focused = useIsFocused();
   const [reduceMotion, setReduceMotion] = useState(true);
   const [foreground, setForeground] = useState(AppState.currentState === "active");
@@ -32,8 +32,8 @@ export function ComingSoonHeading() {
       appState.remove();
     };
   }, []);
-  const animationWidth = Math.min(360, width - 72);
-  const size = Math.min(48, (width - 72) / 6.4);
+  // Measure the NativeWind-sized canvas to keep text and glitch slices aligned.
+  const size = animationWidth > 0 ? Math.min(48, animationWidth / 6.4) : 48;
   // Native text preserves Dynamic Type; only normal-size display text is animated.
   const animate = focused && foreground && !reduceMotion && !failed && fontScale <= 1.2;
   return (
@@ -41,36 +41,34 @@ export function ComingSoonHeading() {
       accessible
       accessibilityRole="header"
       accessibilityLabel="Swap coming soon"
-      className="items-center"
+      className="w-full items-center"
     >
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         pointerEvents="none"
-        className="items-center"
+        className="w-full max-w-[360px] items-center"
+        onLayout={({ nativeEvent }) => setAnimationWidth(nativeEvent.layout.width)}
       >
         <Typography
           variant="title"
-          style={{ fontSize: size, lineHeight: Math.ceil(size * 1.25), textAlign: "center" }}
+          className="text-center"
+          style={{ fontSize: size, lineHeight: Math.ceil(size * 1.25) }}
         >
           Swap
         </Typography>
-        <View
-          style={{ width: animationWidth, minHeight: Math.ceil(size * 1.25) }}
-          className="justify-center"
-        >
+        <View style={{ minHeight: Math.ceil(size * 1.25) }} className="w-full justify-center">
           <Typography
             variant="title"
+            className="text-center !text-accent"
             style={{
-              color: colors.accent,
               fontSize: size,
               lineHeight: Math.ceil(size * 1.25),
-              textAlign: "center",
             }}
           >
             coming soon
           </Typography>
-          {animate && (
+          {animate && animationWidth > 0 && (
             <ComingSoonGlitch
               width={animationWidth}
               size={size}

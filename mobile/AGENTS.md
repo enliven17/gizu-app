@@ -56,6 +56,8 @@ Paths below are relative to `mobile/` unless stated otherwise.
 
 - Use shared semantic tokens and NativeWind for ordinary styling; use native styles
   for dynamic values and library requirements. Prefer existing primitives/variants.
+- Use NativeWind breakpoint variants (`xs:`, `sm:`, `md:`, etc.) for responsive
+  layout; do not use `useWindowDimensions` to select layout styles.
 - Adapt the frontend's phone layouts to native interaction. Preserve agreed parity
   and mobile-specific decisions; do not import DOM or browser-only effects.
 - Design for safe areas, keyboard access, large text, accessible roles/labels,

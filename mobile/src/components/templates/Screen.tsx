@@ -11,13 +11,7 @@ export function Screen({
   const insets = useSafeAreaInsets();
   return (
     <View
-      className="flex-1 bg-ink"
-      style={{
-        paddingTop: insets.top,
-        paddingBottom: tabHeight === undefined ? insets.bottom : 0,
-        paddingLeft: insets.left,
-        paddingRight: insets.right,
-      }}
+      className={`flex-1 bg-ink pt-safe pl-safe pr-safe ${tabHeight === undefined ? "pb-safe" : "pb-0"}`}
     >
       <KeyboardAvoidingView
         className="flex-1"

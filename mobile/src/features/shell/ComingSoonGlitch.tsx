@@ -14,7 +14,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { Typography } from "@/components/atoms/Typography";
 import { comingSoonGlitch } from "@/animations/comingSoonGlitch";
-import colors from "@/theme/colors.json";
 const AnimatedLottie = Animated.createAnimatedComponent(LottieView);
 const bands = [
   { top: 0.22, height: 0.2, direction: 1, color: "#29e7df" },
@@ -49,27 +48,23 @@ function Slice({
   });
   return (
     <Animated.View
+      className="absolute left-0 overflow-hidden bg-ink"
       style={[
         {
-          position: "absolute",
           top,
-          left: 0,
           width,
           height: lineHeight * band.height,
-          overflow: "hidden",
-          backgroundColor: colors.ink,
         },
         visibility,
       ]}
     >
-      <Animated.View style={[{ position: "absolute", top: -top, width }, tear]}>
+      <Animated.View className="absolute" style={[{ top: -top, width }, tear]}>
         <Typography
           variant="title"
+          className="text-center !text-accent"
           style={{
-            color: colors.accent,
             fontSize: size,
             lineHeight,
-            textAlign: "center",
             textShadowColor: band.color,
             textShadowOffset: { width: -3 * band.direction, height: 0 },
             textShadowRadius: 0,
@@ -106,7 +101,7 @@ export function ComingSoonGlitch({
   }, [progress]);
   const animatedProps = useAnimatedProps(() => ({ progress: progress.value }));
   return (
-    <View style={{ position: "absolute", left: 0, top: 0, width, height: lineHeight }}>
+    <View className="absolute left-0 top-0" style={{ width, height: lineHeight }}>
       {bands.map((band) => (
         <Slice
           key={band.top}

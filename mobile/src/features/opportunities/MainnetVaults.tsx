@@ -4,7 +4,6 @@ import { Typography } from "@/components/atoms/Typography";
 import { SearchInput } from "@/components/atoms/SearchInput";
 import { Button } from "@/components/atoms/Button";
 import { Choice } from "@/components/molecules/Choice";
-import { Surface } from "@/components/molecules/Surface";
 import { opportunityProtocols } from "@/domain/opportunities";
 import { useOpportunities } from "./useOpportunities";
 const labels = { all: "All protocols", aave: "Aave", morpho: "Morpho", curvance: "Curvance" };
@@ -68,9 +67,12 @@ export function MainnetVaults() {
             {load.data.total} opportunities found
           </Typography>
           {load.data.list.length === 0 && <Typography>No vaults match your filters.</Typography>}
-          {load.data.list.map((item) => (
-            <Surface key={item.id}>
-              <View className="gap-3 p-4">
+          <View className="flex-row flex-wrap justify-between gap-y-3">
+            {load.data.list.map((item) => (
+              <View
+                key={item.id}
+                className="w-full gap-3 rounded-3xl border border-border bg-surface p-4 xs:w-[48%]"
+              >
                 <Typography variant="label">
                   {item.protocol.name} · {item.status}
                 </Typography>
@@ -82,8 +84,8 @@ export function MainnetVaults() {
                   </Typography>
                 </View>
               </View>
-            </Surface>
-          ))}
+            ))}
+          </View>
           <Typography variant="caption">
             Catalog data may be cached for up to 5 minutes. APR is variable and is not a guaranteed
             return.

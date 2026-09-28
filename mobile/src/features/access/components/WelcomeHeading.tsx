@@ -12,14 +12,13 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { Typography } from "@/components/atoms/Typography";
-import colors from "@/theme/colors.json";
 
 const bands = [
   { top: 10, height: 9, direction: 1 },
   { top: 22, height: 8, direction: -1 },
   { top: 33, height: 7, direction: 1 },
 ];
-const textStyle = { lineHeight: 45, color: colors.accent };
+const textClassName = "leading-[45px] !text-accent";
 
 function Tear({
   clock,
@@ -44,26 +43,21 @@ function Tear({
   });
   return (
     <Animated.View
+      className="absolute -left-2 overflow-hidden bg-ink"
       style={[
         {
-          position: "absolute",
           top: band.top,
-          left: -8,
           width: width + 16,
           height: band.height,
-          overflow: "hidden",
-          backgroundColor: colors.ink,
         },
         visibility,
       ]}
     >
-      <Animated.View
-        style={[{ position: "absolute", top: -band.top, left: 8, width }, displacement]}
-      >
+      <Animated.View className="absolute left-2" style={[{ top: -band.top, width }, displacement]}>
         <Typography
           variant="title"
+          className={textClassName}
           style={{
-            ...textStyle,
             textShadowColor: "#29e7df",
             textShadowOffset: { width: -3 * band.direction, height: 0 },
             textShadowRadius: 0,
@@ -97,7 +91,7 @@ function StealthTears({ width }: { width: number }) {
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ position: "absolute", top: 0, left: 0 }}
+      className="absolute left-0 top-0"
     >
       {bands.map((band) => (
         <Tear key={band.top} clock={clock} width={width} band={band} />
@@ -113,11 +107,11 @@ export function WelcomeHeading({ animate }: { animate: boolean }) {
   if (fontScale !== 1)
     return (
       <Typography variant="title">
-        <Typography variant="title" style={{ color: colors.accent }}>
+        <Typography variant="title" className="!text-accent">
           DeFi
         </Typography>
         {" in\n"}
-        <Typography variant="title" style={{ color: colors.accent }}>
+        <Typography variant="title" className="!text-accent">
           Stealth
         </Typography>
         {" Mode"}
@@ -126,20 +120,20 @@ export function WelcomeHeading({ animate }: { animate: boolean }) {
   return (
     <View accessible accessibilityRole="header" accessibilityLabel="DeFi in Stealth Mode">
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Typography variant="title" style={{ lineHeight: 45 }}>
-          <Typography variant="title" style={{ color: colors.accent }}>
+        <Typography variant="title" className="leading-[45px]">
+          <Typography variant="title" className="!text-accent">
             DeFi
           </Typography>
           {" in"}
         </Typography>
         <View className="flex-row flex-wrap items-baseline">
           <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-            <Typography variant="title" style={textStyle}>
+            <Typography variant="title" className={textClassName}>
               Stealth
             </Typography>
             {animate && width > 0 && <StealthTears width={width} />}
           </View>
-          <Typography variant="title" style={{ lineHeight: 45 }}>
+          <Typography variant="title" className="leading-[45px]">
             {" Mode"}
           </Typography>
         </View>
