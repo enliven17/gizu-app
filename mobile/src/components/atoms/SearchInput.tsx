@@ -13,13 +13,14 @@ export function SearchInput({
     <TextInput
       accessibilityLabel={label}
       placeholder={label}
-      placeholderTextColor={colors.muted}
+      placeholderTextColor={colors.fg["35"]}
+      selectionColor={colors.accent}
       value={value}
       onChangeText={onChangeText}
       autoCorrect={false}
       autoCapitalize="none"
       returnKeyType="search"
-      className="min-h-12 rounded-2xl border border-border bg-surface px-4 py-3 text-base text-text"
+      className="font-sans min-h-11 rounded-2xl border border-borderSoft bg-glassSoft px-4 py-3 text-[14px] text-text"
     />
   );
 }

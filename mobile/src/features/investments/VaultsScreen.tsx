@@ -10,13 +10,24 @@ import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
 import { SearchInput } from "@/components/atoms/SearchInput";
 import { Choice } from "@/components/molecules/Choice";
+import { FadeIn } from "@/components/molecules/FadeIn";
 import { VaultList } from "@/components/organisms/VaultList";
 import { filterVaults, type Risk } from "@/domain/investments";
+import { sectionDelay } from "@/theme/motion";
 import { useInvestments } from "./InvestmentProvider";
 import { DataStatus } from "./DataStatus";
 export function VaultsScreen(props: BottomTabScreenProps<MainTabParamList, "Vaults">) {
   const { session } = useSession();
-  if (session?.kind === "testnet") return <MainnetVaults />;
+  if (session?.kind === "testnet")
+    return (
+      <MainnetVaults
+        onOpen={(id) =>
+          props.navigation
+            .getParent<NativeStackNavigationProp<RootStackParamList>>()
+            .navigate("OpportunityDetail", { id })
+        }
+      />
+    );
   return <DemoVaults {...props} />;
 }
 function DemoVaults({ navigation }: BottomTabScreenProps<MainTabParamList, "Vaults">) {
@@ -26,9 +37,9 @@ function DemoVaults({ navigation }: BottomTabScreenProps<MainTabParamList, "Vaul
   const filtered = filterVaults(data?.vaults ?? [], query, risk);
   return (
     <Screen>
-      <Typography variant="heading">Confidential vaults</Typography>
-
-      <Typography variant="caption">Search by name, ticker, strategy or manager</Typography>
+      <FadeIn delay={sectionDelay(0)} className="gap-2 pb-2">
+        <Typography variant="pageTitle">Confidential vaults</Typography>
+      </FadeIn>
       <SearchInput
         label="Search name, ticker, strategy or manager"
         value={query}
@@ -49,22 +60,26 @@ function DemoVaults({ navigation }: BottomTabScreenProps<MainTabParamList, "Vaul
         ))}
       </View>
       {(query !== "" || risk !== "All") && (
-        <Button
-          label="Clear filters"
-          variant="quiet"
-          onPress={() => {
-            setQuery("");
-            setRisk("All");
-          }}
-        />
+        <View className="self-start">
+          <Button
+            label="Clear filters"
+            variant="quiet"
+            onPress={() => {
+              setQuery("");
+              setRisk("All");
+            }}
+          />
+        </View>
       )}
-      <Typography variant="caption">Advanced filters are not available yet.</Typography>
       <DataStatus />
       {data && (
         <>
-          <Typography accessibilityLiveRegion="polite">{`${filtered.length} ${filtered.length === 1 ? "vault" : "vaults"} found`}</Typography>
+          <Typography
+            variant="micro"
+            accessibilityLiveRegion="polite"
+          >{`${filtered.length} ${filtered.length === 1 ? "vault" : "vaults"} found`}</Typography>
           {filtered.length === 0 && (
-            <Typography>
+            <Typography variant="caption" className="py-6 text-center">
               {data.vaults.length ? "No vaults match your filters." : "No vaults available."}
             </Typography>
           )}

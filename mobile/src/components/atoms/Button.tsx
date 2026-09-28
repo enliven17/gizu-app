@@ -1,13 +1,39 @@
-import { ActivityIndicator, Pressable, Text, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Text, useWindowDimensions } from "react-native";
 import colors from "@/theme/colors.json";
+import { PressableScale } from "./PressableScale";
+
+type Variant = "primary" | "secondary" | "quiet" | "destructive" | "sell";
 type Props = {
   label: string;
   accessibilityLabel?: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
-  variant?: "primary" | "secondary" | "quiet" | "destructive";
+  variant?: Variant;
 };
+
+const surfaces: Record<Variant, string> = {
+  primary: "bg-neon",
+  sell: "bg-sell",
+  secondary: "border border-glassBorder bg-glass",
+  destructive: "border border-glassBorder bg-glass",
+  quiet: "",
+};
+const foregrounds: Record<Variant, string> = {
+  primary: "text-ctaText",
+  sell: "text-sellText",
+  secondary: "text-text",
+  destructive: "text-danger",
+  quiet: "text-fg-70",
+};
+const spinners: Record<Variant, string> = {
+  primary: colors.ctaText,
+  sell: colors.sellText,
+  secondary: colors.accent,
+  destructive: colors.danger,
+  quiet: colors.accent,
+};
+
 export function Button({
   label,
   accessibilityLabel,
@@ -20,36 +46,25 @@ export function Button({
   // Remount only the text node so feature and navigation state are retained.
   const { fontScale } = useWindowDimensions();
   const unavailable = disabled || loading;
-  const surface = disabled
-    ? "border border-border bg-surface"
-    : variant === "primary"
-      ? "bg-accent"
-      : variant === "quiet"
-        ? ""
-        : "border border-border bg-surface";
-  const foreground = disabled
-    ? "text-muted"
-    : variant === "primary"
-      ? "text-ink"
-      : variant === "destructive"
-        ? "text-danger"
-        : "text-text";
+  const quiet = variant === "quiet";
+  const surface = disabled && !quiet ? "border border-borderSoft bg-glassSoft" : surfaces[variant];
+  const foreground = disabled ? "text-fg-35" : foregrounds[variant];
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: unavailable, busy: loading }}
       disabled={unavailable}
       onPress={onPress}
-      className={`min-h-12 flex-row items-center justify-center gap-3 rounded-2xl py-3 ${variant === "quiet" ? "px-2" : "px-5"} ${surface} ${disabled ? "opacity-60" : "active:opacity-80"}`}
+      className={`flex-row items-center justify-center gap-3 rounded-button ${quiet ? "min-h-11 px-2 py-2" : "min-h-14 px-5 py-4"} ${surface}`}
     >
-      {loading && <ActivityIndicator color={variant === "primary" ? colors.ink : colors.accent} />}
+      {loading && <ActivityIndicator color={spinners[variant]} />}
       <Text
         key={fontScale}
-        className={`shrink text-center font-semibold ${variant === "quiet" ? "text-sm" : "text-base"} ${foreground}`}
+        className={`font-sans shrink text-center font-semibold ${quiet ? "text-[13px]" : "text-[15px]"} ${foreground}`}
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }

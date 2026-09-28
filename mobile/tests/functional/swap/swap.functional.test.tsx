@@ -42,6 +42,14 @@ test("validates amounts and lets the user leave review without submitting", asyn
   expect(screen.getByLabelText("Amount in USDG")).toHaveDisplayValue("100");
   expect(submit).not.toHaveBeenCalled();
 });
+test("fills the amount from the simulated balance with quick-fill chips", async () => {
+  open();
+  await userEvent.press(screen.getByRole("button", { name: "25%" }));
+  expect(screen.getByLabelText("Amount in USDG")).toHaveDisplayValue("250");
+  await userEvent.press(screen.getByRole("button", { name: "Max" }));
+  expect(screen.getByLabelText("Amount in USDG")).toHaveDisplayValue("1000");
+  expect(screen.getByRole("button", { name: "Review swap" })).toBeEnabled();
+});
 test("recovers from quote failure and rejects expired quotes", async () => {
   const service = createMockSwapService();
   jest.spyOn(service, "quote").mockRejectedValueOnce(new Error("Quote unavailable. Try again."));

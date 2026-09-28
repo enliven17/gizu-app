@@ -1,3 +1,4 @@
+import { selectLiveCampaigns } from "../../domain/live-campaigns.ts";
 import type { Cache } from "../../ports/cache.port.ts";
 import type {
   Opportunities,
@@ -14,10 +15,22 @@ export class GetOpportunityUseCase {
     const cacheKey = `opportunities:detail:${id}`;
     const cached = await this.cache.get<OpportunityDetail>(cacheKey);
     if (cached !== null) {
-      return cached;
+      return this.withLiveCampaigns(cached);
     }
     const detail = await this.opportunities.getById(id);
     await this.cache.set(cacheKey, detail);
-    return detail;
+    return this.withLiveCampaigns(detail);
+  }
+
+  private withLiveCampaigns(detail: OpportunityDetail): OpportunityDetail {
+    const campaigns = selectLiveCampaigns(
+      detail.campaigns,
+      Math.floor(Date.now() / 1000),
+    );
+    return {
+      ...detail,
+      campaigns,
+      liveCampaigns: campaigns.length,
+    };
   }
 }

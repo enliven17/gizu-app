@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, userEvent, waitFor } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { createMockTransactionService, type TransactionService } from "@/services/transactions";
-import { type Quote, type OperationKind } from "@/domain/transactions";
+import { TransactionError, type Quote, type OperationKind } from "@/domain/transactions";
 import { investmentFixture } from "@/services/fixtures/investments";
 import { renderApp, deferred } from "../../support/renderApp";
 
@@ -251,4 +251,38 @@ test("closing a pending operation retains it and blocks another order", async ()
   await userEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
   expect(await screen.findByRole("header", { name: "Confirmation pending" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Review withdrawal" })).toBeNull();
+});
+test("sign overlay follows signing and submission, then leaves an unknown outcome visible", async () => {
+  const service = createMockTransactionService();
+  const signing = deferred<string>();
+  const submission = deferred<Awaited<ReturnType<TransactionService["submit"]>>>();
+  jest.spyOn(service, "sign").mockReturnValue(signing.promise);
+  jest.spyOn(service, "submit").mockReturnValue(submission.promise);
+  await enter(service);
+  await open("deposit");
+  await review("deposit");
+  await confirm("deposit");
+  expect(await screen.findByText("Signing with passkey")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Cancel signing" })).toBeEnabled();
+  await act(async () => signing.resolve("signature"));
+  expect(screen.getByText("Sending to Monad")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Cancel signing" })).toBeNull();
+  await act(async () => submission.reject(new Error("connection lost")));
+  expect(await screen.findByRole("header", { name: "Submission status unknown" })).toBeVisible();
+  expect(screen.queryByText("Sending to Monad")).toBeNull();
+  expect(screen.queryByText("Confirmed")).toBeNull();
+});
+test("a rejected signature shows the rejection result over the recovery view", async () => {
+  const service = createMockTransactionService();
+  const signing = deferred<string>();
+  jest.spyOn(service, "sign").mockReturnValue(signing.promise);
+  await enter(service);
+  await open("withdraw");
+  await review("withdraw");
+  await confirm("withdraw");
+  expect(await screen.findByText("Signing with passkey")).toBeVisible();
+  await act(async () => signing.reject(new TransactionError("Signing was rejected.", "rejected")));
+  expect(screen.getByText("Signature rejected")).toBeVisible();
+  expect(screen.getByRole("header", { name: "Signing rejected" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Review again" })).toBeEnabled();
 });

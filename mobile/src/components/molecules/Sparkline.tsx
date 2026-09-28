@@ -1,5 +1,17 @@
-import Svg, { Polyline } from "react-native-svg";
-import colors from "@/theme/colors.json";
+import { useId, useMemo } from "react";
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
+import { areaPath, plotSeries, smoothPath } from "@/components/molecules/chart/path";
+import {
+  chartColors,
+  chartStroke,
+  fillOpacity,
+  sparkPad,
+  svgId,
+} from "@/components/molecules/chart/tokens";
+
+// Fluid sparkline (frontend `fluid`): a fixed-width viewBox stretched to the container.
+const W = 300;
+
 export function Sparkline({
   series,
   negative = false,
@@ -9,29 +21,38 @@ export function Sparkline({
   negative?: boolean;
   height?: number;
 }) {
-  if (series.length < 2) return null;
-  const low = Math.min(...series),
-    high = Math.max(...series);
-  const points = series
-    .map(
-      (value, i) =>
-        `${4 + (i * 292) / (series.length - 1)},${44 - ((value - low) / Math.max(1, high - low)) * 38}`,
-    )
-    .join(" ");
+  const fillId = svgId(negative ? "spark-down" : "spark-up", useId());
+  const paths = useMemo(() => {
+    if (series.length < 2) return null;
+    const line = smoothPath(plotSeries(series, W, height, sparkPad).points);
+    return { line, area: areaPath(line, W, height) };
+  }, [series, height]);
+  if (!paths) return null;
+  const color = negative ? chartColors.down : chartColors.up;
   return (
     <Svg
       width="100%"
       height={height}
-      viewBox="0 0 300 48"
+      viewBox={`0 0 ${W} ${height}`}
       preserveAspectRatio="none"
+      testID="sparkline"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Polyline
-        points={points}
+      <Defs>
+        <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={color} stopOpacity={fillOpacity.spark} />
+          <Stop offset="100%" stopColor={color} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Path d={paths.area} fill={`url(#${fillId})`} />
+      <Path
+        d={paths.line}
         fill="none"
-        stroke={negative ? colors.danger : colors.accent}
-        strokeWidth={2}
+        stroke={color}
+        strokeWidth={chartStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
       />
     </Svg>

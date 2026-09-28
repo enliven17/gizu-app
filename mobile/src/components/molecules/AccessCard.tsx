@@ -1,7 +1,12 @@
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, useWindowDimensions } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
-import { Typography } from "@/components/atoms/Typography";
 import colors from "@/theme/colors.json";
+
+/**
+ * Full-width primary access action (frontend `neon-btn`: 56 pt, button radius, neon
+ * fill, dark text) with a leading icon. Built on a plain Pressable so NativeWind
+ * styles apply directly on every platform.
+ */
 export function AccessCard({
   label,
   icon: Icon,
@@ -15,23 +20,31 @@ export function AccessCard({
   disabled?: boolean;
   loading?: boolean;
 }) {
+  // Remeasure native text after Dynamic Type changes.
+  const { fontScale } = useWindowDimensions();
+  const unavailable = disabled || loading;
+  const foreground = disabled ? colors.fg["35"] : colors.ctaText;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled: disabled || loading, busy: loading }}
-      disabled={disabled || loading}
+      accessibilityState={{ disabled: unavailable, busy: loading }}
+      disabled={unavailable}
       onPress={onPress}
-      className="min-h-44 justify-between gap-8 rounded-3xl border border-border bg-surface p-5 active:opacity-70"
+      className={`min-h-14 w-full flex-row items-center justify-center gap-3 rounded-button px-5 py-4 active:opacity-85 ${disabled ? "border border-borderSoft bg-glassSoft" : "bg-neon"}`}
     >
-      <View className="self-start rounded-2xl bg-accent/10 p-3">
-        {loading ? (
-          <ActivityIndicator color={colors.accent} />
-        ) : (
-          <Icon size={24} color={colors.accent} />
-        )}
-      </View>
-      <Typography variant="row">{label}</Typography>
+      {loading ? (
+        <ActivityIndicator color={foreground} />
+      ) : (
+        <Icon size={20} strokeWidth={2} color={foreground} />
+      )}
+      <Text
+        key={fontScale}
+        className="font-sans shrink text-center text-[15px] font-semibold"
+        style={{ color: foreground }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

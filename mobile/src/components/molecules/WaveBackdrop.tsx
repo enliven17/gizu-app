@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
-import { AccessibilityInfo, View, type LayoutChangeEvent } from "react-native";
 import {
-  Canvas,
-  Fill,
-  Shader,
-  Skia,
-  useClock,
-  type SkRuntimeEffect,
-} from "@shopify/react-native-skia";
-import { useDerivedValue, useSharedValue } from "react-native-reanimated";
+  AccessibilityInfo,
+  AppState,
+  PixelRatio,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
+import { Canvas, Fill, Shader, Skia, type SkRuntimeEffect } from "@shopify/react-native-skia";
+import {
+  cancelAnimation,
+  Easing,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
+import { reduceMotion } from "@/theme/motion";
 
 // Port of the web GradientWaves fragment shader (same raymarch, same constants).
 const source: SkRuntimeEffect | null = Skia.RuntimeEffect.Make(`
@@ -102,19 +110,76 @@ const HORIZON = rgb("#070d0a");
 const WAVE = rgb("#2aa471");
 const CREST = rgb("#5fe0a6");
 
+/** Frontend GradientWaves caps the drawing buffer at 1.5x device pixels. */
+const MAX_PIXEL_RATIO = 1.5;
+/** Frame shown under reduced motion. */
+const STATIC_TIME = 9.5;
+/** Time ping-pongs over this span so float precision stays bounded in the shader. */
+const LOOP_SECONDS = 3600;
+
+type Size = { width: number; height: number };
+
 type WaveBackdropProps = {
+  /** Fixed height; ignored when `fill` is set. */
   height?: number;
+  /** Fill the parent absolutely (full-screen backdrops). */
+  fill?: boolean;
+  /** Pause motion, e.g. while the owning screen is unfocused. The last frame stays. */
+  paused?: boolean;
   testID?: string;
 };
 
+function useReducedMotionPreference() {
+  // Assume reduced until the OS answers so motion never flashes on.
+  const [reduced, setReduced] = useState(true);
+  useEffect(() => {
+    let mounted = true;
+    let changed = false;
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", (value) => {
+      changed = true;
+      setReduced(value);
+    });
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => {
+        if (mounted && !changed) setReduced(value);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+  return reduced;
+}
+
+function useAppActive() {
+  const [active, setActive] = useState(AppState.currentState === "active");
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) =>
+      setActive(state === "active"),
+    );
+    return () => subscription.remove();
+  }, []);
+  return active;
+}
+
 /**
- * Same wave field as the web onboarding screen. Falls back to a flat ink panel
- * when the runtime effect is unavailable or the user asked for reduced motion.
+ * Same wave field as the web onboarding screen. The shader renders into a smaller
+ * canvas that is scaled up, keeping the work near 1.5 device pixels per point like the
+ * frontend. Motion stops while paused or backgrounded; reduced motion shows a still
+ * frame. Falls back to a flat ink panel when the runtime effect is unavailable.
  */
-export function WaveBackdrop({ height = 220, testID = "gizu-wave-backdrop" }: WaveBackdropProps) {
-  const reduceMotion = useSharedValue(false);
-  const clock = useClock();
-  const [size, setSize] = useState({ width: 1, height: 1 });
+export function WaveBackdrop({
+  height = 220,
+  fill = false,
+  paused = false,
+  testID = "gizu-wave-backdrop",
+}: WaveBackdropProps) {
+  const reduced = useReducedMotionPreference();
+  const appActive = useAppActive();
+  const running = !paused && appActive && !reduced;
+  const time = useSharedValue(STATIC_TIME);
+  const [size, setSize] = useState<Size | null>(null);
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height: measured } = event.nativeEvent.layout;
@@ -122,50 +187,78 @@ export function WaveBackdrop({ height = 220, testID = "gizu-wave-backdrop" }: Wa
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => {
-        if (mounted) reduceMotion.value = enabled;
-      })
-      .catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) => {
-      reduceMotion.value = enabled;
-    });
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, [reduceMotion]);
+    if (reduced) {
+      cancelAnimation(time);
+      time.set(STATIC_TIME);
+      return undefined;
+    }
+    if (!running) {
+      // Cancelling keeps the current value, so resuming continues from this frame.
+      cancelAnimation(time);
+      return undefined;
+    }
+    const from = time.get();
+    time.set(
+      withRepeat(
+        withTiming(from + LOOP_SECONDS, {
+          duration: LOOP_SECONDS * 1000,
+          easing: Easing.linear,
+          reduceMotion,
+        }),
+        -1,
+        true,
+      ),
+    );
+    return () => cancelAnimation(time);
+  }, [reduced, running, time]);
 
+  // Render at reduced resolution and scale the canvas up to the measured box.
+  const scale = Math.max(1, PixelRatio.get() / MAX_PIXEL_RATIO);
+  const canvasWidth = (size?.width ?? 1) / scale;
+  const canvasHeight = (size?.height ?? 1) / scale;
   const uniforms = useDerivedValue(
     () => ({
-      uResolution: [size.width, size.height],
-      // Frozen frame keeps the artwork on screen without continuous motion.
-      uTime: reduceMotion.value ? 9.5 : clock.value / 1000,
+      uResolution: [canvasWidth, canvasHeight],
+      uTime: time.get(),
       uHorizon: HORIZON,
       uWave: WAVE,
       uCrest: CREST,
     }),
-    [size],
+    [canvasWidth, canvasHeight],
   );
 
+  const box = fill ? StyleSheet.absoluteFill : { height };
   if (!source) {
-    return <View testID={testID} className="bg-ink" style={{ height }} />;
+    return <View testID={testID} className="bg-ink" style={box} />;
   }
 
   return (
     <View
       testID={testID}
-      style={{ height }}
+      style={box}
+      className="overflow-hidden"
+      pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       onLayout={onLayout}
     >
-      <Canvas style={{ flex: 1 }}>
-        <Fill>
-          <Shader source={source} uniforms={uniforms} />
-        </Fill>
-      </Canvas>
+      {size && (
+        <Canvas
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: canvasWidth,
+            height: canvasHeight,
+            transformOrigin: [0, 0, 0],
+            transform: [{ scale }],
+          }}
+        >
+          <Fill>
+            <Shader source={source} uniforms={uniforms} />
+          </Fill>
+        </Canvas>
+      )}
     </View>
   );
 }

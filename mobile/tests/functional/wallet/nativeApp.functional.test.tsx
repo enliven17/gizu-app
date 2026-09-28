@@ -35,6 +35,8 @@ function setup() {
       accessService={createNativeWalletAccess(() => bridge)}
       opportunityService={{
         list: jest.fn().mockResolvedValue({ list: [], page: 0, items: 8, total: 0 }),
+        detail: jest.fn().mockRejectedValue(new Error("not used")),
+        tvlRecords: jest.fn().mockResolvedValue([]),
       }}
       walletBalanceService={balance}
       walletTransferService={transfers}
@@ -59,7 +61,7 @@ test("native access opens existing Home and Account with live units and no fixtu
   expect(screen.getByRole("button", { name: "Withdraw" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "View activity" })).toBeEnabled();
   await userEvent.press(screen.getByLabelText("Vaults tab"));
-  expect(await screen.findByText("Monad mainnet · Browse only")).toBeVisible();
+  expect(await screen.findByLabelText("Search opportunities")).toBeVisible();
   expect(screen.queryByRole("button", { name: "View Helix Alpha" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Swap tab"));
   expect(await screen.findByRole("header", { name: "Swap" })).toBeVisible();
@@ -127,23 +129,20 @@ test("disconnect aborts a balance request and late results cannot leak into the 
   expect(await screen.findByLabelText("Account address: 0x" + "2".repeat(40))).toBeVisible();
 });
 
-test.each(["notifications", "vault/helix"])(
-  "native deep link %s cannot reach a mock service",
-  async (path) => {
-    const subscribe = jest.spyOn(Linking, "addEventListener");
-    setup();
-    await open();
-    await screen.findByLabelText("19.990574 MON");
-    const listener = subscribe.mock.calls.filter(([type]) => type === "url").at(-1)?.[1];
-    if (!listener) throw new Error("Missing listener");
-    await act(async () => listener({ url: "gizu-dev://" + path }));
-    expect(
-      await screen.findByText("This service is not connected to your wallet yet."),
-    ).toBeVisible();
-    await userEvent.press(screen.getByRole("button", { name: "Back" }));
-    expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
-  },
-);
+test.each(["vault/helix"])("native deep link %s cannot reach a mock service", async (path) => {
+  const subscribe = jest.spyOn(Linking, "addEventListener");
+  setup();
+  await open();
+  await screen.findByLabelText("19.990574 MON");
+  const listener = subscribe.mock.calls.filter(([type]) => type === "url").at(-1)?.[1];
+  if (!listener) throw new Error("Missing listener");
+  await act(async () => listener({ url: "gizu-dev://" + path }));
+  expect(
+    await screen.findByText("This service is not connected to your wallet yet."),
+  ).toBeVisible();
+  await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
+});
 
 const recipient = "0x" + "3".repeat(40);
 const hash = "0x" + "a".repeat(64);
@@ -176,11 +175,13 @@ test("deposit copies the real address without signing and withdrawal validates b
   transfers.send.mockReturnValueOnce(pending.promise);
   await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
   expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
+  expect(screen.getByText("Waiting for passkey")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
   expect(transfers.send).toHaveBeenCalledTimes(1);
   expect(transfers.send).toHaveBeenCalledWith(address, recipient, "0.001");
   await act(async () => pending.resolve({ entries: [record], blocked: true }));
   expect(await screen.findByText("Pending")).toBeVisible();
+  expect(screen.queryByText("Waiting for passkey")).toBeNull();
   expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
   transfers.history.mockResolvedValue({
     entries: [{ ...record, status: "finalized" }],
@@ -254,4 +255,12 @@ test("closing withdrawal preserves the operation and Activity observes its resul
   expect(await screen.findByText("Pending")).toBeVisible();
   expect(transfers.send).toHaveBeenCalledTimes(1);
   expect(transfers.cancel).not.toHaveBeenCalled();
+});
+
+test("native notifications open an empty inbox instead of mock alerts", async () => {
+  setup();
+  await open();
+  await screen.findByLabelText("19.990574 MON");
+  await userEvent.press(screen.getByRole("button", { name: "Notifications, 0 unread" }));
+  expect(await screen.findByText("No notifications yet.")).toBeVisible();
 });

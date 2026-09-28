@@ -23,13 +23,13 @@ test("browses portfolio, periods, holdings, filtered vault details and activity"
   expect(screen.queryByRole("header", { name: "Confidential vaults" })).toBeNull();
   expect(screen.queryByRole("button", { name: "See all vaults" })).toBeNull();
   await userEvent.press(screen.getByRole("radio", { name: "1D" }));
-  expect(screen.getByText(/1D index:.*8 samples/)).toBeVisible();
+  expect(screen.getByLabelText(/1D index:.*8 samples/)).toBeVisible();
   await openVault();
   expect(screen.getByText("$1.8342")).toBeVisible();
   expect(screen.getByText("46%")).toBeVisible();
   expect(screen.getByText("$25,000")).toBeVisible();
   await userEvent.press(screen.getByRole("radio", { name: "1Y" }));
-  expect(screen.getByText(/1Y index:.*48 samples/)).toBeVisible();
+  expect(screen.getByLabelText(/1Y index:.*48 samples/)).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await userEvent.press(screen.getByLabelText("Vaults tab"));
   const search = screen.getByLabelText("Search name, ticker, strategy or manager");
@@ -107,7 +107,7 @@ test("empty portfolio, charts, discovery and activity remain navigable", async (
   });
   expect(await screen.findByText("$0.00")).toBeVisible();
   expect(screen.getByText("No holdings yet.")).toBeVisible();
-  expect(screen.getByText("No chart history available.")).toBeVisible();
+  expect(screen.getByLabelText("1M index: no history")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "View activity" }));
   expect(await screen.findByText("No activity yet.")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
