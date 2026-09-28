@@ -24,7 +24,9 @@ test("opens full notification text, tracks read/unread and mark-all across navig
   await userEvent.press(screen.getByRole("button", { name: "Mark as unread" }));
   expect(await screen.findByText("2 unread")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Close notification" }));
-  expect(screen.queryByText("Review your order history in Activity.")).toBeNull();
+  // Collapsed cards keep a one-line preview; the expanded actions are gone.
+  expect(screen.queryByRole("button", { name: "Close notification" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Mark as read" })).toBeNull();
   await userEvent.press(screen.getByRole("button", { name: "Mark all as read" }));
   expect(await screen.findByText("0 unread")).toBeVisible();
   expect(screen.getByRole("button", { name: "Mark all as read" })).toBeDisabled();
