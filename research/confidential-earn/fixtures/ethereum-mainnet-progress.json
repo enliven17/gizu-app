@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-09-29T19:33:48.414Z",
+  "phase": "destinations_delivered",
+  "sourceTransaction": "0xa13359701c6619c3f157eeec822638df5d3fa17ae104def0686959c416d43453",
+  "sourceTransfer": "7640235",
+  "sourceGas": "1646",
+  "sourceBalance": "21741",
+  "privateCredit": "7637178",
+  "payouts": [
+    {
+      "recipient": "0xAedFCE416e6F06d8D45ddE901D8B83dbA619d96F",
+      "input": "763717",
+      "received": "161805",
+      "transactions": [
+        "0xe67c78bbffd4dd56106957c96ca2e4bf2402369f68bc911a1c933aebffe1c1d4"
+      ],
+      "intentHash": "95YXqFZa4UsWDvRFJteKBZJnWND8oZfJhudaYALc8Sc5"
+    },
+    {
+      "recipient": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "input": "6873461",
+      "received": "6256264",
+      "transactions": [
+        "0x3314466e2ccac31fae8e4facb32b23f2ea15ad9c1e0da4553074c3bbc77f5b4f"
+      ],
+      "intentHash": "8FHrfq76FEosSKuhKayDzokWjKSF4FZTyNs7bbYzifU2"
+    }
+  ],
+  "initialShares": "133013839453606864",
+  "native": {
+    "checkedAt": "2026-09-29T21:00:11.668Z",
+    "phase": "complete",
+    "pending": null,
+    "balances": {
+      "usdc": "0",
+      "eth": "0",
+      "shares": "0",
+      "weth": "0"
+    },
+    "transactionCount": 6,
+    "privateReturnedUSDCAtoms": "3081997",
+    "evidence": "ethereum-mainnet-cycle.json"
+  }
+}

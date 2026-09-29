@@ -1,0 +1,50 @@
+{
+  "scope": "Local Robinhood fork, public Pimlico unsigned estimates at public nonce zero, sequential signed nonces executed locally, local-only paymaster signer, preinstalled delegation, mocked Aurora quotes/status. No public sponsorship/inclusion or actual Aurora settlement proven. Fresh authorization tested separately.",
+  "block": "75777651",
+  "submissions": 3,
+  "evidence": [
+    {
+      "kind": "preview",
+      "amount": "9806621",
+      "feeCap": "70001",
+      "withdrawalReserve": "123378"
+    },
+    {
+      "kind": "deposit",
+      "amount": "9807085",
+      "feeCap": "69833",
+      "balances": {
+        "token": "163288",
+        "shares": "9724567310817449280",
+        "native": "0"
+      },
+      "phase": "invested"
+    },
+    {
+      "kind": "withdraw",
+      "amount": "9724567310817449280",
+      "feeCap": "48062",
+      "balances": {
+        "token": "9959578",
+        "shares": "0",
+        "native": "0"
+      },
+      "phase": "withdrawn"
+    },
+    {
+      "kind": "return",
+      "amount": "9931601",
+      "feeCap": "27977",
+      "balances": {
+        "token": "25111",
+        "shares": "0",
+        "native": "0"
+      },
+      "phase": "awaiting_aurora"
+    }
+  ],
+  "final": {
+    "usdcValue": "25111",
+    "optimal": true
+  }
+}

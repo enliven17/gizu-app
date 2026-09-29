@@ -1,0 +1,22 @@
+{
+  "label": "first",
+  "historicalTransaction": "0xe1216d7bcc7a27a26a14158f92498b17a9a45bbd972efaeaca7886df232f1992",
+  "forkParent": 26075410,
+  "scope": "Original signed UserOperation plus preceding same-block vault reallocation at index 216; unrelated block transactions omitted",
+  "before": {
+    "usdc": "5656266",
+    "shares": "0",
+    "eth": "39081000000000"
+  },
+  "after": {
+    "usdc": "2464035",
+    "shares": "1119037849207314848",
+    "eth": "39081000000000"
+  },
+  "deposit": "1128419",
+  "charge": "2063812",
+  "operationGas": "672955",
+  "transactionGas": "496687",
+  "passesResidual": false,
+  "localTransaction": "0xbb314599b5934801a134a9266340f8e473d01e583ac12137bd8be5ef617db0b3"
+}

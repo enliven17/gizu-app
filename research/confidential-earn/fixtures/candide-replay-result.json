@@ -1,0 +1,22 @@
+{
+  "label": "candide",
+  "historicalTransaction": "0x69679dc7ce23bb1dd7dbb2c65a319ff0bbda40078b3ffc24d05b39330ad5edfe",
+  "forkParent": 26079549,
+  "scope": "Original signed UserOperation at parent-block state and historical timestamp/base fee; preceding same-block transactions not replayed",
+  "before": {
+    "usdc": "3592555",
+    "shares": "0",
+    "eth": "707811898201088"
+  },
+  "after": {
+    "usdc": "1731762",
+    "shares": "133013839453606864",
+    "eth": "707811898201088"
+  },
+  "deposit": "134142",
+  "charge": "1726651",
+  "operationGas": "650510",
+  "transactionGas": "496879",
+  "passesResidual": false,
+  "localTransaction": "0xf1bb878fa3fc8fc119a00a9a693724f6caa4875c0b51f9af193ea3d5a73f71e1"
+}

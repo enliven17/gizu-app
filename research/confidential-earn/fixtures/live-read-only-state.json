@@ -1,0 +1,32 @@
+{
+  "observedAt": "2026-09-29T02:13:20.447Z",
+  "block": "26080059",
+  "blockHash": "0xb3658fb9964545c5894f285413c73612462e73996ac3a6c7734e7a5f24a75286",
+  "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+  "usdc": "1731762",
+  "shares": "133013839453606864",
+  "eth": "707811898201088",
+  "baseFeePerGas": "569372879",
+  "circlePricing": {
+    "nativeTokenPrice": "2666948201",
+    "feeSpread": "0",
+    "additionalGasCharge": "35000"
+  },
+  "scope": "Maximum-fee thresholds use the historical Candide gas limits, not a fresh operation estimate",
+  "maximumFeeForStrictHalf": "139001625",
+  "maximumFeeForStrictPointOne": "27800102",
+  "pimlicoGasQuote": {
+    "slow": {
+      "maxFeePerGas": "0x6bf86dc5",
+      "maxPriorityFeePerGas": "0x3d641a59"
+    },
+    "standard": {
+      "maxFeePerGas": "0x715e7342",
+      "maxPriorityFeePerGas": "0x4075e877"
+    },
+    "fast": {
+      "maxFeePerGas": "0x76c478bf",
+      "maxPriorityFeePerGas": "0x4387b695"
+    }
+  }
+}

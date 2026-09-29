@@ -1,0 +1,8 @@
+{
+  "scope": "Synthetic fresh wallet, production authorize() method, type-4 authorization included only on local fork. Public bundler attachment/inclusion not tested.",
+  "block": "75775406",
+  "chainId": 4663,
+  "success": true,
+  "ownerEth": "0",
+  "ownerNonce": 1
+}

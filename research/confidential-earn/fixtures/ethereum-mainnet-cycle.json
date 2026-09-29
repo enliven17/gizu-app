@@ -1,0 +1,240 @@
+{
+  "checkedAt": "2026-09-29T20:58:18.496Z",
+  "block": "26085663",
+  "phase": "complete",
+  "fusion": {
+    "checkedAt": "2026-09-29T20:50:41.459Z",
+    "orderHash": "0x3f4b7b95536125f34cef8d8606bb12ea396bef82d4e3fb1ed6903395b511d81f",
+    "status": "filled",
+    "input": "5121694",
+    "minimumEth": "1133295335295891",
+    "after": {
+      "usdc": "1134570",
+      "eth": "1133295335295891",
+      "shares": "133013839453606864",
+      "weth": "0"
+    },
+    "fills": [
+      {
+        "txHash": "0x84ebe0def4280bc6bad436c8f777696c6d51b230cb0abfbed416d22955815202",
+        "filledMakerAmount": "5121694",
+        "filledAuctionTakerAmount": "1136695221301778",
+        "surplusFeeAmount": "0",
+        "takerFeeAmount": "3399886005887"
+      }
+    ],
+    "economics": {
+      "estimatedGas": "587612",
+      "gasUnits": "705135",
+      "gasPrice": "973869293",
+      "gasCostWei": "686709323919555",
+      "profitWei": "68670932391956",
+      "allowanceWei": "755380256311511",
+      "inputValueWei": "1897493948790859",
+      "maximumGrossEth": "1142113692479348",
+      "grossEth": "1136695221301778",
+      "profitAtBudgetWei": "74089403569526",
+      "breakEvenGasPrice": "1078940525"
+    },
+    "receipt": {
+      "hash": "0x84ebe0def4280bc6bad436c8f777696c6d51b230cb0abfbed416d22955815202",
+      "status": "success",
+      "block": "26085618",
+      "gasUsed": "373418",
+      "effectiveGasPrice": "640090638"
+    },
+    "note": "Receipt gas is the entire resolver transaction, not necessarily attributable only to this order."
+  },
+  "transactions": [
+    {
+      "kind": "approve_deposit",
+      "hash": "0xd3f15d713e3d131aab284f966fc24cb7da3bfd6c650cda0c31b8d98ba5f0ce41",
+      "nonce": 6,
+      "block": "26085638",
+      "gasUsed": "55558",
+      "gasPriceGwei": "0.554251195",
+      "gasPaidETH": "0.00003079308789181",
+      "before": {
+        "usdc": "1134570",
+        "eth": "1133295335295891",
+        "shares": "133013839453606864",
+        "weth": "0"
+      },
+      "after": {
+        "usdc": "1134570",
+        "eth": "1102502247404081",
+        "shares": "133013839453606864",
+        "weth": "0"
+      },
+      "amount": "1084570"
+    },
+    {
+      "kind": "deposit",
+      "hash": "0xf8eefbb2fe0531e7f3163e759b26ad0ddf9e6f105cd0cef3c75acb5e9d7309d5",
+      "nonce": 7,
+      "block": "26085641",
+      "gasUsed": "310897",
+      "gasPriceGwei": "0.568337347",
+      "gasPaidETH": "0.000176694376170259",
+      "before": {
+        "usdc": "1134570",
+        "eth": "1102502247404081",
+        "shares": "133013839453606864",
+        "weth": "0"
+      },
+      "after": {
+        "usdc": "50000",
+        "eth": "925807871233822",
+        "shares": "1208315905953825257",
+        "weth": "0"
+      },
+      "amount": "1084570"
+    },
+    {
+      "kind": "approve_withdraw",
+      "hash": "0x30fdde9da342ce61ddf1edfdb8cb33a510f98f5f4ade5ca70ef47b2917f10600",
+      "nonce": 8,
+      "block": "26085646",
+      "gasUsed": "45984",
+      "gasPriceGwei": "0.560101169",
+      "gasPaidETH": "0.000025755692155296",
+      "before": {
+        "usdc": "50000",
+        "eth": "925807871233822",
+        "shares": "1208315905953825257",
+        "weth": "0"
+      },
+      "after": {
+        "usdc": "50000",
+        "eth": "900052179078526",
+        "shares": "1208315905953825257",
+        "weth": "0"
+      },
+      "amount": "1208315905953825257"
+    },
+    {
+      "kind": "withdraw",
+      "hash": "0xf05040a31622f38a37250e96060524f43ce1b429a1c8f0f369c6a126f47c5998",
+      "nonce": 9,
+      "block": "26085651",
+      "gasUsed": "294383",
+      "gasPriceGwei": "0.58431739",
+      "gasPaidETH": "0.00017201310622037",
+      "before": {
+        "usdc": "50000",
+        "eth": "900052179078526",
+        "shares": "1208315905953825257",
+        "weth": "0"
+      },
+      "after": {
+        "usdc": "1268730",
+        "eth": "728039072858156",
+        "shares": "0",
+        "weth": "0"
+      },
+      "amount": "1208315905953825257"
+    },
+    {
+      "kind": "return_usdc",
+      "hash": "0xcb9a5c5a8b4b8bc56d9d06032c9adefef649a1ce856d6e7f3a40cb9a40673e88",
+      "nonce": 10,
+      "block": "26085654",
+      "gasUsed": "57448",
+      "gasPriceGwei": "0.589523299",
+      "gasPaidETH": "0.000033866934480952",
+      "before": {
+        "usdc": "1268730",
+        "eth": "728039072858156",
+        "shares": "0",
+        "weth": "0"
+      },
+      "after": {
+        "usdc": "0",
+        "eth": "694172138377204",
+        "shares": "0",
+        "weth": "0"
+      },
+      "amount": "1268730"
+    },
+    {
+      "kind": "return_eth",
+      "hash": "0x0267b347ddc9682b624571e448686130bb02647574b743d3da1f5f8978ab0903",
+      "nonce": 11,
+      "block": "26085657",
+      "gasUsed": "21000",
+      "gasPriceGwei": "0.722624674",
+      "gasPaidETH": "0.000015175118154",
+      "before": {
+        "usdc": "0",
+        "eth": "694172138377204",
+        "shares": "0",
+        "weth": "0"
+      },
+      "after": {
+        "usdc": "0",
+        "eth": "0",
+        "shares": "0",
+        "weth": "0"
+      },
+      "amount": "678997020223204"
+    }
+  ],
+  "totalNativeGasPaidETH": "0.000454298315072687",
+  "routes": [
+    {
+      "kind": "usdc",
+      "recipient": "0xE0c861be31cfe693a3bB6F5EEba8a1B956FA4506",
+      "input": "1268730",
+      "originAsset": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+      "destinationAsset": "nep245:v2_1.omni.hot.tg:143_2dmLwYWkCQKyTjeUPAsGJuiVLbFx",
+      "minimumOut": "1252898",
+      "status": "SUCCESS",
+      "transactionHash": "0xcb9a5c5a8b4b8bc56d9d06032c9adefef649a1ce856d6e7f3a40cb9a40673e88"
+    },
+    {
+      "kind": "eth",
+      "recipient": "0x5cFd490052bDA0b11F6b49172f839Ab91d3f331b",
+      "input": "678997020223204",
+      "originAsset": "nep141:eth.omft.near",
+      "destinationAsset": "nep245:v2_1.omni.hot.tg:143_2dmLwYWkCQKyTjeUPAsGJuiVLbFx",
+      "minimumOut": "1798092",
+      "status": "SUCCESS",
+      "transactionHash": "0x0267b347ddc9682b624571e448686130bb02647574b743d3da1f5f8978ab0903"
+    }
+  ],
+  "balances": [
+    {
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "usdc": "0",
+      "eth": "0",
+      "shares": "0",
+      "weth": "0"
+    },
+    {
+      "owner": "0xAedFCE416e6F06d8D45ddE901D8B83dbA619d96F",
+      "usdc": "1125870",
+      "eth": "30933000000000",
+      "shares": "0",
+      "weth": "0"
+    }
+  ],
+  "completedAt": "2026-09-29T21:00:11.668Z",
+  "privateCredit": {
+    "confidential": "0x1A899cBD5cae6988e9f98BDD00007898037F2D00",
+    "asset": "nep245:v2_1.omni.hot.tg:143_2dmLwYWkCQKyTjeUPAsGJuiVLbFx",
+    "beforeAtoms": "0",
+    "afterAtoms": "3081997",
+    "authenticated": true
+  },
+  "acceptance": {
+    "wallet2ResidualUSDCAtoms": "0",
+    "belowHalfUSDC": true,
+    "belowTenthUSDC": true
+  },
+  "wallet1Comparison": {
+    "beforeBlock": "26085617",
+    "eth": "30933000000000",
+    "usdc": "1125870",
+    "matchesFinal": true
+  }
+}

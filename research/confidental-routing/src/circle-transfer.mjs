@@ -1,5 +1,6 @@
 import {createPublicClient, decodeFunctionData, encodePacked, erc20Abi, getAddress, hexToBigInt, http, maxUint256, parseAbi, verifyTypedData} from 'viem';
 import {createBundlerClient, entryPoint08Address, formatUserOperationRequest, getUserOperationHash, toSimple7702SmartAccount} from 'viem/account-abstraction';
+import {assertBidBlock, nextBlockBid} from './ethereum-fee.mjs';
 
 export const circlePaymaster=getAddress('0x0578cFB241215b77442a541325d6A4E6dFE700Ec');
 const publicBundler='https://public.pimlico.io/v2/1/rpc';
@@ -9,9 +10,18 @@ const paymasterAbi=parseAbi(['function fetchPrice() view returns (uint256)','fun
 export function circleFeeCap(operation,{nativeTokenPrice,feeSpread,additionalGasCharge}) {
   const gasLimit=operation.preVerificationGas+operation.verificationGasLimit+operation.callGasLimit+operation.paymasterVerificationGasLimit+operation.paymasterPostOpGasLimit;
   if(gasLimit<=0n||operation.maxFeePerGas<=0n||nativeTokenPrice<=0n||feeSpread<0n||feeSpread>10_000n) throw new Error('Invalid Circle paymaster fee inputs');
+  if(operation.paymasterPostOpGasLimit<additionalGasCharge) throw new Error('Circle post-operation gas limit is below its required additional charge');
   const maxCost=gasLimit*operation.maxFeePerGas;
   const base=((maxCost+additionalGasCharge*operation.maxFeePerGas)*nativeTokenPrice)/10n**18n+1n;
   return base+(base*feeSpread)/10_000n;
+}
+
+export function circleFinalCharge({actualGasCostWei,actualUserOpFeePerGas,postOpGasLimit},{nativeTokenPrice,feeSpread,additionalGasCharge}) {
+  if(actualGasCostWei<0n||actualUserOpFeePerGas<=0n||postOpGasLimit<additionalGasCharge||nativeTokenPrice<=0n||feeSpread<0n||feeSpread>10_000n) throw new Error('Invalid Circle final charge inputs');
+  const postOpUnusedGasPenalty=postOpGasLimit<=40_000n?0n:(postOpGasLimit-additionalGasCharge)/10n;
+  const gasCost=actualGasCostWei+(additionalGasCharge+postOpUnusedGasPenalty)*actualUserOpFeePerGas;
+  const base=gasCost*nativeTokenPrice/10n**18n+1n;
+  return base+base*feeSpread/10_000n;
 }
 
 export async function createCircleContext({client,chain,owner,recipient,token}) {
@@ -35,8 +45,9 @@ export async function createCircleContext({client,chain,owner,recipient,token}) 
   const entries=await query.getSupportedEntryPoints();
   if(!entries.some(x=>x.toLowerCase()===entryPoint08Address.toLowerCase())) throw new Error('Public Ethereum bundler lacks EntryPoint v0.8');
   const {slow:fees}=await query.request({method:'pimlico_getUserOperationGasPrice'});
-  const gasFees={maxFeePerGas:hexToBigInt(fees.maxFeePerGas),maxPriorityFeePerGas:hexToBigInt(fees.maxPriorityFeePerGas)};
-  return {account,authorization,balance,client,chain,owner,recipient:getAddress(recipient),token:getAddress(token),name,version,permitNonce,gasFees};
+  const feeBlock=await client.getBlock({blockTag:'latest'});
+  const gasFees=nextBlockBid(feeBlock,hexToBigInt(fees.maxPriorityFeePerGas));
+  return {account,authorization,balance,client,chain,owner,recipient:getAddress(recipient),token:getAddress(token),name,version,permitNonce,gasFees,feeBlockNumber:feeBlock.number};
 }
 
 async function circleBundler(context,permitAmount) {
@@ -75,6 +86,7 @@ export async function prepareCircleTransfer(context) {
 }
 
 export async function signCircleTransfer(context,prepared) {
+  assertBidBlock(context.feeBlockNumber,await context.client.getBlockNumber());
   const signature=await context.account.signUserOperation(prepared);
   const userOperationHash=getUserOperationHash({chainId:1,entryPointAddress:entryPoint08Address,entryPointVersion:'0.8',userOperation:{...prepared,signature}});
   return {userOperationHash,rpcOperation:formatUserOperationRequest({...prepared,signature})};

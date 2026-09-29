@@ -1,0 +1,48 @@
+{
+  "checkedAt": "2026-09-29T20:43:35.816Z",
+  "referenceBlock": "26085588",
+  "blockTime": "2026-09-29T20:43:11.000Z",
+  "summary": {
+    "canDeposit": true,
+    "initialUSDC": "6.256264",
+    "existingETH": "0",
+    "gasBudgetETH": "0.000902690241415374",
+    "gasBudgetUSDC": "2.428442",
+    "fusionInputUSDC": "3.546219",
+    "depositUSDC": "2.660045",
+    "retainedUSDC": "0.05",
+    "resolverAllowanceETH": "0.000394125032450608",
+    "resolverAllowanceUSDC": "1.060286",
+    "resolverBudgetGwei": "0.787343203",
+    "resolverBreakEvenGwei": "0.876075423",
+    "depositGasBudgetETH": "0.000301772272779638",
+    "withdrawalGasReserveETH": "0.000600917968635736",
+    "minimumETHReceived": "0.000912492940932017",
+    "fusionOverheadETH": "0.000405692668024358",
+    "fusionOverheadUSDC": "1.091406",
+    "totalBudgetETH": "0.001308382909439732",
+    "totalBudgetUSDC": "3.519848",
+    "extraPurchasedETH": "0.000009802699516643",
+    "message": "Estimated Ethereum fee budget, including Fusion costs and the deposit + withdrawal gas reserves, is 0.001308382909439732 ETH equivalent (approximately 3.519848 USDC). From your initial wallet balance of 6.256264 USDC, 2.660045 USDC can be deposited into the vault. The Fusion ETH purchase uses 3.546219 USDC; 0.05 USDC stays liquid. Fusion costs include resolver execution, profit allowance, provider fees and price headroom. These costs are already inside the quoted purchase amount. 0.000009802699516643 ETH of additional funding headroom is included in that purchase, not counted as a fee. This is a budget, not an exact final charge; unused ETH remains available for the return. Aurora return fees are excluded and re-quoted after withdrawal."
+  },
+  "fees": {
+    "medianPriorityFeeGwei": "0.041829255",
+    "priorityFeeGwei": "0.041829255",
+    "depositMaxFeeGwei": "0.629874562",
+    "withdrawalReserveFeeGwei": "1.259749124"
+  },
+  "economics": {
+    "estimatedGas": "379224",
+    "gasUnits": "455069",
+    "gasPrice": "787343203",
+    "gasCostWei": "358295484046007",
+    "profitWei": "35829548404601",
+    "allowanceWei": "394125032450608",
+    "inputValueWei": "1313905186575140",
+    "maximumGrossEth": "919780154124532",
+    "grossEth": "915230419754813",
+    "profitAtBudgetWei": "40379282774320",
+    "breakEvenGasPrice": "876075423"
+  },
+  "note": "Preview only; no permit/order/transaction signed or submitted. Fusion submission will require a new estimated quote."
+}

@@ -1,0 +1,27 @@
+{
+  "scope": "Counterfactual 0.08-gwei base / 0.02-gwei recommended priority, pinned local Voltaire with DEFAULT fee tolerance and full validation (no --unsafe); not public Candide admission",
+  "image": "sha256:ba8a23fbaae9bed49a671152c3ec404fcd5a8debd86fdfa5e8138279a71da26d",
+  "historicalForkParent": 26079549,
+  "inclusionTimestamp": "1790641871",
+  "underpricedRejection": {
+    "code": -32602,
+    "message": "maxFeePerGas is too low.it should be minimum the estimated base fee: 0x4c4b400"
+  },
+  "verificationRejection": {
+    "code": -32500,
+    "message": "verificationGas should have extra 2000 gas. has only -106697"
+  },
+  "admittedHash": "0xb5d65b6fe4c823c967276a826ab9de75ff7cfb6a04044ca66193c295a7a8df33",
+  "localTransaction": "0x2dcf23fb4d6cf64403fcc674d682fe9bd5c9dd994934829a18a9cdfa6d9bc2e4",
+  "bundleResponse": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "ok"
+  },
+  "deposit": "3229758",
+  "charge": "181130",
+  "residual": "181667",
+  "shares": "3202595023694688941",
+  "zeroEth": true,
+  "oneWalletOnly": true
+}

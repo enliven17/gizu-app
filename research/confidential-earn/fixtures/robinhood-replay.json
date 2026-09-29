@@ -1,0 +1,26 @@
+{
+  "scope": "Exact captured synthetic operations replayed locally, same pinned mainnet state, timestamps, base fees and gas limits. No live provider quotes or submissions.",
+  "block": "75777651",
+  "evidence": [
+    {
+      "hash": "0x73b3a33a0ca3094b6c76ded325a67bdabcf130b08dc85651c6833765261a1427",
+      "nonce": "0",
+      "actualGasUsed": "633904"
+    },
+    {
+      "hash": "0x0c7e7a3ddf23ba92810bd4c587d1d716ef018caf41938e4880289f7a5325f457",
+      "nonce": "1",
+      "actualGasUsed": "394631"
+    },
+    {
+      "hash": "0xed657779a4b4d53cb8e52aa767cfe61483ec0602c4310193a71bed6ef83d1877",
+      "nonce": "2",
+      "actualGasUsed": "187540"
+    }
+  ],
+  "final": {
+    "token": "25111",
+    "shares": "0",
+    "native": "0"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "scope": "Pinned wallet state; recorded 0.675754118/1.351508236 gwei scenario; fresh unsigned custom quote; exact permit/order signed locally, never sent to provider; resolver inventory funded locally; modeled profitability only; no Aurora return replay",
+  "blockNumber": "26085513",
+  "fees": {
+    "deposit": "675754118",
+    "withdraw": "1351508236"
+  },
+  "summary": {
+    "canDeposit": true,
+    "initialUSDC": "6.256264",
+    "existingETH": "0",
+    "gasBudgetETH": "0.000968441471866986",
+    "gasBudgetUSDC": "2.614792",
+    "fusionInputUSDC": "4.648302",
+    "depositUSDC": "1.557962",
+    "retainedUSDC": "0.05",
+    "resolverAllowanceETH": "0.000655113039914943",
+    "resolverAllowanceUSDC": "1.768806",
+    "resolverBudgetGwei": "0.844692648",
+    "resolverBreakEvenGwei": "0.936631307",
+    "message": "Estimated total Ethereum gas budget for deposit + withdrawal is 0.000968441471866986 ETH (approximately 2.614792 USDC, including safety reserves). From your initial wallet balance of 6.256264 USDC, 1.557962 USDC can be deposited into the vault. The Fusion ETH purchase uses 4.648302 USDC; 0.05 USDC stays liquid. Existing ETH is credited before buying more. Actual gas spent may be lower. Aurora return fees are excluded and re-quoted after withdrawal. The Fusion purchase includes a resolver execution/profit allowance of approximately 1.768806 USDC at 0.844692648 gwei. This is included in the swap input, not extra wallet dust. Resolver acceptance is not guaranteed."
+  },
+  "input": "4648302",
+  "minimumEth": "1058654118215443",
+  "economics": {
+    "estimatedGas": "587548",
+    "gasUnits": "705058",
+    "gasPrice": "844692648",
+    "gasCostWei": "595557309013584",
+    "profitWei": "59555730901359",
+    "allowanceWei": "655113039914943",
+    "inputValueWei": "1722429096244869",
+    "maximumGrossEth": "1067316056329926",
+    "grossEth": "1061830080570089",
+    "profitAtBudgetWei": "65041706661196",
+    "breakEvenGasPrice": "936942798"
+  },
+  "fills": [
+    {
+      "offset": "1",
+      "gasUsed": "202600",
+      "totalGasPrice": "844692648",
+      "actualGasWei": "171134730484800",
+      "marginWei": "489464285189980"
+    },
+    {
+      "offset": "90",
+      "gasUsed": "202600",
+      "totalGasPrice": "844692648",
+      "actualGasWei": "171134730484800",
+      "marginWei": "489464285189980"
+    },
+    {
+      "offset": "180",
+      "gasUsed": "202485",
+      "totalGasPrice": "844692648",
+      "actualGasWei": "171037590830280",
+      "marginWei": "489561424844500"
+    }
+  ],
+  "native": [
+    {
+      "gasUsed": "55558",
+      "gasPrice": "675754118"
+    },
+    {
+      "gasUsed": "310897",
+      "gasPrice": "675754118"
+    },
+    {
+      "gasUsed": "45984",
+      "gasPrice": "1351508236"
+    },
+    {
+      "gasUsed": "256760",
+      "gasPrice": "1351508236"
+    }
+  ],
+  "after": {
+    "usdc": "1742121",
+    "eth": "401859633504169",
+    "shares": "0"
+  },
+  "otherWalletUnchanged": true
+}

@@ -7,6 +7,7 @@ import {createPublicClient, defineChain, erc20Abi, formatUnits, getAddress, http
 import {assertQuote, buildAuthPayload, encodeAuroraSignature, selectPrivateBalance, splitSourceBudget, chooseConfidentialAsset, validatePreparedIntent} from './core.mjs';
 import {createMonadPaymaster, fundingAmount, monadFundingReceipt, prepareMonadFunding, signMonadFunding, sourceBudget, submitMonadFunding} from './source-paymaster.mjs';
 import {circlePaymaster, circleTransferReceipt, createCircleContext, prepareCircleTransfer, signCircleTransfer, submitCircleTransfer} from './circle-transfer.mjs';
+import {promoteWinningAttempt, replacementBid} from './ethereum-fee.mjs';
 
 const root = process.cwd();
 const secretDir = join(root, '.local');
@@ -89,9 +90,9 @@ async function fundingQuote(f,c,assets,budget) {
 }
 async function routeStatus(entry) { if(!entry?.quote?.quote?.depositAddress) return null; const url=new URL(`https://intents-api.aurora.dev/api/status/${encodeURIComponent(need('AURORA_API_KEY'))}`); url.searchParams.set('depositAddress',entry.quote.quote.depositAddress); if(entry.quote.quote.depositMemo) url.searchParams.set('depositMemo',entry.quote.quote.depositMemo); const response=await fetch(url,{signal:AbortSignal.timeout(20000)}); if(!response.ok) throw new Error(`Aurora status failed: ${safeError(response)}`); return (await response.json()).status; }
 function publicView(state) { return {phase:state.phase,source:state.source,confidential:state.confidential,creditBasis:state.creditBasis,creditedAtoms:state.creditedAtoms,deposit:{status:state.deposit?.status,routeStatus:state.deposit?.routeStatus,txHash:state.deposit?.txHash,userOperationHash:state.deposit?.signedUserOperation?.userOperationHash,route:state.deposit?.quote?.quote?.depositAddress},payouts:state.payouts?.map((p,i)=>({index:i+1,recipient:p.recipient,status:p.status,routeStatus:p.routeStatus,receivedAtoms:p.receivedAtoms,sourceAtoms:p.sourceAtoms,minDestinationAtoms:p.quote?.quote?.minAmountOut,intentHash:p.intentHash})),postTransfer:state.postTransfer&&{status:state.postTransfer.status,amountAtoms:state.postTransfer.amountAtoms,feeCapAtoms:state.postTransfer.feeCapAtoms,userOperationHash:state.postTransfer.signed?.userOperationHash,txHash:state.postTransfer.txHash,netGasAtoms:state.postTransfer.netGasAtoms}}; }
-async function postContext(state) {
-  if(state.phase!=='destinations_delivered'||state.payouts?.length!==3||!state.payouts.every(p=>p.status==='delivered')) throw new Error('Three Ethereum payouts must be confirmed first');
-  if(state.postTransfer) throw new Error('Post-transfer already signed or submitted; run post-status');
+async function postContext(state,{allowExisting=false}={}) {
+  if(!['destinations_delivered',...(allowExisting?['post_transfer_pending']:[])].includes(state.phase)||state.payouts?.length!==3||!state.payouts.every(p=>p.status==='delivered')) throw new Error('Three Ethereum payouts must be confirmed first');
+  if(state.postTransfer&&!allowExisting) throw new Error('Post-transfer already signed or submitted; run post-status');
   const recipients=destinations();
   if(recipients.some((address,i)=>address!==getAddress(state.recipients[i]))) throw new Error('Destination addresses differ from the accepted plan');
   const owner=privateKeyToAccount(need('DEST1_PK'));
@@ -226,14 +227,14 @@ export async function run(command,arg) {
     const state=await load(); await assertChains(); const context=await postContext(state);
     const selected=await prepareCircleTransfer(context);
     print({source:context.owner.address,recipient:context.recipient,chainId:1,token:context.token,paymaster:circlePaymaster,
-      a1BalanceUSDC:formatUnits(context.balance,6),transferUSDC:formatUnits(selected.amount,6),maximumGasUSDC:formatUnits(selected.feeCap,6),publiclyLinksA1AndA3:true}); return;
+      a1BalanceUSDC:formatUnits(context.balance,6),transferUSDC:formatUnits(selected.amount,6),maximumGasUSDC:formatUnits(selected.feeCap,6),feeReferenceBlock:context.feeBlockNumber,maxFeePerGasWei:context.gasFees.maxFeePerGas,priorityFeePerGasWei:context.gasFees.maxPriorityFeePerGas,publiclyLinksA1AndA3:true}); return;
   }
   if(command==='post-send') {
     const state=await load(); await assertChains(); const context=await postContext(state);
     const beforeA3=await ethClient.readContract({address:context.token,abi:erc20Abi,functionName:'balanceOf',args:[context.recipient]});
     const selected=await prepareCircleTransfer(context);
     const signed=await signCircleTransfer(context,selected.prepared);
-    state.postTransfer={status:'signed',source:context.owner.address,recipient:context.recipient,token:context.token,amountAtoms:selected.amount.toString(),feeCapAtoms:selected.feeCap.toString(),beforeA1Atoms:context.balance.toString(),beforeA3Atoms:beforeA3.toString(),signed};
+    state.postTransfer={status:'signed',source:context.owner.address,recipient:context.recipient,token:context.token,amountAtoms:selected.amount.toString(),feeCapAtoms:selected.feeCap.toString(),beforeA1Atoms:context.balance.toString(),beforeA3Atoms:beforeA3.toString(),feeBlockNumber:context.feeBlockNumber.toString(),signed};
     state.phase='post_transfer_pending'; await save(state);
     try { await submitCircleTransfer(signed); state.postTransfer.status='submitted'; await save(state); }
     catch { throw new Error('Ethereum submission outcome unknown. Run post-status before resubmitting the saved UserOperation.'); }
@@ -241,8 +242,11 @@ export async function run(command,arg) {
   }
   if(command==='post-status') {
     const state=await load(); const p=state.postTransfer; if(!p?.signed) throw new Error('No signed A1 to A3 transfer');
-    await assertChains(); const op=await circleTransferReceipt(p.signed.userOperationHash);
-    if(!op) { print({status:p.status,userOperationHash:p.signed.userOperationHash,receipt:null}); return; }
+    await assertChains(); let op,winning=p;
+    const allAttempts=[...(p.attempts??[]),p];
+    for(const attempt of allAttempts) { const found=await circleTransferReceipt(attempt.signed.userOperationHash); if(found) { if(op) throw new Error('Multiple transfer attempts have receipts; inspect before reconciliation'); op=found; winning=attempt; } }
+    if(!op) { print({status:p.status,userOperationHashes:[...(p.attempts??[]),p].map(attempt=>attempt.signed.userOperationHash),receipt:null}); return; }
+    if(winning!==p) Object.assign(p,promoteWinningAttempt(p,winning));
     const receipt=await ethClient.getTransactionReceipt({hash:op.receipt.transactionHash});
     if(!op.success||receipt.status!=='success') { p.status='failed'; p.txHash=receipt.transactionHash; await save(state); print({status:'failed',txHash:p.txHash}); return; }
     const transferEvent=parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)');
@@ -251,15 +255,33 @@ export async function run(command,arg) {
     const fees=parseEventLogs({abi:[sponsorEvent],logs:receipt.logs,strict:false}).filter(l=>getAddress(l.address)===circlePaymaster&&getAddress(l.args.sender)===getAddress(p.source)&&getAddress(l.args.token)===getAddress(p.token)&&l.args.userOpHash.toLowerCase()===p.signed.userOperationHash.toLowerCase());
     const [afterA1,afterA3]=await Promise.all([ethClient.readContract({address:p.token,abi:erc20Abi,functionName:'balanceOf',args:[p.source]}),ethClient.readContract({address:p.token,abi:erc20Abi,functionName:'balanceOf',args:[p.recipient]})]);
     const netGas=BigInt(p.beforeA1Atoms)-afterA1-BigInt(p.amountAtoms);
-    if(sent.length!==1||fees.length!==1||netGas<0n||netGas>BigInt(p.feeCapAtoms)||afterA3-BigInt(p.beforeA3Atoms)!==BigInt(p.amountAtoms)) throw new Error('Post-transfer receipts or balances do not reconcile; inspect the transaction before retrying');
+    if(sent.length!==1||fees.length!==1||netGas<0n||netGas>BigInt(p.feeCapAtoms)||netGas!==fees[0].args.actualTokenNeeded||afterA3-BigInt(p.beforeA3Atoms)!==BigInt(p.amountAtoms)) throw new Error('Post-transfer receipts, Circle charge or balances do not reconcile; inspect the transaction before retrying');
     p.status='complete'; p.txHash=receipt.transactionHash; p.netGasAtoms=netGas.toString(); p.afterA1Atoms=afterA1.toString(); p.afterA3Atoms=afterA3.toString(); p.paymasterActualTokenNeeded=fees[0].args.actualTokenNeeded.toString(); p.paymasterFeeTokenAmount=fees[0].args.feeTokenAmount.toString(); state.phase='completed'; await save(state);
     print({status:'complete',txHash:p.txHash,transferUSDC:formatUnits(BigInt(p.amountAtoms),6),netGasUSDC:formatUnits(netGas,6),a1RefundRemainderUSDC:formatUnits(afterA1,6),a3BalanceUSDC:formatUnits(afterA3,6)}); return;
   }
   if(command==='post-resubmit') {
     const state=await load(); const p=state.postTransfer; if(!p?.signed||!['signed','submitted'].includes(p.status)) throw new Error('No unresolved signed post-transfer operation');
-    const receipt=await circleTransferReceipt(p.signed.userOperationHash);
-    if(receipt) { print({status:'receipt_found',txHash:receipt.receipt.transactionHash}); return; }
+    for(const attempt of [...(p.attempts??[]),p]) { const receipt=await circleTransferReceipt(attempt.signed.userOperationHash); if(receipt) { print({status:'receipt_found',txHash:receipt.receipt.transactionHash}); return; } }
+    if(p.feeBlockNumber!==undefined&&BigInt(p.feeBlockNumber)!==await ethClient.getBlockNumber()) throw new Error('Saved next-block bid is stale; run post-reprice');
     await submitCircleTransfer(p.signed); p.status='submitted'; await save(state); print({status:'submitted',userOperationHash:p.signed.userOperationHash,reusedSignedOperation:true}); return;
+  }
+  if(command==='post-reprice') {
+    const state=await load(); const p=state.postTransfer; if(!p?.signed||!['signed','submitted'].includes(p.status)) throw new Error('No unresolved signed post-transfer operation');
+    await assertChains();
+    for(const attempt of [...(p.attempts??[]),p]) if(await circleTransferReceipt(attempt.signed.userOperationHash)) throw new Error('A post-transfer attempt has a receipt; run post-status');
+    const context=await postContext(state,{allowExisting:true});
+    const old=p.signed.rpcOperation;
+    context.gasFees=replacementBid(context.gasFees,{maxFeePerGas:BigInt(old.maxFeePerGas),maxPriorityFeePerGas:BigInt(old.maxPriorityFeePerGas)});
+    const selected=await prepareCircleTransfer(context);
+    if(BigInt(selected.prepared.nonce)!==BigInt(old.nonce)) throw new Error('Post-transfer account nonce changed; run post-status before retrying');
+    const signed=await signCircleTransfer(context,selected.prepared);
+    const attempts=p.attempts??[];
+    attempts.push({status:p.status,source:p.source,recipient:p.recipient,token:p.token,amountAtoms:p.amountAtoms,feeCapAtoms:p.feeCapAtoms,beforeA1Atoms:p.beforeA1Atoms,beforeA3Atoms:p.beforeA3Atoms,feeBlockNumber:p.feeBlockNumber,signed:p.signed});
+    state.postTransfer={status:'signed',source:context.owner.address,recipient:context.recipient,token:context.token,amountAtoms:selected.amount.toString(),feeCapAtoms:selected.feeCap.toString(),beforeA1Atoms:context.balance.toString(),beforeA3Atoms:p.beforeA3Atoms,feeBlockNumber:context.feeBlockNumber.toString(),signed,attempts};
+    await save(state);
+    try { await submitCircleTransfer(signed); state.postTransfer.status='submitted'; await save(state); }
+    catch { throw new Error('Post-transfer replacement submission outcome unknown. Run post-status before retrying.'); }
+    print({status:'submitted',userOperationHash:signed.userOperationHash,maximumGasUSDC:formatUnits(selected.feeCap,6),replacedUserOperationHash:p.signed.userOperationHash}); return;
   }
   if(command==='status') {
     const state=await load(); await assertChains();
@@ -292,5 +314,5 @@ export async function run(command,arg) {
     if(state.payouts?.length===3&&state.payouts.every(p=>p.status==='delivered')&&!state.postTransfer) state.phase='destinations_delivered'; await save(state); print(publicView(state)); return;
   }
   if(command==='view') { print(publicView(await load())); return; }
-  throw new Error('Commands: check, init, tokens, prepare, requote, fund, rebroadcast, balance, status, plan, replan, payout 1|2|3, resubmit 1|2|3, post-preview, post-send, post-status, post-resubmit, view');
+  throw new Error('Commands: check, init, tokens, prepare, requote, fund, rebroadcast, balance, status, plan, replan, payout 1|2|3, resubmit 1|2|3, post-preview, post-send, post-status, post-resubmit, post-reprice, view');
 }

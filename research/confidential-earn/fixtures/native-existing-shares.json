@@ -1,0 +1,203 @@
+{
+  "scope": "Real Ethereum fork and production native CLI. Existing on-chain shares retained; 6 USDC and ETH supplied on fork only. No public transactions or provider orders.",
+  "block": "26084868",
+  "initialShares": "133013839453606864",
+  "initialAssets": "134158",
+  "totalShares": "6032265541111484932",
+  "finalUsdc": "6134158",
+  "finalShares": "0",
+  "phase": "withdrawn",
+  "evidence": [
+    {
+      "phase": "deposit",
+      "cycle": "0e84baed-3670-4125-b4de-07e9d01683c5",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "6000000",
+        "eth": "100000000000000000",
+        "shares": "133013839453606864",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "deposit",
+        "kind": "approve_deposit",
+        "nonce": 6,
+        "hashes": [
+          "0xb995231a45b5445eb10f43e03c65ce16f37ec89d0810cfd54969d2dc0bceba4a"
+        ]
+      },
+      "transactions": [],
+      "orders": [],
+      "returns": [],
+      "next": "Repeat native-deposit 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "phase": "deposit",
+      "cycle": "0e84baed-3670-4125-b4de-07e9d01683c5",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "6000000",
+        "eth": "99949918630627812",
+        "shares": "133013839453606864",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "deposit",
+        "kind": "deposit",
+        "nonce": 7,
+        "hashes": [
+          "0xc8f558a00c2e7495618f680e6af35e3641bb8f14515e9907059aab5b219023ef"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0xb995231a45b5445eb10f43e03c65ce16f37ec89d0810cfd54969d2dc0bceba4a",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [],
+      "returns": [],
+      "next": "Repeat native-deposit 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "phase": "invested",
+      "cycle": "0e84baed-3670-4125-b4de-07e9d01683c5",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "50000",
+        "eth": "99854062168691356",
+        "shares": "6032265541111484932",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0xb995231a45b5445eb10f43e03c65ce16f37ec89d0810cfd54969d2dc0bceba4a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xc8f558a00c2e7495618f680e6af35e3641bb8f14515e9907059aab5b219023ef",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [],
+      "returns": [],
+      "next": "native-withdraw 2 when you want to exit"
+    },
+    {
+      "phase": "invested",
+      "cycle": "0e84baed-3670-4125-b4de-07e9d01683c5",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "50000",
+        "eth": "99854062168691356",
+        "shares": "6032265541111484932",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "withdraw",
+        "kind": "approve_withdraw",
+        "nonce": 8,
+        "hashes": [
+          "0x42724713621ce3a281092a7d6f1e349d94abc4e9a6242c287fdf85850e0cc01f"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0xb995231a45b5445eb10f43e03c65ce16f37ec89d0810cfd54969d2dc0bceba4a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xc8f558a00c2e7495618f680e6af35e3641bb8f14515e9907059aab5b219023ef",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [],
+      "returns": [],
+      "next": "Repeat native-withdraw 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "phase": "withdraw",
+      "cycle": "0e84baed-3670-4125-b4de-07e9d01683c5",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "50000",
+        "eth": "99844865368691356",
+        "shares": "6032265541111484932",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "withdraw",
+        "kind": "withdraw",
+        "nonce": 9,
+        "hashes": [
+          "0xaaaa4524b8959e4ab31b97d9608f7a8ecffac0fa1b65e6f3240869dfb66506a6"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0xb995231a45b5445eb10f43e03c65ce16f37ec89d0810cfd54969d2dc0bceba4a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xc8f558a00c2e7495618f680e6af35e3641bb8f14515e9907059aab5b219023ef",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0x42724713621ce3a281092a7d6f1e349d94abc4e9a6242c287fdf85850e0cc01f",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [],
+      "returns": [],
+      "next": "Repeat native-withdraw 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "phase": "withdrawn",
+      "cycle": "0e84baed-3670-4125-b4de-07e9d01683c5",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "6134158",
+        "eth": "99844862424861356",
+        "shares": "0",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0xb995231a45b5445eb10f43e03c65ce16f37ec89d0810cfd54969d2dc0bceba4a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xc8f558a00c2e7495618f680e6af35e3641bb8f14515e9907059aab5b219023ef",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0x42724713621ce3a281092a7d6f1e349d94abc4e9a6242c287fdf85850e0cc01f",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0xaaaa4524b8959e4ab31b97d9608f7a8ecffac0fa1b65e6f3240869dfb66506a6",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [],
+      "returns": [],
+      "next": "native-return 2"
+    }
+  ]
+}

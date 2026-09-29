@@ -1,0 +1,38 @@
+{
+  "name": "confidential-earn",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --env-file-if-exists=.env src/cli.mjs check",
+    "tokens": "node --env-file-if-exists=.env src/cli.mjs tokens",
+    "quote": "node --env-file-if-exists=.env src/cli.mjs prepare",
+    "status": "node --env-file-if-exists=.env src/cli.mjs status",
+    "native:preview": "node --env-file-if-exists=.env src/cli.mjs native-preview 2",
+    "native:deposit": "node --env-file-if-exists=.env src/cli.mjs native-deposit 2",
+    "native:withdraw": "node --env-file-if-exists=.env src/cli.mjs native-withdraw 2",
+    "native:return": "node --env-file-if-exists=.env src/cli.mjs native-return 2",
+    "native:status": "node --env-file-if-exists=.env src/cli.mjs native-status 2",
+    "native:reprice": "node --env-file-if-exists=.env src/cli.mjs native-reprice 2",
+    "ethereum": "node --env-file-if-exists=.env src/route-cli.mjs ethereum",
+    "robinhood": "node --env-file-if-exists=.env src/route-cli.mjs robinhood",
+    "test:robinhood-fork": "node --env-file-if-exists=.env scripts/verify-robinhood-cycle.mjs",
+    "test:robinhood-replay": "node --env-file-if-exists=.env scripts/robinhood-replay-lab.mjs"
+  },
+  "dependencies": {
+    "@1inch/fusion-sdk": "2.4.15",
+    "@morpho-org/morpho-sdk": "6.0.0",
+    "@scure/base": "^2.4.0",
+    "axios": "1.20.0",
+    "ox": "^0.11.3",
+    "permissionless": "^0.4.1",
+    "viem": "2.55.1"
+  },
+  "overrides": {
+    "ws": "^8.21.0"
+  }
+}

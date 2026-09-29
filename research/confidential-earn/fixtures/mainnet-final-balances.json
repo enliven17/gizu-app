@@ -1,0 +1,17 @@
+{
+  "sourceUSDC": "7663622",
+  "robinhood": {
+    "block": "75879234",
+    "wallet1": "174875",
+    "wallet2Token": "44207",
+    "wallet2Native": "0",
+    "wallet2Shares": "0"
+  },
+  "ethereum": {
+    "block": "26084980",
+    "wallet1": "964065",
+    "wallet2Token": "0",
+    "wallet2Native": "0",
+    "wallet2Shares": "133013839453606864"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-09-29T20:50:41.459Z",
+  "orderHash": "0x3f4b7b95536125f34cef8d8606bb12ea396bef82d4e3fb1ed6903395b511d81f",
+  "status": "filled",
+  "input": "5121694",
+  "minimumEth": "1133295335295891",
+  "after": {
+    "usdc": "1134570",
+    "eth": "1133295335295891",
+    "shares": "133013839453606864",
+    "weth": "0"
+  },
+  "fills": [
+    {
+      "txHash": "0x84ebe0def4280bc6bad436c8f777696c6d51b230cb0abfbed416d22955815202",
+      "filledMakerAmount": "5121694",
+      "filledAuctionTakerAmount": "1136695221301778",
+      "surplusFeeAmount": "0",
+      "takerFeeAmount": "3399886005887"
+    }
+  ],
+  "economics": {
+    "estimatedGas": "587612",
+    "gasUnits": "705135",
+    "gasPrice": "973869293",
+    "gasCostWei": "686709323919555",
+    "profitWei": "68670932391956",
+    "allowanceWei": "755380256311511",
+    "inputValueWei": "1897493948790859",
+    "maximumGrossEth": "1142113692479348",
+    "grossEth": "1136695221301778",
+    "profitAtBudgetWei": "74089403569526",
+    "breakEvenGasPrice": "1078940525"
+  },
+  "receipt": {
+    "hash": "0x84ebe0def4280bc6bad436c8f777696c6d51b230cb0abfbed416d22955815202",
+    "status": "success",
+    "block": "26085618",
+    "gasUsed": "373418",
+    "effectiveGasPrice": "640090638"
+  },
+  "note": "Receipt gas is the entire resolver transaction, not necessarily attributable only to this order."
+}

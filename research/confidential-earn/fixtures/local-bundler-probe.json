@@ -1,0 +1,16 @@
+{
+  "scope": "Diagnostic validation-only probe: fee policy disabled; NOT evidence of fee admission or production configuration",
+  "image": "ghcr.io/candidelabs/voltaire/voltaire-bundler@sha256:ba8a23fbaae9bed49a671152c3ec404fcd5a8debd86fdfa5e8138279a71da26d",
+  "historicalTransaction": "0x69679dc7ce23bb1dd7dbb2c65a319ff0bbda40078b3ffc24d05b39330ad5edfe",
+  "result": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "0x36105a9126b6d3ce7403ca88c2badac5d754ac365e070363036ec6eef208d1e3"
+  },
+  "configuration": {
+    "enforceGasPriceTolerance": 100,
+    "unsafe": false,
+    "automaticBundling": false,
+    "upstream": "local Anvil port 18554"
+  }
+}

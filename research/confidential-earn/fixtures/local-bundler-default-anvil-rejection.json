@@ -1,0 +1,18 @@
+{
+  "scope": "Pinned public Voltaire image, local Anvil state; not a claim about Candide production configuration",
+  "image": "ghcr.io/candidelabs/voltaire/voltaire-bundler@sha256:ba8a23fbaae9bed49a671152c3ec404fcd5a8debd86fdfa5e8138279a71da26d",
+  "historicalTransaction": "0x69679dc7ce23bb1dd7dbb2c65a319ff0bbda40078b3ffc24d05b39330ad5edfe",
+  "result": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "error": {
+      "code": -32602,
+      "message": "maxFeePerGas and (maxPriorityFeePerGas + estimated basefee) should be equal or higher than : 0x5e0d72e3"
+    }
+  },
+  "configuration": {
+    "enforceGasPriceTolerance": 10,
+    "upstream": "local Anvil port 18545",
+    "feeRecommendations": "Anvil synthetic defaults; not historical Ethereum recommendations"
+  }
+}

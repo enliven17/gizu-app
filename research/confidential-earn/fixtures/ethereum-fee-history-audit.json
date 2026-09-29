@@ -1,0 +1,110 @@
+{
+  "checkedAt": "2026-09-29T19:36:44.562Z",
+  "method": "Receipt effectiveGasPrice minus block baseFeePerGas, sorted and weighted by actual gasUsed",
+  "rows": [
+    {
+      "block": "26085232",
+      "hash": "0x9e37557494473e47ede3a96fc1187d02dc6bdc75640fa462bca77df479eca6c3",
+      "transactions": 333,
+      "baseFeeGwei": 0.971971066,
+      "p10Gwei": 0.000999999,
+      "p20Gwei": 0.1,
+      "p40Gwei": 0.47,
+      "rpcP40Gwei": 0.47,
+      "matches": true,
+      "gasUsed": "33180357",
+      "gasLimit": "60000000"
+    },
+    {
+      "block": "26085233",
+      "hash": "0xedb327ea4cc94161743f0d8e73cf73eb6f90c2e26d8e03765ac75ac4ca054d13",
+      "transactions": 244,
+      "baseFeeGwei": 0.984851128,
+      "p10Gwei": 0.05,
+      "p20Gwei": 0.28861784,
+      "p40Gwei": 1,
+      "rpcP40Gwei": 1,
+      "matches": true,
+      "gasUsed": "28141610",
+      "gasLimit": "59941408"
+    },
+    {
+      "block": "26085234",
+      "hash": "0x544bddbe7196882f0e19088f60fb30e13f1111223a5fc17c62f0dec2fa239dc1",
+      "transactions": 237,
+      "baseFeeGwei": 0.97733802,
+      "p10Gwei": 0.01,
+      "p20Gwei": 0.1,
+      "p40Gwei": 0.5,
+      "rpcP40Gwei": 0.5,
+      "matches": true,
+      "gasUsed": "26819662",
+      "gasLimit": "59999943"
+    },
+    {
+      "block": "26085235",
+      "hash": "0xaf1696a5af1d6d8f2d00d3843cde3956d66e66c3546446906ab43fd4929ce21d",
+      "transactions": 243,
+      "baseFeeGwei": 0.964387021,
+      "p10Gwei": 0.050000001,
+      "p20Gwei": 0.2,
+      "p40Gwei": 1,
+      "rpcP40Gwei": 1,
+      "matches": true,
+      "gasUsed": "26192211",
+      "gasLimit": "60000000"
+    },
+    {
+      "block": "26085236",
+      "hash": "0x9ebefa7e48790bf4ba12a2ce4419e6f3ee1205fde8146bfdc311e03bc5e3e7d6",
+      "transactions": 245,
+      "baseFeeGwei": 0.949086262,
+      "p10Gwei": 0.086273833,
+      "p20Gwei": 0.2,
+      "p40Gwei": 1,
+      "rpcP40Gwei": 1,
+      "matches": true,
+      "gasUsed": "25420447",
+      "gasLimit": "60000000"
+    },
+    {
+      "block": "26085237",
+      "hash": "0x7366bb3f7817f6f4c4593e4bc404eea7b9d45de08f2bf90ab4f13aa2d553b179",
+      "transactions": 255,
+      "baseFeeGwei": 0.930976301,
+      "p10Gwei": 0.05,
+      "p20Gwei": 0.2,
+      "p40Gwei": 1,
+      "rpcP40Gwei": 1,
+      "matches": true,
+      "gasUsed": "28569189",
+      "gasLimit": "60000000"
+    },
+    {
+      "block": "26085238",
+      "hash": "0x51e77d1a51dc8c30892a3b4ab5aed5b796b62a686f1775512eb3ea66e1a51dcc",
+      "transactions": 48,
+      "baseFeeGwei": 0.925426088,
+      "p10Gwei": 0.200153,
+      "p20Gwei": 0.930976301,
+      "p40Gwei": 1.235697607,
+      "rpcP40Gwei": 1.235697607,
+      "matches": true,
+      "gasUsed": "6285393",
+      "gasLimit": "60000000"
+    },
+    {
+      "block": "26085239",
+      "hash": "0x7a90bc510742b022c69ed86881cdc5f42b373271b0764b27d503b61cae9300f0",
+      "transactions": 442,
+      "baseFeeGwei": 0.833983939,
+      "p10Gwei": 0.0000765,
+      "p20Gwei": 0.05,
+      "p40Gwei": 0.2,
+      "rpcP40Gwei": 0.2,
+      "matches": true,
+      "gasUsed": "36895518",
+      "gasLimit": "60000000"
+    }
+  ]
+}

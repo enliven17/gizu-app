@@ -1,0 +1,38 @@
+[
+  {
+    "scenario": "first-payout-balance",
+    "end": {
+      "usdc": "0",
+      "eth": "807278970064388",
+      "shares": "0"
+    },
+    "scope": "Earlier harness stopped after USDC return; this is NOT combined-residual acceptance."
+  },
+  {
+    "scenario": "larger-balance",
+    "end": {
+      "usdc": "0",
+      "eth": "808480261570878",
+      "shares": "0"
+    },
+    "scope": "Earlier harness stopped after USDC return; this is NOT combined-residual acceptance."
+  },
+  {
+    "scenario": "return-16x",
+    "end": {
+      "usdc": "0",
+      "eth": "184461489783208",
+      "shares": "0"
+    },
+    "scope": "Earlier harness stopped after USDC return; this is NOT combined-residual acceptance."
+  },
+  {
+    "scenario": "withdrawal-1.8x",
+    "end": {
+      "usdc": "0",
+      "eth": "501673357547472",
+      "shares": "0"
+    },
+    "scope": "Earlier harness stopped after USDC return; this is NOT combined-residual acceptance."
+  }
+]

@@ -1,0 +1,704 @@
+{
+  "scope": "Real CLI/journal/simulator on fork. Fusion submit/status and Aurora status are local mocks; live quotes unsigned/unfunded only. SUCCESS transitions are mocked, not real credit.",
+  "signingQuotes": 1,
+  "submissions": 1,
+  "final": {
+    "usdc": "0",
+    "eth": "0",
+    "shares": "0",
+    "weth": "0"
+  },
+  "phase": "complete",
+  "evidence": [
+    {
+      "command": "native-preview",
+      "action": "deposit",
+      "balances": {
+        "usdc": "25000000",
+        "eth": "0",
+        "shares": "0",
+        "weth": "0"
+      },
+      "phase": "deposit",
+      "funding": {
+        "input": "4315725",
+        "requiredEth": "1472214400616340",
+        "before": {
+          "usdc": "25000000",
+          "eth": "0",
+          "shares": "0",
+          "weth": "0"
+        },
+        "fees": {
+          "blockNumber": "26079550",
+          "depositFee": "941656140",
+          "priorityFee": "200000000",
+          "withdrawFee": "1883312280",
+          "depositBlocks": 2,
+          "withdrawFeeBps": "20000",
+          "block": {
+            "hash": "0x5a5649bdb3478c18f80209829a5cb676b7216b57b444d6d55ab05c72fd721fd7",
+            "parentHash": "0xcb1dc5fcef5dc6989d2de485b64359a15135768c9098c3bff4ef624b5f532812",
+            "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            "miner": "0x0000000000000000000000000000000000000000",
+            "stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "transactionsRoot": "0x7a0b4b303364005b2614db49b1a60ed73547063ab4939e96b6d818183717134e",
+            "receiptsRoot": "0x8bf39f68f19b2e79a3656e13e00d272b8d3d38266fcae766c0f2b287d3e74c67",
+            "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000001000000000000000000000010000000000000000000800000000000002000000000000000000000008000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000400000000010000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000",
+            "difficulty": "0",
+            "number": "26079550",
+            "gasLimit": "59941408",
+            "gasUsed": "45160",
+            "timestamp": "1790642047",
+            "extraData": "0x",
+            "mixHash": "0x31cdb61a83b57b9afcb71076998aca22b43adffc977ee1a05aaa81c6e3fe4b77",
+            "nonce": "0x0000000000000000",
+            "baseFeePerGas": "753266314",
+            "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "blobGasUsed": "0",
+            "excessBlobGas": "202463767",
+            "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "totalDifficulty": "0",
+            "size": "739",
+            "uncles": [],
+            "transactions": [
+              "0x4add35c67b58f7468806ca7a5c6b0af0cc6e072c91fd081bcd0850c6a3481c80"
+            ],
+            "withdrawals": []
+          }
+        }
+      },
+      "amount": "20634275",
+      "simulation": {
+        "referenceBlock": "26079550",
+        "referenceHash": "0x5a5649bdb3478c18f80209829a5cb676b7216b57b444d6d55ab05c72fd721fd7",
+        "deposit": [
+          {
+            "estimatedGas": "55949",
+            "actualGas": "55570",
+            "to": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "data": "0x095ea7b300000000000000000000000002912516d49de997db75b9d7858faae59209650b00000000000000000000000000000000000000000000000000000000013adaa3"
+          },
+          {
+            "estimatedGas": "396990",
+            "actualGas": "328009",
+            "to": "0x02912516d49dE997db75B9D7858faAE59209650B",
+            "data": "0x6bbba4e000000000000000000000000055c1b6e461a6334b567baf0feb5d728715446f0500000000000000000000000000000000000000000000000000000000013adaa3000000000000000000000000000000000000000000000000000396204c41743b00000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006abb158f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ],
+        "withdrawal": [
+          {
+            "estimatedGas": "45996",
+            "actualGas": "45996",
+            "to": "0x55C1B6e461a6334B567bAF0FEb5D728715446f05",
+            "data": "0x095ea7b300000000000000000000000002912516d49de997db75b9d7858faae59209650b0000000000000000000000000000000000000000000000011bf31c8d19d28e42"
+          },
+          {
+            "estimatedGas": "363695",
+            "actualGas": "294395",
+            "to": "0x02912516d49dE997db75B9D7858faAE59209650B",
+            "data": "0x932084a800000000000000000000000055c1b6e461a6334b567baf0feb5d728715446f0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011bf31c8d19d28e4200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006abb158f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006abb158f"
+          }
+        ],
+        "budget": {
+          "depositLimits": [
+            "61544",
+            "436689"
+          ],
+          "withdrawLimits": [
+            "59795",
+            "472804"
+          ],
+          "depositWei": "469164163600620",
+          "withdrawWei": "1003050237015720",
+          "totalWei": "1472214400616340",
+          "depositFee": "941656140",
+          "withdrawFee": "1883312280",
+          "depositMarginBps": "1000",
+          "withdrawMarginBps": "3000"
+        },
+        "withdrawalGas": [
+          "45996",
+          "363695"
+        ],
+        "withdrawalMaximum": "501525118507860"
+      },
+      "referenceBlock": "26079550",
+      "note": "Preview only; no permit/order/transaction signed or submitted. Fusion submission will require a new estimated quote."
+    },
+    {
+      "command": "native-deposit",
+      "phase": "deposit",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "21652022",
+        "eth": "1241203873586823",
+        "shares": "0",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "fusion",
+        "orderHash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+        "inputUSDCAtoms": "3347978",
+        "minimumNativeWei": "1241203873586823",
+        "deadline": "1790677696"
+      },
+      "transactions": [],
+      "orders": [],
+      "returns": [],
+      "next": "Repeat native-deposit 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-deposit",
+      "phase": "deposit",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "21652022",
+        "eth": "1241203873586823",
+        "shares": "0",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "deposit",
+        "kind": "approve_deposit",
+        "nonce": 4,
+        "hashes": [
+          "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2"
+        ]
+      },
+      "transactions": [],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "Repeat native-deposit 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-deposit",
+      "phase": "deposit",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "21652022",
+        "eth": "1226798430978633",
+        "shares": "0",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "deposit",
+        "kind": "deposit",
+        "nonce": 5,
+        "hashes": [
+          "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "Repeat native-deposit 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-deposit",
+      "phase": "invested",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "50000",
+        "eth": "1161679356247780",
+        "shares": "21418791869109109863",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "native-withdraw 2 when you want to exit"
+    },
+    {
+      "command": "native-withdraw",
+      "phase": "invested",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "50000",
+        "eth": "1161679356247780",
+        "shares": "21418791869109109863",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "withdraw",
+        "kind": "approve_withdraw",
+        "nonce": 6,
+        "hashes": [
+          "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "Repeat native-withdraw 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-withdraw",
+      "phase": "withdraw",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "50000",
+        "eth": "1155552243162556",
+        "shares": "0",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "withdraw",
+        "kind": "withdraw",
+        "nonce": 7,
+        "hashes": [
+          "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "Repeat native-withdraw 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-withdraw",
+      "phase": "withdrawn",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "21652022",
+        "eth": "1125520015629431",
+        "shares": "0",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "native-return 2"
+    },
+    {
+      "command": "native-return",
+      "phase": "withdrawn",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "21652022",
+        "eth": "1125520015629431",
+        "shares": "0",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "return",
+        "kind": "return_usdc",
+        "nonce": 8,
+        "hashes": [
+          "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [],
+      "next": "Repeat native-return 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-return",
+      "phase": "return_eth",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "0",
+        "eth": "1121587442656791",
+        "shares": "0",
+        "weth": "0"
+      },
+      "pending": {
+        "type": "transaction",
+        "action": "return",
+        "kind": "return_eth",
+        "nonce": 9,
+        "hashes": [
+          "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa"
+        ]
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_usdc",
+          "hash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [
+        {
+          "kind": "usdc",
+          "depositAddress": "0x774f98a83967E7f129042A47cF5931A6c6937eDB",
+          "amount": "21652022",
+          "minimumUSDC": "21381874",
+          "status": "PENDING_DEPOSIT",
+          "transactionHash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a"
+        }
+      ],
+      "next": "Repeat native-return 2 to resume; native-status 2 only checks status"
+    },
+    {
+      "command": "native-return",
+      "phase": "awaiting_aurora",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "0",
+        "eth": "0",
+        "shares": "0",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_usdc",
+          "hash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_eth",
+          "hash": "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [
+        {
+          "kind": "usdc",
+          "depositAddress": "0x774f98a83967E7f129042A47cF5931A6c6937eDB",
+          "amount": "21652022",
+          "minimumUSDC": "21381874",
+          "status": "PROCESSING",
+          "transactionHash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a"
+        },
+        {
+          "kind": "eth",
+          "depositAddress": "0xEF89d4F3aDA16620FD3b53b2dC99f19798270604",
+          "amount": "1120349135950791",
+          "minimumUSDC": "2991910",
+          "status": "PROCESSING",
+          "transactionHash": "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa"
+        }
+      ],
+      "next": "native-status 2"
+    },
+    {
+      "command": "native-status",
+      "phase": "awaiting_aurora",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "0",
+        "eth": "0",
+        "shares": "0",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_usdc",
+          "hash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_eth",
+          "hash": "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [
+        {
+          "kind": "usdc",
+          "depositAddress": "0x774f98a83967E7f129042A47cF5931A6c6937eDB",
+          "amount": "21652022",
+          "minimumUSDC": "21381874",
+          "status": "PROCESSING",
+          "transactionHash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a"
+        },
+        {
+          "kind": "eth",
+          "depositAddress": "0xEF89d4F3aDA16620FD3b53b2dC99f19798270604",
+          "amount": "1120349135950791",
+          "minimumUSDC": "2991910",
+          "status": "PROCESSING",
+          "transactionHash": "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa"
+        }
+      ],
+      "next": "native-status 2"
+    },
+    {
+      "command": "native-status",
+      "phase": "complete",
+      "cycle": "80c4a875-1303-46c6-a08c-3e136636d33a",
+      "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+      "balances": {
+        "usdc": "0",
+        "eth": "0",
+        "shares": "0",
+        "weth": "0"
+      },
+      "transactions": [
+        {
+          "kind": "approve_deposit",
+          "hash": "0x67fe6b43e8b3262eabf803c0df36cb5ab800be3e9bbd9f23e1bb57366f9147d2",
+          "status": "confirmed"
+        },
+        {
+          "kind": "deposit",
+          "hash": "0xfd9a8beaa7d9a76709408e4b50735548c994f482aae0b1aef9ef7afbe6c89456",
+          "status": "confirmed"
+        },
+        {
+          "kind": "approve_withdraw",
+          "hash": "0xff186411c14410994893a75dc58895c0636d66f50abb064e2a8241368a195122",
+          "status": "confirmed"
+        },
+        {
+          "kind": "withdraw",
+          "hash": "0x1c8268de238cc397656ceaa27b48b103b940389bbbcef4bb174168a1e48a125f",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_usdc",
+          "hash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a",
+          "status": "confirmed"
+        },
+        {
+          "kind": "return_eth",
+          "hash": "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa",
+          "status": "confirmed"
+        }
+      ],
+      "orders": [
+        {
+          "hash": "0x5d33ecd35d060a38d50bf3077dada0ce9262afa20173c9111a7616974ffee57f",
+          "status": "filled"
+        }
+      ],
+      "returns": [
+        {
+          "kind": "usdc",
+          "depositAddress": "0x774f98a83967E7f129042A47cF5931A6c6937eDB",
+          "amount": "21652022",
+          "minimumUSDC": "21381874",
+          "status": "SUCCESS",
+          "transactionHash": "0x33dabe04814716f801693b08c8e15fa59c13f154b9d78f801fc1e99d0bb2566a"
+        },
+        {
+          "kind": "eth",
+          "depositAddress": "0xEF89d4F3aDA16620FD3b53b2dC99f19798270604",
+          "amount": "1120349135950791",
+          "minimumUSDC": "2991910",
+          "status": "SUCCESS",
+          "transactionHash": "0x22c5e3a1be13e45bf91a0fa4dfe88ddf13cca40de3ea1d7fc094b544db0815fa"
+        }
+      ],
+      "next": "Cycle complete; native-deposit 2 starts a new funded cycle"
+    }
+  ]
+}

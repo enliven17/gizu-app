@@ -1,0 +1,94 @@
+{
+  "rows": [
+    {
+      "kind": "deposit",
+      "amount": "2521136",
+      "cap": "77438",
+      "withdrawalReserve": "175350",
+      "txHash": "0xc9b55f68e8440744f76826f8bee960abc53183e062d49656b3b173a1d565f551",
+      "block": "75868676",
+      "tokenTransfers": [
+        {
+          "from": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+          "to": "0xcC108538f36242D6E0d6B9255f6D9Ccd137D70Fe",
+          "value": "2521136"
+        },
+        {
+          "from": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+          "to": "0xD8Baa107006C93a030d1455A2eF43261b384F21c",
+          "value": "42774"
+        }
+      ],
+      "vaultEvents": [
+        {
+          "event": "Deposit",
+          "args": {
+            "sender": "0xcC108538f36242D6E0d6B9255f6D9Ccd137D70Fe",
+            "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+            "assets": "2521136",
+            "shares": "2499895838304782214"
+          }
+        }
+      ],
+      "signedFeeCap": "73750"
+    },
+    {
+      "kind": "withdraw",
+      "amount": "2499895838304782214",
+      "cap": "62682",
+      "txHash": "0xd73878e17d1e230d3dff97bdbd41e45ad877fe6864d6285fc7589f874810dbb0",
+      "block": "75869510",
+      "tokenTransfers": [
+        {
+          "from": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+          "to": "0xD8Baa107006C93a030d1455A2eF43261b384F21c",
+          "value": "25875"
+        }
+      ],
+      "vaultEvents": [
+        {
+          "event": "Withdraw",
+          "args": {
+            "sender": "0xcC108538f36242D6E0d6B9255f6D9Ccd137D70Fe",
+            "receiver": "0xcC108538f36242D6E0d6B9255f6D9Ccd137D70Fe",
+            "owner": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+            "assets": "2521136",
+            "shares": "2499895838304782214"
+          }
+        }
+      ],
+      "signedFeeCap": "59697"
+    },
+    {
+      "kind": "return",
+      "amount": "2650000",
+      "cap": "26601",
+      "reserve": "55275",
+      "txHash": "0x6a039a08bbde5b823ea6c5ee8ba68123544aa3df448d569deae9cee9bad88c7b",
+      "block": "75877210",
+      "tokenTransfers": [
+        {
+          "from": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+          "to": "0x286502591ef13B8Eca62b4032F54fC58BF29Abc1",
+          "value": "2650000"
+        },
+        {
+          "from": "0x4943a374C5a765D33F626a9D85C265dD6287FCe5",
+          "to": "0xD8Baa107006C93a030d1455A2eF43261b384F21c",
+          "value": "11068"
+        }
+      ],
+      "vaultEvents": [],
+      "signedFeeCap": "25334"
+    }
+  ],
+  "final": {
+    "usdG": "44207",
+    "shares": "0",
+    "eth": "0"
+  },
+  "phase": "complete",
+  "routeStatus": "SUCCESS",
+  "residualUsdc": "44211",
+  "authenticatedReturnUSDC": "2636109"
+}
