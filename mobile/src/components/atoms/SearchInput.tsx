@@ -4,10 +4,12 @@ export function SearchInput({
   value,
   onChangeText,
   label,
+  maxLength,
 }: {
   value: string;
   onChangeText: (value: string) => void;
   label: string;
+  maxLength?: number;
 }) {
   return (
     <TextInput
@@ -16,6 +18,7 @@ export function SearchInput({
       placeholderTextColor={colors.fg["35"]}
       selectionColor={colors.accent}
       value={value}
+      maxLength={maxLength}
       onChangeText={onChangeText}
       autoCorrect={false}
       autoCapitalize="none"

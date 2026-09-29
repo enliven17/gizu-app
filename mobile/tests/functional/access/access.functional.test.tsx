@@ -1,10 +1,16 @@
+import { tokenCatalogService } from "@/services/tokenCatalog";
 import { nativeWalletAccess } from "@/services/wallet/access";
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, Linking } from "react-native";
 import { AccessRejectedError, type DemoSession } from "@/services/access";
 import { deferred, renderApp } from "../../support/renderApp";
 
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest
+    .spyOn(tokenCatalogService, "list")
+    .mockResolvedValue({ list: [], page: 0, items: 20, total: 0 });
+});
 afterEach(() => jest.restoreAllMocks());
 async function openAccess() {
   await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
@@ -167,7 +173,7 @@ test("updated branding, confidential vaults and Swap availability retain navigat
   expect(screen.queryByRole("header", { name: "Confidential vaults" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Swap tab"));
   expect(await screen.findByRole("header", { name: "Swap" })).toBeVisible();
-  expect(screen.getByText(/Preview with mock data/)).toBeVisible();
+  expect(screen.getByText(/Quotes and swaps are not available yet/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Buy vault units" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Vaults tab"));
   expect(await screen.findByRole("header", { name: "Confidential vaults" })).toBeVisible();

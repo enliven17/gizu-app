@@ -11,7 +11,7 @@ import { sectionDelay } from "@/theme/motion";
 import { useOpportunities } from "./useOpportunities";
 import { CatalogStatus } from "./components/CatalogStatus";
 import { OpportunityCard } from "./components/OpportunityCard";
-import { PagerButton } from "./components/PagerButton";
+import { PagerButton } from "@/components/molecules/PagerButton";
 const labels = { all: "All protocols", aave: "Aave", morpho: "Morpho", curvance: "Curvance" };
 export function MainnetVaults({ onOpen }: { onOpen: (id: string) => void }) {
   const { query, load, change, retry } = useOpportunities();

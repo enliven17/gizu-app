@@ -5,7 +5,7 @@ import { VaultGrid } from "@/components/organisms/VaultList";
 import { useOpportunities } from "@/features/opportunities/useOpportunities";
 import { CatalogStatus } from "@/features/opportunities/components/CatalogStatus";
 import { OpportunityCard } from "@/features/opportunities/components/OpportunityCard";
-import { PagerButton } from "@/features/opportunities/components/PagerButton";
+import { PagerButton } from "@/components/molecules/PagerButton";
 
 /** Frontend Home previews the first page at `items: 4`. */
 const PREVIEW_SIZE = 4;

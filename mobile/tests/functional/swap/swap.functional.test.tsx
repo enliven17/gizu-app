@@ -1,94 +1,160 @@
-import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
+import { AppRoot } from "@/application/AppRoot";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SwapScreen } from "@/features/swap/SwapScreen";
-import { createMockSwapService } from "@/services/mockSwap";
-import type { SwapService } from "@/domain/swap";
-
-function open(service?: SwapService) {
-  render(
+import { TokenCatalogContext } from "@/features/swap/useTokenCatalog";
+import type { TokenCatalogService, TokenPage } from "@/domain/tokenCatalog";
+import { catalogPage, catalogToken } from "../../support/tokenCatalog";
+import { deferred } from "../../support/renderApp";
+function open(
+  list = jest
+    .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()
+    .mockResolvedValue(catalogPage),
+) {
+  const view = render(
     <SafeAreaProvider>
-      <SwapScreen service={service} />
+      <TokenCatalogContext.Provider value={{ list }}>
+        <SwapScreen />
+      </TokenCatalogContext.Provider>
     </SafeAreaProvider>,
   );
+  return { ...view, list };
 }
-async function review() {
-  fireEvent.changeText(screen.getByLabelText("Amount in USDG"), "100");
-  await userEvent.press(screen.getByRole("button", { name: "Review swap" }));
-  await screen.findByRole("button", { name: "Simulate swap" });
-}
-test("selects an asset, reviews, simulates completion and retains separate activity and balance", async () => {
-  open();
-  await userEvent.press(screen.getByRole("radio", { name: "NVDA · NVIDIA" }));
-  await review();
-  expect(screen.getByText("0.666666 NVDA")).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Simulate swap" }));
-  expect(await screen.findByText("Simulation pending")).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Refresh simulated status" }));
-  expect(await screen.findByText("Swap simulated")).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "New swap" }));
-  expect(screen.getByText("Available: 900 USDG (mock)")).toBeVisible();
-  expect(screen.getByText("100 USDG → NVDA")).toBeVisible();
+test("defaults to Robinhood RWA and exposes catalog metadata without transaction actions", async () => {
+  const { list } = open();
+  expect(await screen.findByText("Amazon")).toBeVisible();
+  expect(list).toHaveBeenCalledWith(
+    { chainId: 4663, category: "rwa", search: "", page: 0 },
+    expect.anything(),
+  );
+  for (const text of ["Issuer: Robinhood", "Listed on 1inch"])
+    expect(screen.getByText(text)).toBeVisible();
+  expect(screen.queryByText(catalogToken.address)).toBeNull();
+  expect(screen.getByText(/does not establish Fusion/)).toBeVisible();
+  expect(screen.getAllByRole("button")).toHaveLength(2);
+  expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  fireEvent(screen.getByLabelText("AMZN logo"), "error");
+  expect(screen.getByLabelText("AMZN logo unavailable")).toBeVisible();
 });
-test("validates amounts and lets the user leave review without submitting", async () => {
-  const service = createMockSwapService();
-  const submit = jest.spyOn(service, "submit");
-  open(service);
-  for (const value of ["0", "-1", "1.0000001", "1001"]) {
-    fireEvent.changeText(screen.getByLabelText("Amount in USDG"), value);
-    expect(screen.getByRole("button", { name: "Review swap" })).toBeDisabled();
+test("browses pages, debounces search, resets pagination and preserves filters on network changes", async () => {
+  const { list } = open(
+    jest
+      .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()
+      .mockResolvedValue({ ...catalogPage, total: 21 }),
+  );
+  await screen.findByText("Amazon");
+  fireEvent.press(screen.getByRole("button", { name: "Next page" }));
+  await screen.findByText("Amazon");
+  expect(list.mock.lastCall?.[0].page).toBe(1);
+  fireEvent.press(screen.getByRole("button", { name: "Previous page" }));
+  await screen.findByText("Amazon");
+  fireEvent.press(screen.getByRole("radio", { name: "All" }));
+  await screen.findByText("Amazon");
+  jest.useFakeTimers();
+  fireEvent.changeText(screen.getByLabelText("Search tokens"), "A");
+  fireEvent.changeText(screen.getByLabelText("Search tokens"), "AMZN");
+  const count = list.mock.calls.length;
+  await act(() => jest.advanceTimersByTimeAsync(299));
+  expect(list).toHaveBeenCalledTimes(count);
+  await act(() => jest.advanceTimersByTimeAsync(1));
+  expect(list.mock.lastCall?.[0]).toMatchObject({ search: "AMZN", page: 0 });
+  jest.useRealTimers();
+  for (const [name, chainId] of [
+    ["Ethereum", 1],
+    ["Monad", 143],
+    ["Robinhood", 4663],
+  ] as const) {
+    fireEvent.press(screen.getByRole("radio", { name }));
+    await screen.findByText("Amazon");
+    expect(list.mock.lastCall?.[0]).toEqual({ chainId, category: "all", search: "AMZN", page: 0 });
   }
-  await review();
-  await userEvent.press(screen.getByRole("button", { name: "Back to amount" }));
-  expect(screen.getByLabelText("Amount in USDG")).toHaveDisplayValue("100");
-  expect(submit).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole("radio", { name: "RWA" }));
+  await screen.findByText("Amazon");
+  expect(list.mock.lastCall?.[0].category).toBe("rwa");
 });
-test("fills the amount from the simulated balance with quick-fill chips", async () => {
-  open();
-  await userEvent.press(screen.getByRole("button", { name: "25%" }));
-  expect(screen.getByLabelText("Amount in USDG")).toHaveDisplayValue("250");
-  await userEvent.press(screen.getByRole("button", { name: "Max" }));
-  expect(screen.getByLabelText("Amount in USDG")).toHaveDisplayValue("1000");
-  expect(screen.getByRole("button", { name: "Review swap" })).toBeEnabled();
+afterEach(() => jest.useRealTimers());
+test("shows unavailable, retries and handles empty results without fixture fallback", async () => {
+  open(
+    jest
+      .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()
+      .mockRejectedValueOnce(new Error("503"))
+      .mockResolvedValue({ ...catalogPage, list: [], total: 0 }),
+  );
+  expect(await screen.findByText(/Token catalog unavailable/)).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Retry tokens" }));
+  expect(await screen.findByText("No tokens match your filters.")).toBeVisible();
+  expect(screen.queryByText("Amazon")).toBeNull();
 });
-test("recovers from quote failure and rejects expired quotes", async () => {
-  const service = createMockSwapService();
-  jest.spyOn(service, "quote").mockRejectedValueOnce(new Error("Quote unavailable. Try again."));
-  open(service);
-  fireEvent.changeText(screen.getByLabelText("Amount in USDG"), "100");
-  await userEvent.press(screen.getByRole("button", { name: "Review swap" }));
-  expect(await screen.findByText("Quote unavailable. Try again.")).toBeVisible();
-  await review();
-  const now = Date.now();
-  const clock = jest.spyOn(Date, "now").mockReturnValue(now + 61000);
-  await userEvent.press(screen.getByRole("button", { name: "Simulate swap" }));
-  expect(await screen.findByText("Quote expired. Go back and request a new quote.")).toBeVisible();
-  clock.mockRestore();
-});
-test("locks duplicate submission and allows status retry without resubmitting", async () => {
-  const service = createMockSwapService();
-  const original = service.submit;
-  let release!: () => void;
-  const waiting = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const submit = jest.spyOn(service, "submit").mockImplementation(async (quote) => {
-    await waiting;
-    return original(quote);
-  });
-  jest
-    .spyOn(service, "status")
-    .mockRejectedValueOnce(new Error("Status unavailable. Refresh again."));
-  open(service);
-  await review();
-  fireEvent.press(screen.getByRole("button", { name: "Simulate swap" }));
-  fireEvent.press(screen.getByRole("button", { name: "Simulate swap" }));
-  expect(submit).toHaveBeenCalledTimes(1);
+test("aborts superseded requests, ignores stale success/failure and aborts on unmount", async () => {
+  const old = deferred<TokenPage>();
+  const staleFailure = deferred<TokenPage>();
+  const list = jest
+    .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()
+    .mockReturnValueOnce(old.promise)
+    .mockReturnValueOnce(staleFailure.promise)
+    .mockResolvedValue({ ...catalogPage, list: [], total: 0 });
+  const { unmount } = open(list);
+  expect(screen.getByText("Loading tokens…")).toBeVisible();
+  fireEvent.press(screen.getByRole("radio", { name: "Ethereum" }));
+  expect(list.mock.calls[0]?.[1].aborted).toBe(true);
+  fireEvent.press(screen.getByRole("radio", { name: "Monad" }));
+  await screen.findByText("No tokens match your filters.");
   await act(async () => {
-    release();
+    old.resolve(catalogPage);
+    staleFailure.reject(new Error("stale"));
   });
-  await userEvent.press(screen.getByRole("button", { name: "Refresh simulated status" }));
-  expect(await screen.findByText("Status unavailable. Refresh again.")).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Refresh simulated status" }));
-  expect(await screen.findByText("Swap simulated")).toBeVisible();
-  expect(submit).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("Amazon")).toBeNull();
+  expect(screen.queryByText(/Token catalog unavailable/)).toBeNull();
+  unmount();
+  expect(list.mock.lastCall?.[1].aborted).toBe(true);
+});
+test("falls back for missing/unsafe logos and displays unlisted assets with shared symbols", async () => {
+  open(
+    jest
+      .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()
+      .mockResolvedValue({
+        ...catalogPage,
+        total: 2,
+        list: [
+          { ...catalogToken, logoURI: null, issuer: null, category: "other", swapListed: false },
+          {
+            ...catalogToken,
+            address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            logoURI: "file:///secret",
+          },
+        ],
+      }),
+  );
+  await screen.findByText("Other asset");
+  expect(screen.getByText("Not listed on 1inch")).toBeVisible();
+  expect(screen.getAllByLabelText("AMZN logo unavailable")).toHaveLength(2);
+});
+
+test("release-mode navigation reaches the same read-only catalog through Swap", async () => {
+  const runtime = globalThis as unknown as { __DEV__: boolean };
+  const development = runtime.__DEV__;
+  runtime.__DEV__ = false;
+  try {
+    render(
+      <TokenCatalogContext.Provider value={{ list: jest.fn().mockResolvedValue(catalogPage) }}>
+        <AppRoot
+          accessService={{
+            request: jest.fn().mockResolvedValue({ kind: "demo", method: "Demo passkey" }),
+          }}
+        />
+      </TokenCatalogContext.Provider>,
+    );
+    fireEvent.press(await screen.findByRole("button", { name: "Get started" }));
+    fireEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
+    fireEvent.press(await screen.findByLabelText("Swap tab"));
+    expect(await screen.findByText("Amazon")).toBeVisible();
+    expect(screen.getByLabelText("Search tokens")).toBeVisible();
+    expect(
+      screen.queryByRole("button", {
+        name: /^(Review swap|Simulate swap|Sign|Transfer|Get quote)$/i,
+      }),
+    ).toBeNull();
+  } finally {
+    runtime.__DEV__ = development;
+  }
 });
