@@ -1,3 +1,4 @@
+import { tokenCatalogService } from "@/services/tokenCatalog";
 import type { WalletHistory } from "@/domain/wallet/types";
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
@@ -7,7 +8,12 @@ import { defaultPreferences } from "@/domain/preferences";
 import { deferred } from "../../support/renderApp";
 
 const address = "0x" + "1".repeat(40);
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest
+    .spyOn(tokenCatalogService, "list")
+    .mockResolvedValue({ list: [], page: 0, items: 20, total: 0 });
+});
 afterEach(() => jest.restoreAllMocks());
 function setup() {
   const bridge = {

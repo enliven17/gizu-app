@@ -1,10 +1,16 @@
+import { tokenCatalogService } from "@/services/tokenCatalog";
 import { nativeWalletAccess } from "@/services/wallet/access";
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, Linking } from "react-native";
 import { AccessRejectedError, type DemoSession } from "@/services/access";
 import { deferred, renderApp } from "../../support/renderApp";
 
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest
+    .spyOn(tokenCatalogService, "list")
+    .mockResolvedValue({ list: [], page: 0, items: 20, total: 0 });
+});
 afterEach(() => jest.restoreAllMocks());
 async function openAccess() {
   await userEvent.press(await screen.findByRole("button", { name: "Get started" }));

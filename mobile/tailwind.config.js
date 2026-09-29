@@ -9,7 +9,11 @@ module.exports = {
       borderRadius: require("./src/theme/radii.json"),
       // Android family is registered by the expo-font plugin in app.config.ts.
       fontFamily: {
-        sans: platformSelect({ ios: "Helvetica Neue", android: "HelveticaNeue", default: "System" }),
+        sans: platformSelect({
+          ios: "Helvetica Neue",
+          android: "HelveticaNeue",
+          default: "System",
+        }),
       },
       screens: { xs: "370px", tall: { raw: "(min-height: 650px)" } },
     },

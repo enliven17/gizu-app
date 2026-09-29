@@ -1,3 +1,4 @@
+import { MainnetVaults } from "@/features/opportunities/MainnetVaults";
 import { act, render, screen, userEvent } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
@@ -98,4 +99,38 @@ test("a vault without history draws a flat line", async () => {
   setup(service);
   expect(await screen.findByLabelText("No TVL history yet")).toBeVisible();
   expect(screen.queryByText(/no data/i)).toBeNull();
+});
+
+test("returning from vault details retains appended catalog pages without reloading", async () => {
+  const service = mockOpportunityService();
+  const first = opportunityDetail(1);
+  const second = opportunityDetail(2);
+  service.list.mockResolvedValueOnce({ list: [first], total: 9, page: 0, items: 8 });
+  service.list.mockResolvedValueOnce({ list: [second], total: 9, page: 1, items: 8 });
+  service.detail.mockResolvedValue(second);
+  render(
+    <SafeAreaProvider>
+      <OpportunityServiceContext.Provider value={service}>
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Main">
+              {({ navigation }) => (
+                <MainnetVaults onOpen={(id) => navigation.navigate("OpportunityDetail", { id })} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="OpportunityDetail" component={OpportunityDetailScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </OpportunityServiceContext.Provider>
+    </SafeAreaProvider>,
+  );
+  await screen.findByText(first.name);
+  await userEvent.press(screen.getByRole("button", { name: "Load more" }));
+  await userEvent.press(await screen.findByRole("button", { name: `View ${second.name}` }));
+  await screen.findByLabelText(second.name);
+  await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(await screen.findByText("All vaults loaded.")).toBeVisible();
+  expect(screen.getByText(first.name)).toBeVisible();
+  expect(screen.getByText(second.name)).toBeVisible();
+  expect(service.list).toHaveBeenCalledTimes(2);
 });

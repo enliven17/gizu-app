@@ -31,10 +31,11 @@ const page: OpportunityPage = {
     },
   ],
 };
-function setup() {
+function setup(fail = false) {
   const list = jest
     .fn<ReturnType<OpportunityService["list"]>, Parameters<OpportunityService["list"]>>()
     .mockResolvedValue(page);
+  if (fail) list.mockRejectedValueOnce(new Error("offline"));
   const tvl = jest
     .fn<
       ReturnType<OpportunityService["tvlRecords"]>,
@@ -62,15 +63,16 @@ test("mainnet listing shows real metrics without investment actions and supports
   expect(await screen.findByText("Lend USDC on Aave")).toBeVisible();
   expect(screen.getByText("6.1% total APR")).toBeVisible();
   expect(screen.queryByRole("button", { name: /deposit|withdraw|buy/i })).toBeNull();
-  expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Previous page" })).toBeNull();
   list.mockResolvedValueOnce({
     ...page,
     page: 1,
     list: [{ ...page.list[0]!, id: "2", name: "Second vault" }],
   });
-  await userEvent.press(screen.getByRole("button", { name: "Next page" }));
+  await userEvent.press(screen.getByRole("button", { name: "Load more" }));
   expect(await screen.findByText("Second vault")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  expect(screen.getByText("Lend USDC on Aave")).toBeVisible();
   await userEvent.press(screen.getByRole("radio", { name: "Morpho" }));
   await screen.findByText("Lend USDC on Aave");
   expect(list).toHaveBeenLastCalledWith(
@@ -92,8 +94,7 @@ test("mainnet listing shows real metrics without investment actions and supports
   );
 });
 test("failure can be retried and old responses cannot replace new results", async () => {
-  const { list } = setup();
-  list.mockRejectedValueOnce(new Error("offline"));
+  const { list } = setup(true);
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Vault catalog unavailable. Please retry.",
   );
@@ -141,5 +142,24 @@ test("a failed history omits the sparkline without blocking the list", async () 
   await act(async () => {});
   expect(within(card).queryByTestId("sparkline", hidden)).toBeNull();
   expect(within(card).getByText("6.1% total APR")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Load more" })).toBeEnabled();
+});
+
+test("refresh replaces vault results and reuses successful sparkline history", async () => {
+  const { list, tvl } = setup();
+  await screen.findByText("Lend USDC on Aave");
+  await waitFor(() => expect(tvl).toHaveBeenCalledTimes(1));
+  list.mockResolvedValueOnce({
+    ...page,
+    page: 1,
+    list: [{ ...page.list[0]!, id: "2", name: "Second vault" }],
+  });
+  fireEvent(screen.getByLabelText("vaults list"), "endReached");
+  await screen.findByText("Second vault");
+  list.mockResolvedValueOnce({ ...page, total: 1 });
+  fireEvent(screen.getByLabelText("vaults list"), "refresh");
+  await screen.findByText("All vaults loaded.");
+  expect(screen.queryByText("Second vault")).toBeNull();
+  expect(list.mock.lastCall?.[0].page).toBe(0);
+  expect(tvl.mock.calls.filter(([id]) => id === "1")).toHaveLength(1);
 });
