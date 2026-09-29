@@ -3,7 +3,7 @@ import { Linking } from "react-native";
 import { WalletDebugApp } from "@/development/WalletDebugApp";
 import { createNativeWalletAccess } from "@/development/legacySigner/access";
 import { type NativeWalletBridge } from "@/development/legacySigner/nativeBridge";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 
 const address = "0x" + "1".repeat(40);
 const publicResult = { address, accountIndex: 0, chainId: 10143 };

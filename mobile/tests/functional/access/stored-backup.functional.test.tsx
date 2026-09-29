@@ -1,34 +1,25 @@
+import { storedWalletBridge, readyWallet, testWalletId } from "../../support/storedWallet";
+import { mockOpportunityService } from "../../support/opportunities";
 import * as nativeBridge from "@/services/wallet/nativeBridge";
 import { act, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
-import { createStoredWalletAccess, type StoredWalletBridge } from "@/services/wallet/storedAccess";
+import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import type { StoredWalletState } from "@/domain/wallet/storedSigner";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 
-const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
-const required: StoredWalletState = { status: "backupRequired", walletId };
-const ready: StoredWalletState = {
-  status: "ready",
-  walletId,
-  accounts: [{ accountIndex: 0, address: "0x" + "1".repeat(40), chainId: 10143 }],
-};
+const required: StoredWalletState = { status: "backupRequired", walletId: testWalletId };
+const ready = readyWallet();
 function setup() {
-  const native = {
-    getWalletState: jest
-      .fn<Promise<StoredWalletState>, []>()
-      .mockResolvedValue({ status: "absent" }),
-    createWallet: jest.fn().mockImplementation(async () => {
-      native.getWalletState.mockResolvedValue(required);
-      return required;
-    }),
-    backupWallet: jest.fn().mockResolvedValue(ready),
-    openWallet: jest.fn().mockResolvedValue(ready),
-    restoreWallet: jest.fn().mockResolvedValue(ready),
-    lock: jest.fn(),
-  } satisfies StoredWalletBridge;
+  const native = storedWalletBridge({ status: "absent" });
+  native.openWallet.mockResolvedValue(ready);
+  native.createWallet.mockImplementation(async () => {
+    native.getWalletState.mockResolvedValue(required);
+    return required;
+  });
   render(
     <AppRoot
+      opportunityService={mockOpportunityService([])}
       accessService={createStoredWalletAccess(() => native)}
       walletBalanceService={{ getBalance: jest.fn().mockResolvedValue("0") }}
     />,

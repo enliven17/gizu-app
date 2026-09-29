@@ -3,12 +3,13 @@ import { Linking } from "react-native";
 import { createMockTransactionService, type TransactionService } from "@/services/transactions";
 import { TransactionError, type Quote, type OperationKind } from "@/domain/transactions";
 import { investmentFixture } from "@/services/fixtures/investments";
-import { renderApp, deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
+import { renderApp } from "../../support/renderApp";
 
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function enter(service = createMockTransactionService()) {
-  renderApp(undefined, undefined, undefined, service);
+  renderApp({ transactionService: service });
   await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await screen.findByText("Available USDC: 184204");
@@ -192,7 +193,7 @@ test("late quote result after dismissal cannot open a review; quote failure can 
 test("balance loading failure recovers from an available transaction entry point", async () => {
   const service = createMockTransactionService({ ...investmentFixture, vaults: [], holdings: [] });
   jest.spyOn(service, "load").mockRejectedValueOnce(new Error("offline"));
-  renderApp(undefined, undefined, undefined, service);
+  renderApp({ transactionService: service });
   await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));

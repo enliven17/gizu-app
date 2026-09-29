@@ -5,7 +5,7 @@ import { SwapScreen } from "@/features/swap/SwapScreen";
 import { TokenCatalogContext } from "@/features/swap/useTokenCatalog";
 import type { TokenCatalogService, TokenPage } from "@/domain/tokenCatalog";
 import { catalogPage, catalogToken } from "../../support/tokenCatalog";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 function open(
   list = jest
     .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()

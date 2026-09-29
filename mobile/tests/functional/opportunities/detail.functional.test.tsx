@@ -8,7 +8,7 @@ import type { OpportunityDetail } from "@/domain/opportunities";
 import { OpportunityDetailScreen } from "@/features/opportunities/OpportunityDetailScreen";
 import { OpportunityServiceContext } from "@/features/opportunities/useOpportunities";
 import type { RootStackParamList } from "@/navigation/types";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 import {
   mockOpportunityService,
   opportunityDetail,

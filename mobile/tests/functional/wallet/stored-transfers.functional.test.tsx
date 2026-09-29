@@ -1,3 +1,5 @@
+import { storedWalletBridge, readyWallet, testWalletId } from "../../support/storedWallet";
+import { mockOpportunityService } from "../../support/opportunities";
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
@@ -5,8 +7,8 @@ import * as nativeBridge from "@/services/wallet/nativeBridge";
 import { createStoredTransfers } from "@/services/wallet/storedTransfers";
 import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import type { StoredOperation } from "@/domain/wallet/storedSigner";
-import { deferred } from "../../support/renderApp";
-const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
+import { deferred } from "../../support/deferred";
+const walletId = testWalletId;
 const id = "7aafcc2e-0891-4e31-a7d4-03780d7b4f13";
 const address = "0x" + "1".repeat(40),
   to = "0x" + "2".repeat(40),
@@ -62,22 +64,12 @@ function setup(initial: StoredOperation[] = [], useDefaultSigner = false) {
     }),
     lock: jest.fn(),
   };
-  const state = {
-    status: "ready" as const,
-    walletId,
-    accounts: [{ accountIndex: 0, address, chainId: 10143 as const }],
-  };
-  const access = createStoredWalletAccess(() => ({
-    getWalletState: async () => state,
-    createWallet: jest.fn(),
-    backupWallet: jest.fn(),
-    openWallet: async () => state,
-    restoreWallet: jest.fn(),
-    lock: jest.fn(),
-  }));
+  const accessBridge = storedWalletBridge(readyWallet(address));
+  const access = createStoredWalletAccess(() => accessBridge);
   if (useDefaultSigner) jest.spyOn(nativeBridge, "getStoredTransferSigner").mockReturnValue(native);
   const element = (
     <AppRoot
+      opportunityService={mockOpportunityService([])}
       accessService={access}
       walletBalanceService={{ getBalance: async () => "1000000000000000000" }}
       walletTransferService={

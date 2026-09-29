@@ -3,7 +3,8 @@ import { nativeWalletAccess } from "@/services/wallet/access";
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, Linking } from "react-native";
 import { AccessRejectedError, type DemoSession } from "@/services/access";
-import { deferred, renderApp } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
+import { renderApp } from "../../support/renderApp";
 
 beforeEach(() => {
   jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
@@ -37,7 +38,7 @@ test("welcome, access, all tabs and disconnect form a complete demo journey", as
 });
 test("access offers only passkeys and requests the passkey method", async () => {
   const request = jest.fn().mockResolvedValue({ kind: "demo", method: "Demo passkey" });
-  renderApp({ request });
+  renderApp({ accessService: { request } });
   await openAccess();
   expect(screen.queryByRole("button", { name: "Choose wallet" })).toBeNull();
   expect(screen.getByText("Continue with a passkey to access Gizu.")).toBeVisible();
@@ -53,7 +54,7 @@ test.each([new Error("offline"), new AccessRejectedError("rejected")])(
       .fn()
       .mockRejectedValueOnce(cause)
       .mockResolvedValue({ kind: "demo", method: "Demo passkey" });
-    renderApp({ request });
+    renderApp({ accessService: { request } });
     await openAccess();
     await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -68,7 +69,7 @@ test.each([new Error("offline"), new AccessRejectedError("rejected")])(
 test("prevents duplicate requests and ignores a late success after cancellation", async () => {
   const pending = deferred<DemoSession>();
   const request = jest.fn().mockReturnValue(pending.promise);
-  renderApp({ request });
+  renderApp({ accessService: { request } });
   await openAccess();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   const loading = screen.getByRole("button", { name: "Opening access" });
@@ -107,7 +108,7 @@ test("an access deep link still has a safe way back to welcome", async () => {
 
 test("leaving access invalidates pending work even when the service rejects later", async () => {
   const pending = deferred<DemoSession>();
-  renderApp({ request: () => pending.promise });
+  renderApp({ accessService: { request: () => pending.promise } });
   await openAccess();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
@@ -201,7 +202,7 @@ test.each([true, false])(
 );
 
 test("disconnected native access stays on access screen without creating a demo session", async () => {
-  renderApp(nativeWalletAccess);
+  renderApp({ accessService: nativeWalletAccess });
   await openAccess();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   expect(

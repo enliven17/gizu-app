@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import mockSafeAreaContext from "react-native-safe-area-context/jest/mock";
+import "./networkGuard";
 // Native boundaries only; preference serialization and controllers remain real.
 jest.mock("@react-native-async-storage/async-storage", () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports

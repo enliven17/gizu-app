@@ -11,7 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { MainnetVaults } from "@/features/opportunities/MainnetVaults";
 import { OpportunityServiceContext } from "@/features/opportunities/useOpportunities";
 import type { OpportunityPage, OpportunityService } from "@/domain/opportunities";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 import { tvlRecords } from "../../support/opportunities";
 // The sparkline is decorative (hidden from assistive tech); query it explicitly.
 const hidden = { includeHiddenElements: true };

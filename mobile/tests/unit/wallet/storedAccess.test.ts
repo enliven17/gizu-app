@@ -1,6 +1,6 @@
 import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import type { StoredWalletState } from "@/domain/wallet/storedSigner";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
 const pending: StoredWalletState = { status: "backupRequired", walletId };
 const ready: StoredWalletState = {

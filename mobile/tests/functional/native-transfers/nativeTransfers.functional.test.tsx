@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { NativeTransferScreen } from "@/development/native-transfers/NativeTransferScreen";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 
 const hash = "0x" + "a".repeat(64);
 const recipient = "0x" + "1".repeat(40);

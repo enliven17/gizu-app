@@ -1,8 +1,9 @@
+import { storedWalletBridge, readyWallet } from "../../support/storedWallet";
 import type { WalletHistory } from "@/domain/wallet/types";
 import { render, screen, userEvent, within } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
-import { createNativeWalletAccess } from "@/development/legacySigner/access";
+import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import { defaultPreferences } from "@/domain/preferences";
 import {
   mainnetOpportunity as opportunity,
@@ -17,10 +18,7 @@ beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 
 function setup(service: MockOpportunityService) {
-  const bridge = {
-    openWallet: jest.fn().mockResolvedValue({ address, accountIndex: 0, chainId: 10143 }),
-    lock: jest.fn(),
-  };
+  const bridge = storedWalletBridge(readyWallet(address));
   const transfers = {
     history: jest
       .fn<Promise<WalletHistory>, [string]>()
@@ -30,7 +28,7 @@ function setup(service: MockOpportunityService) {
   };
   render(
     <AppRoot
-      accessService={createNativeWalletAccess(() => bridge)}
+      accessService={createStoredWalletAccess(() => bridge)}
       opportunityService={service}
       walletBalanceService={{ getBalance: jest.fn().mockResolvedValue("1000000000000000000") }}
       walletTransferService={transfers}

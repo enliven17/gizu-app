@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { InfiniteListScreen } from "@/components/templates/InfiniteListScreen";
 import { SearchInput } from "@/components/atoms/SearchInput";
 import { Typography } from "@/components/atoms/Typography";
 import { useInfiniteList, type InfinitePage } from "@/hooks/useInfiniteList";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 type Item = { id: string; name: string };
 type Page = InfinitePage<Item, string>;
 type Loader = (cursor: string, signal: AbortSignal, query: string) => Promise<Page>;
@@ -169,7 +169,7 @@ test("query changes and unmount cancel requests; late failures cannot change the
   expect(loader.mock.lastCall?.[1].aborted).toBe(true);
   await act(async () => pending.resolve(first));
 });
-test("large odd-length grids keep a bounded render window after scroll events", async () => {
+test("large grids advance their render window and reach the final unpaired card", async () => {
   const items = Array.from({ length: 1001 }, (_, i) => ({ id: String(i), name: `Item ${i}` }));
   const loader = jest
     .fn<ReturnType<Loader>, Parameters<Loader>>()
@@ -181,6 +181,14 @@ test("large odd-length grids keep a bounded render window after scroll events", 
   const list = screen.getByLabelText("examples list");
   fireEvent(list, "layout", { nativeEvent: { layout: { width: 390, height: 700 } } });
   fireEvent(list, "contentSizeChange", 390, 50100);
+  // Jest has no native layout engine. Measure rendered rows before asking
+  // FlatList to estimate the offscreen range (two cards per 100-point row).
+  for (const label of screen.queryAllByText(/^Item /)) {
+    const index = Number(String(label.props.children).replace("Item ", ""));
+    fireEvent(label, "layout", {
+      nativeEvent: { layout: { x: 0, y: Math.floor(index / 2) * 100, width: 390, height: 100 } },
+    });
+  }
   fireEvent.scroll(list, {
     nativeEvent: {
       contentOffset: { x: 0, y: 25000 },
@@ -188,6 +196,16 @@ test("large odd-length grids keep a bounded render window after scroll events", 
       layoutMeasurement: { width: 390, height: 700 },
     },
   });
-  await waitFor(() => expect(screen.queryAllByText(/^Item /).length).toBeLessThan(200));
+  expect(await screen.findByText("Item 500")).toBeVisible();
+  expect(screen.queryAllByText(/^Item /).length).toBeLessThan(200);
+  fireEvent.scroll(list, {
+    nativeEvent: {
+      contentOffset: { x: 0, y: 49400 },
+      contentSize: { width: 390, height: 50100 },
+      layoutMeasurement: { width: 390, height: 700 },
+    },
+  });
+  expect(await screen.findByText("Item 1000")).toBeVisible();
+  expect(screen.queryAllByText(/^Item /).length).toBeLessThan(200);
   expect(loader).toHaveBeenCalledTimes(1);
 });

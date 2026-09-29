@@ -5,7 +5,8 @@ import {
   notificationFixture,
   type NotificationItem,
 } from "@/services/notifications";
-import { deferred, renderApp } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
+import { renderApp } from "../../support/renderApp";
 import { openSettings, signInToAccount } from "../../support/account";
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
@@ -42,7 +43,7 @@ test("opens full notification text, tracks read/unread and mark-all across navig
 test("failed initial load recovers to an empty inbox", async () => {
   const service = createMockNotificationService([]);
   jest.spyOn(service, "load").mockRejectedValueOnce(new Error("offline"));
-  renderApp(undefined, undefined, undefined, undefined, { notifications: service });
+  renderApp({ notificationService: service });
   await signInToAccount();
   await openInbox();
   expect(screen.getByRole("alert")).toHaveTextContent(/could not be loaded/);
@@ -58,7 +59,7 @@ test("failed read-state mutation retains unread status and retries without dupli
     .spyOn(service, "setRead")
     .mockRejectedValueOnce(new Error("offline"))
     .mockReturnValueOnce(pending.promise);
-  renderApp(undefined, undefined, undefined, undefined, { notifications: service });
+  renderApp({ notificationService: service });
   await signInToAccount();
   await openInbox();
   await userEvent.press(screen.getByRole("button", { name: "Order update, unread" }));
@@ -78,7 +79,7 @@ test("failed read-state mutation retains unread status and retries without dupli
 test("mark-all submits only unread IDs once and can retry after failure", async () => {
   const service = createMockNotificationService();
   const setRead = jest.spyOn(service, "setRead").mockRejectedValueOnce(new Error("offline"));
-  renderApp(undefined, undefined, undefined, undefined, { notifications: service });
+  renderApp({ notificationService: service });
   await signInToAccount();
   await openInbox();
   await userEvent.press(screen.getByRole("button", { name: "Mark all as read" }));
@@ -92,7 +93,7 @@ test("pending inbox loading disables mutations, and late results after disconnec
   const service = createMockNotificationService();
   const pending = deferred<NotificationItem[]>();
   jest.spyOn(service, "load").mockReturnValueOnce(pending.promise);
-  renderApp(undefined, undefined, undefined, undefined, { notifications: service });
+  renderApp({ notificationService: service });
   await signInToAccount();
   await openInbox();
   expect(screen.getByText("Loading notifications…")).toBeVisible();

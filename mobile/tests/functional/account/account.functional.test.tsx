@@ -3,7 +3,8 @@ import * as Clipboard from "expo-clipboard";
 import { Linking } from "react-native";
 import { profileFixture } from "@/services/fixtures/profile";
 import { defaultPreferences } from "@/domain/preferences";
-import { deferred, renderApp } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
+import { renderApp } from "../../support/renderApp";
 import { memoryPreferences, openSettings, signInToAccount } from "../../support/account";
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
@@ -36,7 +37,7 @@ test("clipboard false result fails and a pending copy cannot duplicate or update
   await userEvent.press(screen.getByRole("button", { name: "Copy account address" }));
   expect(await screen.findByRole("alert")).toBeVisible();
   app.unmount();
-  renderApp(undefined, undefined, undefined, undefined, { dependencies: { clipboard: { copy } } });
+  renderApp({ accountDependencies: { clipboard: { copy } } });
   await signInToAccount();
   await openSettings();
   await open("Passkey wallet");
@@ -53,7 +54,7 @@ test("clipboard false result fails and a pending copy cannot duplicate or update
 test("alerts and statement frequency persist across app remount and clear on disconnect", async () => {
   const { store, storage } = memoryPreferences();
   const dependencies = { store };
-  const app = renderApp(undefined, undefined, undefined, undefined, { dependencies });
+  const app = renderApp({ accountDependencies: dependencies });
   await signInToAccount();
   await openSettings();
   await open("Push alerts");
@@ -66,7 +67,7 @@ test("alerts and statement frequency persist across app remount and clear on dis
   await userEvent.press(screen.getByRole("radio", { name: "Quarterly" }));
   expect(await screen.findByRole("radio", { name: "Quarterly", checked: true })).toBeVisible();
   app.unmount();
-  renderApp(undefined, undefined, undefined, undefined, { dependencies });
+  renderApp({ accountDependencies: dependencies });
   await signInToAccount();
   await openSettings();
   await open("Statements");
@@ -91,7 +92,7 @@ test("alerts and statement frequency persist across app remount and clear on dis
 test("failed preference hydration blocks edits until retry; failed save preserves the last committed value", async () => {
   const { store, storage } = memoryPreferences();
   storage.getItem.mockRejectedValueOnce(new Error("read failed"));
-  renderApp(undefined, undefined, undefined, undefined, { dependencies: { store } });
+  renderApp({ accountDependencies: { store } });
   await signInToAccount();
   await openSettings();
   await open("Statements");
@@ -109,7 +110,7 @@ test("pending writes disable changes and disconnect until persistence completes"
   const { store, storage } = memoryPreferences();
   const pending = deferred<void>();
   storage.setItem.mockReturnValueOnce(pending.promise);
-  renderApp(undefined, undefined, undefined, undefined, { dependencies: { store } });
+  renderApp({ accountDependencies: { store } });
   await signInToAccount();
   await openSettings();
   await open("Statements");
@@ -131,7 +132,7 @@ test("logout cleanup failure stays signed in with retry and duplicate cleanup is
   storage.removeItem
     .mockRejectedValueOnce(new Error("failed"))
     .mockReturnValueOnce(pending.promise);
-  renderApp(undefined, undefined, undefined, undefined, { dependencies: { store } });
+  renderApp({ accountDependencies: { store } });
   await signInToAccount();
   await openSettings();
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
@@ -149,7 +150,7 @@ test("disconnect during hydration discards its late result for the next session"
   const { store } = memoryPreferences();
   const pending = deferred<typeof defaultPreferences>();
   jest.spyOn(store, "load").mockReturnValueOnce(pending.promise);
-  renderApp(undefined, undefined, undefined, undefined, { dependencies: { store } });
+  renderApp({ accountDependencies: { store } });
   await signInToAccount();
   await openSettings();
   expect(screen.getByText("Loading preferences…")).toBeVisible();

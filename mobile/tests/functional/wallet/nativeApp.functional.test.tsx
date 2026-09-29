@@ -1,11 +1,12 @@
+import { storedWalletBridge, readyWallet } from "../../support/storedWallet";
 import { tokenCatalogService } from "@/services/tokenCatalog";
 import type { WalletHistory } from "@/domain/wallet/types";
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
-import { createNativeWalletAccess } from "@/development/legacySigner/access";
+import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import { defaultPreferences } from "@/domain/preferences";
-import { deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
 
 const address = "0x" + "1".repeat(40);
 beforeEach(() => {
@@ -16,10 +17,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 function setup() {
-  const bridge = {
-    openWallet: jest.fn().mockResolvedValue({ address, accountIndex: 0, chainId: 10143 }),
-    lock: jest.fn(),
-  };
+  const bridge = storedWalletBridge(readyWallet(address));
   const balance = { getBalance: jest.fn().mockResolvedValue("19990574000000000000") };
   const transfers = {
     history: jest
@@ -38,7 +36,7 @@ function setup() {
   };
   render(
     <AppRoot
-      accessService={createNativeWalletAccess(() => bridge)}
+      accessService={createStoredWalletAccess(() => bridge)}
       opportunityService={{
         list: jest.fn().mockResolvedValue({ list: [], page: 0, items: 8, total: 0 }),
         detail: jest.fn().mockRejectedValue(new Error("not used")),
@@ -121,11 +119,7 @@ test("disconnect aborts a balance request and late results cannot leak into the 
   await userEvent.press(await screen.findByRole("button", { name: "Disconnect" }));
   await screen.findByRole("button", { name: "Get started" });
   expect(balance.getBalance.mock.calls[0][1].aborted).toBe(true);
-  bridge.openWallet.mockResolvedValueOnce({
-    address: "0x" + "2".repeat(40),
-    accountIndex: 0,
-    chainId: 10143,
-  });
+  bridge.openWallet.mockResolvedValueOnce(readyWallet("0x" + "2".repeat(40)));
   balance.getBalance.mockResolvedValueOnce("0");
   await open();
   expect(await screen.findByLabelText("0 MON")).toBeVisible();

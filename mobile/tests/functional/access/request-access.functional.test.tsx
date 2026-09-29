@@ -1,12 +1,13 @@
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
-import { deferred, renderApp } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
+import { renderApp } from "../../support/renderApp";
 import type { EarlyAccessService } from "@/services/earlyAccess";
 
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function open(service?: EarlyAccessService) {
-  renderApp(undefined, undefined, service);
+  renderApp({ earlyAccessService: service });
   await userEvent.press(await screen.findByRole("button", { name: "Request access" }));
   await screen.findByRole("header", { name: "Request early access" });
 }

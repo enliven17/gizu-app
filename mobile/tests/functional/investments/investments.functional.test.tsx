@@ -1,6 +1,7 @@
 import { act, screen, userEvent } from "@testing-library/react-native";
 import { Dimensions, Linking, Share } from "react-native";
-import { renderApp, deferred } from "../../support/renderApp";
+import { deferred } from "../../support/deferred";
+import { renderApp } from "../../support/renderApp";
 import { investmentFixture } from "@/services/fixtures/investments";
 import { OfflineError, type InvestmentService } from "@/services/investments";
 import type { InvestmentSnapshot } from "@/domain/investments";
@@ -8,7 +9,7 @@ import type { InvestmentSnapshot } from "@/domain/investments";
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function enter(service?: InvestmentService) {
-  renderApp(undefined, service);
+  renderApp({ investmentService: service });
   await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await screen.findByRole("header", { name: "Your portfolio" });
