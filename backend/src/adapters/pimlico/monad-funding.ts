@@ -88,13 +88,21 @@ export class PimlicoMonadFunding {
         paymasterContext: { token: MONAD_USDC },
         calls: [{ to: MONAD_USDC, abi: erc20Abi, functionName: "transfer", args: [recipient, amount] }],
       });
-      const { signature: _signature, eip7702Auth, ...userOperation } = formatUserOperationRequest(prepared) as Record<string, unknown> & {
+      const formatted = formatUserOperationRequest(prepared) as Record<string, unknown> & {
         eip7702Auth?: { chainId: Hex; address: Address; nonce: Hex };
       };
+      const userOperation: Record<string, unknown> = {};
+      for (const field of [
+        "sender", "nonce", "factory", "factoryData", "callData", "callGasLimit",
+        "verificationGasLimit", "preVerificationGas", "maxFeePerGas", "maxPriorityFeePerGas",
+        "paymaster", "paymasterVerificationGasLimit", "paymasterPostOpGasLimit", "paymasterData",
+      ]) {
+        if (formatted[field] !== undefined) userOperation[field] = formatted[field];
+      }
       return {
         userOperation,
-        authorization: eip7702Auth
-          ? { chainId: Number(eip7702Auth.chainId), address: getAddress(eip7702Auth.address), nonce: Number(eip7702Auth.nonce) }
+        authorization: formatted.eip7702Auth
+          ? { chainId: Number(formatted.eip7702Auth.chainId), address: getAddress(formatted.eip7702Auth.address), nonce: Number(formatted.eip7702Auth.nonce) }
           : null,
         feeCapAtoms: signedErc20FeeCap(prepared).toString(),
       };

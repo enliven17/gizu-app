@@ -104,7 +104,12 @@ import UIKit
     try checkAuthorization()
     let recovered = try StoredBackupCodec.decrypt(bytes, prf: commitPrf!)
     defer { recovered.close() }
-    try store.restore(recovered)
+    let registry = await StoredSwapReconciler.covering(entropy: recovered.entropy, backup: recovered.roleRegistry)
+    let committed = try WalletRecord(
+      id: recovered.id, credential: recovered.credential, entropy: Data(recovered.entropy),
+      roleRegistry: registry)
+    defer { committed.close() }
+    try store.restore(committed)
     return try publicState()
   }
 }

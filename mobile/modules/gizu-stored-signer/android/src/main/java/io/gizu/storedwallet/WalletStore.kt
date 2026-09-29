@@ -3,6 +3,15 @@ package io.gizu.storedwallet
 import java.io.*
 import java.util.UUID
 import javax.crypto.SecretKey
+import org.json.JSONObject
+
+internal const val INITIAL_ROLE_REGISTRY = """{"version":1,"nextRecipient":3}"""
+
+internal fun requireRoleRegistry(value: String) {
+  require(value.length in 1..1024)
+  val parsed = JSONObject(value)
+  require(parsed.length() == 2 && parsed.getInt("version") == 1 && parsed.getInt("nextRecipient") >= 3)
+}
 
 /** Native-only model; deliberately not a data class (no secret-bearing toString/copy). */
 internal class WalletRecord(
@@ -11,6 +20,7 @@ internal class WalletRecord(
   val entropy: ByteArray,
   val verified: Boolean = false,
   val journalId: String = id,
+  val roleRegistry: String = INITIAL_ROLE_REGISTRY,
 ) : AutoCloseable {
   init {
     UUID.fromString(id)
@@ -18,6 +28,7 @@ internal class WalletRecord(
     require(entropy.size == 32)
     require(credential.credentialId.size in 1..1024)
     require(credential.publicKeyX.size == 32 && credential.publicKeyY.size == 32)
+    requireRoleRegistry(roleRegistry)
   }
 
   override fun close() {
@@ -66,7 +77,7 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
     try {
       DataInputStream(ByteArrayInputStream(clear)).use { input ->
         val version = input.readInt()
-        require(version in 1..3)
+        require(version in 1..4)
         val verified = if (version >= 2) input.readBoolean() else false
         val id = input.readUTF()
         val journalId = if (version >= 3) input.readUTF() else id
@@ -81,8 +92,9 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
         val entropy = ByteArray(32)
         try {
           input.readFully(entropy)
+          val registry = if (version >= 4) input.readUTF() else INITIAL_ROLE_REGISTRY
           require(input.available() == 0)
-          return WalletRecord(id, credential, entropy, verified, journalId)
+          return WalletRecord(id, credential, entropy, verified, journalId, registry)
         } catch (error: Exception) {
           entropy.fill(0)
           throw error
@@ -105,9 +117,15 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
           java.security.MessageDigest.isEqual(current.entropy, expected.entropy)
       )
       check(current.credential.credentialId.contentEquals(expected.credential.credentialId))
-      WalletRecord(current.id, current.credential, current.entropy, true, current.journalId).use {
-        save(it)
-      }
+      WalletRecord(
+          current.id,
+          current.credential,
+          current.entropy,
+          true,
+          current.journalId,
+          current.roleRegistry,
+        )
+        .use { save(it) }
     }
   }
 
@@ -120,8 +138,26 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
         record.entropy.copyOf(),
         true,
         UUID.randomUUID().toString(),
+        record.roleRegistry,
       )
       .use { save(it, key) }
+  }
+
+  fun persistRegistry(expectedId: String, registry: String) {
+    requireRoleRegistry(registry)
+    load().use { current ->
+      check(current.id == expectedId)
+      check(JSONObject(registry).getInt("nextRecipient") >= JSONObject(current.roleRegistry).getInt("nextRecipient"))
+      WalletRecord(
+          current.id,
+          current.credential,
+          current.entropy,
+          current.verified,
+          current.journalId,
+          registry,
+        )
+        .use { save(it) }
+    }
   }
 
   private fun save(record: WalletRecord, key: SecretKey? = null) {
@@ -130,7 +166,7 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
       ByteArrayOutputStream()
         .apply {
           DataOutputStream(this).use { out ->
-            out.writeInt(3)
+            out.writeInt(4)
             out.writeBoolean(record.verified)
             out.writeUTF(record.id)
             out.writeUTF(record.journalId)
@@ -141,12 +177,17 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
           }
         }
         .toByteArray()
-    val clear = metadata + record.entropy
+    val registryHeader =
+      ByteArrayOutputStream()
+        .apply { DataOutputStream(this).use { out -> out.writeUTF(record.roleRegistry) } }
+        .toByteArray()
+    val clear = metadata + record.entropy + registryHeader
     val encrypted =
       try {
         CryptoEnvelope.encrypt(key ?: keys.existing() ?: keys.create(), clear, aad)
       } finally {
         clear.fill(0)
+        registryHeader.fill(0)
       }
     file.write(encrypted)
   }

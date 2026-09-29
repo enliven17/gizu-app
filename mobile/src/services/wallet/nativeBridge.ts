@@ -24,6 +24,7 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
     walletStorage: false,
     backup: false,
     transfers: false,
+    swaps: false,
     reason: supportedPlatform() ? "notImplemented" : "unsupportedPlatform",
   };
   try {
@@ -37,6 +38,7 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
       walletStorage: result.walletStorage === true,
       backup: result.backup === true,
       transfers: result.transfers === true,
+      swaps: result.swaps === true,
     };
   } catch {
     return unavailable;
@@ -53,7 +55,7 @@ export class WalletUnavailableError extends Error {
 }
 async function checked(
   native: StoredSignerContract,
-  capability: "walletStorage" | "backup" | "transfers",
+  capability: "walletStorage" | "backup" | "transfers" | "swaps",
 ) {
   const generation = authorizationGeneration;
   const value = await native.getCapabilities();
@@ -123,6 +125,44 @@ export function getStoredTransferSigner(): StoredTransferBridge | null {
     async cancelOperation(id) {
       await checked(native, "transfers");
       return native.cancelOperation(id);
+    },
+    lock: () => {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+export type StoredSwapBridge = Pick<
+  StoredSignerContract,
+  "getSwapDeposit" | "startSwap" | "startSell" | "resumeSwap" | "getSwapStatus" | "cancelSwap" | "lock"
+>;
+export function getStoredSwapSigner(): StoredSwapBridge | null {
+  const native = nativeModule();
+  if (!native) return null;
+  return {
+    async getSwapDeposit() {
+      await checked(native, "swaps");
+      return native.getSwapDeposit();
+    },
+    async startSwap(target, amountAtoms, gateway) {
+      await checked(native, "swaps");
+      return native.startSwap(target, amountAtoms, gateway);
+    },
+    async startSell(gateway) {
+      await checked(native, "swaps");
+      return native.startSell(gateway);
+    },
+    async resumeSwap(gateway) {
+      await checked(native, "swaps");
+      return native.resumeSwap(gateway);
+    },
+    async getSwapStatus(gateway) {
+      await checked(native, "swaps");
+      return native.getSwapStatus(gateway);
+    },
+    async cancelSwap(gateway) {
+      await checked(native, "swaps");
+      return native.cancelSwap(gateway);
     },
     lock: () => {
       authorizationGeneration++;

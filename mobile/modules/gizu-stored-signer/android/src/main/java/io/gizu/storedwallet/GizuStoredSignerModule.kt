@@ -22,6 +22,10 @@ import java.util.UUID
 import kotlin.coroutines.resume
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
+import io.gizu.storedwallet.swap.SwapEngine
+import io.gizu.storedwallet.swap.SwapHost
+import io.gizu.storedwallet.swap.SwapStore
+import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
 import uniffi.gizu_stored_signer_core.deriveAccountAddresses
 
 /** Wallet access requires a verified native backup; exact transfer signing stays native. */
@@ -128,6 +132,7 @@ class GizuStoredSignerModule : Module() {
   private fun runCeremony(
     promise: Promise,
     wait: Boolean = false,
+    timeoutMs: Long = CEREMONY_TIMEOUT_MS,
     block: suspend (Activity, WalletStore) -> Any,
   ) {
     scope.launch {
@@ -145,22 +150,22 @@ class GizuStoredSignerModule : Module() {
       try {
         requireForeground(activity!!)
         val result =
-          withTimeout(CEREMONY_TIMEOUT_MS) {
+          withTimeout(timeoutMs) {
             block(activity, walletStore(activity.applicationContext))
           }
         currentCoroutineContext().ensureActive()
         requireForeground(activity)
         promise.resolve(result)
-      } catch (_: CancellationException) {
+      } catch (error: CancellationException) {
         promise.reject(
           "CANCELLED",
           "Wallet operation cancelled or expired. Check wallet state before retrying creation.",
           null,
         )
-      } catch (_: Exception) {
+      } catch (error: Exception) {
         promise.reject(
           "WALLET_FAILED",
-          "Wallet operation failed. Check wallet state; an existing wallet must not be overwritten.",
+          error.message ?: "Wallet operation failed. Check wallet state; an existing wallet must not be overwritten.",
           null,
         )
       } finally {
@@ -205,6 +210,7 @@ class GizuStoredSignerModule : Module() {
           "walletStorage" to eligible(appContext.currentActivity),
           "backup" to eligible(appContext.currentActivity),
           "transfers" to eligible(appContext.currentActivity),
+          "swaps" to eligible(appContext.currentActivity),
         )
       )
     }
@@ -299,6 +305,63 @@ class GizuStoredSignerModule : Module() {
         runCeremony(promise, wait = true) { activity, store ->
           val journal = store.load().use { operationJournal(activity, it) }
           journal.public(journal.cancel(id))
+        }
+      }
+    }
+    AsyncFunction("getSwapDeposit") { promise: Promise ->
+      runCeremony(promise) { _, store ->
+        withContext(Dispatchers.IO) {
+          store.load().use { record ->
+            check(record.verified)
+            mapOf("fundingAddress" to deriveAccountAddressRange(record.entropy, 1u, 1u).single())
+          }
+        }
+      }
+    }
+    AsyncFunction("startSwap") { target: String, amountAtoms: String, gateway: String, promise: Promise ->
+      runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
+        withProviderUi(activity) {
+          SwapHost.open(activity, gateway, target, amountAtoms.ifBlank { null }, false)
+        }
+      }
+    }
+    AsyncFunction("startSell") { gateway: String, promise: Promise ->
+      runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
+        withProviderUi(activity) {
+          SwapHost.open(activity, gateway, null, null, false, true)
+        }
+      }
+    }
+    AsyncFunction("resumeSwap") { gateway: String, promise: Promise ->
+      runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
+        withProviderUi(activity) { SwapHost.open(activity, gateway, null, null, true) }
+      }
+    }
+    AsyncFunction("getSwapStatus") { gateway: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        withContext(Dispatchers.IO) {
+          store.load().use { record ->
+            SwapEngine(store, SwapStore(activity.applicationContext, record), gateway).use { engine ->
+              engine.restore()
+              engine.view()
+            }
+          }
+        }
+      }
+    }
+    AsyncFunction("cancelSwap") { gateway: String, promise: Promise ->
+      scope.launch {
+        if (SwapHost.token != null) task?.cancel()
+        runCeremony(promise, wait = true) { activity, store ->
+          withContext(Dispatchers.IO) {
+            store.load().use { record ->
+              SwapEngine(store, SwapStore(activity.applicationContext, record), gateway).use { engine ->
+                engine.restore()
+                engine.cancel()
+                engine.view()
+              }
+            }
+          }
         }
       }
     }

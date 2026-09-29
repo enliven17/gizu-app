@@ -3,7 +3,7 @@ export const storedSignerIdentity = {
   moduleName: "GizuStoredSigner",
   storageNamespace: "io.gizu.storedwallet.v1",
   backupFormat: "gizu-stored-wallet",
-  backupVersion: 1,
+  backupVersion: 2,
   derivationVersion: "gizu-stored-evm-v1",
   recoveryPrfSaltLabel: "gizu.stored-wallet.recovery-prf.v1",
   rpId: "gizu.io",
@@ -22,6 +22,7 @@ export type StoredSignerCapabilities = {
   walletStorage: boolean;
   backup: boolean;
   transfers: boolean;
+  swaps: boolean;
   reason?: "notImplemented" | "unsupportedPlatform" | "unsupportedProvider";
 };
 export type StoredTransferProposal = {
@@ -53,6 +54,22 @@ export type StoredOperation = {
     nonceConflict?: boolean;
   }[];
 };
+export type StoredSwapView = {
+  operationId: string;
+  phase: string;
+  step: string;
+  pausedCode: string | null;
+  targetSymbol: string;
+  targetDecimals: number;
+  sourceAtoms: string;
+  creditedAtoms: string;
+  payoutsSubmitted: number;
+  ordersComplete: number;
+  receivedTargetAtoms: string;
+  fundingAddress: string;
+  direction: "buy" | "sell";
+  returnAddresses: string[];
+};
 
 /** All dialogs, file IO and authorization originate natively. No JS approve/export API. */
 export interface StoredSignerContract {
@@ -69,5 +86,11 @@ export interface StoredSignerContract {
   /** Reconcile then obtain new native review and passkey authorization; never automatic. */
   resumeOperation(operationId: string, expectedRevision: number): Promise<StoredOperation>;
   cancelOperation(operationId: string): Promise<StoredOperation>;
+  getSwapDeposit(): Promise<{ fundingAddress: string }>;
+  startSwap(target: string, amountAtoms: string, gateway: string): Promise<StoredSwapView>;
+  startSell(gateway: string): Promise<StoredSwapView>;
+  resumeSwap(gateway: string): Promise<StoredSwapView>;
+  getSwapStatus(gateway: string): Promise<StoredSwapView>;
+  cancelSwap(gateway: string): Promise<StoredSwapView>;
   lock(): void;
 }

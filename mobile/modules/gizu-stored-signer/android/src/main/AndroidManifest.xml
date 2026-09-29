@@ -3,5 +3,6 @@
   <application>
     <activity android:name="io.gizu.storedwallet.BackupActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
     <activity android:name="io.gizu.storedwallet.TransferActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
+    <activity android:name="io.gizu.storedwallet.swap.SwapActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
   </application>
 </manifest>

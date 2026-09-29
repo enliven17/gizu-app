@@ -66,15 +66,23 @@ export class OneInchFusion {
     this.client = createPublicClient({ chain: robinhood, transport: http(robinhoodRpc, { timeout: 20_000 }) });
   }
 
-  async preview(wallet: Address, dstToken: Address, amount: bigint, preset: FusionPreset): Promise<FusionPreview> {
+  async preview(
+    wallet: Address,
+    dstToken: Address,
+    amount: bigint,
+    preset: FusionPreset,
+    srcToken: Address = ROBINHOOD_USDG,
+  ): Promise<FusionPreview> {
     const quote = await this.guard("quote", () => this.sdk.getQuote({
-      fromTokenAddress: ROBINHOOD_USDG,
+      fromTokenAddress: srcToken,
       toTokenAddress: dstToken,
       amount: amount.toString(),
       walletAddress: wallet,
     }));
     const selected = quote.getPreset(preset as PresetEnum);
-    const impact = await this.liquidityImpact(dstToken);
+    const impact = srcToken.toLowerCase() === ROBINHOOD_USDG.toLowerCase()
+      ? await this.liquidityImpact(dstToken)
+      : 0n;
     return {
       marketOut: quote.toTokenAmount,
       recommendedPreset: String(quote.recommendedPreset),
@@ -89,26 +97,33 @@ export class OneInchFusion {
     };
   }
 
-  async permitContext(owner: Address): Promise<{ name: string; version: string; nonce: string }> {
+  async permitContext(owner: Address, token: Address = ROBINHOOD_USDG): Promise<{ name: string; version: string; nonce: string }> {
     return this.guard("permit context", async () => {
       const [name, separator, nonce] = await Promise.all([
-        this.client.readContract({ address: ROBINHOOD_USDG, abi: permitAbi, functionName: "name" }),
-        this.client.readContract({ address: ROBINHOOD_USDG, abi: permitAbi, functionName: "DOMAIN_SEPARATOR" }),
-        this.client.readContract({ address: ROBINHOOD_USDG, abi: permitAbi, functionName: "nonces", args: [owner] }),
+        this.client.readContract({ address: token, abi: permitAbi, functionName: "name" }),
+        this.client.readContract({ address: token, abi: permitAbi, functionName: "DOMAIN_SEPARATOR" }),
+        this.client.readContract({ address: token, abi: permitAbi, functionName: "nonces", args: [owner] }),
       ]);
       for (const version of ["1", "2"]) {
-        const domain = { name, version, chainId: ROBINHOOD_CHAIN_ID, verifyingContract: ROBINHOOD_USDG };
+        const domain = { name, version, chainId: ROBINHOOD_CHAIN_ID, verifyingContract: token };
         if (domainSeparator({ domain }).toLowerCase() === separator.toLowerCase()) {
           return { name, version, nonce: nonce.toString() };
         }
       }
-      throw new Error("USDG DOMAIN_SEPARATOR is not reproducible");
+      throw new Error("token DOMAIN_SEPARATOR is not reproducible");
     });
   }
 
-  async createOrder(wallet: Address, dstToken: Address, amount: bigint, permit: Hex, preset: FusionPreset): Promise<FusionOrderDraft> {
+  async createOrder(
+    wallet: Address,
+    dstToken: Address,
+    amount: bigint,
+    permit: Hex,
+    preset: FusionPreset,
+    srcToken: Address = ROBINHOOD_USDG,
+  ): Promise<FusionOrderDraft> {
     const created = await this.guard("order", () => this.sdk.createOrder({
-      fromTokenAddress: ROBINHOOD_USDG,
+      fromTokenAddress: srcToken,
       toTokenAddress: dstToken,
       amount: amount.toString(),
       walletAddress: wallet,
@@ -120,14 +135,14 @@ export class OneInchFusion {
       orderHash: created.hash as Hex,
       quoteId: created.quoteId,
       order: {
-        salt: built.salt,
-        maker: built.maker,
-        receiver: built.receiver,
-        makerAsset: built.makerAsset,
-        takerAsset: built.takerAsset,
-        makingAmount: built.makingAmount,
-        takingAmount: built.takingAmount,
-        makerTraits: built.makerTraits,
+        salt: String(built.salt),
+        maker: String(built.maker),
+        receiver: String(built.receiver),
+        makerAsset: String(built.makerAsset),
+        takerAsset: String(built.takerAsset),
+        makingAmount: String(built.makingAmount),
+        takingAmount: String(built.takingAmount),
+        makerTraits: String(built.makerTraits),
       },
       extension: created.order.extension.encode() as Hex,
     };

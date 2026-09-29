@@ -88,8 +88,14 @@ impl QuoteRequest {
     pub fn funding(confidential: Address, source: Address, asset: &str, amount: U256) -> Self {
         Self::new("ORIGIN_CHAIN", "CONFIDENTIAL_INTENTS", format!("{confidential:#x}"), "ORIGIN_CHAIN", source.to_checksum(None), asset, asset, amount)
     }
+    pub fn bridge(source: Address, recipient: Address, origin: &str, dest: &str, amount: U256) -> Self {
+        Self::new("ORIGIN_CHAIN", "DESTINATION_CHAIN", recipient.to_checksum(None), "ORIGIN_CHAIN", source.to_checksum(None), origin, dest, amount)
+    }
     pub fn payout(confidential: Address, recipient: Address, private_asset: &str, destination_asset: &str, amount: U256) -> Self {
         Self::new("CONFIDENTIAL_INTENTS", "DESTINATION_CHAIN", recipient.to_checksum(None), "CONFIDENTIAL_INTENTS", format!("{confidential:#x}"), private_asset, destination_asset, amount)
+    }
+    pub fn sell_in(confidential: Address, holder: Address, usdg_asset: &str, private_asset: &str, amount: U256) -> Self {
+        Self::new("ORIGIN_CHAIN", "CONFIDENTIAL_INTENTS", format!("{confidential:#x}"), "ORIGIN_CHAIN", holder.to_checksum(None), usdg_asset, private_asset, amount)
     }
     #[allow(clippy::too_many_arguments)]
     fn new(deposit_type: &str, recipient_type: &str, recipient: String, refund_type: &str, refund_to: String, origin: &str, destination: &str, amount: U256) -> Self {
@@ -200,17 +206,17 @@ pub fn check_intent(intent: &serde_json::Value, signer: Address, deposit_address
     let message: IntentMessage = serde_json::from_str(payload).map_err(|_| SignerError::InvalidInput)?;
     let nonce = base64::engine::general_purpose::STANDARD.decode(&message.nonce).map_err(|_| SignerError::InvalidInput)?;
     let deadline = iso_millis(&message.deadline)?;
-    if message.signer_id != format!("{signer:#x}")
+    if !message.signer_id.eq_ignore_ascii_case(&format!("{signer:#x}"))
         || message.verifying_contract != CONFIDENTIAL_CONTRACT
         || nonce.len() != 32
         || deadline <= now_ms
-        || deadline > now_ms + OPERATION_MS
+        || deadline > now_ms + 7 * OPERATION_MS
         || message.intents.len() != 1
     {
         return Err(SignerError::InvalidInput);
     }
     let transfer = &message.intents[0];
-    if transfer.intent != "transfer" || transfer.receiver_id != deposit_address || transfer.tokens.len() != 1 {
+    if transfer.intent != "transfer" || !transfer.receiver_id.eq_ignore_ascii_case(deposit_address) || transfer.tokens.len() != 1 {
         return Err(SignerError::InvalidInput);
     }
     if transfer.tokens.get(token_id).and_then(|v| evm::decimal(v).ok()) != Some(amount) {

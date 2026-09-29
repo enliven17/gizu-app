@@ -28,6 +28,7 @@ pub struct CheckedOrder {
 pub struct Permit {
     pub name: String,
     pub version: String,
+    pub token: Address,
     pub owner: Address,
     pub value: U256,
     pub nonce: U256,
@@ -39,7 +40,8 @@ impl Permit {
         if self.name.is_empty() || self.name.len() > 64 || !matches!(self.version.as_str(), "1" | "2") {
             return Err(SignerError::InvalidInput);
         }
-        let domain = evm::domain_separator(&self.name, &self.version, ROBINHOOD_CHAIN_ID, ROBINHOOD_USDG);
+        let token = if self.token.is_zero() { ROBINHOOD_USDG } else { self.token };
+        let domain = evm::domain_separator(&self.name, &self.version, ROBINHOOD_CHAIN_ID, token);
         Ok(evm::typed_hash(
             domain,
             "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
@@ -145,6 +147,8 @@ pub struct ApprovedOrder {
     pub min_out: U256,
     pub permit: Vec<u8>,
     pub permit_deadline: u64,
+    pub maker_asset: Address,
+    pub receiver: Address,
 }
 
 /// Research `validateFusionOrder`, plus the LOP v4 bindings the summary omitted: salt↔extension, traits and receiver.
@@ -155,8 +159,10 @@ pub fn check_order(order: &LimitOrder, extension_hex: &str, approved: &ApprovedO
     let taking = evm::decimal(&order.taking_amount)?;
     let traits = evm::decimal(&order.maker_traits)?;
     let salt = evm::decimal(&order.salt)?;
+    let maker_asset = if approved.maker_asset.is_zero() { ROBINHOOD_USDG } else { approved.maker_asset };
+    let want_receiver = if approved.receiver.is_zero() { maker } else { approved.receiver };
     if maker != approved.maker
-        || evm::addr(&order.maker_asset)? != ROBINHOOD_USDG
+        || evm::addr(&order.maker_asset)? != maker_asset
         || evm::addr(&order.taker_asset)? != approved.target
         || making != approved.amount
         || approved.min_out.is_zero()
@@ -178,7 +184,7 @@ pub fn check_order(order: &LimitOrder, extension_hex: &str, approved: &ApprovedO
         return Err(SignerError::InvalidInput);
     }
     let ext = parse_extension(&extension)?;
-    let mut permit = ROBINHOOD_USDG.as_slice().to_vec();
+    let mut permit = maker_asset.as_slice().to_vec();
     permit.extend_from_slice(&approved.permit);
     let settles = |data: &[u8]| data.len() >= 20 && Address::from_slice(&data[..20]) == FUSION_SETTLEMENT;
     if !ext.fields[MAKER_ASSET_SUFFIX].is_empty()
@@ -194,7 +200,7 @@ pub fn check_order(order: &LimitOrder, extension_hex: &str, approved: &ApprovedO
         return Err(SignerError::InvalidInput);
     }
     let real = if receiver == FUSION_SETTLEMENT { fee_taker_receiver(ext.fields[POST_INTERACTION], maker)? } else if receiver.is_zero() { maker } else { receiver };
-    if real != maker {
+    if real != want_receiver {
         return Err(SignerError::InvalidInput);
     }
     Ok(CheckedOrder { hash: order_hash(order)?, taking_amount: taking, expiration })
@@ -228,6 +234,8 @@ mod tests {
             min_out: U256::from(7_800_000_000_000_000u64),
             permit: vec![0x11; 224],
             permit_deadline: f["deadline"].as_str().unwrap().parse::<u64>().unwrap() + 1,
+            maker_asset: Address::ZERO,
+            receiver: Address::ZERO,
         };
         (order, f["extension"].as_str().unwrap().to_string(), approved, f["orderHash"].as_str().unwrap().to_string())
     }
@@ -257,7 +265,16 @@ mod tests {
     }
 
     fn approved_clone(a: &ApprovedOrder) -> ApprovedOrder {
-        ApprovedOrder { maker: a.maker, target: a.target, amount: a.amount, min_out: a.min_out, permit: a.permit.clone(), permit_deadline: a.permit_deadline }
+        ApprovedOrder {
+            maker: a.maker,
+            target: a.target,
+            amount: a.amount,
+            min_out: a.min_out,
+            permit: a.permit.clone(),
+            permit_deadline: a.permit_deadline,
+            maker_asset: a.maker_asset,
+            receiver: a.receiver,
+        }
     }
 
     #[test]
@@ -288,6 +305,7 @@ mod tests {
         let permit = Permit {
             name: "Global Dollar".into(),
             version: "1".into(),
+            token: ROBINHOOD_USDG,
             owner: wallet,
             value: evm::decimal(fusion["amountInAtoms"].as_str().unwrap()).unwrap(),
             nonce: evm::decimal(fusion["permit"]["nonce"].as_str().unwrap()).unwrap(),
@@ -303,6 +321,8 @@ mod tests {
             min_out: evm::decimal(fusion["approvedMinOutAtoms"].as_str().unwrap()).unwrap(),
             permit: data.clone(),
             permit_deadline: permit.deadline,
+            maker_asset: Address::ZERO,
+            receiver: Address::ZERO,
         };
         check_order(&order, fusion["signed"]["extension"].as_str().unwrap(), &approved, permit.deadline - 3_590).unwrap();
     }

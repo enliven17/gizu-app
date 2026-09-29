@@ -196,14 +196,14 @@ pub fn check_funding(
     if !chain.code.is_empty() && !delegated {
         return Err(SignerError::InvalidInput);
     }
-    match (delegated, &op.factory, authorization) {
-        (true, None, None) => {}
-        (false, Some(factory), Some(a))
-            if factory == "0x7702"
-                && op.factory_data.as_deref().is_none_or(|d| d == "0x")
-                && a.chain_id == MONAD_CHAIN_ID
-                && a.address == SIMPLE_7702
-                && a.nonce == chain.transaction_count => {}
+    let factory_7702 = op.factory.as_deref() == Some("0x7702")
+        && op.factory_data.as_deref().is_none_or(|d| d == "0x");
+    let auth_7702 = authorization.is_some_and(|a| {
+        a.chain_id == MONAD_CHAIN_ID && a.address == SIMPLE_7702 && a.nonce == chain.transaction_count
+    });
+    match (delegated, factory_7702, auth_7702, authorization.is_some()) {
+        (true, false, false, false) => {}
+        (_, true, true, true) => {}
         _ => return Err(SignerError::InvalidInput),
     }
     if u128_field(&op.max_priority_fee_per_gas)? > u128_field(&op.max_fee_per_gas)? {
@@ -223,7 +223,13 @@ pub fn check_funding(
     }
     match rest {
         [] if chain.paymaster_allowance >= fee => {}
-        [(_, _, data)] if approve_call(data)? == (PIMLICO_ERC20_PAYMASTER, fee) => {}
+        [(_, _, data)] => {
+            let (spender, approved) = approve_call(data)?;
+            // Pimlico quotes a token cap that can sit a few atoms above the signed paymaster fee.
+            if spender != PIMLICO_ERC20_PAYMASTER || approved < fee || approved > U256::from(MAX_SOURCE_ATOMS) {
+                return Err(SignerError::InvalidInput);
+            }
+        }
         _ => return Err(SignerError::InvalidInput),
     }
     Ok(CheckedFunding { fee_cap: fee, hash: user_operation_hash(op, authorization)? })
@@ -313,6 +319,8 @@ mod tests {
         let wrong_nonce = FundingChain { transaction_count: 1, ..fresh_chain() };
         assert!(!ok(deposit(), 1_196_276, 1_200_000, &wrong_nonce));
         assert!(check_funding(&op, Some(&auth), source(), deposit(), U256::from(1_196_276u64), U256::from(1_200_000u64), &fresh_chain(), 1_800_000_000).is_err());
+        let delegated = FundingChain { code: delegation_code(), ..fresh_chain() };
+        assert!(check_funding(&op, Some(&auth), source(), deposit(), U256::from(1_196_276u64), U256::from(1_200_000u64), &delegated, SIGNED_AT).is_ok());
     }
 
     #[test]

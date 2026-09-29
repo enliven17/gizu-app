@@ -92,3 +92,18 @@ test("reports an unknown Fusion order as 404", async () => {
   assert.equal(response.json().code, "FUSION_NOT_FOUND");
   await app.close();
 });
+
+test("forwards an optional Fusion source token for a reverse sale", async () => {
+  const calls: unknown[][] = [];
+  const app = build(calls);
+  const preview = await app.inject({
+    method: "POST",
+    url: "/v1/swap/fusion/preview",
+    payload: { wallet, dstToken: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", amount: "1", preset: "fast", srcToken: amzn },
+  });
+  assert.equal(preview.statusCode, 200);
+  assert.equal(calls[0][0], "preview");
+  assert.equal(calls[0][2], "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168");
+  assert.equal(calls[0][5], "0x12f190a9F9d7D37a250758b26824B97CE941bF54");
+  await app.close();
+});

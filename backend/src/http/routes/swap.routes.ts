@@ -127,18 +127,31 @@ export function registerSwapRoutes(app: FastifyInstance, gateway: Gateway) {
 
   routes.post(
     "/v1/swap/fusion/preview",
-    { schema: { body: z.object({ wallet: address, dstToken: address, amount: atoms, preset }).strict() } },
-    async (request) => gateway.fusion.preview(request.body.wallet, request.body.dstToken, request.body.amount, request.body.preset),
+    { schema: { body: z.object({ wallet: address, dstToken: address, amount: atoms, preset, srcToken: address.optional() }).strict() } },
+    async (request) => gateway.fusion.preview(
+      request.body.wallet,
+      request.body.dstToken,
+      request.body.amount,
+      request.body.preset,
+      request.body.srcToken,
+    ),
   );
   routes.post(
     "/v1/swap/fusion/permit-context",
-    { schema: { body: z.object({ owner: address }).strict() } },
-    async (request) => gateway.fusion.permitContext(request.body.owner),
+    { schema: { body: z.object({ owner: address, token: address.optional() }).strict() } },
+    async (request) => gateway.fusion.permitContext(request.body.owner, request.body.token),
   );
   routes.post(
     "/v1/swap/fusion/order",
-    { schema: { body: z.object({ wallet: address, dstToken: address, amount: atoms, permit: z.string().regex(/^0x[a-fA-F0-9]{448}$/), preset }).strict() } },
-    async (request) => gateway.fusion.createOrder(request.body.wallet, request.body.dstToken, request.body.amount, request.body.permit as Hex, request.body.preset),
+    { schema: { body: z.object({ wallet: address, dstToken: address, amount: atoms, permit: z.string().regex(/^0x[a-fA-F0-9]{448}$/), preset, srcToken: address.optional() }).strict() } },
+    async (request) => gateway.fusion.createOrder(
+      request.body.wallet,
+      request.body.dstToken,
+      request.body.amount,
+      request.body.permit as Hex,
+      request.body.preset,
+      request.body.srcToken,
+    ),
   );
   routes.post(
     "/v1/swap/fusion/submit",

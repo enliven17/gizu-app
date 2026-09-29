@@ -16,6 +16,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import io.gizu.storedwallet.swap.SwapReconciler
 import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -498,16 +499,29 @@ class BackupActivity : Activity() {
         BackupCodec.decrypt(bytes, key).use { restored ->
           val accounts = deriveAccountAddresses(restored.entropy)
           check(accounts.size == 16)
-          if (!restore)
-            store.load().use { current ->
-              check(
-                current.id == restored.id &&
-                  MessageDigest.isEqual(current.entropy, restored.entropy)
-              )
-              check(deriveAccountAddresses(current.entropy) == accounts)
+          val registry =
+            if (!restore) restored.roleRegistry
+            else
+              try {
+                SwapReconciler.covering(restored.entropy, restored.roleRegistry)
+              } catch (_: Exception) {
+                restored.roleRegistry
+              }
+          WalletRecord(
+              restored.id,
+              restored.credential,
+              restored.entropy.copyOf(),
+              roleRegistry = registry,
+            )
+            .use { recovered ->
+              if (!restore)
+                store.load().use { current ->
+                  check(current.id == restored.id && MessageDigest.isEqual(current.entropy, restored.entropy))
+                  check(deriveAccountAddresses(current.entropy) == accounts)
+                }
+              currentCoroutineContext().ensureActive()
+              if (restore) store.restore(recovered) else store.markVerified(restored)
             }
-          currentCoroutineContext().ensureActive()
-          if (restore) store.restore(restored) else store.markVerified(restored)
         }
       }
     } finally {

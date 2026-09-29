@@ -8,7 +8,8 @@ public final class GizuStoredSignerModule: Module {
   private static var supported: Bool { WalletBuildPolicy.isAvailable() }
 
   private func run(
-    _ promise: Promise, action: @escaping @MainActor (WalletCeremony) async throws -> Any
+    _ promise: Promise, timeout: UInt64 = 120_000_000_000,
+    action: @escaping @MainActor (WalletCeremony) async throws -> Any
   ) {
     Task { @MainActor in
       guard Self.supported, #available(iOS 18.0, *),
@@ -41,7 +42,7 @@ public final class GizuStoredSignerModule: Module {
           scope.cancelTask = { [weak self] in self?.task?.cancel() }
           timeout = Task { @MainActor [weak scope] in
             do {
-              try await Task.sleep(nanoseconds: 120_000_000_000)
+              try await Task.sleep(nanoseconds: timeout)
               scope?.cancel()
             } catch {}
           }
@@ -68,7 +69,7 @@ public final class GizuStoredSignerModule: Module {
     AsyncFunction("getCapabilities") { () -> [String: Any] in
       [
         "contractVersion": 1, "available": Self.supported, "walletStorage": Self.supported,
-        "backup": Self.supported, "transfers": Self.supported,
+        "backup": Self.supported, "transfers": Self.supported, "swaps": Self.supported,
       ]
     }
 
@@ -126,6 +127,26 @@ public final class GizuStoredSignerModule: Module {
       }
     }
 
+    AsyncFunction("getSwapDeposit") { (promise: Promise) in
+      self.run(promise) { try $0.swapDeposit() }
+    }
+    AsyncFunction("startSwap") { (target: String, amountAtoms: String, gateway: String, promise: Promise) in
+      self.run(promise, timeout: 900_000_000_000) {
+        try await $0.startSwap(target: target, amountAtoms: amountAtoms.isEmpty ? nil : amountAtoms, gateway: gateway)
+      }
+    }
+    AsyncFunction("startSell") { (gateway: String, promise: Promise) in
+      self.run(promise, timeout: 900_000_000_000) { try await $0.startSell(gateway: gateway) }
+    }
+    AsyncFunction("resumeSwap") { (gateway: String, promise: Promise) in
+      self.run(promise, timeout: 900_000_000_000) { try await $0.resumeSwap(gateway: gateway) }
+    }
+    AsyncFunction("getSwapStatus") { (gateway: String, promise: Promise) in
+      self.run(promise) { try $0.swapStatus(gateway: gateway) }
+    }
+    AsyncFunction("cancelSwap") { (gateway: String, promise: Promise) in
+      self.run(promise) { try $0.cancelSwap(gateway: gateway) }
+    }
     Function("lock") {
       Task { @MainActor in
         self.task?.cancel()
