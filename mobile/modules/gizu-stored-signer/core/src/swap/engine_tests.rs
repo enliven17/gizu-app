@@ -527,21 +527,23 @@ fn plans_reviews_and_completes_the_whole_swap_with_the_expected_signers() {
     let (mut world, mut now) = (World::new(), T0);
     let op = start(Some("2000000"));
     let text = review(&op, &mut world, &mut now);
-    assert!(text.contains("SWAP · MAINNET"));
+    assert!(text.contains("CONFIDENTIAL SWAP · MAINNET"));
     assert!(text.contains("PRIVACY"));
     assert!(text.contains("AMZN (18 decimals)"));
     assert!(text.contains(&world.w.f.to_checksum(None)));
-    assert!(text.contains("Used now 1.991000 USDC + gas at most 0.009000 USDC"));
+    assert!(text.contains("Used now 1.997000 USDC + gas at most 0.003000 USDC"));
     assert_eq!(world.user_ops + world.intents + world.orders, 0, "nothing is signed before approval");
     assert_eq!(status(&op)["phase"], "REVIEW");
 
     op.approve(now).unwrap();
     assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
-    assert_eq!((world.user_ops, world.intents, world.orders), (3, 0, 3));
+    assert_eq!((world.user_ops, world.intents, world.orders), (1, 3, 3));
     for a in world.w.a {
         assert!(world.usdg[&a].is_zero());
         assert!(!world.target[&a].is_zero());
     }
+    // Aurora has no direct Monad -> Robinhood liquidity: every USDG payout leaves from C.
+    assert!(world.deposits.keys().all(|d| d.starts_with("payout-")), "a buy never quotes a public bridge");
 
     let s = status(&op);
     assert_eq!(s["phase"], "COMPLETE");
@@ -568,7 +570,7 @@ fn caps_the_source_at_ten_usdc_and_rejects_bad_plans() {
     let (mut world, mut now) = (World::new(), T0);
     world.f_balance = U256::from(50_000_000u64);
     let text = review(&start(None), &mut world, &mut now);
-    assert!(text.contains("Used now 9.991000 USDC + gas at most 0.009000 USDC"));
+    assert!(text.contains("Used now 9.997000 USDC + gas at most 0.003000 USDC"));
 }
 
 #[test]
@@ -579,22 +581,12 @@ fn an_expired_authorization_asks_for_the_same_wallets_again() {
     review(&op, &mut world, &mut now);
     op.approve(now).unwrap();
     assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Unlock);
-    assert_eq!(status(&op)["phase"], "FUNDING");
+    assert_eq!(status(&op)["phase"], "CREDITED");
     assert_eq!(world.user_ops, 1);
     assert!(op.unlock(vec![8; 32], now).is_err(), "another seed must not continue this plan");
     op.unlock(ENTROPY.to_vec(), now).unwrap();
-    let mut extra = 0;
-    let last = loop {
-        match drive(&op, &mut world, &mut now) {
-            SwapStep::Unlock if extra < 5 => {
-                op.unlock(ENTROPY.to_vec(), now).unwrap();
-                extra += 1;
-            }
-            other => break other,
-        }
-    };
-    assert_eq!(last, SwapStep::Finished);
-    assert_eq!((world.user_ops, world.intents, world.orders), (3, 0, 3));
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!((world.user_ops, world.intents, world.orders), (1, 3, 3));
 }
 
 #[test]
@@ -623,8 +615,8 @@ fn a_lost_submission_is_looked_up_and_never_signed_again() {
     review(&op, &mut world, &mut now);
     op.approve(now).unwrap();
     assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
-    assert_eq!(world.user_ops, 3);
-    assert_eq!(world.paths.iter().filter(|p| *p == "/v1/swap/monad/submit").count(), 3);
+    assert_eq!(world.user_ops, 1);
+    assert_eq!(world.paths.iter().filter(|p| *p == "/v1/swap/monad/submit").count(), 1);
 }
 
 #[test]
@@ -659,7 +651,7 @@ fn a_worse_payout_quote_needs_a_new_approval_and_uses_the_shown_quote() {
     let quotes = world.deposits.len();
     op.approve(now).unwrap();
     let SwapStep::Request { url, .. } = op.next_step(now).unwrap() else { panic!() };
-    assert!(url.ends_with("/v1/swap/monad/prepare-funding"));
+    assert!(url.ends_with("/v1/swap/aurora/generate-intent"));
     assert_eq!(world.deposits.len(), quotes, "the approved quote is used, not a new one");
 }
 
@@ -682,7 +674,7 @@ fn reapproved_quotes_carry_the_operation_to_completion() {
     };
     assert_eq!(last, SwapStep::Finished);
     assert_eq!(reapprovals, 3);
-    assert_eq!((world.intents, world.orders), (0, 3));
+    assert_eq!((world.intents, world.orders), (3, 3));
 }
 
 #[test]
@@ -690,10 +682,9 @@ fn a_funding_operation_that_pays_someone_else_is_never_signed() {
     let (mut world, mut now) = (World::new(), T0);
     world.tamper = Tamper::FundingRecipient;
     let op = start(Some("2000000"));
-    review(&op, &mut world, &mut now);
-    op.approve(now).unwrap();
     let SwapStep::Paused { code } = drive(&op, &mut world, &mut now) else { panic!() };
     assert_eq!(code, "REJECTED_fundingPrepare");
+    assert!(op.approve(now).is_err());
     assert_eq!(world.user_ops, 0);
 }
 
@@ -702,7 +693,7 @@ fn a_quote_with_a_foreign_refund_address_pauses_planning() {
     let (mut world, mut now) = (World::new(), T0);
     world.tamper = Tamper::QuoteRefund;
     let op = start(Some("2000000"));
-    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "REJECTED_payoutEstimate".into() });
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "REJECTED_fundingQuote".into() });
     assert_eq!(status(&op)["phase"], "PAUSED");
 }
 
@@ -714,7 +705,7 @@ fn a_fusion_order_paying_another_receiver_is_never_signed() {
     op.approve(now).unwrap();
     world.tamper = Tamper::OrderReceiver;
     assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "REJECTED_fusionOrder".into() });
-    assert_eq!((world.user_ops, world.intents, world.orders), (3, 0, 0));
+    assert_eq!((world.user_ops, world.intents, world.orders), (1, 3, 0));
     assert!(!world.paths.iter().any(|p| p == "/v1/swap/fusion/submit"));
 }
 
@@ -727,7 +718,7 @@ fn an_empty_funding_wallet_waits_for_a_deposit() {
     world.f_balance = U256::from(1_500_000u64);
     op.retry();
     let text = review(&op, &mut world, &mut now);
-    assert!(text.contains("Used now 1.491000 USDC"));
+    assert!(text.contains("Used now 1.497000 USDC"));
 }
 
 fn sell_plan(holders: [u32; 3], recipients: [u32; 3]) -> String {

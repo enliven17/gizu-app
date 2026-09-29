@@ -88,9 +88,6 @@ impl QuoteRequest {
     pub fn funding(confidential: Address, source: Address, asset: &str, amount: U256) -> Self {
         Self::new("ORIGIN_CHAIN", "CONFIDENTIAL_INTENTS", format!("{confidential:#x}"), "ORIGIN_CHAIN", source.to_checksum(None), asset, asset, amount)
     }
-    pub fn bridge(source: Address, recipient: Address, origin: &str, dest: &str, amount: U256) -> Self {
-        Self::new("ORIGIN_CHAIN", "DESTINATION_CHAIN", recipient.to_checksum(None), "ORIGIN_CHAIN", source.to_checksum(None), origin, dest, amount)
-    }
     pub fn payout(confidential: Address, recipient: Address, private_asset: &str, destination_asset: &str, amount: U256) -> Self {
         Self::new("CONFIDENTIAL_INTENTS", "DESTINATION_CHAIN", recipient.to_checksum(None), "CONFIDENTIAL_INTENTS", format!("{confidential:#x}"), private_asset, destination_asset, amount)
     }

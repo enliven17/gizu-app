@@ -1,4 +1,4 @@
-//! Swap policy: Monad USDC -> Aurora public bridge -> Robinhood USDG -> 1inch Fusion stock. Sell still uses C.
+//! Confidential swap policy: Monad USDC -> Aurora confidential balance -> Robinhood USDG -> 1inch Fusion stock, and the reverse for sells.
 pub mod aurora;
 mod engine;
 pub mod evm;

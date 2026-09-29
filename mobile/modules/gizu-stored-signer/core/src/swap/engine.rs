@@ -372,11 +372,7 @@ impl Engine {
             }
             Step::FundingProbe => self.post("/v1/swap/monad/prepare-funding", json!({"owner": self.m.source.to_checksum(None), "recipient": PROBE_RECIPIENT.to_checksum(None), "amount": "1"})),
             Step::FundingQuote { .. } => {
-                let request = if self.sell() {
-                    QuoteRequest::funding(self.m.confidential, self.m.source, &d.source_asset, d.funding_amount)
-                } else {
-                    QuoteRequest::bridge(self.m.source, self.m.recipients[d.leg], &d.source_asset, &d.destination_asset, d.funding_amount)
-                };
+                let request = QuoteRequest::funding(self.m.confidential, self.m.source, &d.source_asset, d.funding_amount);
                 self.m.data.funding_request = Some(request.clone());
                 self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
             }
@@ -385,10 +381,9 @@ impl Engine {
                 self.post("/v1/swap/monad/prepare-funding", json!({"owner": self.m.source.to_checksum(None), "recipient": quote.deposit_address, "amount": d.funding_amount.to_string()}))
             }
             Step::PayoutEstimate { index } => {
-                let portion = aurora::split(d.funding_amount)[index];
-                let request = QuoteRequest::bridge(self.m.source, self.m.recipients[index], &d.source_asset, &d.destination_asset, portion);
-                self.m.data.payouts[index].portion = portion;
-                self.m.data.payouts[index].request = Some(request.clone());
+                let out = d.funding_quote.as_ref().ok_or(SignerError::InvalidInput)?.amount_out;
+                let portion = aurora::split(out)[index];
+                let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &d.source_asset, &d.destination_asset, portion);
                 self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
             }
             Step::FusionEstimate => {
@@ -410,7 +405,7 @@ impl Engine {
                         let index = self.next_sell_index(0).ok_or(SignerError::InvalidInput)?;
                         self.go(Step::FusionPreview { index });
                     } else {
-                        self.m.data.leg = 0;
+                        // Re-read the chain and re-prepare so the signed UserOperation is fresh.
                         self.go(Step::SourceChain { execute: true });
                     }
                     return self.next(now);
@@ -723,14 +718,7 @@ impl Engine {
                         self.m.paused = Some("SOURCE_BALANCE_CHANGED".into());
                         return Ok(());
                     }
-                    let portion = self.m.data.payouts[self.m.data.leg].portion;
-                    if portion.is_zero() {
-                        return Err(SignerError::InvalidInput);
-                    }
-                    self.m.data.funding_amount = portion;
-                    self.m.data.prepared = None;
-                    self.m.data.signed_operation = None;
-                    self.go(Step::FundingQuote { attempt: 0 });
+                    self.go(Step::FundingPrepare { attempt: 0, execute: true });
                 } else {
                     let requested = match &self.m.plan.amount_atoms {
                         Some(a) => evm::decimal(a)?,
@@ -748,14 +736,13 @@ impl Engine {
             (Step::FundingProbe, None) => {
                 let op: UserOperation = serde_json::from_value(value["userOperation"].clone()).map_err(|_| SignerError::InvalidInput)?;
                 let fee = funding::fee_cap(&op, now / 1000)?;
-                let reserved = fee.saturating_mul(U256::from(3));
-                if reserved >= self.m.data.budget {
+                if fee >= self.m.data.budget {
                     self.m.paused = Some("FEE_EXCEEDS_BUDGET".into());
                     return Ok(());
                 }
-                self.m.data.funding_fee = reserved;
-                self.m.data.funding_amount = self.m.data.budget - reserved;
-                self.go(Step::PayoutEstimate { index: 0 });
+                self.m.data.funding_fee = fee;
+                self.m.data.funding_amount = self.m.data.budget - fee;
+                self.go(Step::FundingQuote { attempt: 0 });
             }
             (Step::FundingQuote { attempt }, None) => {
                 let request = self.m.data.funding_request.clone().ok_or(SignerError::InvalidInput)?;
@@ -764,27 +751,8 @@ impl Engine {
                     return Err(SignerError::InvalidInput);
                 }
                 evm::addr(&quote.deposit_address)?;
-                self.m.data.funding_quote = Some(quote.clone());
+                self.m.data.funding_quote = Some(quote);
                 self.m.data.prepared = None;
-                if !self.sell() && self.m.approved_ms.is_some() {
-                    let index = self.m.data.leg;
-                    let portion = self.m.data.funding_amount;
-                    let (planned_portion, planned_min) = self.m.data.estimates.get(index).copied().ok_or(SignerError::InvalidInput)?;
-                    let floor = portion * planned_min * U256::from(10_000 - PRICE_TOLERANCE_BPS) / U256::from(10_000);
-                    self.m.data.payouts[index].quote = Some(quote.clone());
-                    self.m.data.payouts[index].request = Some(request);
-                    if quote.min_amount_out * planned_portion < floor {
-                        self.m.reapproval = Some(self.requote_text(&format!(
-                            "Bridge {} now guarantees at least {} USDG for {} USDC.",
-                            index + 1,
-                            usdc(quote.min_amount_out),
-                            usdc(portion)
-                        )));
-                        return Ok(());
-                    }
-                    self.go(Step::FundingPrepare { attempt, execute: true });
-                    return Ok(());
-                }
                 self.go(Step::FundingPrepare { attempt, execute: self.m.approved_ms.is_some() });
             }
             (Step::FundingPrepare { attempt, execute }, None) => {
@@ -802,9 +770,6 @@ impl Engine {
                     let reserved = fee.saturating_add(fee / U256::from(4));
                     let next = self.m.data.budget.checked_sub(reserved).filter(|n| !n.is_zero()).ok_or(SignerError::InvalidInput)?;
                     self.m.data.funding_amount = next;
-                    if !self.sell() {
-                        self.m.data.payouts[self.m.data.leg].portion = next;
-                    }
                     self.go(Step::FundingQuote { attempt: attempt + 1 });
                     return Ok(());
                 }
@@ -815,13 +780,13 @@ impl Engine {
                 self.go(if execute { Step::FundingSign } else { Step::PayoutEstimate { index: 0 } });
             }
             (Step::PayoutEstimate { index }, None) => {
-                let request = self.m.data.payouts[index].request.clone().ok_or(SignerError::InvalidInput)?;
+                let out = self.m.data.funding_quote.as_ref().ok_or(SignerError::InvalidInput)?.amount_out;
+                let portion = aurora::split(out)[index];
+                let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &self.m.data.source_asset, &self.m.data.destination_asset, portion);
                 let quote = aurora::check_quote(&request, &value, now)?;
-                let portion = self.m.data.payouts[index].portion;
-                if quote.amount_in != portion {
+                if quote.amount_in > portion {
                     return Err(SignerError::InvalidInput);
                 }
-                self.m.data.payouts[index].quote = Some(quote.clone());
                 self.m.data.estimates.truncate(index);
                 self.m.data.estimates.push((portion, quote.min_amount_out));
                 self.go(if index == 2 { Step::FusionEstimate } else { Step::PayoutEstimate { index: index + 1 } });
@@ -864,7 +829,7 @@ impl Engine {
                 self.wait(now, POLL_MS);
             }
             (Step::Credit, None) => match text(&value, "status")? {
-                "SUCCESS" => self.go(if self.sell() { Step::AuthSalt } else { Step::PayoutBalance { index: self.m.data.leg } }),
+                "SUCCESS" => self.go(Step::AuthSalt),
                 "REFUNDED" | "FAILED" => self.m.paused = Some(format!("FUNDING_{}", text(&value, "status")?)),
                 _ => self.wait(now, POLL_MS * 2),
             },
@@ -972,12 +937,7 @@ impl Engine {
                     return Ok(());
                 }
                 self.m.data.payouts[index].delivered = usdg;
-                if index == 2 {
-                    self.go(Step::FusionBalance { index: 0 });
-                } else {
-                    self.m.data.leg = index + 1;
-                    self.go(Step::SourceChain { execute: true });
-                }
+                self.go(if index == 2 { Step::FusionBalance { index: 0 } } else { Step::PayoutStatus { index: index + 1, polls: 0, resubmitted: false } });
             }
             (Step::FusionBalance { index }, None) => {
                 let (usdg, target, eth) = (rpc_uint(&value, 0)?, rpc_uint(&value, 1)?, rpc_quantity(&value, 2)?);
@@ -1249,8 +1209,9 @@ impl Engine {
             return self.review_sell();
         }
         let d = &self.m.data;
+        let q = d.funding_quote.as_ref();
         let mut out = format!(
-            "SWAP · MAINNET\nMonad USDC → Aurora → Robinhood USDG → {sym}\n\nTarget {sym} ({dec} decimals)\nContract {target}\n\nFunding wallet F {f}\nF USDC balance {bal}\nUsed now {amount} USDC + gas at most {fee} USDC (paid in USDC)\n",
+            "CONFIDENTIAL SWAP · MAINNET\nMonad USDC → confidential balance → Robinhood USDG → {sym}\n\nTarget {sym} ({dec} decimals)\nContract {target}\n\nFunding wallet F {f}\nF USDC balance {bal}\nUsed now {amount} USDC + gas at most {fee} USDC (paid in USDC)\nConfidential balance C {c}\nExpected private credit {out} USDC (at least {min})\n",
             sym = d.target_symbol,
             dec = d.target_decimals,
             target = self.m.plan.target.to_checksum(None),
@@ -1258,12 +1219,15 @@ impl Engine {
             bal = usdc(d.source_balance),
             amount = usdc(d.funding_amount),
             fee = usdc(d.funding_fee),
+            c = self.m.confidential.to_checksum(None),
+            out = q.map(|q| usdc(q.amount_out)).unwrap_or_default(),
+            min = q.map(|q| usdc(q.min_amount_out)).unwrap_or_default(),
         );
         for (i, (portion, min)) in d.estimates.iter().enumerate() {
-            out.push_str(&format!("\nBridge {} of 3 (30/30/40) to fresh wallet A{} {}\n  {} USDC → at least {} USDG, then sold for {} via 1inch Fusion\n", i + 1, i + 1, self.m.recipients[i].to_checksum(None), usdc(*portion), usdc(*min), d.target_symbol));
+            out.push_str(&format!("\nPayout {} of 3 (30/30/40) to fresh wallet A{} {}\n  {} USDC → at least {} USDG, then sold for {} via 1inch Fusion\n", i + 1, i + 1, self.m.recipients[i].to_checksum(None), usdc(*portion), usdc(*min), d.target_symbol));
         }
         out.push_str(&format!(
-            "\nFusion limit: at least {} {} per {} USDG, 1% slippage, prices may move up to 3% before the app asks again.\n\nPRIVACY: This buy is a public Aurora bridge. F's deposit and the Ai stock balances are public on chain. One app gateway key and the timing of these steps can let the gateway operator link F with A1–A3.\n\nOne approval authorizes up to 12 signatures for 15 minutes, bound to these limits. After 15 minutes you unlock again for this same plan. The operation expires in 24 hours. Steps are sequential and cannot be undone once submitted.",
+            "\nFusion limit: at least {} {} per {} USDG, 1% slippage, prices may move up to 3% before the app asks again.\n\nPRIVACY: F's deposit and the Ai stock balances are public on chain. One app gateway key and the timing of these steps can let the gateway operator link F with A1–A3.\n\nOne approval authorizes up to 12 signatures for 15 minutes, bound to these limits. After 15 minutes you unlock again for this same plan. The operation expires in 24 hours. Steps are sequential and cannot be undone once submitted.",
             units(fusion::minimum_out(d.rate_end), d.target_decimals),
             d.target_symbol,
             usdc(d.rate_amount),
@@ -1451,7 +1415,6 @@ impl SwapOperation {
         if e.m.reapproval.take().is_some() {
             // Continue with exactly the quote that was shown; a later requote is checked again.
             e.m.step = match e.m.step.clone() {
-                Step::FundingQuote { attempt } => Step::FundingPrepare { attempt, execute: true },
                 Step::PayoutQuote { index } => Step::PayoutIntent { index },
                 Step::FusionPreview { index } if e.sell() => Step::SellQuote { index },
                 Step::FusionPreview { index } => Step::FusionPermit { index },
