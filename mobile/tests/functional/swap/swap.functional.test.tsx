@@ -31,8 +31,8 @@ test("defaults to Robinhood RWA and exposes catalog metadata without transaction
     expect(screen.getByText(text)).toBeVisible();
   expect(screen.queryByText(catalogToken.address)).toBeNull();
   expect(screen.getByText(/does not establish Fusion/)).toBeVisible();
-  expect(screen.getAllByRole("button")).toHaveLength(2);
-  expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  expect(screen.getByText("All tokens loaded.")).toBeVisible();
   fireEvent(screen.getByLabelText("AMZN logo"), "error");
   expect(screen.getByLabelText("AMZN logo unavailable")).toBeVisible();
 });
@@ -43,11 +43,9 @@ test("browses pages, debounces search, resets pagination and preserves filters o
       .mockResolvedValue({ ...catalogPage, total: 21 }),
   );
   await screen.findByText("Amazon");
-  fireEvent.press(screen.getByRole("button", { name: "Next page" }));
+  fireEvent.press(screen.getByRole("button", { name: "Load more" }));
   await screen.findByText("Amazon");
   expect(list.mock.lastCall?.[0].page).toBe(1);
-  fireEvent.press(screen.getByRole("button", { name: "Previous page" }));
-  await screen.findByText("Amazon");
   fireEvent.press(screen.getByRole("radio", { name: "All" }));
   await screen.findByText("Amazon");
   jest.useFakeTimers();
@@ -105,8 +103,12 @@ test("aborts superseded requests, ignores stale success/failure and aborts on un
   });
   expect(screen.queryByText("Amazon")).toBeNull();
   expect(screen.queryByText(/Token catalog unavailable/)).toBeNull();
+  const pending = deferred<TokenPage>();
+  list.mockReturnValueOnce(pending.promise);
+  fireEvent.press(screen.getByRole("radio", { name: "Ethereum" }));
   unmount();
   expect(list.mock.lastCall?.[1].aborted).toBe(true);
+  await act(async () => pending.resolve(catalogPage));
 });
 test("falls back for missing/unsafe logos and displays unlisted assets with shared symbols", async () => {
   open(
@@ -157,4 +159,31 @@ test("release-mode navigation reaches the same read-only catalog through Swap", 
   } finally {
     runtime.__DEV__ = development;
   }
+});
+
+test("appends tokens and refreshes the first page without losing filters", async () => {
+  const { list } = open(
+    jest
+      .fn<ReturnType<TokenCatalogService["list"]>, Parameters<TokenCatalogService["list"]>>()
+      .mockResolvedValueOnce({ ...catalogPage, total: 21 })
+      .mockResolvedValueOnce({
+        ...catalogPage,
+        page: 1,
+        total: 21,
+        list: [{ ...catalogToken, address: "0x" + "2".repeat(40), name: "Second token" }],
+      })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(catalogPage),
+  );
+  await screen.findByText("Amazon");
+  fireEvent(screen.getByLabelText("tokens list"), "endReached");
+  await screen.findByText("Second token");
+  expect(screen.getByText("Amazon")).toBeVisible();
+  fireEvent(screen.getByLabelText("tokens list"), "refresh");
+  await screen.findByRole("button", { name: "Retry refresh" });
+  expect(screen.getByText("Second token")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Retry refresh" }));
+  await screen.findByText("All tokens loaded.");
+  expect(screen.queryByText("Second token")).toBeNull();
+  expect(list.mock.lastCall?.[0]).toEqual({ chainId: 4663, category: "rwa", search: "", page: 0 });
 });

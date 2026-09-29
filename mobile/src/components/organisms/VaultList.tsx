@@ -25,6 +25,8 @@ const trailingTones = {
 export type VaultCardProps = {
   /** Position in the grid; drives the staggered entrance (frontend 300 + 50·i ms). */
   index: number;
+  /** Parent list supplies cell sizing and skips remount animations. */
+  virtualized?: boolean;
   /** Ticker chip text (frontend: ticker or first four protocol letters). */
   ticker: string;
   /** Protocol logo shown in the chip instead of the ticker text. */
@@ -86,7 +88,10 @@ function CardBody({
   trailingTone = "positive",
   series,
   negative = false,
-}: Omit<VaultCardProps, "index" | "accessibilityLabel" | "accessibilityHint" | "onPress">) {
+}: Omit<
+  VaultCardProps,
+  "index" | "virtualized" | "accessibilityLabel" | "accessibilityHint" | "onPress"
+>) {
   return (
     <>
       <View className="flex-row items-start justify-between gap-2">
@@ -135,6 +140,7 @@ const cardClass =
 /** Frontend OpportunityCard/VaultCard: glass tile with ticker chip, sparkline, name, TVL and rate. */
 export function VaultCard({
   index,
+  virtualized = false,
   accessibilityLabel,
   accessibilityHint,
   onPress,
@@ -165,6 +171,7 @@ export function VaultCard({
       </View>
     );
   }
+  if (virtualized) return card;
   // One column on narrow screens; two from the `xs` breakpoint (frontend grid-cols-2).
   return (
     <FadeIn delay={cardDelay(index)} className="w-full xs:w-[48%]">

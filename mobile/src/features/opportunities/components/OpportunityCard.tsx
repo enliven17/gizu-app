@@ -17,9 +17,11 @@ export function OpportunityCard({
   index,
   rateSuffix,
   onOpen,
+  virtualized = false,
 }: {
   opportunity: Opportunity;
   index: number;
+  virtualized?: boolean;
   /** Small suffix after the rate, e.g. ` total APR` on the Vaults tab. */
   rateSuffix?: string;
   onOpen: (id: string) => void;
@@ -34,6 +36,7 @@ export function OpportunityCard({
   return (
     <VaultCard
       index={index}
+      virtualized={virtualized}
       ticker={opportunity.protocol.name.slice(0, 4)}
       logo={protocolLogo(opportunity.protocol.name)}
       name={opportunity.name}

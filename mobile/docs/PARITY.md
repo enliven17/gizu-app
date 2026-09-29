@@ -74,7 +74,7 @@ focused on reusable approaches. They supplement the journey statuses above.
   or Other. The range is not a commitment. Preserve answers on retry, lock controls
   while pending, ignore late results on dismissal and clear answers on reopening.
   Completion is user-dismissed. Its mock creates no real waitlist entry or session.
-- Exchange keeps its route/deep link and Swap tab label. Development and TestFlight use `GET /v1/tokens` for read-only discovery: Ethereum (1), Monad (143), Robinhood (4663); Robinhood/RWA defaults, All/RWA filters, 300 ms search debounce and 20-item pagination. Network changes preserve search/category and reset the page. Two-column cards show token symbol/name, issuer, classification and 1inch listing, with contract addresses hidden; listing is not confirmation of Fusion availability. Quotes, balances, simulations, orders and signing are absent. Wallet network and signer capabilities remain unchanged. Missing configuration, backend 404/503 and malformed responses show unavailable/retry without fixture fallback. The public backend has not yet exposed the endpoint; service-mocked checks do not establish live readiness. Demo buy/sell remains available from vault details; native buy/sell is unavailable.
+- Exchange keeps its route/deep link and Swap tab label. Development and TestFlight use `GET /v1/tokens` for read-only discovery: Ethereum (1), Monad (143), Robinhood (4663); Robinhood/RWA defaults, All/RWA filters, 300 ms search debounce and infinite scrolling in 20-item batches. Network changes preserve search/category and reset the list. Two-column cards show token symbol/name, issuer, classification and 1inch listing, with contract addresses hidden; listing is not confirmation of Fusion availability. Quotes, balances, simulations, orders and signing are absent. Wallet network and signer capabilities remain unchanged. Missing configuration, backend 404/503 and malformed responses show unavailable/retry without fixture fallback. The public backend has not yet exposed the endpoint; service-mocked checks do not establish live readiness. Demo buy/sell remains available from vault details; native buy/sell is unavailable.
   Deposit/withdraw remains available from Home, with explicit review, signing,
   submission, pending/unknown and result states.
   Notifications/account actions are implemented in M5; use a distinct sell tone without
@@ -115,3 +115,12 @@ Deposit link to the protocol page (https only, opened in the browser). The app n
 changes the wallet network (chain 10143) or signs for mainnet vaults, and has no
 buy/sell/withdraw actions there. Unsupported demo risk, APY and price values are not
 synthesized. Backend responses may be cached for five minutes.
+
+### Catalog scrolling
+
+Swap and mainnet Vaults use the shared [infinite-list foundation](INFINITE_LISTS.md):
+virtualized cards, automatic loading, accessible Load more, pull-to-refresh and
+operation-specific retries. Vaults retain eight-item requests and responsive
+columns; Swap retains two columns and 20-item requests. Filters reset results,
+while append/refresh failures preserve already loaded cards. Home previews and
+wallet behavior are unchanged.

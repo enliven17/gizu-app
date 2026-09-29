@@ -1,49 +1,38 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
-import type { TokenCatalogService, TokenPage, TokenQuery } from "@/domain/tokenCatalog";
+import { createContext, useCallback, useContext, useState } from "react";
+import { tokenIdentity, type TokenCatalogService, type TokenQuery } from "@/domain/tokenCatalog";
 import { tokenCatalogService } from "@/services/tokenCatalog";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
 export const TokenCatalogContext = createContext<TokenCatalogService>(tokenCatalogService);
-type Load = { kind: "loading" } | { kind: "failed" } | { kind: "ready"; data: TokenPage };
 export function useTokenCatalog() {
   const service = useContext(TokenCatalogContext);
-  const [query, setQuery] = useState<TokenQuery>({
+  const [query, setQuery] = useState<Omit<TokenQuery, "page">>({
     chainId: 4663,
     category: "rwa",
     search: "",
-    page: 0,
   });
-  const [load, setLoad] = useState<Load>({ kind: "loading" });
-  const [revision, setRevision] = useState(0);
-  const request = useRef<AbortController | null>(null);
-  const searchChanged = useRef(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    request.current = controller;
-    const fetchPage = async () => {
-      try {
-        const data = await service.list(query, controller.signal);
-        if (!controller.signal.aborted) setLoad({ kind: "ready", data });
-      } catch {
-        if (!controller.signal.aborted) setLoad({ kind: "failed" });
-      }
-    };
-    const timer = searchChanged.current ? setTimeout(() => void fetchPage(), 300) : undefined;
-    if (timer === undefined) void fetchPage();
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [query, revision, service]);
-  function change(patch: Partial<TokenQuery>) {
-    request.current?.abort();
-    searchChanged.current = patch.search !== undefined && patch.search !== query.search;
-    setLoad({ kind: "loading" });
-    setQuery({ ...query, page: 0, ...patch });
+  const [debounceMs, setDebounceMs] = useState(0);
+  const queryKey = JSON.stringify(query);
+  const loadPage = useCallback(
+    async (page: number, signal: AbortSignal) => {
+      const data = await service.list({ ...query, page }, signal);
+      return {
+        items: data.list,
+        nextCursor: (data.page + 1) * data.items < data.total ? data.page + 1 : null,
+      };
+    },
+    [query, service],
+  );
+  const list = useInfiniteList({
+    queryKey,
+    initialCursor: 0,
+    loadPage,
+    getIdentity: tokenIdentity,
+    debounceMs,
+  });
+  function change(patch: Partial<typeof query>) {
+    list.invalidate();
+    setDebounceMs(patch.search !== undefined && patch.search !== query.search ? 300 : 0);
+    setQuery({ ...query, ...patch });
   }
-  function retry() {
-    request.current?.abort();
-    searchChanged.current = false;
-    setLoad({ kind: "loading" });
-    setRevision((n) => n + 1);
-  }
-  return { query, load, change, retry };
+  return { query, queryKey, list, change };
 }
