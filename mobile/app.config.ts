@@ -14,7 +14,7 @@ const config: ExpoConfig = {
   extra: {
     eas: { projectId: "6f1c36fc-416b-46ec-a3fd-0d5302cbbdce" },
   },
-  version: "0.1.0",
+  version: "0.1.1",
   icon: "./assets/icon.png",
   scheme: testflight ? "gizu" : "gizu-dev",
   userInterfaceStyle: "dark",
@@ -22,7 +22,7 @@ const config: ExpoConfig = {
     bundleIdentifier: testflight ? testFlightBundleIdentifier : identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "3",
+    buildNumber: "4",
     infoPlist: {
       GizuTestnetWalletEnabled: testflight,
       // Standard cryptography only; France is excluded from distribution (see README).
