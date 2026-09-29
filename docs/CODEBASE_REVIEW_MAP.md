@@ -4,6 +4,8 @@ Working inventory for reviewing Gizu one group at a time. This document groups
 existing code; it does not propose physically moving every group into a new folder.
 
 Baseline: 2026-09-29, `origin/main` at `2df4f6b`.
+Latest completed review: T10, committed as `9f38dff` on 2026-09-29.
+T04 + relevant T06 reviewed against that revision; proposed changes await implementation.
 Review branch: `codex/mobile-review-plan`. The initial inventory was prepared on
 `feat/confidential-swap` at `aa8ba59`; branch-only swap execution references have
 been removed to match the main-based review scope. Recheck the revision and route wiring
@@ -182,24 +184,38 @@ IDs to select a smaller slice when a feature spans too much code for one review.
 
 ## Review sequence and tracking
 
-Start with T10 (tests) and T04 (hooks/utilities): they provide useful context for
-later changes. Then review shared UI and the active feature flows in small slices.
+T10's test-maintenance work is complete. T04 and relevant T06 have been reviewed;
+next is their proposed implementation batch. Then review shared UI and active feature flows.
 Security-sensitive signer work should remain its own review, with native verification.
 
-| Order | Review slice                                                  | Status      | Output to record                                               |
-| ----- | ------------------------------------------------------------- | ----------- | -------------------------------------------------------------- |
-| 1     | T10: test layout, fixtures and assertions                     | Implemented | [Findings and implementation](reviews/T10_MOBILE_TESTS.md)     |
-| 2     | T04 + relevant T06: reusable hooks, helpers and HTTP adapters | Not started | Ownership, duplication, cancellation and contract improvements |
-| 3     | T03: shared components, templates and theme                   | Not started | Component boundaries, layout/accessibility improvements        |
-| 4     | T01 + F01: composition, navigation and access                 | Not started | Reachability map, provider/session simplifications             |
-| 5     | F05 + F06: Home/Earn and vault discovery                      | Not started | Demo/live separation, catalog/detail/cache changes             |
-| 6     | F07: token catalog and Swap UI                                | Not started | Active-route decision, discovery reuse and contract gaps       |
-| 7     | F02 + F03: wallet storage, authorization and recovery         | Not started | Security invariants and platform parity findings               |
-| 8     | F04 + T08/T09: native transfers and authorization             | Not started | Approval, persistence, lifecycle and retry findings            |
-| 9     | F08 + F09: history, notifications and Account                 | Not started | Data coverage, preference behavior and state ownership         |
-| 10    | T11/T12: mobile delivery, diagnostics and docs                | Not started | Parity decisions, tooling/documentation/retention changes      |
+| Order | Review slice                                                  | Status                     | Output to record                                                   |
+| ----- | ------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------ |
+| 1     | T10: test layout, fixtures and assertions                     | Complete — `9f38dff`       | [Findings and implementation](reviews/T10_MOBILE_TESTS.md)         |
+| 2     | T04 + relevant T06: reusable hooks, helpers and HTTP adapters | Reviewed; changes proposed | [Findings and implementation order](reviews/T04_HOOKS_AND_HTTP.md) |
+| 3     | T03: shared components, templates and theme                   | Not started                | Component boundaries, layout/accessibility improvements            |
+| 4     | T01 + F01: composition, navigation and access                 | Not started                | Reachability map, provider/session simplifications                 |
+| 5     | F05 + F06: Home/Earn and vault discovery                      | Not started                | Demo/live separation, catalog/detail/cache changes                 |
+| 6     | F07: token catalog and Swap UI                                | Not started                | Active-route decision, discovery reuse and contract gaps           |
+| 7     | F02 + F03: wallet storage, authorization and recovery         | Not started                | Security invariants and platform parity findings                   |
+| 8     | F04 + T08/T09: native transfers and authorization             | Not started                | Approval, persistence, lifecycle and retry findings                |
+| 9     | F08 + F09: history, notifications and Account                 | Not started                | Data coverage, preference behavior and state ownership             |
+| 10    | T11/T12: mobile delivery, diagnostics and docs                | Not started                | Parity decisions, tooling/documentation/retention changes          |
 
-For each slice, record findings here or link a focused follow-up document:
+### T10 completion
+
+- Added a functional-test network guard and explicit offline catalog fixtures.
+- Migrated active Home/wallet journeys to shared stored-wallet boundary factories.
+- Replaced positional render-helper arguments with named options and separated `deferred`.
+- Moved retained wallet debug tests to `tests/functional/development/` and demo
+  transaction-service tests to `tests/unit/services/`.
+- Strengthened the grid test to reach later items and the final unpaired card,
+  with bounded mounted-card counts under simulated layout.
+- Validation: **42 suites / 337 tests passed**, coverage thresholds, TypeScript,
+  lint and formatting passed. Network isolation passed with and without an API URL.
+- Native suites, device gestures and live endpoints were not validated in this slice.
+  Native security review and physical scrolling acceptance remain separate work.
+
+For each remaining slice, record findings here or link a focused follow-up document:
 
 1. Revision and exact scope inspected.
 2. Current behavior and callers, including feature flags/session branches.
@@ -209,11 +225,12 @@ For each slice, record findings here or link a focused follow-up document:
 6. Final status and commit reference when implementation is authorized.
 
 Do not treat this inventory as a deletion list. In particular, preserve the retired
-signer until their disposition is explicitly agreed.
+signer until its disposition is explicitly agreed.
 
 ## Verification of this map
 
-Source inventory, mobile navigation/provider wiring, service implementations and
-native directory boundaries were inspected. No application code
-was modified and no runtime, security, native-device or live-provider acceptance
-was performed. This is an index for subsequent reviews, not a full code audit.
+The initial inventory inspected source layout, navigation/provider wiring, services
+and native directory boundaries. T10 subsequently changed test support and assertions;
+its verification is recorded above and in the linked report. Application and native
+implementations were unchanged by T10. Remaining groups are unreviewed; this map
+does not establish native security, device or live-provider acceptance.
