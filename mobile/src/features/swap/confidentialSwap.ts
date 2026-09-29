@@ -7,6 +7,13 @@ export const swapGateway =
 
 export const MAX_SOURCE_ATOMS = 10_000_000n;
 
+/**
+ * Temporary: offers "finish unfinished buys" for recipient wallets an earlier operation left
+ * holding USDG. Remove once operations keep their own leg history and cannot be replaced
+ * while a leg is unfinished.
+ */
+export const SWAP_RECOVERY_ENABLED = true;
+
 export type ListedToken = {
   address: string;
   symbol: string;
@@ -45,6 +52,7 @@ export function parseSwapView(value: unknown): StoredSwapView {
       typeof view.receivedTargetAtoms === "string" ? view.receivedTargetAtoms : "",
     fundingAddress: view.fundingAddress,
     direction: view.direction === "sell" ? "sell" : "buy",
+    approved: view.approved === true,
     returnAddresses: Array.isArray(view.returnAddresses)
       ? view.returnAddresses.filter((item): item is string => typeof item === "string")
       : [],

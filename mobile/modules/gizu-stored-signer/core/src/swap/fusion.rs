@@ -151,39 +151,74 @@ pub struct ApprovedOrder {
     pub receiver: Address,
 }
 
+/// Why a Fusion order draft was refused. Only `BelowMinimum` is a price move that a fresh
+/// preview can cure; every other reason means the draft does not match the approved order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OrderReject {
+    Binding,
+    BelowMinimum,
+    Traits,
+    Expiry,
+    Salt,
+    Extension,
+    Receiver,
+}
+
+impl OrderReject {
+    pub fn code(self) -> &'static str {
+        match self {
+            OrderReject::Binding => "BINDING",
+            OrderReject::BelowMinimum => "BELOW_MINIMUM",
+            OrderReject::Traits => "TRAITS",
+            OrderReject::Expiry => "EXPIRY",
+            OrderReject::Salt => "SALT",
+            OrderReject::Extension => "EXTENSION",
+            OrderReject::Receiver => "RECEIVER",
+        }
+    }
+}
+
 /// Research `validateFusionOrder`, plus the LOP v4 bindings the summary omitted: salt↔extension, traits and receiver.
 pub fn check_order(order: &LimitOrder, extension_hex: &str, approved: &ApprovedOrder, now_secs: u64) -> Result<CheckedOrder, SignerError> {
-    let maker = evm::addr(&order.maker)?;
-    let receiver = evm::addr(&order.receiver)?;
-    let making = evm::decimal(&order.making_amount)?;
-    let taking = evm::decimal(&order.taking_amount)?;
-    let traits = evm::decimal(&order.maker_traits)?;
-    let salt = evm::decimal(&order.salt)?;
+    check_order_detail(order, extension_hex, approved, now_secs).map_err(|_| SignerError::InvalidInput)
+}
+
+/// `check_order` that names the rule a draft broke.
+pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &ApprovedOrder, now_secs: u64) -> Result<CheckedOrder, OrderReject> {
+    let binding = |_| OrderReject::Binding;
+    let maker = evm::addr(&order.maker).map_err(binding)?;
+    let receiver = evm::addr(&order.receiver).map_err(binding)?;
+    let making = evm::decimal(&order.making_amount).map_err(binding)?;
+    let taking = evm::decimal(&order.taking_amount).map_err(binding)?;
+    let traits = evm::decimal(&order.maker_traits).map_err(binding)?;
+    let salt = evm::decimal(&order.salt).map_err(binding)?;
     let maker_asset = if approved.maker_asset.is_zero() { ROBINHOOD_USDG } else { approved.maker_asset };
     let want_receiver = if approved.receiver.is_zero() { maker } else { approved.receiver };
     if maker != approved.maker
-        || evm::addr(&order.maker_asset)? != maker_asset
-        || evm::addr(&order.taker_asset)? != approved.target
+        || evm::addr(&order.maker_asset).map_err(binding)? != maker_asset
+        || evm::addr(&order.taker_asset).map_err(binding)? != approved.target
         || making != approved.amount
         || approved.min_out.is_zero()
-        || taking < approved.min_out
     {
-        return Err(SignerError::InvalidInput);
+        return Err(OrderReject::Binding);
+    }
+    if taking < approved.min_out {
+        return Err(OrderReject::BelowMinimum);
     }
     // HAS_EXTENSION set; no pre-interaction, Permit2, WETH unwrap or epoch manager.
     if !bit(traits, 249) || bit(traits, 252) || bit(traits, 250) || bit(traits, 248) || bit(traits, 247) {
-        return Err(SignerError::InvalidInput);
+        return Err(OrderReject::Traits);
     }
     let expiration: u64 = ((traits >> 80usize) & ((U256::from(1u64) << 40usize) - U256::from(1u64))).to();
     if expiration <= now_secs || expiration >= approved.permit_deadline {
-        return Err(SignerError::InvalidInput);
+        return Err(OrderReject::Expiry);
     }
-    let extension = evm::hex_bytes(extension_hex)?;
+    let extension = evm::hex_bytes(extension_hex).map_err(|_| OrderReject::Extension)?;
     let mask = (U256::from(1) << 160) - U256::from(1);
     if salt & mask != U256::from_be_bytes(keccak256(&extension).0) & mask {
-        return Err(SignerError::InvalidInput);
+        return Err(OrderReject::Salt);
     }
-    let ext = parse_extension(&extension)?;
+    let ext = parse_extension(&extension).map_err(|_| OrderReject::Extension)?;
     let mut permit = maker_asset.as_slice().to_vec();
     permit.extend_from_slice(&approved.permit);
     let settles = |data: &[u8]| data.len() >= 20 && Address::from_slice(&data[..20]) == FUSION_SETTLEMENT;
@@ -197,13 +232,19 @@ pub fn check_order(order: &LimitOrder, extension_hex: &str, approved: &ApprovedO
         || !settles(ext.fields[MAKING_AMOUNT_DATA])
         || !settles(ext.fields[POST_INTERACTION])
     {
-        return Err(SignerError::InvalidInput);
+        return Err(OrderReject::Extension);
     }
-    let real = if receiver == FUSION_SETTLEMENT { fee_taker_receiver(ext.fields[POST_INTERACTION], maker)? } else if receiver.is_zero() { maker } else { receiver };
+    let real = if receiver == FUSION_SETTLEMENT {
+        fee_taker_receiver(ext.fields[POST_INTERACTION], maker).map_err(|_| OrderReject::Extension)?
+    } else if receiver.is_zero() {
+        maker
+    } else {
+        receiver
+    };
     if real != want_receiver {
-        return Err(SignerError::InvalidInput);
+        return Err(OrderReject::Receiver);
     }
-    Ok(CheckedOrder { hash: order_hash(order)?, taking_amount: taking, expiration })
+    Ok(CheckedOrder { hash: order_hash(order).map_err(binding)?, taking_amount: taking, expiration })
 }
 
 /// Research `minimumOut`: the auction end amount less the Fusion slippage.

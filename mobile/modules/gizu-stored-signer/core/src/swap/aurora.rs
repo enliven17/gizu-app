@@ -151,7 +151,12 @@ pub fn check_quote(request: &QuoteRequest, response: &serde_json::Value, now_ms:
         amount_in: evm::decimal(text("amountIn")?)?,
         amount_out: evm::decimal(text("amountOut")?)?,
         min_amount_out: evm::decimal(text("minAmountOut")?)?,
-        deadline_ms: iso_millis(text("deadline")?)?,
+        // `quote.deadline` keeps the address open for days, but refunds start at the request
+        // deadline (15 minutes by default), so the earlier of the two bounds the swap.
+        deadline_ms: match echoed.get("deadline").and_then(|v| v.as_str()) {
+            Some(swap) => iso_millis(text("deadline")?)?.min(iso_millis(swap)?),
+            None => iso_millis(text("deadline")?)?,
+        },
     };
     if quote.deadline_ms <= now_ms || quote.min_amount_out > quote.amount_out || quote.min_amount_out.is_zero() {
         return Err(SignerError::InvalidInput);
@@ -272,10 +277,12 @@ pub fn private_available(balances: &serde_json::Value, asset_id: &str) -> Result
         .iter()
         .filter(|b| b.get("source").and_then(|v| v.as_str()) == Some("private") && b.get("tokenId").and_then(|v| v.as_str()) == Some(asset_id))
         .collect();
-    if matches.len() != 1 {
-        return Err(SignerError::InvalidInput);
+    // An account that holds nothing lists no private entry; two entries are ambiguous.
+    match matches.as_slice() {
+        [] => Ok(U256::ZERO),
+        [only] => evm::decimal(only.get("available").and_then(|v| v.as_str()).ok_or(SignerError::InvalidInput)?),
+        _ => Err(SignerError::InvalidInput),
     }
-    evm::decimal(matches[0].get("available").and_then(|v| v.as_str()).ok_or(SignerError::InvalidInput)?)
 }
 
 /// 30/30/40 without exceeding the total.
@@ -355,13 +362,18 @@ mod tests {
     fn quote_must_echo_the_request_and_stay_confidential() {
         let f = fixture();
         let request: QuoteRequest = serde_json::from_value(f["payout"]["request"].clone()).unwrap();
-        let response = serde_json::json!({
+        let mut response = serde_json::json!({
             "quoteRequest": f["payout"]["quoteRequest"],
             "signature": "sig",
-            "quote": {"depositAddress": f["payout"]["depositAddress"], "amountIn": "358739", "amountOut": "206883", "minAmountOut": "206000", "deadline": "2026-09-29T22:45:38.868Z"},
+            "quote": {"depositAddress": f["payout"]["depositAddress"], "amountIn": "358739", "amountOut": "206883", "minAmountOut": "206000", "deadline": "2026-10-02T22:45:38.868Z"},
         });
+        response["quoteRequest"]["deadline"] = serde_json::json!("2026-09-29T22:45:38.868Z");
         let quote = check_quote(&request, &response, SIGNED_AT).unwrap();
         assert_eq!(quote.amount_out, U256::from(206_883u64));
+        assert_eq!(quote.deadline_ms, iso_millis("2026-09-29T22:45:38.868Z").unwrap(), "the refund deadline, not the address lifetime, bounds the quote");
+        let mut lapsed = response.clone();
+        lapsed["quoteRequest"]["deadline"] = serde_json::json!("2026-09-26T22:45:38.868Z");
+        assert!(check_quote(&request, &lapsed, SIGNED_AT).is_err(), "a quote past its refund deadline is refused");
         let mut changed = response.clone();
         changed["quoteRequest"]["recipient"] = serde_json::json!("0x0000000000000000000000000000000000000001");
         assert!(check_quote(&request, &changed, SIGNED_AT).is_err());
@@ -380,6 +392,11 @@ mod tests {
             {"tokenId": format!("imt:shard:{id}"), "available": "9999999", "source": "private"},
         ]});
         assert_eq!(private_available(&balances, id).unwrap(), U256::from(98_009u64));
-        assert!(private_available(&serde_json::json!({"balances": []}), id).is_err());
+        assert_eq!(private_available(&serde_json::json!({"balances": []}), id).unwrap(), U256::ZERO, "an emptied account lists nothing");
+        let twice = serde_json::json!({"balances": [
+            {"tokenId": id, "available": "1", "source": "private"},
+            {"tokenId": id, "available": "2", "source": "private"},
+        ]});
+        assert!(private_available(&twice, id).is_err());
     }
 }

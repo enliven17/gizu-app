@@ -43,6 +43,8 @@ internal object SwapHost {
   var gateway: String? = null
   var resume: Boolean = false
   var sell: Boolean = false
+  var payout: Boolean = false
+  var recovery: Boolean = false
 
   suspend fun open(
     activity: Activity,
@@ -51,6 +53,8 @@ internal object SwapHost {
     amountAtoms: String?,
     resume: Boolean,
     sell: Boolean = false,
+    payout: Boolean = false,
+    recovery: Boolean = false,
   ): Map<String, Any?> {
     try {
       return suspendCancellableCoroutine { continuation ->
@@ -61,6 +65,8 @@ internal object SwapHost {
         this.amountAtoms = amountAtoms
         this.resume = resume
         this.sell = sell
+        this.payout = payout
+        this.recovery = recovery
         completion = continuation
         continuation.invokeOnCancellation { activity.runOnUiThread { close(null) } }
         try {
@@ -144,6 +150,8 @@ class SwapActivity : Activity() {
     }
     SwapHost.screen = this
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    // A buy runs for several minutes; a locked screen would pause it half way.
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     if (Build.VERSION.SDK_INT >= 31) window.setHideOverlayWindows(true)
     root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
@@ -168,11 +176,15 @@ class SwapActivity : Activity() {
             active.retry()
           } else if (SwapHost.sell) {
             active.startSell(record)
+          } else if (SwapHost.recovery) {
+            active.startRecovery(record, checkNotNull(SwapHost.target))
+          } else if (SwapHost.payout) {
+            active.start(record, checkNotNull(SwapHost.target), null, "confidentialPayout")
           } else active.start(record, checkNotNull(SwapHost.target), SwapHost.amountAtoms)
         } finally {
           record.close()
         }
-        present(checkNotNull(engine).advance())
+        present(checkNotNull(engine).advance(::progress))
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
@@ -189,6 +201,27 @@ class SwapActivity : Activity() {
       is SwapUi.Unlock -> unlock()
       is SwapUi.Done -> SwapHost.close(ui.view)
     }
+  }
+
+  private fun approved() = runCatching { engine?.view()?.get("approved") == true }.getOrDefault(false)
+
+  private fun progress(view: Map<String, Any?>) {
+    if (stopped) return
+    val title = if (view["approved"] == true) "Swap in progress" else "Preparing the swap"
+    show(
+      title,
+      "${view["phase"]} · ${view["step"]}\nPayouts ${view["payoutsSubmitted"]}/3 · orders ${view["ordersComplete"]}/3\n\n" +
+        "Keep this screen open until it finishes. Leaving pauses the swap: nothing is cancelled and Resume continues from here.",
+    )
+  }
+
+  /** After approval funds may be in flight, so leaving pauses the operation instead of cancelling it. */
+  private fun leave() {
+    SwapHost.close(runCatching { engine?.view() }.getOrNull())
+  }
+
+  private fun cancelOrLeave() {
+    if (approved()) leave() else cancel()
   }
 
   private fun show(title: String, message: String) {
@@ -214,7 +247,7 @@ class SwapActivity : Activity() {
       authorize(text)
     }
     root.addView(approve, NativeStyle.fullWidth(this, 16))
-    root.addView(NativeStyle.button(this, "Cancel", false).apply { setOnClickListener { cancel() } }, NativeStyle.fullWidth(this, 10))
+    root.addView(NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply { setOnClickListener { cancelOrLeave() } }, NativeStyle.fullWidth(this, 10))
     scroll.viewTreeObserver.addOnScrollChangedListener { approve.isEnabled = !scroll.canScrollVertically(1) && !stopped }
     scroll.post { approve.isEnabled = !scroll.canScrollVertically(1) && !stopped }
   }
@@ -236,7 +269,7 @@ class SwapActivity : Activity() {
         check(!(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
         engine?.approve()
         show("Swap in progress", "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.")
-        present(checkNotNull(engine).advance())
+        present(checkNotNull(engine).advance(::progress))
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
@@ -249,7 +282,7 @@ class SwapActivity : Activity() {
   private fun unlock() {
     show("New unlock required", "The 15-minute authorization ended. Unlock the same plan to continue. Nothing new is approved.")
     root.addView(NativeStyle.button(this, "Unlock", true).apply { setOnClickListener { unlockPasskey() } }, NativeStyle.fullWidth(this, 16))
-    root.addView(NativeStyle.button(this, "Cancel", false).apply { setOnClickListener { cancel() } }, NativeStyle.fullWidth(this, 10))
+    root.addView(NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply { setOnClickListener { cancelOrLeave() } }, NativeStyle.fullWidth(this, 10))
   }
 
   private fun unlockPasskey() {
@@ -270,7 +303,7 @@ class SwapActivity : Activity() {
         } finally {
           record.close()
         }
-        present(checkNotNull(engine).advance())
+        present(checkNotNull(engine).advance(::progress))
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
@@ -295,7 +328,7 @@ class SwapActivity : Activity() {
 
   @Deprecated("Platform back")
   override fun onBackPressed() {
-    cancel()
+    cancelOrLeave()
   }
 
   override fun onDestroy() {

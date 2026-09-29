@@ -6,3 +6,10 @@ export function parseSwapAmount(amount: string): bigint | null {
   const [whole, fraction = ""] = amount.split(".");
   return BigInt(`${whole}${fraction.padEnd(USDC_DECIMALS, "0")}`);
 }
+
+/** 6-decimal USDC atoms to decimal text without trailing zeros. */
+export function formatSwapAmount(atoms: bigint): string {
+  const scale = 10n ** BigInt(USDC_DECIMALS);
+  const fraction = (atoms % scale).toString().padStart(USDC_DECIMALS, "0").replace(/0+$/, "");
+  return `${atoms / scale}${fraction ? `.${fraction}` : ""}`;
+}

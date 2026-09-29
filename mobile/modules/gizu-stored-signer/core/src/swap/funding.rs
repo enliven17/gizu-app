@@ -225,8 +225,10 @@ pub fn check_funding(
         [] if chain.paymaster_allowance >= fee => {}
         [(_, _, data)] => {
             let (spender, approved) = approve_call(data)?;
-            // Pimlico quotes a token cap that can sit a few atoms above the signed paymaster fee.
-            if spender != PIMLICO_ERC20_PAYMASTER || approved < fee || approved > U256::from(MAX_SOURCE_ATOMS) {
+            // Pimlico rounds its token cap a few atoms either side of the signed paymaster fee.
+            // The paymaster still charges at most `fee`, which the budget check above covers.
+            let slack = fee / U256::from(50);
+            if spender != PIMLICO_ERC20_PAYMASTER || approved + slack < fee || approved > fee + slack {
                 return Err(SignerError::InvalidInput);
             }
         }

@@ -5,6 +5,7 @@ import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
 import { Screen } from "@/components/templates/Screen";
+import { formatSwapAmount } from "@/domain/swap";
 import colors from "@/theme/colors.json";
 import { useNativeSwap } from "./useNativeSwap";
 
@@ -43,6 +44,11 @@ export function NativeSwapScreen() {
             <Typography variant="micro">
               Payouts {swap.status.payoutsSubmitted} · orders {swap.status.ordersComplete}
             </Typography>
+            {/^[1-9]\d*$/.test(swap.status.creditedAtoms) ? (
+              <Typography variant="micro">
+                Private balance · {formatSwapAmount(BigInt(swap.status.creditedAtoms))} USDC
+              </Typography>
+            ) : null}
             {swap.status.returnAddresses.length > 0 ? (
               <Typography variant="micro">
                 Return wallets{"\n"}
@@ -99,15 +105,40 @@ export function NativeSwapScreen() {
             onPress={swap.resume}
             disabled={swap.busy}
           />
-          <Button
-            label="Cancel swap"
-            variant="secondary"
-            onPress={swap.cancel}
-            disabled={swap.busy}
-          />
+          {swap.status?.approved ? (
+            <Typography variant="micro" className="px-1 text-center">
+              Approved steps may already have moved funds, so this swap can only be resumed.
+            </Typography>
+          ) : (
+            <Button
+              label="Cancel swap"
+              variant="secondary"
+              onPress={swap.cancel}
+              disabled={swap.busy}
+            />
+          )}
         </View>
       ) : (
         <View className="gap-3">
+          {swap.canRecover ? (
+            <Button
+              label={
+                swap.busy ? "Working" : `Finish unfinished buys as ${selected?.symbol ?? "token"}`
+              }
+              variant="secondary"
+              onPress={swap.recover}
+              disabled={swap.busy}
+            />
+          ) : null}
+          {swap.canPayout ? (
+            <Button
+              label={
+                swap.busy ? "Working" : `Buy ${selected?.symbol ?? "token"} with private balance`
+              }
+              onPress={swap.payout}
+              disabled={swap.busy}
+            />
+          ) : null}
           {swap.canSell ? (
             <Button
               label={swap.busy ? "Working" : "Sell back to Monad USDC"}

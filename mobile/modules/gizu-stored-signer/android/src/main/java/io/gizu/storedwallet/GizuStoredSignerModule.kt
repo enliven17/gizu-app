@@ -325,6 +325,20 @@ class GizuStoredSignerModule : Module() {
         }
       }
     }
+    AsyncFunction("startPayout") { target: String, gateway: String, promise: Promise ->
+      runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
+        withProviderUi(activity) {
+          SwapHost.open(activity, gateway, target, null, false, payout = true)
+        }
+      }
+    }
+    AsyncFunction("startRecovery") { target: String, gateway: String, promise: Promise ->
+      runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
+        withProviderUi(activity) {
+          SwapHost.open(activity, gateway, target, null, false, recovery = true)
+        }
+      }
+    }
     AsyncFunction("startSell") { gateway: String, promise: Promise ->
       runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
         withProviderUi(activity) {

@@ -134,7 +134,15 @@ export function getStoredTransferSigner(): StoredTransferBridge | null {
 }
 export type StoredSwapBridge = Pick<
   StoredSignerContract,
-  "getSwapDeposit" | "startSwap" | "startSell" | "resumeSwap" | "getSwapStatus" | "cancelSwap" | "lock"
+  | "getSwapDeposit"
+  | "startSwap"
+  | "startSell"
+  | "startPayout"
+  | "startRecovery"
+  | "resumeSwap"
+  | "getSwapStatus"
+  | "cancelSwap"
+  | "lock"
 >;
 export function getStoredSwapSigner(): StoredSwapBridge | null {
   const native = nativeModule();
@@ -151,6 +159,18 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
     async startSell(gateway) {
       await checked(native, "swaps");
       return native.startSell(gateway);
+    },
+    async startPayout(target, gateway) {
+      await checked(native, "swaps");
+      if (typeof native.startPayout !== "function")
+        throw new Error("Buying from the private balance is not available in this build.");
+      return native.startPayout(target, gateway);
+    },
+    async startRecovery(target, gateway) {
+      await checked(native, "swaps");
+      if (typeof native.startRecovery !== "function")
+        throw new Error("Swap recovery is not available in this build.");
+      return native.startRecovery(target, gateway);
     },
     async resumeSwap(gateway) {
       await checked(native, "swaps");

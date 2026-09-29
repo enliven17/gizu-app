@@ -29,7 +29,9 @@ internal class SwapEngine(
   private var operation: SwapOperation? = null
   private var fundingAddress: String? = null
 
-  fun start(record: WalletRecord, target: String, amountAtoms: String?) {
+  /** `confidentialPayout` buys from C's existing private balance and takes no amount. */
+  fun start(record: WalletRecord, target: String, amountAtoms: String?, kind: String = "confidentialSwap") {
+    check(kind == "confidentialSwap" || (kind == "confidentialPayout" && amountAtoms == null))
     check(record.verified && record.id == saved.walletId)
     check(operation == null)
     saved.load()?.let { existing ->
@@ -49,10 +51,39 @@ internal class SwapEngine(
     store.persistRegistry(record.id, reserved.registry)
     val plan =
       JSONObject()
-        .put("kind", "confidentialSwap")
+        .put("kind", kind)
         .put("target", target)
         .put("recipientIndices", JSONArray(reserved.indices.map { it.toInt() }))
     if (amountAtoms != null) plan.put("amountAtoms", amountAtoms)
+    fundingAddress = deriveAccountAddressRange(record.entropy, 1u, 1u).single()
+    operation = SwapOperation.start(plan.toString(), record.entropy, gateway, now())
+    persist()
+  }
+
+  /** Temporary: finish Fusion buys for already allocated recipients that still hold USDG. */
+  fun startRecovery(record: WalletRecord, target: String) {
+    check(record.verified && record.id == saved.walletId)
+    check(operation == null)
+    saved.load()?.let { existing ->
+      val previous = SwapOperation.restore(existing.getString("state"), gateway)
+      val phase = JSONObject(previous.publicStatus()).getString("phase")
+      if (phase != "CANCELLED" && phase != "COMPLETE") {
+        fundingAddress = existing.getString("fundingAddress")
+        operation = previous
+        previous.retry()
+        return
+      }
+      previous.close()
+    }
+    check(target.matches(Regex("0x[0-9a-fA-F]{40}")))
+    // Scans indices the registry already handed out; nothing new is reserved.
+    val scanTo = JSONObject(record.roleRegistry).getInt("nextRecipient")
+    val plan =
+      JSONObject()
+        .put("kind", "confidentialRecovery")
+        .put("target", target)
+        .put("recipientIndices", JSONArray(listOf(3, 4, 5)))
+        .put("scanTo", scanTo)
     fundingAddress = deriveAccountAddressRange(record.entropy, 1u, 1u).single()
     operation = SwapOperation.start(plan.toString(), record.entropy, gateway, now())
     persist()
@@ -75,7 +106,7 @@ internal class SwapEngine(
       previous.retry()
       return
     }
-    check(kind == "confidentialSwap" && phase == "COMPLETE")
+    check((kind == "confidentialSwap" || kind == "confidentialPayout") && phase == "COMPLETE")
     val holders = plan.getJSONArray("recipientIndices")
     val target = plan.getString("target")
     previous.close()
@@ -98,22 +129,30 @@ internal class SwapEngine(
     operation = SwapOperation.restore(root.getString("state"), gateway)
   }
 
-  suspend fun advance(): SwapUi {
+  /**
+   * Drives the operation until it needs the user (review, unlock) or stops (finished, paused).
+   * Waits for Aurora and 1inch happen here, so an open screen carries the swap to the end.
+   */
+  suspend fun advance(onProgress: (Map<String, Any?>) -> Unit = {}): SwapUi {
     val op = checkNotNull(operation)
-    repeat(48) {
+    while (true) {
       when (val step = op.nextStep(now())) {
-        is SwapStep.Review -> return SwapUi.Review(step.text)
-        is SwapStep.Unlock -> return SwapUi.Unlock
+        is SwapStep.Review -> {
+          persist()
+          return SwapUi.Review(step.text)
+        }
+        is SwapStep.Unlock -> {
+          persist()
+          return SwapUi.Unlock
+        }
         is SwapStep.Finished,
         is SwapStep.Paused -> {
           persist()
           return SwapUi.Done(view())
         }
         is SwapStep.Wait -> {
-          if (step.millis > 12_000u) {
-            persist()
-            return SwapUi.Done(view())
-          }
+          persist()
+          onProgress(view())
           kotlinx.coroutines.delay(step.millis.toLong())
         }
         is SwapStep.Request -> {
@@ -133,11 +172,10 @@ internal class SwapEngine(
             if (JSONObject(op.publicStatus()).isNull("pausedCode")) throw error
           }
           persist()
+          onProgress(view())
         }
       }
     }
-    persist()
-    return SwapUi.Done(view())
   }
 
   fun approve() {
@@ -176,6 +214,7 @@ internal class SwapEngine(
       "ordersComplete" to status.optInt("ordersComplete"),
       "receivedTargetAtoms" to status.optString("receivedTargetAtoms"),
       "direction" to status.optString("direction", "buy"),
+      "approved" to status.optBoolean("approved"),
       "returnAddresses" to returnAddresses(),
       "fundingAddress" to checkNotNull(fundingAddress),
     )

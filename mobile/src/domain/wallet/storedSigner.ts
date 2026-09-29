@@ -68,6 +68,8 @@ export type StoredSwapView = {
   receivedTargetAtoms: string;
   fundingAddress: string;
   direction: "buy" | "sell";
+  /** Funds may be in flight once approved; the app pauses such operations, never cancels them. */
+  approved: boolean;
   returnAddresses: string[];
 };
 
@@ -89,6 +91,10 @@ export interface StoredSignerContract {
   getSwapDeposit(): Promise<{ fundingAddress: string }>;
   startSwap(target: string, amountAtoms: string, gateway: string): Promise<StoredSwapView>;
   startSell(gateway: string): Promise<StoredSwapView>;
+  /** Buy `target` with the private balance C already holds; nothing is sent from Monad. */
+  startPayout(target: string, gateway: string): Promise<StoredSwapView>;
+  /** Temporary: finish Fusion buys for allocated recipients still holding USDG. */
+  startRecovery(target: string, gateway: string): Promise<StoredSwapView>;
   resumeSwap(gateway: string): Promise<StoredSwapView>;
   getSwapStatus(gateway: string): Promise<StoredSwapView>;
   cancelSwap(gateway: string): Promise<StoredSwapView>;

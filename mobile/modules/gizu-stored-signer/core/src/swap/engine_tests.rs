@@ -38,6 +38,10 @@ fn wallets() -> Wallets {
 struct World {
     w: Wallets,
     tamper: Tamper,
+    /// Pimlico's approve amount relative to the signed fee cap.
+    approve_delta: i64,
+    /// Order drafts still to return 3% under the previewed auction end.
+    short_orders: u8,
     f_balance: U256,
     payout_rate_bps: u64,
     credit: U256,
@@ -65,6 +69,8 @@ impl World {
         Self {
             w: wallets(),
             tamper: Tamper::None,
+            approve_delta: 0,
+            short_orders: 0,
             f_balance: U256::from(2_000_000u64),
             payout_rate_bps: 9_900,
             credit: U256::ZERO,
@@ -267,7 +273,7 @@ impl World {
         data[2..8].copy_from_slice(&(now / 1000 + 600).to_be_bytes()[2..]);
         data[14..34].copy_from_slice(MONAD_USDC.as_slice());
         data[50..82].copy_from_slice(&U256::from(100_000u64).to_be_bytes::<32>());
-        let approve = evm::hex_bytes(&evm::encode_call("approve(address,uint256)", &[evm::word_address(PIMLICO_ERC20_PAYMASTER), evm::word_u256(U256::from(FEE))])).unwrap();
+        let approve = evm::hex_bytes(&evm::encode_call("approve(address,uint256)", &[evm::word_address(PIMLICO_ERC20_PAYMASTER), evm::word_u256(U256::from(FEE.saturating_add_signed(self.approve_delta)))])).unwrap();
         let transfer = evm::hex_bytes(&evm::encode_call("transfer(address,uint256)", &[evm::word_address(recipient), evm::word_u256(amount)])).unwrap();
         json!({
             "userOperation": {
@@ -327,10 +333,12 @@ impl World {
         if self.tamper == Tamper::QuoteRefund {
             echoed["refundTo"] = json!("0x00000000000000000000000000000000000BAd00");
         }
+        // Mainnet shape: refunds start 15 minutes after the quote; the address stays open for 3 days.
+        echoed["deadline"] = json!(iso_string(now + 15 * 60_000));
         json!({
             "quoteRequest": echoed,
             "signature": "ed25519:quote",
-            "quote": {"depositAddress": deposit, "amountIn": amount.to_string(), "amountOut": out.to_string(), "minAmountOut": (out * U256::from(99) / U256::from(100)).to_string(), "deadline": iso_string(now + 600_000)},
+            "quote": {"depositAddress": deposit, "amountIn": amount.to_string(), "amountOut": out.to_string(), "minAmountOut": (out * U256::from(99) / U256::from(100)).to_string(), "deadline": iso_string(now + 3 * 86_400_000)},
         })
     }
 
@@ -362,6 +370,12 @@ impl World {
         let dst = evm::addr(body["dstToken"].as_str().unwrap()).unwrap();
         let sell = src != ROBINHOOD_USDG;
         let taking = if sell { amount / U256::from(WEI_PER_ATOM) } else { amount * U256::from(WEI_PER_ATOM) };
+        let taking = if self.short_orders > 0 {
+            self.short_orders -= 1;
+            taking * U256::from(97) / U256::from(100)
+        } else {
+            taking
+        };
         let receiver = if sell {
             self.origin_deposit.get(&wallet).cloned().unwrap_or_else(|| format!("{FUSION_SETTLEMENT:#x}"))
         } else {
@@ -542,7 +556,7 @@ fn plans_reviews_and_completes_the_whole_swap_with_the_expected_signers() {
         assert!(world.usdg[&a].is_zero());
         assert!(!world.target[&a].is_zero());
     }
-    // Aurora has no direct Monad -> Robinhood liquidity: every USDG payout leaves from C.
+    // A buy funds C once; every USDG payout leaves from C, never through a public bridge.
     assert!(world.deposits.keys().all(|d| d.starts_with("payout-")), "a buy never quotes a public bridge");
 
     let s = status(&op);
@@ -704,7 +718,7 @@ fn a_fusion_order_paying_another_receiver_is_never_signed() {
     review(&op, &mut world, &mut now);
     op.approve(now).unwrap();
     world.tamper = Tamper::OrderReceiver;
-    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "REJECTED_fusionOrder".into() });
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "FUSION_1_ORDER_RECEIVER".into() });
     assert_eq!((world.user_ops, world.intents, world.orders), (1, 3, 0));
     assert!(!world.paths.iter().any(|p| p == "/v1/swap/fusion/submit"));
 }
@@ -763,4 +777,165 @@ fn sells_stock_into_three_fresh_monad_wallets() {
     for i in [6u32, 7, 8] {
         assert!(!world.monad_usdc[&ret(i)].is_zero(), "return wallet {i} stays empty");
     }
+}
+
+#[test]
+fn pimlico_rounding_either_side_of_the_fee_is_accepted() {
+    for delta in [-4i64, 4] {
+        let (mut world, mut now) = (World::new(), T0);
+        world.approve_delta = delta;
+        let op = start(Some("2000000"));
+        review(&op, &mut world, &mut now);
+        op.approve(now).unwrap();
+        assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished, "approve off by {delta}");
+        assert_eq!(world.user_ops, 1);
+    }
+}
+
+#[test]
+fn an_approval_far_from_the_fee_is_never_signed() {
+    for delta in [-(FEE as i64) / 10, FEE as i64 / 10] {
+        let (mut world, mut now) = (World::new(), T0);
+        world.approve_delta = delta;
+        let op = start(Some("2000000"));
+        assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "REJECTED_fundingPrepare".into() }, "approve off by {delta}");
+        assert_eq!(world.user_ops, 0);
+    }
+}
+
+#[test]
+fn a_funding_quote_near_its_refund_deadline_is_requoted_before_the_deposit() {
+    let quotes = |world: &World| world.paths.iter().filter(|p| *p == "/v1/swap/aurora/quote").count();
+    let (mut fresh, mut now) = (World::new(), T0);
+    let op = start(Some("2000000"));
+    review(&op, &mut fresh, &mut now);
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut fresh, &mut now), SwapStep::Finished);
+
+    // The user takes six minutes to approve: the planning quote has nine of its fifteen left.
+    let (mut slow, mut now) = (World::new(), T0);
+    let op = start(Some("2000000"));
+    review(&op, &mut slow, &mut now);
+    now += 6 * 60_000;
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut slow, &mut now), SwapStep::Finished);
+    assert_eq!(quotes(&slow), quotes(&fresh) + 1, "the funding quote is renewed once");
+    assert_eq!(slow.user_ops, 1);
+}
+
+fn payout_plan() -> String {
+    json!({"kind": "confidentialPayout", "target": AMZN.to_checksum(None), "recipientIndices": [3, 4, 5]}).to_string()
+}
+
+#[test]
+fn buys_from_an_existing_private_balance_without_touching_monad() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.credit = U256::from(3_945_530u64);
+    let op = SwapOperation::start(payout_plan(), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    let text = review(&op, &mut world, &mut now);
+    assert!(text.contains("CONFIDENTIAL BUY FROM PRIVATE BALANCE"));
+    assert!(text.contains("Nothing is sent from Monad"));
+    assert!(text.contains("Used now 3.945530 USDC"));
+    assert!(text.contains(&world.w.c.to_checksum(None)));
+    assert_eq!(status(&op)["phase"], "REVIEW");
+    assert_eq!(world.user_ops + world.intents + world.orders, 0, "only the ownership proof is signed before approval");
+    assert!(!world.paths.iter().any(|p| p.starts_with("/v1/swap/monad/")), "a payout never prepares Monad funding");
+
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!((world.user_ops, world.intents, world.orders), (0, 3, 3));
+    assert!(!world.paths.iter().any(|p| p.starts_with("/v1/swap/monad/")));
+    let sent: U256 = world.deposits.iter().filter(|(d, _)| world.credited.contains(*d)).map(|(_, (_, amount, _, _))| *amount).fold(U256::ZERO, |a, b| a + b);
+    assert_eq!(sent, U256::from(3_945_530u64), "the three payouts split exactly the private balance");
+    for a in world.w.a {
+        assert!(!world.target[&a].is_zero());
+    }
+    assert_eq!(status(&op)["phase"], "COMPLETE");
+}
+
+#[test]
+fn a_payout_with_an_empty_private_balance_pauses_before_review() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = SwapOperation::start(payout_plan(), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "NO_PRIVATE_BALANCE".into() });
+    assert_eq!(world.intents, 0);
+}
+
+#[test]
+fn a_payout_plan_takes_no_amount_or_holders() {
+    let with_amount = payout_plan().replace("}", r#","amountAtoms":"1000000"}"#);
+    assert!(SwapOperation::start(with_amount, ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    let with_holders = payout_plan().replace("}", r#","holderIndices":[6,7,8]}"#);
+    assert!(SwapOperation::start(with_holders, ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+}
+
+#[test]
+fn an_order_under_the_minimum_is_previewed_again_and_never_signed_short() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.short_orders = 2;
+    let op = start(Some("2000000"));
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(world.orders, 3, "every leg still fills once");
+    let previews = world.paths.iter().filter(|p| *p == "/v1/swap/fusion/preview").count();
+    assert_eq!(previews, 1 + 3 + 2, "planning, one per leg, one per short draft");
+}
+
+#[test]
+fn an_order_that_stays_under_the_minimum_pauses_with_its_reason() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.short_orders = u8::MAX;
+    let op = start(Some("2000000"));
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "FUSION_1_ORDER_BELOW_MINIMUM".into() });
+    assert_eq!(world.orders, 0);
+    assert!(!world.paths.iter().any(|p| p == "/v1/swap/fusion/submit"));
+}
+
+fn recovery_plan(scan_to: u32) -> String {
+    json!({"kind": "confidentialRecovery", "target": AMZN.to_checksum(None), "recipientIndices": [3, 4, 5], "scanTo": scan_to}).to_string()
+}
+
+#[test]
+fn recovery_finishes_buys_for_wallets_an_earlier_operation_left_holding_usdg() {
+    let (mut world, mut now) = (World::new(), T0);
+    let seed = seed_from_entropy(ENTROPY.to_vec()).unwrap();
+    let at = |i| evm::key_address(&derive_key(&seed, i).unwrap());
+    // Indices 9-11 were one earlier operation: leg 1 filled, legs 2 and 3 still hold USDG.
+    world.usdg.insert(at(10), U256::from(1_027_014u64));
+    world.usdg.insert(at(11), U256::from(1_419_357u64));
+    let op = SwapOperation::start(recovery_plan(15), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    let text = review(&op, &mut world, &mut now);
+    assert!(text.contains("FINISH UNFINISHED BUYS"));
+    assert!(text.contains("Nothing is sent from Monad or from the confidential balance"));
+    assert!(text.contains(&format!("Wallet {}\n  1.027014 USDG → AMZN", at(10).to_checksum(None))));
+    assert!(text.contains(&format!("Wallet {}\n  1.419357 USDG → AMZN", at(11).to_checksum(None))));
+    assert_eq!(world.orders, 0, "nothing is signed before approval");
+
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!((world.user_ops, world.intents, world.orders), (0, 0, 2));
+    for i in [10, 11] {
+        assert!(world.usdg[&at(i)].is_zero());
+        assert!(!world.target[&at(i)].is_zero());
+    }
+    assert!(!world.paths.iter().any(|p| p.starts_with("/v1/swap/monad/") || p.contains("aurora/quote") || p.contains("intent")));
+    assert_eq!(status(&op)["phase"], "COMPLETE");
+}
+
+#[test]
+fn recovery_with_nothing_left_pauses_before_review() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = SwapOperation::start(recovery_plan(15), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Paused { code: "NOTHING_TO_RECOVER".into() });
+}
+
+#[test]
+fn only_recovery_scans_and_only_allocated_indices() {
+    assert!(SwapOperation::start(recovery_plan(5), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    assert!(SwapOperation::start(plan(None).replace("}", r#","scanTo":15}"#), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    let without = json!({"kind": "confidentialRecovery", "target": AMZN.to_checksum(None), "recipientIndices": [3, 4, 5]}).to_string();
+    assert!(SwapOperation::start(without, ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
 }
