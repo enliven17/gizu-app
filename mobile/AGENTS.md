@@ -83,7 +83,8 @@ Paths below are relative to `mobile/` unless stated otherwise.
 - Place flows in `tests/functional/<feature>/*.functional.test.tsx`, grouped by
   primary user intent; shared helpers/fixtures go in `tests/support/`. Keep unit
   tests and adapter integration tests distinct.
-- Require the full functional suite and coverage thresholds in PR CI. Keep
+- Run the full JavaScript/functional suite in PR CI; enforce coverage thresholds
+  and native checks in release validation. Keep
   pre-commit checks scoped and fast. Rendered tests do not prove native gestures,
   biometrics or on-chain execution; report device checks separately.
 

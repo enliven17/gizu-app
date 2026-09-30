@@ -89,8 +89,11 @@ Both require JDK 17 (`JAVA_HOME` or Java on PATH); the first run downloads the
 checksum-pinned ktfmt 0.54 JAR into the OS temporary cache. Generated bindings and
 the disconnected legacy signer are excluded. Kotlin uses ktfmt's Google style.
 
-`just mobile-check` delegates to `npm run check`. CI runs it on Linux and Windows,
-then separately compiles Android Debug and an unsigned iOS simulator build.
+`just mobile-check` delegates to `npm run check`. Release validation runs it on Linux
+and Windows, then separately compiles Android Debug and an unsigned iOS simulator
+build. PR CI runs typecheck, formatting, lint and all JavaScript tests on Linux,
+without coverage or Expo Doctor. See the [repository CI guide](../README.md#continuous-integration)
+for manual release validation and required-check settings.
 Configure these jobs as required branch checks in repository settings to enforce
 merge protection; the workflow alone cannot change branch protection.
 
@@ -390,8 +393,8 @@ Build outputs always use the signer's `core/target` directory so an inherited
 `CARGO_TARGET_DIR` cannot make bindings or library-copy steps read stale artifacts.
 The scripts require macOS or Linux; Windows CI tests JavaScript only.
 
-CI cancels older runs for the same branch/PR, limits job duration, and allows Linux
-and Windows checks to finish independently. Failed Android builds upload available
+PR CI cancels older runs for the same branch/PR. All jobs have time limits; release
+validation lets Linux and Windows checks finish independently. Failed Android builds upload available
 Gradle test reports. Failed iOS jobs upload available Xcode `.xcresult` bundles for
 native tests and app compilation. Download them from the workflow run's Artifacts
 section; open `.xcresult` bundles in Xcode. Reports and coverage are retained for

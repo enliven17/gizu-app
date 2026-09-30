@@ -28,30 +28,51 @@ npm run preview
 
 ## Continuous integration
 
-GitHub Actions checks pull requests and pushes to `main`:
+Pull requests and pushes to `main` run the fast checks:
 
-| Workflow | Applications            | Checks                                                                           |
-| -------- | ----------------------- | -------------------------------------------------------------------------------- |
-| Mobile   | `mobile/`               | JavaScript checks, Rust core tests, Android build and iOS simulator checks       |
-| Backend  | `backend/`              | Locked dependency install, source/test type checks, tests and server compilation |
-| Web      | `frontend/`, `landing/` | Independent locked installs, TypeScript checks and Vite production builds        |
+| Workflow | Checks                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------- |
+| Mobile   | Linux only: locked install, typecheck, formatting, lint, build-script tests and all JavaScript tests |
+| Backend  | Locked install, source/test type checks, tests and compilation                                       |
+| Web      | Independent TypeScript checks and Vite builds for frontend and landing                               |
 
-Backend and Web can also be run manually from the Actions tab. They use Node
-24.15.0, matching mobile CI, and each app's own npm lockfile. They need no deployment
-credentials or production API keys. Backend tests use test doubles and deliberate
-failure cases; they do not validate a live database or provider integration.
-Frontend and landing do not currently have automated test or lint scripts, so their
-CI coverage is limited to type checking and building.
+PRs do not run Android/iOS builds, Rust compilation, Windows mobile checks, Expo
+Doctor or coverage collection. Native-only regressions can therefore pass PR
+checks; run release validation manually before merging native/signing changes.
+JavaScript tests still run in full. Frontend and landing currently have no separate
+test or lint scripts.
 
-Jobs have timeouts, and newer runs cancel superseded runs on the same ref. Both
-web apps finish independently when one fails. Backend test logs and successful web
-`dist` builds are downloadable from the workflow run for seven days. Artifacts are
-for inspection; these workflows do not deploy or publish an app. Research
-prototypes are excluded from application CI.
+**Release validation** runs when a `v*` tag is pushed, or manually from
+Actions → Release validation → Run workflow (choose the branch or tag). It runs:
 
-Reproduce checks locally:
+- The full mobile checks on Linux and Windows, including Expo Doctor and coverage thresholds.
+- Rust formatting, tests and Clippy for both signer cores.
+- Android formatting, native tests and APK compilation.
+- iOS signer tests in Debug and Release, followed by the Release simulator app build.
+- The same backend and web validation through reusable workflows.
+
+Manual runs validate the selected revision; tag runs validate that tagged revision.
+This validates a release candidate; it does not publish a GitHub release, deploy a
+service or upload a signed app to a store. Wait for all release checks to pass
+before distributing that revision. No production credentials are needed. Backend
+tests use test doubles; live database/provider integration is not covered.
+
+All jobs use timeouts and app-local lockfiles with Node 24.15.0. PR workflows cancel
+superseded runs. Release validation does not cancel an active validation of the same
+ref. Logs, coverage and available native failure reports are retained for seven
+days; web build artifacts are available for inspection. Research prototypes are
+excluded.
+
+Local commands remain unchanged:
 
 ```sh
+npm --prefix mobile ci
+npm --prefix mobile run typecheck
+npm --prefix mobile run format:check
+npm --prefix mobile run lint
+npm --prefix mobile test
+# Full mobile checks, including Doctor and coverage:
+npm --prefix mobile run check
 npm --prefix backend ci
 npm --prefix backend run typecheck
 npm --prefix backend test
@@ -62,6 +83,8 @@ npm --prefix landing ci
 npm --prefix landing run build
 ```
 
-All workflows run without path filters so required checks do not stay pending on
-unrelated pull requests. To enforce them before merging, configure the relevant
-job checks as required in GitHub branch protection or repository rulesets.
+Workflows have no PR path filters, so required checks do not stay pending on
+unrelated changes. In branch protection/rulesets, require **Mobile PR checks**,
+**Backend checks**, **Build frontend** and **Build landing**. Remove old mobile
+matrix/native jobs from PR-required checks; those now belong to release validation.
+Repository settings are not changed by these workflow files.
