@@ -14,21 +14,28 @@ internal object SwapReconciler {
   private const val GAP_LIMIT = 6
   private const val SCAN_LIMIT = 48
 
-  /** Finds spent recipient indices from public USDG balances and refuses to move the registry backward. */
+  /**
+   * Finds spent recipient indices from public USDG balances and refuses to move the registry
+   * backward.
+   */
   suspend fun covering(entropy: ByteArray, backupRegistry: String): String {
     val transport = NativeRpcTransport(ROBINHOOD)
     var highest = 2
     var gap = 0
     var index = 3
     while (gap < GAP_LIMIT && index < 3 + SCAN_LIMIT) {
-      val address = deriveAccountAddressRange(entropy, index.toUInt(), 1u).single().removePrefix("0x")
+      val address =
+        deriveAccountAddressRange(entropy, index.toUInt(), 1u).single().removePrefix("0x")
       val data = "0x70a08231" + "0".repeat(24) + address.lowercase()
       val body =
         JSONObject()
           .put("jsonrpc", "2.0")
           .put("id", 1)
           .put("method", "eth_call")
-          .put("params", JSONArray().put(JSONObject().put("to", "0x$USDG").put("data", data)).put("latest"))
+          .put(
+            "params",
+            JSONArray().put(JSONObject().put("to", "0x$USDG").put("data", data)).put("latest"),
+          )
           .toString()
       val response = JSONObject(transport.post(body))
       val hex = response.getString("result").removePrefix("0x").trimStart('0')

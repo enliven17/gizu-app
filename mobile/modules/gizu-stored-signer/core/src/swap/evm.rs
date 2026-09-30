@@ -13,8 +13,15 @@ pub fn word_u256(v: U256) -> [u8; 32] {
     v.to_be_bytes::<32>()
 }
 
-pub fn domain_separator(name: &str, version: &str, chain_id: u64, verifying_contract: Address) -> B256 {
-    let type_hash = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+pub fn domain_separator(
+    name: &str,
+    version: &str,
+    chain_id: u64,
+    verifying_contract: Address,
+) -> B256 {
+    let type_hash = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+    );
     let mut buf = Vec::with_capacity(160);
     buf.extend_from_slice(type_hash.as_slice());
     buf.extend_from_slice(keccak256(name).as_slice());
@@ -88,7 +95,9 @@ impl RawSignature {
 }
 
 pub fn sign(key: &XPrv, digest: B256) -> Result<RawSignature, SignerError> {
-    let (sig, rec) = key.private_key().sign_prehash_recoverable(digest.as_slice());
+    let (sig, rec) = key
+        .private_key()
+        .sign_prehash_recoverable(digest.as_slice());
     if rec.to_byte() > 1 {
         return Err(SignerError::CryptoFailed);
     }
@@ -97,18 +106,30 @@ pub fn sign(key: &XPrv, digest: B256) -> Result<RawSignature, SignerError> {
     let mut s = [0u8; 32];
     r.copy_from_slice(&bytes[..32]);
     s.copy_from_slice(&bytes[32..]);
-    Ok(RawSignature { r, s, y_parity: rec.to_byte() })
+    Ok(RawSignature {
+        r,
+        s,
+        y_parity: rec.to_byte(),
+    })
 }
 
-pub fn recover(digest: B256, r: &[u8; 32], s: &[u8; 32], y_parity: u8) -> Result<Address, SignerError> {
+pub fn recover(
+    digest: B256,
+    r: &[u8; 32],
+    s: &[u8; 32],
+    y_parity: u8,
+) -> Result<Address, SignerError> {
     let mut bytes = [0u8; 64];
     bytes[..32].copy_from_slice(r);
     bytes[32..].copy_from_slice(s);
     let sig = Signature::from_slice(&bytes).map_err(|_| SignerError::CryptoFailed)?;
     let rec = RecoveryId::from_byte(y_parity).ok_or(SignerError::CryptoFailed)?;
-    let key = VerifyingKey::recover_from_prehash(digest.as_slice(), &sig, rec).map_err(|_| SignerError::CryptoFailed)?;
+    let key = VerifyingKey::recover_from_prehash(digest.as_slice(), &sig, rec)
+        .map_err(|_| SignerError::CryptoFailed)?;
     let point = key.to_sec1_point(false);
-    Ok(Address::from_slice(&keccak256(&point.as_bytes()[1..])[12..]))
+    Ok(Address::from_slice(
+        &keccak256(&point.as_bytes()[1..])[12..],
+    ))
 }
 
 pub fn key_address(key: &XPrv) -> Address {
@@ -124,7 +145,11 @@ pub fn hex_bytes(s: &str) -> Result<Vec<u8>, SignerError> {
 /// Strict 0x quantity: no leading zeros, at most 256 bits.
 pub fn quantity(s: &str) -> Result<U256, SignerError> {
     let digits = s.strip_prefix("0x").ok_or(SignerError::InvalidInput)?;
-    if digits.is_empty() || digits.len() > 64 || (digits.len() > 1 && digits.starts_with('0')) || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if digits.is_empty()
+        || digits.len() > 64
+        || (digits.len() > 1 && digits.starts_with('0'))
+        || !digits.bytes().all(|b| b.is_ascii_hexdigit())
+    {
         return Err(SignerError::InvalidInput);
     }
     U256::from_str_radix(digits, 16).map_err(|_| SignerError::InvalidInput)
@@ -132,7 +157,11 @@ pub fn quantity(s: &str) -> Result<U256, SignerError> {
 
 /// Strict decimal integer without sign, exponent or leading zeros.
 pub fn decimal(s: &str) -> Result<U256, SignerError> {
-    if s.is_empty() || s.len() > 78 || (s.len() > 1 && s.starts_with('0')) || !s.bytes().all(|b| b.is_ascii_digit()) {
+    if s.is_empty()
+        || s.len() > 78
+        || (s.len() > 1 && s.starts_with('0'))
+        || !s.bytes().all(|b| b.is_ascii_digit())
+    {
         return Err(SignerError::InvalidInput);
     }
     U256::from_str_radix(s, 10).map_err(|_| SignerError::InvalidInput)
@@ -160,7 +189,9 @@ impl<'a> AbiReader<'a> {
         Self { data }
     }
     pub fn word(&self, offset: usize) -> Result<&'a [u8], SignerError> {
-        self.data.get(offset..offset + 32).ok_or(SignerError::InvalidInput)
+        self.data
+            .get(offset..offset + 32)
+            .ok_or(SignerError::InvalidInput)
     }
     pub fn uint(&self, offset: usize) -> Result<U256, SignerError> {
         Ok(U256::from_be_slice(self.word(offset)?))
@@ -181,7 +212,9 @@ impl<'a> AbiReader<'a> {
     }
     pub fn bytes(&self, offset: usize) -> Result<&'a [u8], SignerError> {
         let len = self.usize(offset)?;
-        self.data.get(offset + 32..offset + 32 + len).ok_or(SignerError::InvalidInput)
+        self.data
+            .get(offset + 32..offset + 32 + len)
+            .ok_or(SignerError::InvalidInput)
     }
 }
 
@@ -208,9 +241,18 @@ mod tests {
         let digest = authorization_hash(143, delegate, 0);
         let mut r = [0u8; 32];
         let mut s = [0u8; 32];
-        r.copy_from_slice(&hex_bytes("0x42f807ba995228de788bea7524c1f1efdf9bfe4964fe5fd17018a6e4f17c5180").unwrap());
-        s.copy_from_slice(&hex_bytes("0x48128d05aed6d962a931d53158b8db487772e7ad4435e6390b981b534f6d9086").unwrap());
-        assert_eq!(recover(digest, &r, &s, 1).unwrap(), addr("0xcd58DBfdDa39dea8cacA8592Eca2b8a637Cf4934").unwrap());
+        r.copy_from_slice(
+            &hex_bytes("0x42f807ba995228de788bea7524c1f1efdf9bfe4964fe5fd17018a6e4f17c5180")
+                .unwrap(),
+        );
+        s.copy_from_slice(
+            &hex_bytes("0x48128d05aed6d962a931d53158b8db487772e7ad4435e6390b981b534f6d9086")
+                .unwrap(),
+        );
+        assert_eq!(
+            recover(digest, &r, &s, 1).unwrap(),
+            addr("0xcd58DBfdDa39dea8cacA8592Eca2b8a637Cf4934").unwrap()
+        );
     }
 
     #[test]

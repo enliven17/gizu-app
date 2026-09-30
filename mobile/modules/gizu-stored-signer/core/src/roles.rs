@@ -48,7 +48,11 @@ pub struct RecipientAllocation {
 
 #[uniffi::export]
 pub fn role_registry_initial() -> String {
-    RoleRegistry { version: REGISTRY_VERSION, next_recipient: FIRST_RECIPIENT }.json()
+    RoleRegistry {
+        version: REGISTRY_VERSION,
+        next_recipient: FIRST_RECIPIENT,
+    }
+    .json()
 }
 
 /// Reserves fresh recipient indices. The caller must persist `registry` before using `indices`.
@@ -56,9 +60,15 @@ pub fn role_registry_initial() -> String {
 pub fn allocate_swap_recipients(registry: String) -> Result<RecipientAllocation, SignerError> {
     let mut parsed = RoleRegistry::parse(&registry)?;
     let start = parsed.next_recipient;
-    let end = start.checked_add(RECIPIENTS_PER_SWAP).filter(|end| *end <= MAX_INDEX).ok_or(SignerError::InvalidInput)?;
+    let end = start
+        .checked_add(RECIPIENTS_PER_SWAP)
+        .filter(|end| *end <= MAX_INDEX)
+        .ok_or(SignerError::InvalidInput)?;
     parsed.next_recipient = end;
-    Ok(RecipientAllocation { registry: parsed.json(), indices: (start..end).collect() })
+    Ok(RecipientAllocation {
+        registry: parsed.json(),
+        indices: (start..end).collect(),
+    })
 }
 
 /// Combines a local registry with a restored or scanned one; the higher allocation always wins.
@@ -66,7 +76,11 @@ pub fn allocate_swap_recipients(registry: String) -> Result<RecipientAllocation,
 pub fn merge_role_registries(local: String, other: String) -> Result<String, SignerError> {
     let a = RoleRegistry::parse(&local)?;
     let b = RoleRegistry::parse(&other)?;
-    Ok(RoleRegistry { version: REGISTRY_VERSION, next_recipient: a.next_recipient.max(b.next_recipient) }.json())
+    Ok(RoleRegistry {
+        version: REGISTRY_VERSION,
+        next_recipient: a.next_recipient.max(b.next_recipient),
+    }
+    .json())
 }
 
 /// Registry that covers every recipient index up to and including `highest_used`.
@@ -75,8 +89,15 @@ pub fn role_registry_covering(highest_used: u32) -> Result<String, SignerError> 
     if highest_used < FIRST_RECIPIENT {
         return Ok(role_registry_initial());
     }
-    let next = highest_used.checked_add(1).filter(|n| *n <= MAX_INDEX).ok_or(SignerError::InvalidInput)?;
-    Ok(RoleRegistry { version: REGISTRY_VERSION, next_recipient: next }.json())
+    let next = highest_used
+        .checked_add(1)
+        .filter(|n| *n <= MAX_INDEX)
+        .ok_or(SignerError::InvalidInput)?;
+    Ok(RoleRegistry {
+        version: REGISTRY_VERSION,
+        next_recipient: next,
+    }
+    .json())
 }
 
 pub(crate) fn seed_from_entropy(entropy: Vec<u8>) -> Result<Zeroizing<[u8; 64]>, SignerError> {
@@ -84,7 +105,8 @@ pub(crate) fn seed_from_entropy(entropy: Vec<u8>) -> Result<Zeroizing<[u8; 64]>,
     if entropy.len() != 32 {
         return Err(SignerError::InvalidInput);
     }
-    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).map_err(|_| SignerError::CryptoFailed)?;
+    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)
+        .map_err(|_| SignerError::CryptoFailed)?;
     Ok(Zeroizing::new(mnemonic.to_seed("")))
 }
 
@@ -92,19 +114,34 @@ pub(crate) fn derive_key(seed: &[u8; 64], index: u32) -> Result<XPrv, SignerErro
     if index > MAX_INDEX {
         return Err(SignerError::InvalidInput);
     }
-    let path: DerivationPath = format!("m/44'/60'/0'/0/{index}").parse().map_err(|_| SignerError::InvalidInput)?;
+    let path: DerivationPath = format!("m/44'/60'/0'/0/{index}")
+        .parse()
+        .map_err(|_| SignerError::InvalidInput)?;
     XPrv::derive_from_path(seed, &path).map_err(|_| SignerError::CryptoFailed)
 }
 
 /// Public addresses for `count` consecutive indices; used by restore scanning with a gap limit.
 #[uniffi::export]
-pub fn derive_account_address_range(entropy: Vec<u8>, start: u32, count: u32) -> Result<Vec<String>, SignerError> {
-    if count == 0 || count > MAX_RANGE || start.checked_add(count - 1).is_none_or(|last| last > MAX_INDEX) {
+pub fn derive_account_address_range(
+    entropy: Vec<u8>,
+    start: u32,
+    count: u32,
+) -> Result<Vec<String>, SignerError> {
+    if count == 0
+        || count > MAX_RANGE
+        || start
+            .checked_add(count - 1)
+            .is_none_or(|last| last > MAX_INDEX)
+    {
         return Err(SignerError::InvalidInput);
     }
     let seed = seed_from_entropy(entropy)?;
     (start..start + count)
-        .map(|index| Ok(address(derive_key(&seed, index)?.private_key().verifying_key())))
+        .map(|index| {
+            Ok(address(
+                derive_key(&seed, index)?.private_key().verifying_key(),
+            ))
+        })
         .collect()
 }
 
@@ -120,7 +157,10 @@ mod tests {
         assert_eq!(second.indices, vec![6, 7, 8]);
         let merged = merge_role_registries(second.registry.clone(), first.registry).unwrap();
         assert_eq!(merged, second.registry);
-        assert_eq!(allocate_swap_recipients(merged).unwrap().indices, vec![9, 10, 11]);
+        assert_eq!(
+            allocate_swap_recipients(merged).unwrap().indices,
+            vec![9, 10, 11]
+        );
     }
 
     #[test]
@@ -138,7 +178,12 @@ mod tests {
     #[test]
     fn covering_registry_starts_after_the_highest_used_index() {
         assert_eq!(role_registry_covering(0).unwrap(), role_registry_initial());
-        assert_eq!(allocate_swap_recipients(role_registry_covering(20).unwrap()).unwrap().indices, vec![21, 22, 23]);
+        assert_eq!(
+            allocate_swap_recipients(role_registry_covering(20).unwrap())
+                .unwrap()
+                .indices,
+            vec![21, 22, 23]
+        );
     }
 
     #[test]
@@ -147,7 +192,10 @@ mod tests {
         let range = derive_account_address_range(vec![0; 32], 0, 20).unwrap();
         assert_eq!(&range[..16], &legacy[..]);
         assert_eq!(range.len(), 20);
-        assert_eq!(derive_account_address_range(vec![0; 32], 17, 1).unwrap()[0], range[17]);
+        assert_eq!(
+            derive_account_address_range(vec![0; 32], 17, 1).unwrap()[0],
+            range[17]
+        );
         assert!(derive_account_address_range(vec![0; 32], 0, 65).is_err());
         assert!(derive_account_address_range(vec![0; 32], MAX_INDEX, 2).is_err());
     }

@@ -10,7 +10,9 @@ internal const val INITIAL_ROLE_REGISTRY = """{"version":1,"nextRecipient":3}"""
 internal fun requireRoleRegistry(value: String) {
   require(value.length in 1..1024)
   val parsed = JSONObject(value)
-  require(parsed.length() == 2 && parsed.getInt("version") == 1 && parsed.getInt("nextRecipient") >= 3)
+  require(
+    parsed.length() == 2 && parsed.getInt("version") == 1 && parsed.getInt("nextRecipient") >= 3
+  )
 }
 
 /** Native-only model; deliberately not a data class (no secret-bearing toString/copy). */
@@ -147,7 +149,10 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
     requireRoleRegistry(registry)
     load().use { current ->
       check(current.id == expectedId)
-      check(JSONObject(registry).getInt("nextRecipient") >= JSONObject(current.roleRegistry).getInt("nextRecipient"))
+      check(
+        JSONObject(registry).getInt("nextRecipient") >=
+          JSONObject(current.roleRegistry).getInt("nextRecipient")
+      )
       WalletRecord(
           current.id,
           current.credential,

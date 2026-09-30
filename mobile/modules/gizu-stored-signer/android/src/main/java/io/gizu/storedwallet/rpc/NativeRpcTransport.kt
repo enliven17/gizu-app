@@ -44,7 +44,8 @@ internal class NativeRpcTransport(
           .url(url)
           .method(
             method,
-            if (method == "GET") null else (body ?: "").toRequestBody("application/json".toMediaType()),
+            if (method == "GET") null
+            else (body ?: "").toRequestBody("application/json".toMediaType()),
           )
           .build()
       val call = client.newCall(request)
@@ -100,7 +101,10 @@ internal class NativeRpcTransport(
         url.startsWith("http://127.0.0.1:") ||
           url.startsWith("http://localhost:") ||
           url.startsWith("http://10.0.2.2:")
-      return (url.startsWith("https://") || local) && !url.contains('?') && !url.contains('#') && url.length <= 300
+      return (url.startsWith("https://") || local) &&
+        !url.contains('?') &&
+        !url.contains('#') &&
+        url.length <= 300
     }
   }
 }

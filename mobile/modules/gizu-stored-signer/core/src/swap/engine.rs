@@ -5,8 +5,11 @@ use super::evm;
 use super::funding::{self, FundingChain, UnsignedAuthorization, UserOperation};
 use super::fusion::{self, ApprovedOrder, LimitOrder, Permit};
 use super::pins::*;
-use crate::roles::{CONFIDENTIAL_ACCOUNT, FIRST_RECIPIENT, FUNDING_ACCOUNT, RECIPIENTS_PER_SWAP, derive_key, seed_from_entropy};
 use crate::SignerError;
+use crate::roles::{
+    CONFIDENTIAL_ACCOUNT, FIRST_RECIPIENT, FUNDING_ACCOUNT, RECIPIENTS_PER_SWAP, derive_key,
+    seed_from_entropy,
+};
 use alloy_primitives::{Address, B256, U256, keccak256};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -26,57 +29,115 @@ const POLL_MS: u64 = 5_000;
 /// settled by the request deadline, and a Monad credit took about three minutes on mainnet.
 const QUOTE_MARGIN_MS: u64 = 10 * 60_000;
 const RESUBMIT_AFTER_POLLS: u32 = 36;
-const PROBE_RECIPIENT: Address = alloy_primitives::address!("0x000000000000000000000000000000000000dEaD");
+const PROBE_RECIPIENT: Address =
+    alloy_primitives::address!("0x000000000000000000000000000000000000dEaD");
 
 #[derive(uniffi::Enum, Debug, PartialEq, Eq)]
 pub enum SwapStep {
     /// Perform exactly this request, then call `on_response` with the same id.
-    Request { id: u64, method: String, url: String, body: Option<String> },
-    Wait { millis: u64 },
+    Request {
+        id: u64,
+        method: String,
+        url: String,
+        body: Option<String>,
+    },
+    Wait {
+        millis: u64,
+    },
     /// Show this text in the native review; `approve` only after a passkey assertion.
-    Review { text: String },
+    Review {
+        text: String,
+    },
     /// The 15-minute authorization lapsed; a new passkey unlock is required for the same plan.
     Unlock,
     Finished,
-    Paused { code: String },
+    Paused {
+        code: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "step", rename_all = "camelCase")]
 enum Step {
     Assets,
-    SourceChain { execute: bool },
+    SourceChain {
+        execute: bool,
+    },
     TargetChain,
     FundingProbe,
-    FundingQuote { attempt: u8 },
-    FundingPrepare { attempt: u8, execute: bool },
-    PayoutEstimate { index: usize },
+    FundingQuote {
+        attempt: u8,
+    },
+    FundingPrepare {
+        attempt: u8,
+        execute: bool,
+    },
+    PayoutEstimate {
+        index: usize,
+    },
     FusionEstimate,
     Review,
     FundingSign,
     FundingSubmit,
-    FundingReceipt { polls: u32, resubmitted: bool },
+    FundingReceipt {
+        polls: u32,
+        resubmitted: bool,
+    },
     Credit,
     AuthSalt,
-    Authenticate { salt: String },
+    Authenticate {
+        salt: String,
+    },
     Balances,
-    PayoutQuote { index: usize },
-    PayoutIntent { index: usize },
-    PayoutSubmit { index: usize },
-    PayoutStatus { index: usize, polls: u32, resubmitted: bool },
-    PayoutBalance { index: usize },
-    FusionBalance { index: usize },
-    FusionPreview { index: usize },
-    FusionPermit { index: usize },
-    FusionOrder { index: usize },
-    FusionSign { index: usize },
-    FusionSubmit { index: usize },
-    FusionStatus { index: usize },
-    FusionReceipts { index: usize },
-    FusionAfter { index: usize },
+    PayoutQuote {
+        index: usize,
+    },
+    PayoutIntent {
+        index: usize,
+    },
+    PayoutSubmit {
+        index: usize,
+    },
+    PayoutStatus {
+        index: usize,
+        polls: u32,
+        resubmitted: bool,
+    },
+    PayoutBalance {
+        index: usize,
+    },
+    FusionBalance {
+        index: usize,
+    },
+    FusionPreview {
+        index: usize,
+    },
+    FusionPermit {
+        index: usize,
+    },
+    FusionOrder {
+        index: usize,
+    },
+    FusionSign {
+        index: usize,
+    },
+    FusionSubmit {
+        index: usize,
+    },
+    FusionStatus {
+        index: usize,
+    },
+    FusionReceipts {
+        index: usize,
+    },
+    FusionAfter {
+        index: usize,
+    },
     Holdings,
     RecoveryScan,
-    SellQuote { index: usize },
+    SellQuote {
+        index: usize,
+    },
     Done,
 }
 
@@ -208,13 +269,23 @@ fn outcome(status: u16, body: &str) -> Outcome {
         return Outcome::Transient;
     }
     let value = serde_json::from_str(body).unwrap_or(Value::Null);
-    if (200..300).contains(&status) { Outcome::Ok(value) } else { Outcome::Rejected(status, value) }
+    if (200..300).contains(&status) {
+        Outcome::Ok(value)
+    } else {
+        Outcome::Rejected(status, value)
+    }
 }
 
 fn gateway_base(url: &str) -> Result<String, SignerError> {
     let trimmed = url.trim_end_matches('/');
-    let local = ["http://127.0.0.1:", "http://localhost:", "http://10.0.2.2:"].iter().any(|p| trimmed.starts_with(p));
-    if trimmed.len() > 200 || !(trimmed.starts_with("https://") || local) || trimmed.contains('?') || trimmed.contains('#') {
+    let local = ["http://127.0.0.1:", "http://localhost:", "http://10.0.2.2:"]
+        .iter()
+        .any(|p| trimmed.starts_with(p));
+    if trimmed.len() > 200
+        || !(trimmed.starts_with("https://") || local)
+        || trimmed.contains('?')
+        || trimmed.contains('#')
+    {
         return Err(SignerError::InvalidInput);
     }
     Ok(trimmed.to_string())
@@ -226,22 +297,39 @@ fn usdc(v: U256) -> String {
 fn units(v: U256, decimals: u8) -> String {
     let scale = U256::from(10u64).pow(U256::from(decimals));
     let frac = (v % scale).to_string();
-    format!("{}.{}{}", v / scale, "0".repeat(decimals as usize - frac.len().min(decimals as usize)), frac)
+    format!(
+        "{}.{}{}",
+        v / scale,
+        "0".repeat(decimals as usize - frac.len().min(decimals as usize)),
+        frac
+    )
 }
 
 fn call_data(signature: &str, args: &[Address]) -> String {
-    evm::encode_call(signature, &args.iter().map(|a| evm::word_address(*a)).collect::<Vec<_>>())
+    evm::encode_call(
+        signature,
+        &args
+            .iter()
+            .map(|a| evm::word_address(*a))
+            .collect::<Vec<_>>(),
+    )
 }
 
 fn rpc_result(batch: &Value, id: u64) -> Result<&Value, SignerError> {
     batch
         .as_array()
-        .and_then(|items| items.iter().find(|item| item.get("id").and_then(Value::as_u64) == Some(id)))
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item.get("id").and_then(Value::as_u64) == Some(id))
+        })
         .and_then(|item| item.get("result"))
         .ok_or(SignerError::InvalidInput)
 }
 fn rpc_uint(batch: &Value, id: u64) -> Result<U256, SignerError> {
-    let s = rpc_result(batch, id)?.as_str().ok_or(SignerError::InvalidInput)?;
+    let s = rpc_result(batch, id)?
+        .as_str()
+        .ok_or(SignerError::InvalidInput)?;
     if s == "0x" {
         return Ok(U256::ZERO);
     }
@@ -252,10 +340,18 @@ fn rpc_uint(batch: &Value, id: u64) -> Result<U256, SignerError> {
     Ok(U256::from_be_slice(&bytes))
 }
 fn rpc_quantity(batch: &Value, id: u64) -> Result<U256, SignerError> {
-    evm::quantity(rpc_result(batch, id)?.as_str().ok_or(SignerError::InvalidInput)?)
+    evm::quantity(
+        rpc_result(batch, id)?
+            .as_str()
+            .ok_or(SignerError::InvalidInput)?,
+    )
 }
 fn abi_string(batch: &Value, id: u64) -> Result<String, SignerError> {
-    let bytes = evm::hex_bytes(rpc_result(batch, id)?.as_str().ok_or(SignerError::InvalidInput)?)?;
+    let bytes = evm::hex_bytes(
+        rpc_result(batch, id)?
+            .as_str()
+            .ok_or(SignerError::InvalidInput)?,
+    )?;
     let reader = evm::AbiReader::new(&bytes);
     let text = reader.bytes(reader.usize(0)?)?;
     if text.len() > 32 {
@@ -265,7 +361,9 @@ fn abi_string(batch: &Value, id: u64) -> Result<String, SignerError> {
 }
 
 fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str, SignerError> {
-    v.get(key).and_then(Value::as_str).ok_or(SignerError::InvalidInput)
+    v.get(key)
+        .and_then(Value::as_str)
+        .ok_or(SignerError::InvalidInput)
 }
 
 impl Engine {
@@ -275,7 +373,12 @@ impl Engine {
     fn request(&mut self, method: &str, url: String, body: Option<Value>) -> SwapStep {
         self.m.next_id += 1;
         self.m.pending = Some(self.m.next_id);
-        SwapStep::Request { id: self.m.next_id, method: method.into(), url, body: body.map(|b| b.to_string()) }
+        SwapStep::Request {
+            id: self.m.next_id,
+            method: method.into(),
+            url,
+            body: body.map(|b| b.to_string()),
+        }
     }
     fn get(&mut self, path: &str) -> SwapStep {
         let url = self.url(path);
@@ -287,7 +390,11 @@ impl Engine {
     }
     fn rpc(&mut self, chain: &str, calls: Vec<(&str, Value)>) -> SwapStep {
         let batch: Vec<Value> = calls.into_iter().enumerate().map(|(i, (method, params))| json!({"jsonrpc": "2.0", "id": i, "method": method, "params": params})).collect();
-        let url = if chain == "monad" { MONAD_RPC } else { ROBINHOOD_RPC };
+        let url = if chain == "monad" {
+            MONAD_RPC
+        } else {
+            ROBINHOOD_RPC
+        };
         self.request("POST", url.into(), Some(Value::Array(batch)))
     }
     fn eth_call(to: Address, data: String) -> Value {
@@ -301,7 +408,9 @@ impl Engine {
         if now >= self.m.session_until_ms {
             self.seed = None;
         }
-        self.seed.is_some() && self.m.approved_ms.is_some() && now < self.m.created_ms + OPERATION_MS
+        self.seed.is_some()
+            && self.m.approved_ms.is_some()
+            && now < self.m.created_ms + OPERATION_MS
     }
     fn pause(&mut self, code: &str) -> SwapStep {
         self.m.paused = Some(code.into());
@@ -342,25 +451,42 @@ impl Engine {
         if self.payout_only() {
             return Ok(self.m.data.available);
         }
-        Ok(self.m.data.funding_quote.as_ref().ok_or(SignerError::InvalidInput)?.amount_out)
+        Ok(self
+            .m
+            .data
+            .funding_quote
+            .as_ref()
+            .ok_or(SignerError::InvalidInput)?
+            .amount_out)
     }
     fn holder(&self, i: usize) -> Address {
-        if self.sell() { self.m.holders[i] } else { self.m.recipients[i] }
+        if self.sell() {
+            self.m.holders[i]
+        } else {
+            self.m.recipients[i]
+        }
     }
     fn signer_index(&self, i: usize) -> u32 {
         if self.sell() {
-            self.m.plan.holder_indices.map(|h| h[i]).unwrap_or(self.recipient_index(i))
+            self.m
+                .plan
+                .holder_indices
+                .map(|h| h[i])
+                .unwrap_or(self.recipient_index(i))
         } else {
             self.recipient_index(i)
         }
     }
     fn next_sell_index(&self, from: usize) -> Option<usize> {
-        (from..3).find(|&i| !self.m.data.orders[i].amount.is_zero() && !self.m.data.orders[i].complete)
+        (from..3)
+            .find(|&i| !self.m.data.orders[i].amount.is_zero() && !self.m.data.orders[i].complete)
     }
 
     fn next(&mut self, now: u64) -> Result<SwapStep, SignerError> {
         if self.m.cancelled {
-            return Ok(SwapStep::Paused { code: "CANCELLED".into() });
+            return Ok(SwapStep::Paused {
+                code: "CANCELLED".into(),
+            });
         }
         if let Some(code) = &self.m.paused {
             return Ok(SwapStep::Paused { code: code.clone() });
@@ -371,7 +497,9 @@ impl Engine {
             self.lost_submit();
         }
         if now < self.m.wait_until_ms {
-            return Ok(SwapStep::Wait { millis: self.m.wait_until_ms - now });
+            return Ok(SwapStep::Wait {
+                millis: self.m.wait_until_ms - now,
+            });
         }
         if let Some(text) = &self.m.reapproval {
             return Ok(SwapStep::Review { text: text.clone() });
@@ -649,27 +777,57 @@ impl Engine {
     }
 
     fn sign_funding(&mut self, now: u64) -> Result<(), SignerError> {
-        let (op, authorization) = self.m.data.prepared.clone().ok_or(SignerError::InvalidInput)?;
-        let quote = self.m.data.funding_quote.clone().ok_or(SignerError::InvalidInput)?;
+        let (op, authorization) = self
+            .m
+            .data
+            .prepared
+            .clone()
+            .ok_or(SignerError::InvalidInput)?;
+        let quote = self
+            .m
+            .data
+            .funding_quote
+            .clone()
+            .ok_or(SignerError::InvalidInput)?;
         let chain = self.chain()?;
-        let checked = funding::check_funding(&op, authorization.as_ref(), self.m.source, evm::addr(&quote.deposit_address)?, self.m.data.funding_amount, self.m.data.budget, &chain, now / 1000)?;
+        let checked = funding::check_funding(
+            &op,
+            authorization.as_ref(),
+            self.m.source,
+            evm::addr(&quote.deposit_address)?,
+            self.m.data.funding_amount,
+            self.m.data.budget,
+            &chain,
+            now / 1000,
+        )?;
         let key = self.key(FUNDING_ACCOUNT)?;
         if evm::key_address(&key) != self.m.source {
             return Err(SignerError::CryptoFailed);
         }
         let signature = evm::sign(&key, checked.hash)?;
         let auth_signature = match &authorization {
-            Some(a) => Some(evm::sign(&key, evm::authorization_hash(a.chain_id, a.address, a.nonce))?),
+            Some(a) => Some(evm::sign(
+                &key,
+                evm::authorization_hash(a.chain_id, a.address, a.nonce),
+            )?),
             None => None,
         };
-        let rpc = funding::rpc_operation(&op, &signature, authorization.as_ref().zip(auth_signature.as_ref()));
+        let rpc = funding::rpc_operation(
+            &op,
+            &signature,
+            authorization.as_ref().zip(auth_signature.as_ref()),
+        );
         self.m.data.signed_operation = Some((checked.hash, rpc));
         self.m.data.funding_fee = checked.fee_cap;
         Ok(())
     }
 
     fn chain(&self) -> Result<FundingChain, SignerError> {
-        Ok(FundingChain { code: evm::hex_bytes(&self.m.data.code)?, transaction_count: self.m.data.transaction_count, paymaster_allowance: self.m.data.allowance })
+        Ok(FundingChain {
+            code: evm::hex_bytes(&self.m.data.code)?,
+            transaction_count: self.m.data.transaction_count,
+            paymaster_allowance: self.m.data.allowance,
+        })
     }
 
     fn respond(&mut self, id: u64, status: u16, body: &str, now: u64) -> Result<(), SignerError> {
@@ -679,7 +837,10 @@ impl Engine {
         self.m.pending = None;
         let result = outcome(status, body);
         if let Outcome::Transient = result {
-            let submit = matches!(self.m.step, Step::FundingSubmit | Step::PayoutSubmit { .. } | Step::FusionSubmit { .. });
+            let submit = matches!(
+                self.m.step,
+                Step::FundingSubmit | Step::PayoutSubmit { .. } | Step::FusionSubmit { .. }
+            );
             if submit {
                 // Outcome unknown: look it up, never sign again.
                 self.lost_submit();
@@ -715,14 +876,27 @@ impl Engine {
         };
         match (step, rejected) {
             (Step::Assets, None) => {
-                let tokens = value.get("tokens").and_then(Value::as_array).ok_or(SignerError::InvalidInput)?;
+                let tokens = value
+                    .get("tokens")
+                    .and_then(Value::as_array)
+                    .ok_or(SignerError::InvalidInput)?;
                 let find = |chain: &str, contract: Address| -> Result<String, SignerError> {
                     let matches: Vec<_> = tokens
                         .iter()
-                        .filter(|t| t.get("blockchain").and_then(Value::as_str) == Some(chain) && t.get("contractAddress").and_then(Value::as_str).and_then(|c| evm::addr(c).ok()) == Some(contract))
+                        .filter(|t| {
+                            t.get("blockchain").and_then(Value::as_str) == Some(chain)
+                                && t.get("contractAddress")
+                                    .and_then(Value::as_str)
+                                    .and_then(|c| evm::addr(c).ok())
+                                    == Some(contract)
+                        })
                         .collect();
                     match matches.as_slice() {
-                        [t] if t.get("decimals").and_then(Value::as_u64) == Some(u64::from(USDC_DECIMALS)) => Ok(text(t, "assetId")?.to_string()),
+                        [t] if t.get("decimals").and_then(Value::as_u64)
+                            == Some(u64::from(USDC_DECIMALS)) =>
+                        {
+                            Ok(text(t, "assetId")?.to_string())
+                        }
                         _ => Err(SignerError::InvalidInput),
                     }
                 };
@@ -755,7 +929,11 @@ impl Engine {
                 let (mut held, mut empty) = (Vec::new(), Vec::new());
                 for (id, i) in range.enumerate() {
                     let usdg = rpc_uint(&value, id as u64)?;
-                    if usdg.is_zero() { empty.push(i) } else { held.push((i, usdg)) }
+                    if usdg.is_zero() {
+                        empty.push(i)
+                    } else {
+                        held.push((i, usdg))
+                    }
                 }
                 if held.is_empty() {
                     self.m.paused = Some("NOTHING_TO_RECOVER".into());
@@ -802,15 +980,23 @@ impl Engine {
                     return Err(SignerError::InvalidInput);
                 }
                 let balance = rpc_uint(&value, 1)?;
-                self.m.data.code = rpc_result(&value, 2)?.as_str().ok_or(SignerError::InvalidInput)?.to_string();
-                self.m.data.transaction_count = rpc_quantity(&value, 3)?.try_into().map_err(|_| SignerError::InvalidInput)?;
+                self.m.data.code = rpc_result(&value, 2)?
+                    .as_str()
+                    .ok_or(SignerError::InvalidInput)?
+                    .to_string();
+                self.m.data.transaction_count = rpc_quantity(&value, 3)?
+                    .try_into()
+                    .map_err(|_| SignerError::InvalidInput)?;
                 self.m.data.allowance = rpc_uint(&value, 4)?;
                 if execute {
                     if balance < self.m.data.budget {
                         self.m.paused = Some("SOURCE_BALANCE_CHANGED".into());
                         return Ok(());
                     }
-                    self.go(Step::FundingPrepare { attempt: 0, execute: true });
+                    self.go(Step::FundingPrepare {
+                        attempt: 0,
+                        execute: true,
+                    });
                 } else {
                     let requested = match &self.m.plan.amount_atoms {
                         Some(a) => evm::decimal(a)?,
@@ -826,7 +1012,8 @@ impl Engine {
                 }
             }
             (Step::FundingProbe, None) => {
-                let op: UserOperation = serde_json::from_value(value["userOperation"].clone()).map_err(|_| SignerError::InvalidInput)?;
+                let op: UserOperation = serde_json::from_value(value["userOperation"].clone())
+                    .map_err(|_| SignerError::InvalidInput)?;
                 let fee = funding::fee_cap(&op, now / 1000)?;
                 if fee >= self.m.data.budget {
                     self.m.paused = Some("FEE_EXCEEDS_BUDGET".into());
@@ -837,21 +1024,39 @@ impl Engine {
                 self.go(Step::FundingQuote { attempt: 0 });
             }
             (Step::FundingQuote { attempt }, None) => {
-                let request = self.m.data.funding_request.clone().ok_or(SignerError::InvalidInput)?;
+                let request = self
+                    .m
+                    .data
+                    .funding_request
+                    .clone()
+                    .ok_or(SignerError::InvalidInput)?;
                 let quote = aurora::check_quote(&request, &value, now)?;
-                if quote.amount_in != self.m.data.funding_amount || quote.amount_out > U256::from(MAX_SOURCE_ATOMS) {
+                if quote.amount_in != self.m.data.funding_amount
+                    || quote.amount_out > U256::from(MAX_SOURCE_ATOMS)
+                {
                     return Err(SignerError::InvalidInput);
                 }
                 evm::addr(&quote.deposit_address)?;
                 self.m.data.funding_quote = Some(quote);
                 self.m.data.prepared = None;
-                self.go(Step::FundingPrepare { attempt, execute: self.m.approved_ms.is_some() });
+                self.go(Step::FundingPrepare {
+                    attempt,
+                    execute: self.m.approved_ms.is_some(),
+                });
             }
             (Step::FundingPrepare { attempt, execute }, None) => {
-                let op: UserOperation = serde_json::from_value(value["userOperation"].clone()).map_err(|_| SignerError::InvalidInput)?;
-                let authorization: Option<UnsignedAuthorization> = serde_json::from_value(value["authorization"].clone()).map_err(|_| SignerError::InvalidInput)?;
+                let op: UserOperation = serde_json::from_value(value["userOperation"].clone())
+                    .map_err(|_| SignerError::InvalidInput)?;
+                let authorization: Option<UnsignedAuthorization> =
+                    serde_json::from_value(value["authorization"].clone())
+                        .map_err(|_| SignerError::InvalidInput)?;
                 let fee = funding::fee_cap(&op, now / 1000)?;
-                let room = self.m.data.budget.checked_sub(self.m.data.funding_amount).ok_or(SignerError::InvalidInput)?;
+                let room = self
+                    .m
+                    .data
+                    .budget
+                    .checked_sub(self.m.data.funding_amount)
+                    .ok_or(SignerError::InvalidInput)?;
                 if fee > room {
                     // Gas price moved up. Reserve headroom and requote inside the same budget.
                     // A lower or equal fee still pays the quoted amount, so it does not requote.
@@ -860,27 +1065,66 @@ impl Engine {
                         return Ok(());
                     }
                     let reserved = fee.saturating_add(fee / U256::from(4));
-                    let next = self.m.data.budget.checked_sub(reserved).filter(|n| !n.is_zero()).ok_or(SignerError::InvalidInput)?;
+                    let next = self
+                        .m
+                        .data
+                        .budget
+                        .checked_sub(reserved)
+                        .filter(|n| !n.is_zero())
+                        .ok_or(SignerError::InvalidInput)?;
                     self.m.data.funding_amount = next;
-                    self.go(Step::FundingQuote { attempt: attempt + 1 });
+                    self.go(Step::FundingQuote {
+                        attempt: attempt + 1,
+                    });
                     return Ok(());
                 }
-                let deposit = evm::addr(&self.m.data.funding_quote.as_ref().ok_or(SignerError::InvalidInput)?.deposit_address)?;
-                let checked = funding::check_funding(&op, authorization.as_ref(), self.m.source, deposit, self.m.data.funding_amount, self.m.data.budget, &self.chain()?, now / 1000)?;
+                let deposit = evm::addr(
+                    &self
+                        .m
+                        .data
+                        .funding_quote
+                        .as_ref()
+                        .ok_or(SignerError::InvalidInput)?
+                        .deposit_address,
+                )?;
+                let checked = funding::check_funding(
+                    &op,
+                    authorization.as_ref(),
+                    self.m.source,
+                    deposit,
+                    self.m.data.funding_amount,
+                    self.m.data.budget,
+                    &self.chain()?,
+                    now / 1000,
+                )?;
                 self.m.data.funding_fee = checked.fee_cap;
                 self.m.data.prepared = Some((op, authorization));
-                self.go(if execute { Step::FundingSign } else { Step::PayoutEstimate { index: 0 } });
+                self.go(if execute {
+                    Step::FundingSign
+                } else {
+                    Step::PayoutEstimate { index: 0 }
+                });
             }
             (Step::PayoutEstimate { index }, None) => {
                 let portion = aurora::split(self.payout_base()?)[index];
-                let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &self.m.data.source_asset, &self.m.data.destination_asset, portion);
+                let request = QuoteRequest::payout(
+                    self.m.confidential,
+                    self.m.recipients[index],
+                    &self.m.data.source_asset,
+                    &self.m.data.destination_asset,
+                    portion,
+                );
                 let quote = aurora::check_quote(&request, &value, now)?;
                 if quote.amount_in > portion {
                     return Err(SignerError::InvalidInput);
                 }
                 self.m.data.estimates.truncate(index);
                 self.m.data.estimates.push((portion, quote.min_amount_out));
-                self.go(if index == 2 { Step::FusionEstimate } else { Step::PayoutEstimate { index: index + 1 } });
+                self.go(if index == 2 {
+                    Step::FusionEstimate
+                } else {
+                    Step::PayoutEstimate { index: index + 1 }
+                });
             }
             (Step::FusionEstimate, None) => {
                 let end = evm::decimal(text(&value, "auctionEndAmount")?)?;
@@ -892,15 +1136,26 @@ impl Engine {
                 self.go(Step::Review);
             }
             (Step::FundingSubmit, None) => {
-                let (hash, _) = self.m.data.signed_operation.clone().ok_or(SignerError::InvalidInput)?;
+                let (hash, _) = self
+                    .m
+                    .data
+                    .signed_operation
+                    .clone()
+                    .ok_or(SignerError::InvalidInput)?;
                 if !text(&value, "userOperationHash")?.eq_ignore_ascii_case(&format!("{hash:#x}")) {
                     return Err(SignerError::InvalidInput);
                 }
-                self.go(Step::FundingReceipt { polls: 0, resubmitted: false });
+                self.go(Step::FundingReceipt {
+                    polls: 0,
+                    resubmitted: false,
+                });
                 self.wait(now, POLL_MS);
             }
             (Step::FundingSubmit, Some(_)) => {
-                self.go(Step::FundingReceipt { polls: 0, resubmitted: false });
+                self.go(Step::FundingReceipt {
+                    polls: 0,
+                    resubmitted: false,
+                });
                 self.wait(now, POLL_MS);
             }
             (Step::FundingReceipt { polls, resubmitted }, None) => {
@@ -915,13 +1170,18 @@ impl Engine {
                     self.m.resubmits += 1;
                     self.m.step = Step::FundingSubmit;
                 } else {
-                    self.m.step = Step::FundingReceipt { polls: polls + 1, resubmitted };
+                    self.m.step = Step::FundingReceipt {
+                        polls: polls + 1,
+                        resubmitted,
+                    };
                 }
                 self.wait(now, POLL_MS);
             }
             (Step::Credit, None) => match text(&value, "status")? {
                 "SUCCESS" => self.go(Step::AuthSalt),
-                "REFUNDED" | "FAILED" => self.m.paused = Some(format!("FUNDING_{}", text(&value, "status")?)),
+                "REFUNDED" | "FAILED" => {
+                    self.m.paused = Some(format!("FUNDING_{}", text(&value, "status")?))
+                }
                 _ => self.wait(now, POLL_MS * 2),
             },
             (Step::AuthSalt, None) => {
@@ -932,13 +1192,21 @@ impl Engine {
                 self.m.data.access_token = Some(text(&value, "accessToken")?.to_string());
                 self.go(Step::Balances);
             }
-            (Step::Authenticate { .. }, Some(401)) | (Step::Balances, Some(401)) if self.payout_only() => {
+            (Step::Authenticate { .. }, Some(401)) | (Step::Balances, Some(401))
+                if self.payout_only() =>
+            {
                 // Without a confirmed balance there is nothing to split.
                 self.m.paused = Some("PRIVATE_BALANCE_UNAVAILABLE".into());
             }
             (Step::Authenticate { .. }, Some(401)) | (Step::Balances, Some(401)) => {
                 // Research fallback: a route-confirmed credit uses the quote's guaranteed minimum.
-                let minimum = self.m.data.funding_quote.as_ref().ok_or(SignerError::InvalidInput)?.min_amount_out;
+                let minimum = self
+                    .m
+                    .data
+                    .funding_quote
+                    .as_ref()
+                    .ok_or(SignerError::InvalidInput)?
+                    .min_amount_out;
                 self.credit(minimum, "route_success_minimum")?;
             }
             (Step::Balances, None) => {
@@ -961,7 +1229,10 @@ impl Engine {
                 self.credit(available, "authenticated_balance")?;
             }
             (Step::PayoutQuote { index }, None) => {
-                let request = self.m.data.payouts[index].request.clone().ok_or(SignerError::InvalidInput)?;
+                let request = self.m.data.payouts[index]
+                    .request
+                    .clone()
+                    .ok_or(SignerError::InvalidInput)?;
                 let quote = aurora::check_quote(&request, &value, now)?;
                 let portion = self.m.data.payouts[index].portion;
                 if quote.amount_in > portion {
@@ -972,10 +1243,22 @@ impl Engine {
                     self.go(Step::PayoutIntent { index });
                     return Ok(());
                 }
-                let (planned_portion, planned_min) = self.m.data.estimates.get(index).copied().ok_or(SignerError::InvalidInput)?;
-                let floor = portion * planned_min * U256::from(10_000 - PRICE_TOLERANCE_BPS) / U256::from(10_000);
+                let (planned_portion, planned_min) = self
+                    .m
+                    .data
+                    .estimates
+                    .get(index)
+                    .copied()
+                    .ok_or(SignerError::InvalidInput)?;
+                let floor = portion * planned_min * U256::from(10_000 - PRICE_TOLERANCE_BPS)
+                    / U256::from(10_000);
                 if quote.min_amount_out * planned_portion < floor {
-                    self.m.reapproval = Some(self.requote_text(&format!("Payout {} now guarantees at least {} USDG for {} USDC.", index + 1, usdc(quote.min_amount_out), usdc(portion))));
+                    self.m.reapproval = Some(self.requote_text(&format!(
+                        "Payout {} now guarantees at least {} USDG for {} USDC.",
+                        index + 1,
+                        usdc(quote.min_amount_out),
+                        usdc(portion)
+                    )));
                     return Ok(());
                 }
                 self.go(Step::PayoutIntent { index });
@@ -984,11 +1267,23 @@ impl Engine {
                 if !self.can_sign(now) {
                     return Ok(());
                 }
-                let intent = value.get("intent").cloned().ok_or(SignerError::InvalidInput)?;
-                let quote = self.m.data.payouts[index].quote.clone().ok_or(SignerError::InvalidInput)?;
+                let intent = value
+                    .get("intent")
+                    .cloned()
+                    .ok_or(SignerError::InvalidInput)?;
+                let quote = self.m.data.payouts[index]
+                    .quote
+                    .clone()
+                    .ok_or(SignerError::InvalidInput)?;
                 let payload = text(&intent, "payload")?;
                 let token = aurora::private_token_id(payload, &self.m.data.source_asset)?;
-                if self.m.data.private_token_id.as_ref().is_some_and(|t| *t != token) {
+                if self
+                    .m
+                    .data
+                    .private_token_id
+                    .as_ref()
+                    .is_some_and(|t| *t != token)
+                {
                     return Err(SignerError::InvalidInput);
                 }
                 let portion = self.m.data.payouts[index].portion;
@@ -996,40 +1291,93 @@ impl Engine {
                 if quoted.is_zero() || quoted > portion {
                     return Err(SignerError::InvalidInput);
                 }
-                let payload = aurora::check_intent(&intent, self.m.confidential, &quote.deposit_address, &token, portion, now)
-                    .or_else(|_| aurora::check_intent(&intent, self.m.confidential, &quote.deposit_address, &token, quoted, now))?;
+                let payload = aurora::check_intent(
+                    &intent,
+                    self.m.confidential,
+                    &quote.deposit_address,
+                    &token,
+                    portion,
+                    now,
+                )
+                .or_else(|_| {
+                    aurora::check_intent(
+                        &intent,
+                        self.m.confidential,
+                        &quote.deposit_address,
+                        &token,
+                        quoted,
+                        now,
+                    )
+                })?;
                 let key = self.key(CONFIDENTIAL_ACCOUNT)?;
                 let sig = evm::sign(&key, evm::personal_hash(payload.as_bytes()))?;
                 self.m.data.private_token_id = Some(token);
-                self.m.data.payouts[index].signed = Some(json!({"standard": "erc191", "payload": payload, "signature": aurora::encode_signature(&sig)}));
+                self.m.data.payouts[index].signed = Some(
+                    json!({"standard": "erc191", "payload": payload, "signature": aurora::encode_signature(&sig)}),
+                );
                 self.go(Step::PayoutSubmit { index });
             }
             (Step::PayoutSubmit { index }, reject) => {
                 if reject.is_none() {
-                    self.m.data.payouts[index].intent_hash = Some(text(&value, "intentHash")?.to_string());
+                    self.m.data.payouts[index].intent_hash =
+                        Some(text(&value, "intentHash")?.to_string());
                 }
                 if self.sell() {
-                    self.go(Step::PayoutStatus { index, polls: 0, resubmitted: false });
+                    self.go(Step::PayoutStatus {
+                        index,
+                        polls: 0,
+                        resubmitted: false,
+                    });
                 } else {
-                    self.go(if index == 2 { Step::PayoutStatus { index: 0, polls: 0, resubmitted: false } } else { Step::PayoutQuote { index: index + 1 } });
+                    self.go(if index == 2 {
+                        Step::PayoutStatus {
+                            index: 0,
+                            polls: 0,
+                            resubmitted: false,
+                        }
+                    } else {
+                        Step::PayoutQuote { index: index + 1 }
+                    });
                 }
             }
-            (Step::PayoutStatus { index, polls, resubmitted }, None) => match text(&value, "status")? {
+            (
+                Step::PayoutStatus {
+                    index,
+                    polls,
+                    resubmitted,
+                },
+                None,
+            ) => match text(&value, "status")? {
                 "SUCCESS" => self.go(Step::PayoutBalance { index }),
-                "REFUNDED" | "FAILED" => self.m.paused = Some(format!("PAYOUT_{}_{}", index + 1, text(&value, "status")?)),
-                "PENDING_DEPOSIT" | "INCOMPLETE_DEPOSIT" if polls >= RESUBMIT_AFTER_POLLS && (resubmitted || self.m.data.payouts[index].intent_hash.is_none()) && self.m.resubmits < 3 => {
+                "REFUNDED" | "FAILED" => {
+                    self.m.paused =
+                        Some(format!("PAYOUT_{}_{}", index + 1, text(&value, "status")?))
+                }
+                "PENDING_DEPOSIT" | "INCOMPLETE_DEPOSIT"
+                    if polls >= RESUBMIT_AFTER_POLLS
+                        && (resubmitted || self.m.data.payouts[index].intent_hash.is_none())
+                        && self.m.resubmits < 3 =>
+                {
                     self.m.resubmits += 1;
                     self.m.step = Step::PayoutSubmit { index };
                 }
                 _ => {
-                    self.m.step = Step::PayoutStatus { index, polls: polls + 1, resubmitted };
+                    self.m.step = Step::PayoutStatus {
+                        index,
+                        polls: polls + 1,
+                        resubmitted,
+                    };
                     self.wait(now, POLL_MS * 2);
                 }
             },
             (Step::PayoutBalance { index }, None) => {
                 if self.sell() {
                     let usdc_out = rpc_uint(&value, 0)?;
-                    let min = self.m.data.payouts[index].quote.as_ref().ok_or(SignerError::InvalidInput)?.min_amount_out;
+                    let min = self.m.data.payouts[index]
+                        .quote
+                        .as_ref()
+                        .ok_or(SignerError::InvalidInput)?
+                        .min_amount_out;
                     if usdc_out < min {
                         self.wait(now, POLL_MS);
                         return Ok(());
@@ -1041,16 +1389,32 @@ impl Engine {
                     return Ok(());
                 }
                 let usdg = rpc_uint(&value, 0)?;
-                let min = self.m.data.payouts[index].quote.as_ref().ok_or(SignerError::InvalidInput)?.min_amount_out;
+                let min = self.m.data.payouts[index]
+                    .quote
+                    .as_ref()
+                    .ok_or(SignerError::InvalidInput)?
+                    .min_amount_out;
                 if usdg < min {
                     self.wait(now, POLL_MS);
                     return Ok(());
                 }
                 self.m.data.payouts[index].delivered = usdg;
-                self.go(if index == 2 { Step::FusionBalance { index: 0 } } else { Step::PayoutStatus { index: index + 1, polls: 0, resubmitted: false } });
+                self.go(if index == 2 {
+                    Step::FusionBalance { index: 0 }
+                } else {
+                    Step::PayoutStatus {
+                        index: index + 1,
+                        polls: 0,
+                        resubmitted: false,
+                    }
+                });
             }
             (Step::FusionBalance { index }, None) => {
-                let (usdg, target, eth) = (rpc_uint(&value, 0)?, rpc_uint(&value, 1)?, rpc_quantity(&value, 2)?);
+                let (usdg, target, eth) = (
+                    rpc_uint(&value, 0)?,
+                    rpc_uint(&value, 1)?,
+                    rpc_quantity(&value, 2)?,
+                );
                 if !eth.is_zero() {
                     self.m.paused = Some(format!("RECIPIENT_{}_HOLDS_ETH", index + 1));
                     return Ok(());
@@ -1084,15 +1448,26 @@ impl Engine {
                     self.go(Step::SellQuote { index });
                     return Ok(());
                 }
-                let floor = amount * self.m.data.rate_end * U256::from(10_000 - PRICE_TOLERANCE_BPS) / U256::from(10_000);
+                let floor =
+                    amount * self.m.data.rate_end * U256::from(10_000 - PRICE_TOLERANCE_BPS)
+                        / U256::from(10_000);
                 if min_out * self.m.data.rate_amount < floor {
-                    self.m.reapproval = Some(self.requote_text(&format!("Order {} now returns at least {} {} for {} USDG.", index + 1, units(min_out, self.m.data.target_decimals), self.m.data.target_symbol, usdc(amount))));
+                    self.m.reapproval = Some(self.requote_text(&format!(
+                        "Order {} now returns at least {} {} for {} USDG.",
+                        index + 1,
+                        units(min_out, self.m.data.target_decimals),
+                        self.m.data.target_symbol,
+                        usdc(amount)
+                    )));
                     return Ok(());
                 }
                 self.go(Step::FusionPermit { index });
             }
             (Step::SellQuote { index }, None) => {
-                let request = self.m.data.payouts[index].request.clone().ok_or(SignerError::InvalidInput)?;
+                let request = self.m.data.payouts[index]
+                    .request
+                    .clone()
+                    .ok_or(SignerError::InvalidInput)?;
                 let quote = aurora::check_quote(&request, &value, now)?;
                 let expected = self.m.data.orders[index].min_out;
                 if quote.amount_in > expected {
@@ -1110,7 +1485,11 @@ impl Engine {
                 let permit = Permit {
                     name: text(&value, "name")?.to_string(),
                     version: text(&value, "version")?.to_string(),
-                    token: if self.sell() { self.m.plan.target } else { ROBINHOOD_USDG },
+                    token: if self.sell() {
+                        self.m.plan.target
+                    } else {
+                        ROBINHOOD_USDG
+                    },
                     owner: self.holder(index),
                     value: self.m.data.orders[index].amount,
                     nonce: evm::decimal(text(&value, "nonce")?)?,
@@ -1124,39 +1503,58 @@ impl Engine {
                 self.go(Step::FusionOrder { index });
             }
             (Step::FusionOrder { index }, None) => {
-                let order: LimitOrder = serde_json::from_value(value["order"].clone()).map_err(|_| SignerError::InvalidInput)?;
+                let order: LimitOrder = serde_json::from_value(value["order"].clone())
+                    .map_err(|_| SignerError::InvalidInput)?;
                 let extension = text(&value, "extension")?.to_string();
                 let o = self.m.data.orders[index].clone();
                 let deposit = if self.sell() {
-                    evm::addr(&o.inbound.as_ref().ok_or(SignerError::InvalidInput)?.deposit_address)?
+                    evm::addr(
+                        &o.inbound
+                            .as_ref()
+                            .ok_or(SignerError::InvalidInput)?
+                            .deposit_address,
+                    )?
                 } else {
                     Address::ZERO
                 };
                 let approved = ApprovedOrder {
                     maker: self.holder(index),
-                    target: if self.sell() { ROBINHOOD_USDG } else { self.m.plan.target },
+                    target: if self.sell() {
+                        ROBINHOOD_USDG
+                    } else {
+                        self.m.plan.target
+                    },
                     amount: o.amount,
                     min_out: o.min_out,
                     permit: evm::hex_bytes(o.permit.as_deref().ok_or(SignerError::InvalidInput)?)?,
                     permit_deadline: o.permit_deadline,
-                    maker_asset: if self.sell() { self.m.plan.target } else { ROBINHOOD_USDG },
+                    maker_asset: if self.sell() {
+                        self.m.plan.target
+                    } else {
+                        ROBINHOOD_USDG
+                    },
                     receiver: deposit,
                 };
-                let checked = match fusion::check_order_detail(&order, &extension, &approved, now / 1000) {
-                    Ok(checked) => checked,
-                    // Nothing is signed yet: a price move below the minimum, or a permit too close to
-                    // its deadline after a pause, earns a fresh preview and permit.
-                    Err(fusion::OrderReject::BelowMinimum | fusion::OrderReject::Expiry) if self.m.data.orders[index].requotes < MAX_ORDER_REQUOTES => {
-                        self.m.data.orders[index].requotes += 1;
-                        self.go(Step::FusionPreview { index });
-                        return Ok(());
-                    }
-                    Err(reason) => {
-                        self.m.paused = Some(format!("FUSION_{}_ORDER_{}", index + 1, reason.code()));
-                        return Ok(());
-                    }
-                };
-                if !text(&value, "orderHash")?.eq_ignore_ascii_case(&format!("{:#x}", checked.hash)) {
+                let checked =
+                    match fusion::check_order_detail(&order, &extension, &approved, now / 1000) {
+                        Ok(checked) => checked,
+                        // Nothing is signed yet: a price move below the minimum, or a permit too close to
+                        // its deadline after a pause, earns a fresh preview and permit.
+                        Err(fusion::OrderReject::BelowMinimum | fusion::OrderReject::Expiry)
+                            if self.m.data.orders[index].requotes < MAX_ORDER_REQUOTES =>
+                        {
+                            self.m.data.orders[index].requotes += 1;
+                            self.go(Step::FusionPreview { index });
+                            return Ok(());
+                        }
+                        Err(reason) => {
+                            self.m.paused =
+                                Some(format!("FUSION_{}_ORDER_{}", index + 1, reason.code()));
+                            return Ok(());
+                        }
+                    };
+                if !text(&value, "orderHash")?.eq_ignore_ascii_case(&format!("{:#x}", checked.hash))
+                {
                     self.m.paused = Some(format!("FUSION_{}_ORDER_HASH", index + 1));
                     return Ok(());
                 }
@@ -1175,15 +1573,27 @@ impl Engine {
             }
             (Step::FusionStatus { index }, None) => {
                 let status = text(&value, "status")?.to_string();
-                let fills = value.get("fills").and_then(Value::as_array).ok_or(SignerError::InvalidInput)?;
+                let fills = value
+                    .get("fills")
+                    .and_then(Value::as_array)
+                    .ok_or(SignerError::InvalidInput)?;
                 self.m.data.orders[index].fills = fills
                     .iter()
-                    .map(|f| Ok((text(f, "txHash")?.to_string(), evm::decimal(text(f, "filledMakerAmount")?)?)))
+                    .map(|f| {
+                        Ok((
+                            text(f, "txHash")?.to_string(),
+                            evm::decimal(text(f, "filledMakerAmount")?)?,
+                        ))
+                    })
                     .collect::<Result<_, SignerError>>()?;
                 match status.as_str() {
                     "filled" => self.go(Step::FusionReceipts { index }),
-                    "expired" | "cancelled" | "not-accepted" | "not_accepted" => self.go(Step::FusionReceipts { index }),
-                    _ if now / 1000 > self.m.data.orders[index].expiration + 60 => self.go(Step::FusionReceipts { index }),
+                    "expired" | "cancelled" | "not-accepted" | "not_accepted" => {
+                        self.go(Step::FusionReceipts { index })
+                    }
+                    _ if now / 1000 > self.m.data.orders[index].expiration + 60 => {
+                        self.go(Step::FusionReceipts { index })
+                    }
                     _ => self.wait(now, POLL_MS),
                 }
             }
@@ -1197,12 +1607,26 @@ impl Engine {
             (Step::FusionReceipts { index }, None) => {
                 let maker = self.holder(index);
                 let dest = if self.sell() {
-                    evm::addr(&self.m.data.orders[index].inbound.as_ref().ok_or(SignerError::InvalidInput)?.deposit_address)?
+                    evm::addr(
+                        &self.m.data.orders[index]
+                            .inbound
+                            .as_ref()
+                            .ok_or(SignerError::InvalidInput)?
+                            .deposit_address,
+                    )?
                 } else {
                     maker
                 };
-                let from_token = if self.sell() { self.m.plan.target } else { ROBINHOOD_USDG };
-                let to_token = if self.sell() { ROBINHOOD_USDG } else { self.m.plan.target };
+                let from_token = if self.sell() {
+                    self.m.plan.target
+                } else {
+                    ROBINHOOD_USDG
+                };
+                let to_token = if self.sell() {
+                    ROBINHOOD_USDG
+                } else {
+                    self.m.plan.target
+                };
                 let topic = keccak256("Transfer(address,address,uint256)");
                 let mut swapped = U256::ZERO;
                 let mut received = U256::ZERO;
@@ -1212,8 +1636,18 @@ impl Engine {
                         self.m.paused = Some(format!("FUSION_{}_FILL_REVERTED", index + 1));
                         return Ok(());
                     }
-                    for log in receipt.get("logs").and_then(Value::as_array).ok_or(SignerError::InvalidInput)? {
-                        let topics: Vec<B256> = log.get("topics").and_then(Value::as_array).ok_or(SignerError::InvalidInput)?.iter().filter_map(|t| t.as_str()?.parse().ok()).collect();
+                    for log in receipt
+                        .get("logs")
+                        .and_then(Value::as_array)
+                        .ok_or(SignerError::InvalidInput)?
+                    {
+                        let topics: Vec<B256> = log
+                            .get("topics")
+                            .and_then(Value::as_array)
+                            .ok_or(SignerError::InvalidInput)?
+                            .iter()
+                            .filter_map(|t| t.as_str()?.parse().ok())
+                            .collect();
                         if topics.len() != 3 || topics[0] != topic {
                             continue;
                         }
@@ -1229,7 +1663,10 @@ impl Engine {
                         }
                     }
                 }
-                let filled = self.m.data.orders[index].fills.iter().fold(U256::ZERO, |sum, (_, v)| sum + *v);
+                let filled = self.m.data.orders[index]
+                    .fills
+                    .iter()
+                    .fold(U256::ZERO, |sum, (_, v)| sum + *v);
                 if swapped != filled {
                     self.m.paused = Some(format!("FUSION_{}_UNRECONCILED", index + 1));
                     return Ok(());
@@ -1240,11 +1677,18 @@ impl Engine {
                 self.go(Step::FusionAfter { index });
             }
             (Step::FusionAfter { index }, None) => {
-                let (usdg, target, eth) = (rpc_uint(&value, 0)?, rpc_uint(&value, 1)?, rpc_quantity(&value, 2)?);
+                let (usdg, target, eth) = (
+                    rpc_uint(&value, 0)?,
+                    rpc_uint(&value, 1)?,
+                    rpc_quantity(&value, 2)?,
+                );
                 let o = self.m.data.orders[index].clone();
                 if self.sell() {
                     let filled_all = o.swapped == o.amount;
-                    if !eth.is_zero() || target.checked_add(o.swapped) != Some(o.before_target) || o.received < o.min_out {
+                    if !eth.is_zero()
+                        || target.checked_add(o.swapped) != Some(o.before_target)
+                        || o.received < o.min_out
+                    {
                         self.m.paused = Some(format!("FUSION_{}_UNRECONCILED", index + 1));
                         return Ok(());
                     }
@@ -1267,7 +1711,12 @@ impl Engine {
                     return Ok(());
                 }
                 let filled_all = o.swapped == o.amount;
-                if !eth.is_zero() || o.before_usdg.checked_sub(o.swapped) != Some(usdg) || target < o.before_target || target - o.before_target != o.received || (filled_all && o.received < o.min_out) {
+                if !eth.is_zero()
+                    || o.before_usdg.checked_sub(o.swapped) != Some(usdg)
+                    || target < o.before_target
+                    || target - o.before_target != o.received
+                    || (filled_all && o.received < o.min_out)
+                {
                     self.m.paused = Some(format!("FUSION_{}_UNRECONCILED", index + 1));
                     return Ok(());
                 }
@@ -1283,10 +1732,27 @@ impl Engine {
                     self.go(Step::FusionBalance { index });
                 }
             }
-            (Step::Assets | Step::TargetChain | Step::SourceChain { .. } | Step::Holdings, Some(_)) => self.m.paused = Some("PLANNING_UNAVAILABLE".into()),
-            (Step::FundingProbe | Step::FundingPrepare { .. }, Some(_)) => self.m.paused = Some("FUNDING_UNAVAILABLE".into()),
-            (Step::FundingQuote { .. } | Step::PayoutEstimate { .. } | Step::PayoutQuote { .. } | Step::SellQuote { .. }, Some(_)) => self.m.paused = Some("QUOTE_REJECTED".into()),
-            (Step::FusionEstimate | Step::FusionPreview { .. } | Step::FusionOrder { .. } | Step::FusionPermit { .. }, Some(_)) => self.m.paused = Some("FUSION_UNAVAILABLE".into()),
+            (
+                Step::Assets | Step::TargetChain | Step::SourceChain { .. } | Step::Holdings,
+                Some(_),
+            ) => self.m.paused = Some("PLANNING_UNAVAILABLE".into()),
+            (Step::FundingProbe | Step::FundingPrepare { .. }, Some(_)) => {
+                self.m.paused = Some("FUNDING_UNAVAILABLE".into())
+            }
+            (
+                Step::FundingQuote { .. }
+                | Step::PayoutEstimate { .. }
+                | Step::PayoutQuote { .. }
+                | Step::SellQuote { .. },
+                Some(_),
+            ) => self.m.paused = Some("QUOTE_REJECTED".into()),
+            (
+                Step::FusionEstimate
+                | Step::FusionPreview { .. }
+                | Step::FusionOrder { .. }
+                | Step::FusionPermit { .. },
+                Some(_),
+            ) => self.m.paused = Some("FUSION_UNAVAILABLE".into()),
             (_, Some(code)) => self.m.paused = Some(format!("PROVIDER_{code}")),
             _ => return Err(SignerError::InvalidInput),
         }
@@ -1300,7 +1766,9 @@ impl Engine {
         self.m.data.available = available;
         self.m.data.credit_basis = Some(basis.into());
         self.m.data.access_token = None;
-        self.go(Step::PayoutQuote { index: if self.sell() { self.m.data.leg } else { 0 } });
+        self.go(Step::PayoutQuote {
+            index: if self.sell() { self.m.data.leg } else { 0 },
+        });
         Ok(())
     }
 
@@ -1311,21 +1779,34 @@ impl Engine {
                 None => self.go(Step::Done),
             }
         } else {
-            self.go(if index == 2 { Step::Done } else { Step::FusionBalance { index: index + 1 } });
+            self.go(if index == 2 {
+                Step::Done
+            } else {
+                Step::FusionBalance { index: index + 1 }
+            });
         }
     }
 
     fn lost_submit(&mut self) {
         self.m.step = match self.m.step.clone() {
-            Step::FundingSubmit => Step::FundingReceipt { polls: 0, resubmitted: true },
-            Step::PayoutSubmit { index } => Step::PayoutStatus { index, polls: 0, resubmitted: true },
+            Step::FundingSubmit => Step::FundingReceipt {
+                polls: 0,
+                resubmitted: true,
+            },
+            Step::PayoutSubmit { index } => Step::PayoutStatus {
+                index,
+                polls: 0,
+                resubmitted: true,
+            },
             Step::FusionSubmit { index } => Step::FusionStatus { index },
             other => other,
         };
     }
 
     fn requote_text(&self, change: &str) -> String {
-        format!("QUOTE CHANGED OUTSIDE THE APPROVED LIMITS\n\n{change}\n\nApprove to continue with this quote, or cancel. Funds already moved stay where they are: see Swap status.")
+        format!(
+            "QUOTE CHANGED OUTSIDE THE APPROVED LIMITS\n\n{change}\n\nApprove to continue with this quote, or cancel. Funds already moved stay where they are: see Swap status."
+        )
     }
 
     fn review(&self) -> String {
@@ -1348,17 +1829,17 @@ impl Engine {
             )
         } else {
             format!(
-            "CONFIDENTIAL SWAP · MAINNET\nMonad USDC → confidential balance → Robinhood USDG → {sym}\n\nTarget {sym} ({dec} decimals)\nContract {target}\n\nFunding wallet F {f}\nF USDC balance {bal}\nUsed now {amount} USDC + gas at most {fee} USDC (paid in USDC)\nConfidential balance C {c}\nExpected private credit {out} USDC (at least {min})\n",
-            sym = d.target_symbol,
-            dec = d.target_decimals,
-            target = self.m.plan.target.to_checksum(None),
-            f = self.m.source.to_checksum(None),
-            bal = usdc(d.source_balance),
-            amount = usdc(d.funding_amount),
-            fee = usdc(d.funding_fee),
-            c = self.m.confidential.to_checksum(None),
-            out = q.map(|q| usdc(q.amount_out)).unwrap_or_default(),
-            min = q.map(|q| usdc(q.min_amount_out)).unwrap_or_default(),
+                "CONFIDENTIAL SWAP · MAINNET\nMonad USDC → confidential balance → Robinhood USDG → {sym}\n\nTarget {sym} ({dec} decimals)\nContract {target}\n\nFunding wallet F {f}\nF USDC balance {bal}\nUsed now {amount} USDC + gas at most {fee} USDC (paid in USDC)\nConfidential balance C {c}\nExpected private credit {out} USDC (at least {min})\n",
+                sym = d.target_symbol,
+                dec = d.target_decimals,
+                target = self.m.plan.target.to_checksum(None),
+                f = self.m.source.to_checksum(None),
+                bal = usdc(d.source_balance),
+                amount = usdc(d.funding_amount),
+                fee = usdc(d.funding_fee),
+                c = self.m.confidential.to_checksum(None),
+                out = q.map(|q| usdc(q.amount_out)).unwrap_or_default(),
+                min = q.map(|q| usdc(q.min_amount_out)).unwrap_or_default(),
             )
         };
         for (i, (portion, min)) in d.estimates.iter().enumerate() {
@@ -1381,8 +1862,18 @@ impl Engine {
             dec = d.target_decimals,
             target = self.m.plan.target.to_checksum(None),
         );
-        for (slot, o) in d.orders.iter().enumerate().filter(|(_, o)| !o.amount.is_zero()) {
-            out.push_str(&format!("\nWallet {}\n  {} USDG → {}\n", self.m.recipients[slot].to_checksum(None), usdc(o.amount), d.target_symbol));
+        for (slot, o) in d
+            .orders
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| !o.amount.is_zero())
+        {
+            out.push_str(&format!(
+                "\nWallet {}\n  {} USDG → {}\n",
+                self.m.recipients[slot].to_checksum(None),
+                usdc(o.amount),
+                d.target_symbol
+            ));
         }
         out.push_str(&format!(
             "\nFusion limit: at least {} {} per {} USDG, 1% slippage, prices may move up to 3% before the app asks again.\n\nPRIVACY: These wallets and their stock balances are public on chain.\n\nOne approval authorizes a permit and an order per wallet for 15 minutes. After 15 minutes you unlock again for this same plan. Steps cannot be undone once submitted.",
@@ -1426,15 +1917,40 @@ impl Engine {
             "REVIEW"
         } else {
             match self.m.step {
-                Step::Assets | Step::SourceChain { execute: false } | Step::TargetChain | Step::Holdings | Step::RecoveryScan | Step::FundingProbe | Step::PayoutEstimate { .. } | Step::FusionEstimate => "PLANNING",
-                Step::FundingQuote { .. } | Step::FundingPrepare { .. } if self.m.approved_ms.is_none() => "PLANNING",
+                Step::Assets
+                | Step::SourceChain { execute: false }
+                | Step::TargetChain
+                | Step::Holdings
+                | Step::RecoveryScan
+                | Step::FundingProbe
+                | Step::PayoutEstimate { .. }
+                | Step::FusionEstimate => "PLANNING",
+                Step::FundingQuote { .. } | Step::FundingPrepare { .. }
+                    if self.m.approved_ms.is_none() =>
+                {
+                    "PLANNING"
+                }
                 Step::Review if self.m.approved_ms.is_none() => "REVIEW",
-                Step::Review | Step::SourceChain { .. } | Step::FundingQuote { .. } | Step::FundingPrepare { .. } | Step::FundingSign | Step::FundingSubmit | Step::FundingReceipt { .. } => "FUNDING",
-                Step::AuthSalt | Step::Authenticate { .. } | Step::Balances if self.m.approved_ms.is_none() => "PLANNING",
+                Step::Review
+                | Step::SourceChain { .. }
+                | Step::FundingQuote { .. }
+                | Step::FundingPrepare { .. }
+                | Step::FundingSign
+                | Step::FundingSubmit
+                | Step::FundingReceipt { .. } => "FUNDING",
+                Step::AuthSalt | Step::Authenticate { .. } | Step::Balances
+                    if self.m.approved_ms.is_none() =>
+                {
+                    "PLANNING"
+                }
                 // `Credit` still waits for Aurora; the balance is credited once it succeeds.
                 Step::Credit => "FUNDING",
                 Step::AuthSalt | Step::Authenticate { .. } | Step::Balances => "CREDITED",
-                Step::PayoutQuote { .. } | Step::PayoutIntent { .. } | Step::PayoutSubmit { .. } | Step::PayoutStatus { .. } | Step::PayoutBalance { .. } => "PAYOUTS",
+                Step::PayoutQuote { .. }
+                | Step::PayoutIntent { .. }
+                | Step::PayoutSubmit { .. }
+                | Step::PayoutStatus { .. }
+                | Step::PayoutBalance { .. } => "PAYOUTS",
                 Step::Done => "COMPLETE",
                 _ => "FUSION",
             }
@@ -1468,7 +1984,10 @@ fn status_body(quote: &Quote) -> Value {
 }
 
 fn step_name(step: &Step) -> String {
-    serde_json::to_value(step).ok().and_then(|v| v.get("step").and_then(Value::as_str).map(str::to_string)).unwrap_or_default()
+    serde_json::to_value(step)
+        .ok()
+        .and_then(|v| v.get("step").and_then(Value::as_str).map(str::to_string))
+        .unwrap_or_default()
 }
 
 #[derive(uniffi::Object)]
@@ -1481,7 +2000,12 @@ impl SwapOperation {
     /// `plan` is buy `{"kind":"confidentialSwap",...}`, sell `{"kind":"confidentialSell","holderIndices":[…],…}`,
     /// or a buy from C's existing private balance `{"kind":"confidentialPayout",...}` (no amount, no Monad funding).
     #[uniffi::constructor]
-    pub fn start(plan: String, entropy: Vec<u8>, gateway: String, now_ms: u64) -> Result<Arc<Self>, SignerError> {
+    pub fn start(
+        plan: String,
+        entropy: Vec<u8>,
+        gateway: String,
+        now_ms: u64,
+    ) -> Result<Arc<Self>, SignerError> {
         if plan.len() > 2048 {
             return Err(SignerError::InvalidInput);
         }
@@ -1491,15 +2015,32 @@ impl SwapOperation {
         let payout = plan.kind == "confidentialPayout";
         let recovery = plan.kind == "confidentialRecovery";
         // Only recovery scans, and it scans only indices the registry already allocated.
-        if recovery != plan.scan_to.is_some() || plan.scan_to.is_some_and(|end| end < FIRST_RECIPIENT + RECIPIENTS_PER_SWAP) {
+        if recovery != plan.scan_to.is_some()
+            || plan
+                .scan_to
+                .is_some_and(|end| end < FIRST_RECIPIENT + RECIPIENTS_PER_SWAP)
+        {
             return Err(SignerError::InvalidInput);
         }
-        if (plan.kind != "confidentialSwap" && !sell && !payout && !recovery) || a < FIRST_RECIPIENT || a == b || b == c || a == c || b < FIRST_RECIPIENT || c < FIRST_RECIPIENT {
+        if (plan.kind != "confidentialSwap" && !sell && !payout && !recovery)
+            || a < FIRST_RECIPIENT
+            || a == b
+            || b == c
+            || a == c
+            || b < FIRST_RECIPIENT
+            || c < FIRST_RECIPIENT
+        {
             return Err(SignerError::InvalidInput);
         }
         let holders = if sell {
             let [h0, h1, h2] = plan.holder_indices.ok_or(SignerError::InvalidInput)?;
-            if h0 < FIRST_RECIPIENT || h1 < FIRST_RECIPIENT || h2 < FIRST_RECIPIENT || h0 == h1 || h1 == h2 || h0 == h2 {
+            if h0 < FIRST_RECIPIENT
+                || h1 < FIRST_RECIPIENT
+                || h2 < FIRST_RECIPIENT
+                || h0 == h1
+                || h1 == h2
+                || h0 == h2
+            {
                 return Err(SignerError::InvalidInput);
             }
             let used = [h0, h1, h2, a, b, c];
@@ -1529,7 +2070,16 @@ impl SwapOperation {
         };
         let machine = Machine {
             version: STATE_VERSION,
-            id: format!("{:#x}", keccak256(format!("{}:{}:{:?}:{}", now_ms, at(FUNDING_ACCOUNT)?, plan.recipient_indices, plan.kind))),
+            id: format!(
+                "{:#x}",
+                keccak256(format!(
+                    "{}:{}:{:?}:{}",
+                    now_ms,
+                    at(FUNDING_ACCOUNT)?,
+                    plan.recipient_indices,
+                    plan.kind
+                ))
+            ),
             source: at(FUNDING_ACCOUNT)?,
             confidential: at(CONFIDENTIAL_ACCOUNT)?,
             recipients: [at(a)?, at(b)?, at(c)?],
@@ -1549,7 +2099,13 @@ impl SwapOperation {
             wait_until_ms: 0,
             data: Data::default(),
         };
-        Ok(Arc::new(Self { inner: Mutex::new(Engine { m: machine, gateway: gateway_base(&gateway)?, seed: Some(seed) }) }))
+        Ok(Arc::new(Self {
+            inner: Mutex::new(Engine {
+                m: machine,
+                gateway: gateway_base(&gateway)?,
+                seed: Some(seed),
+            }),
+        }))
     }
 
     /// Resumes a persisted operation without key material; signing waits for `unlock`.
@@ -1559,7 +2115,13 @@ impl SwapOperation {
         if m.version != STATE_VERSION {
             return Err(SignerError::InvalidInput);
         }
-        Ok(Arc::new(Self { inner: Mutex::new(Engine { m, gateway: gateway_base(&gateway)?, seed: None }) }))
+        Ok(Arc::new(Self {
+            inner: Mutex::new(Engine {
+                m,
+                gateway: gateway_base(&gateway)?,
+                seed: None,
+            }),
+        }))
     }
 
     pub fn next_step(&self, now_ms: u64) -> Result<SwapStep, SignerError> {
@@ -1567,7 +2129,13 @@ impl SwapOperation {
         e.next(now_ms)
     }
 
-    pub fn on_response(&self, id: u64, status: u16, body: String, now_ms: u64) -> Result<(), SignerError> {
+    pub fn on_response(
+        &self,
+        id: u64,
+        status: u16,
+        body: String,
+        now_ms: u64,
+    ) -> Result<(), SignerError> {
         if body.len() > 1 << 20 {
             return Err(SignerError::InvalidInput);
         }
@@ -1578,7 +2146,11 @@ impl SwapOperation {
     /// Called only by the native review after a passkey assertion. Opens the 15-minute authorization.
     pub fn approve(&self, now_ms: u64) -> Result<(), SignerError> {
         let mut e = self.inner.lock().map_err(|_| SignerError::CryptoFailed)?;
-        if e.m.cancelled || e.seed.is_none() || now_ms >= e.m.session_until_ms || now_ms >= e.m.created_ms + OPERATION_MS {
+        if e.m.cancelled
+            || e.seed.is_none()
+            || now_ms >= e.m.session_until_ms
+            || now_ms >= e.m.created_ms + OPERATION_MS
+        {
             e.seed = None;
             return Err(SignerError::Expired);
         }
@@ -1610,12 +2182,20 @@ impl SwapOperation {
         }
         let seed = seed_from_entropy(entropy)?;
         let holders_ok = match e.m.plan.holder_indices {
-            Some(indices) => indices.iter().zip(e.m.holders).all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a)),
+            Some(indices) => indices
+                .iter()
+                .zip(e.m.holders)
+                .all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a)),
             None => e.m.holders.iter().all(|a| a.is_zero()),
         };
         let same = evm::key_address(&derive_key(&seed, FUNDING_ACCOUNT)?) == e.m.source
             && evm::key_address(&derive_key(&seed, CONFIDENTIAL_ACCOUNT)?) == e.m.confidential
-            && e.m.plan.recipient_indices.iter().zip(e.m.recipients).all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a))
+            && e.m
+                .plan
+                .recipient_indices
+                .iter()
+                .zip(e.m.recipients)
+                .all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a))
             && holders_ok;
         if !same {
             return Err(SignerError::InvalidInput);
@@ -1652,11 +2232,17 @@ impl SwapOperation {
 
     /// Public phase status for JS: no addresses, hashes or signed data.
     pub fn public_status(&self) -> String {
-        self.inner.lock().map(|e| e.public_status().to_string()).unwrap_or_else(|_| "{}".into())
+        self.inner
+            .lock()
+            .map(|e| e.public_status().to_string())
+            .unwrap_or_else(|_| "{}".into())
     }
 
     pub fn operation_id(&self) -> String {
-        self.inner.lock().map(|e| e.m.id.clone()).unwrap_or_default()
+        self.inner
+            .lock()
+            .map(|e| e.m.id.clone())
+            .unwrap_or_default()
     }
 }
 
