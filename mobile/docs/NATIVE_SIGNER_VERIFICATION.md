@@ -212,7 +212,7 @@ JavaScript configuration cannot enable another chain or bypass native approval.
 Local verification: 249 app tests with coverage, TypeScript, lint, formatting and
 21/21 Expo Doctor checks passed. Thirteen native tests passed in Release mode with
 test-only internal visibility enabled. The unsigned iPhone Release archive built
-successfully and contains its JavaScript bundle, iOS 18 minimum and expected beta
+successfully and contains its JavaScript bundle, iOS 18 minimum and expected release
 identity/flag. Test-only internal visibility was not enabled for the app archive.
 These results do not establish real passkey/provider, Keychain or backup behavior.
 
@@ -223,4 +223,13 @@ frontend association addition must be deployed. The app icon now uses the existi
 white Gizu mark on its dark background. The TestFlight profile points to
 `https://gizu-backend.onrender.com`. Export compliance and
 external Beta App Review are unresolved. No build was uploaded or distributed.
-See [TestFlight setup](../README.md#ios-testflight-beta).
+See [TestFlight setup](../README.md#production-builds-and-testflight-distribution).
+
+## Production configuration — 2026-09-30
+
+The production profile now targets the existing Gizu app and Render API, using
+`gizu.io` as its sole passkey domain. `GizuWalletEnabled` replaces the earlier
+release flag. TestFlight inherits production configuration; no separate beta app
+identity is created. This supersedes the profile configuration described in the
+September 28 snapshot above, not its historical test evidence or pending device
+acceptance. The Android package remains unchanged to preserve local wallet storage.

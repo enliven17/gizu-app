@@ -2,8 +2,10 @@
 
 The frontend publishes `public/.well-known/apple-app-site-association` unchanged
 at `/.well-known/apple-app-site-association`. It authorizes the Gizu development
-iOS app (`588X2UZY3L.com.example.gizu.dev`) to use passkeys for `gizu.io`.
-It does not implement web passkey login or authorize a future production app ID.
+iOS app (`588X2UZY3L.com.example.gizu.dev`) and the TestFlight app
+(`588X2UZY3L.io.gizo.ios`) to use passkeys for `gizu.io`.
+The TestFlight bundle identifier is `io.gizo.ios`, not `io.gizu.ios`.
+This file does not implement web passkey login.
 
 ## Deploy on Render
 
@@ -25,12 +27,16 @@ After deployment, check without following redirects:
 
 ```sh
 curl --fail-with-body -i https://gizu.io/.well-known/apple-app-site-association
+curl --fail-with-body -i https://app-site-association.cdn-apple.com/a/v1/gizu.io
 ```
 
 Confirm HTTP 200, `Content-Type: application/json`, and the JSON from the source
 file. Apple caches domain associations, so a successful deployment may not be
 immediately reflected in passkey requests. The native app must also be correctly
 signed and declare `webcredentials:gizu.io` in its Associated Domains entitlement.
+Check that Apple's cached JSON includes the TestFlight identity before treating
+the domain fix as verified for iPhone testing. Building a new IPA does not refresh
+Apple's cache.
 
 Preserve existing app entries when adding future app IDs. Update this public file
 deliberately when the accepted mobile identity changes.

@@ -7,8 +7,8 @@ internal enum WalletBuildPolicy {
       return true
     #else
       // This flag is embedded in the signed binary, never supplied by JavaScript.
-      // Enabling beta access does not change Rust's Monad testnet transaction policy.
-      return info["GizuTestnetWalletEnabled"] as? Bool == true
+      // Enabling wallet access does not change the native transaction policy.
+      return info["GizuWalletEnabled"] as? Bool == true
     #endif
   }
 }

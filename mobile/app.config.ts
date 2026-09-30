@@ -5,26 +5,26 @@ import { distributionConfig } from "./src/config/distribution";
 
 validatePasskeyMode(process.env.EXPO_PUBLIC_PASSKEY_MODE);
 
-const { testflight, testFlightBundleIdentifier } = distributionConfig(process.env);
+const { release } = distributionConfig(process.env);
 
 const config: ExpoConfig = {
-  name: testflight ? "Gizu" : "Gizu Dev",
+  name: "Gizu",
   slug: "gizu-mobile",
   owner: "okanaslan",
   extra: {
     eas: { projectId: "6f1c36fc-416b-46ec-a3fd-0d5302cbbdce" },
   },
-  version: "0.2.0",
+  version: "0.2.1",
   icon: "./assets/icon.png",
-  scheme: testflight ? "gizu" : "gizu-dev",
+  scheme: "gizu",
   userInterfaceStyle: "dark",
   ios: {
-    bundleIdentifier: testflight ? testFlightBundleIdentifier : identity.iosBundleIdentifier,
+    bundleIdentifier: identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "6",
+    buildNumber: "7",
     infoPlist: {
-      GizuTestnetWalletEnabled: testflight,
+      GizuWalletEnabled: release,
       // Standard cryptography only; France is excluded from distribution (see README).
       ITSAppUsesNonExemptEncryption: false,
     },

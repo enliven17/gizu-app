@@ -47,13 +47,10 @@ installed development app. Rebuild after native dependency/config changes.
 `just mobile-install`, `just mobile-android`, `just mobile-ios` and
 `just mobile-start` are equivalent shortcuts.
 
-Approved local identity: **Gizu Dev**, `com.example.gizu.dev` on both platforms,
-URL scheme `gizu-dev`. These are development placeholders, not registered release
-identifiers. `app.config.ts` rejects the EAS production profile. Development and
-preview profiles exist in `eas.json`; hosted builds still need an explicitly
-selected EAS owner/project and credentials. Nothing has been submitted or published.
-System fonts and a solid-color splash avoid unlicensed frontend font assets.
-The app icon uses the existing white Gizu mark on the dark app background.
+App identity: **Gizu**, iOS `io.gizo.ios`, Android `com.example.gizu.dev`,
+URL scheme `gizu`. The Android package is retained for installation and wallet
+storage continuity; changing it requires an explicit migration. Both platforms
+use `gizu.io` as their passkey relying-party domain.
 
 ## Commands
 
@@ -298,79 +295,56 @@ physical builds still require working signing and domain association.
 These checks do not prove real passkey, Keychain, Files-provider or iPhone recovery
 behavior; no simulator authentication bypass is included.
 
-## iOS TestFlight beta
+## Production builds and TestFlight distribution
 
-The `testflight` EAS profile builds **Gizu** (`io.gizo.ios`) in Release for
-App Store distribution. Its wallet remains restricted to Monad testnet (10143).
-The profile sets `GIZU_BUILD_VARIANT=testflight` so local EAS configuration and
-credential selection use `io.gizo.ios` too. Build numbers are managed manually:
-increment `ios.buildNumber` in `app.config.ts` before each new TestFlight upload.
-The profile embeds `GizuTestnetWalletEnabled` in the native Info.plist; ordinary
-Release builds without that opt-in cannot use the signer. Diagnostic screens and
-mock swap UI remain development-only. Production builds remain blocked.
+The `production` EAS profile builds **Gizu** with the production EAS environment
+and `https://gizu-backend.onrender.com` backend. iOS uses bundle ID `io.gizo.ios`,
+Apple team `588X2UZY3L` and App Store Connect app `6815255408`.
+`testflight` remains a compatibility alias of `production`, not a separate app.
+`preview` inherits the same configuration for internal distribution.
+All profiles use the Gizu name and `gizu` URL scheme. Development builds can still
+use diagnostic screens; release configuration rejects those entry points.
 
-The first distribution targets external testers. Preparing an archive is not
-Apple approval or physical-device acceptance. Before distributing:
+`GizuWalletEnabled` is embedded in the signed iOS release binary. It enables
+wallet access without changing native transaction policy. Mainnet UI and flows
+remain as implemented; release naming does not establish platform feature parity
+or complete the outstanding physical-iPhone acceptance.
 
-- Register `io.gizo.ios` with Associated Domains under team `588X2UZY3L`, and
-  create the matching App Store Connect app record.
-- Deploy the frontend association change and verify
-  `https://gizu.io/.well-known/apple-app-site-association` includes
-  `588X2UZY3L.io.gizo.ios`. The development app entry must remain present.
-- Link this mobile project to the intended Expo account/project using EAS CLI.
-  Obtain Apple distribution credentials and the matching provisioning profile.
-- The TestFlight profile sets `EXPO_PUBLIC_API_URL` to
-  `https://gizu-backend.onrender.com`. An unset URL leaves the vault catalog unavailable; never bake in
-  the developer's localhost. TestFlight config rejects local/IP/HTTP endpoints.
-- Supply a beta description, feedback email, review contact,
-  privacy-policy URL and reviewer instructions in App Store Connect. Do not
-  invent credentials: wallet creation uses the reviewer's own supported passkey.
-- `ITSAppUsesNonExemptEncryption` is false for the current standard-cryptography
-  implementation and distribution excluding France. iOS encrypts wallet records,
-  backups and journals with Apple CryptoKit; Rust provides standard key derivation
-  and signatures. No Apple export-compliance code is configured. See
-  [Apple's documentation requirements](https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption).
-  Keep France excluded from distribution and revisit this declaration before
-  changing cryptography or distribution territories. This setting does not disable
-  encryption or establish that all export-reporting obligations are complete.
-- Complete the deferred physical-iPhone acceptance, especially create → verified
-  backup → reopen, iPhone-to-iPhone recovery, cancellation and testnet transfers.
+The sole passkey domain is `gizu.io`. Deploy the association file and verify both
+the origin and Apple's cache authorize `588X2UZY3L.io.gizo.ios`; see
+[hosting instructions](../frontend/docs/PASSKEY_HOSTING.md). Existing development
+association entries are retained for older installations, not additional domains.
 
-From `mobile/`, after account and release details are ready:
+From `mobile/`, increment `ios.buildNumber` before a new upload, then build locally:
 
 ```sh
-npx eas-cli build --platform ios --profile testflight
+EXPO_NO_DOTENV=1 npx eas-cli build --platform ios --profile production --local --output ./gizu.ipa
 ```
 
-The iOS EAS pre-install hook installs the pinned Rust toolchain and generates
-native libraries/bindings **before CocoaPods**. The ordinary EAS post-install hook
-is too late for this. Android build behavior is unchanged. Successful local tests
-do not prove the remote build worker or distribution credentials are configured.
+The profile explicitly sets the Render API URL and native passkey mode. Local,
+IP and insecure HTTP endpoints are rejected for release builds. The iOS
+pre-install hook builds Rust bindings before CocoaPods. Upload the signed IPA
+with Transporter, or submit with the `production` EAS submission profile.
+TestFlight is Apple's testing distribution channel for this same production app;
+external testing still requires Apple's review and appropriate test information.
 
-Increment `ios.buildNumber` manually before each new TestFlight upload. Configure
-the existing Gizu app's numeric Apple ID as `submit.testflight.ios.ascAppId` before
-submission so EAS does not create another app record. After inspecting the signed artifact, submit the
-specific build through EAS Submit or Xcode Organizer, then select it for an external
-TestFlight group and Beta App Review. Uploading alone does not distribute it.
+`ITSAppUsesNonExemptEncryption` remains false for the current standard-cryptography
+implementation and distribution excluding France. Keep France excluded and
+revisit the declaration before changing cryptography or distribution territories.
+This setting does not disable encryption or establish completion of all
+export-reporting obligations.
 
-Reviewer notes draft: Gizu is a testnet wallet preview. Create a passkey, save
-and reopen an encrypted backup, then use Home/Account and testnet MON transfers.
-No real-money investment or mainnet transaction signing is available. Recovery
-requires the encrypted file and the original passkey. Vault discovery depends on
-the configured catalog service; vault investment actions remain unavailable.
-
-Release-mode native checks can run with:
+Release-mode native checks:
 
 ```sh
 GIZU_IOS_TEST_CONFIGURATION=Release npm run stored-signer:test:ios
 ```
 
-For a local beta prebuild, use `EXPO_NO_DOTENV=1 EAS_BUILD_PROFILE=testflight npx expo
-prebuild --platform ios`; this creates the `Gizu` project. A regular development
-prebuild returns to `GizuDev`. Neither command supplies signing credentials.
+Local production prebuild (does not supply signing credentials):
 
-References: [Expo build hooks](https://docs.expo.dev/build-reference/npm-hooks/),
-[Apple beta test information](https://developer.apple.com/help/app-store-connect/test-a-beta-version/provide-test-information/).
+```sh
+EXPO_NO_DOTENV=1 GIZU_BUILD_VARIANT=production npx expo prebuild --platform ios
+```
 
 ## Native build diagnostics and CI reports
 

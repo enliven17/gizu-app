@@ -2,7 +2,7 @@
 
 Phases 2–4 implement a separate local Expo module, `GizuStoredSigner`, under native
 package `io.gizu.storedwallet`. The retained `gizu-signer` module is unchanged and
-excluded from app linking. This module supports Android development builds and iOS 18+ development/testnet beta builds; physical iOS acceptance remains pending.
+excluded from app linking. This module supports Android development builds and iOS 18+ development and release builds; physical iOS acceptance remains pending.
 
 ## Implemented boundary
 
@@ -136,7 +136,7 @@ SwiftPM discovers the nested source folders; the podspec's recursive Swift glob
 includes them as well. Keep `Generated/` separate and regenerate bindings rather
 than editing them.
 
-The explicit iOS TestFlight profile enables the same testnet policy in Release
-through a signed Info.plist flag (`Support/WalletBuildPolicy.swift`). It does not
+The production profile enables wallet access in Release
+through the signed `GizuWalletEnabled` Info.plist flag (`Support/WalletBuildPolicy.swift`). It does not
 expose debug screens or expand signing policy. Ordinary Release builds remain
-unavailable without that flag. See [beta prerequisites](../../README.md#ios-testflight-beta).
+unavailable without that flag. See [release prerequisites](../../README.md#production-builds-and-testflight-distribution).

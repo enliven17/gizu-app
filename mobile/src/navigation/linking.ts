@@ -2,7 +2,7 @@ import { getStateFromPath, type LinkingOptions } from "@react-navigation/native"
 import type { RootStackParamList } from "./types";
 export function createLinking(signedIn: boolean): LinkingOptions<RootStackParamList> {
   return {
-    prefixes: ["gizu-dev://"],
+    prefixes: ["gizu://", "gizu-dev://"],
     config: {
       screens: {
         Welcome: "",

@@ -3,7 +3,7 @@
   "rpName": "Gizu",
   "sharedWebMobileWallets": true,
   "sharedDevelopmentProductionRp": true,
-  "iosBundleIdentifier": "com.example.gizu.dev",
+  "iosBundleIdentifier": "io.gizo.ios",
   "androidPackage": "com.example.gizu.dev",
   "appleTeamId": "588X2UZY3L",
   "androidSha256Fingerprints": [

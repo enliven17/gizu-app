@@ -92,10 +92,11 @@ pass-through wrappers, a second live ledger or a generic JavaScript signer.
 
 ## Release readiness — M7 / N4
 
-TestFlight preparation now targets external testers with `io.gizo.ios`, using an
-explicit Release-build native testnet gate. See [TestFlight setup](README.md#ios-testflight-beta)
-for the build path and remaining account, domain, backend, metadata and device gates.
-This does not enable production/mainnet signing or complete physical acceptance.
+Production configuration uses Gizu (`io.gizo.ios`) and the signed
+`GizuWalletEnabled` release flag. TestFlight distributes the same app configuration.
+See [release setup](README.md#production-builds-and-testflight-distribution) for
+build instructions. Existing mainnet flows retain their native policies; branding
+and profile changes do not complete physical-device acceptance.
 
 - [ ] Complete the open [native security and device acceptance](docs/NATIVE_SIGNER_VERIFICATION.md#remaining-acceptance).
 - [ ] Independently review signer, native review, FFI copies, dependency/license

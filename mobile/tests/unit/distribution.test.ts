@@ -1,36 +1,35 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { distributionConfig, testFlightBundleIdentifier } from "@/config/distribution";
+import { identity } from "@/config/passkeys";
+import { distributionConfig } from "@/config/distribution";
 
-test("TestFlight explicitly selects the iOS beta identity", () => {
-  expect(
-    distributionConfig({ EAS_BUILD_PROFILE: "testflight", EAS_BUILD_PLATFORM: "ios" }),
-  ).toEqual({
-    testflight: true,
-    testFlightBundleIdentifier: "io.gizo.ios",
-  });
-  expect(distributionConfig({}).testflight).toBe(false);
-  expect(distributionConfig({ GIZU_BUILD_VARIANT: "testflight" }).testflight).toBe(true);
-});
+test.each(["production", "preview", "testflight"])(
+  "%s enables release configuration on both platforms",
+  (profile) => {
+    for (const platform of ["ios", "android"]) {
+      expect(
+        distributionConfig({ EAS_BUILD_PROFILE: profile, EAS_BUILD_PLATFORM: platform }),
+      ).toEqual({ release: true });
+    }
+  },
+);
 
-test("production, diagnostic entry points and Android TestFlight builds remain blocked", () => {
-  expect(() => distributionConfig({ EAS_BUILD_PROFILE: "production" })).toThrow("blocked");
+test("local development remains available and production rejects diagnostics", () => {
+  expect(distributionConfig({}).release).toBe(false);
+  expect(distributionConfig({ GIZU_BUILD_VARIANT: "production" }).release).toBe(true);
   expect(() =>
-    distributionConfig({ EAS_BUILD_PROFILE: "testflight", EXPO_PUBLIC_DEBUG_SCREEN: "ui" }),
+    distributionConfig({ EAS_BUILD_PROFILE: "production", EXPO_PUBLIC_DEBUG_SCREEN: "ui" }),
   ).toThrow("diagnostic");
-  expect(() =>
-    distributionConfig({ EAS_BUILD_PROFILE: "testflight", EAS_BUILD_PLATFORM: "android" }),
-  ).toThrow("iOS-only");
 });
 
-test("the frontend association includes the TestFlight identity", () => {
+test("the frontend association includes the production identity", () => {
   const association = JSON.parse(
     readFileSync(
       resolve(__dirname, "../../../frontend/public/.well-known/apple-app-site-association"),
       "utf8",
     ),
   );
-  expect(association.webcredentials.apps).toContain(`588X2UZY3L.${testFlightBundleIdentifier}`);
+  expect(association.webcredentials.apps).toContain(`588X2UZY3L.${identity.iosBundleIdentifier}`);
 });
 
 test.each([
@@ -41,17 +40,25 @@ test.each([
   "https://[::1]",
   "https://api.local",
   "https://user:password@api.gizu.io",
-])("TestFlight rejects a local or unsafe catalog endpoint: %s", (url) => {
+])("production rejects a local or unsafe catalog endpoint: %s", (url) => {
   expect(() =>
-    distributionConfig({ EAS_BUILD_PROFILE: "testflight", EXPO_PUBLIC_API_URL: url }),
+    distributionConfig({ EAS_BUILD_PROFILE: "production", EXPO_PUBLIC_API_URL: url }),
   ).toThrow();
 });
-test("TestFlight accepts a public HTTPS URL or an unconfigured catalog", () => {
+test("production accepts a public HTTPS URL or an unconfigured catalog", () => {
   expect(
     distributionConfig({
-      EAS_BUILD_PROFILE: "testflight",
+      EAS_BUILD_PROFILE: "production",
       EXPO_PUBLIC_API_URL: "https://api.gizu.io",
-    }).testflight,
+    }).release,
   ).toBe(true);
-  expect(distributionConfig({ EAS_BUILD_PROFILE: "testflight" }).testflight).toBe(true);
+  expect(distributionConfig({ EAS_BUILD_PROFILE: "production" }).release).toBe(true);
+});
+
+test("release profiles use the Render backend and production environment", () => {
+  const config = JSON.parse(readFileSync(resolve(__dirname, "../../eas.json"), "utf8"));
+  expect(config.build.production.env.EXPO_PUBLIC_API_URL).toBe("https://gizu-backend.onrender.com");
+  expect(config.build.production.environment).toBe("production");
+  expect(config.build.preview.extends).toBe("production");
+  expect(config.build.testflight.extends).toBe("production");
 });

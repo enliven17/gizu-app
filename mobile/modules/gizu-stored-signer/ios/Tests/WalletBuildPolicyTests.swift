@@ -8,9 +8,9 @@ final class WalletBuildPolicyTests: XCTestCase {
       XCTAssertTrue(WalletBuildPolicy.isAvailable(info: [:]))
     #else
       XCTAssertFalse(WalletBuildPolicy.isAvailable(info: [:]))
-      XCTAssertFalse(WalletBuildPolicy.isAvailable(info: ["GizuTestnetWalletEnabled": false]))
-      XCTAssertFalse(WalletBuildPolicy.isAvailable(info: ["GizuTestnetWalletEnabled": "true"]))
+      XCTAssertFalse(WalletBuildPolicy.isAvailable(info: ["GizuWalletEnabled": false]))
+      XCTAssertFalse(WalletBuildPolicy.isAvailable(info: ["GizuWalletEnabled": "true"]))
     #endif
-    XCTAssertTrue(WalletBuildPolicy.isAvailable(info: ["GizuTestnetWalletEnabled": true]))
+    XCTAssertTrue(WalletBuildPolicy.isAvailable(info: ["GizuWalletEnabled": true]))
   }
 }
