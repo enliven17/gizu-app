@@ -51,12 +51,17 @@ pub fn role_registry_initial() -> String {
     RoleRegistry { version: REGISTRY_VERSION, next_recipient: FIRST_RECIPIENT }.json()
 }
 
-/// Reserves fresh recipient indices. The caller must persist `registry` before using `indices`.
+/// Reserves `count` fresh recipient indices. The caller must persist `registry` before using
+/// `indices`. `count` is the wallet-count decision (`swap::allocation::recipient_count` for a
+/// fresh buy, or the paired count another operation already fixed); this only allocates indices.
 #[uniffi::export]
-pub fn allocate_swap_recipients(registry: String) -> Result<RecipientAllocation, SignerError> {
+pub fn allocate_swap_recipients(registry: String, count: u32) -> Result<RecipientAllocation, SignerError> {
+    if count == 0 || count > crate::swap::allocation::MAX_RECIPIENTS {
+        return Err(SignerError::InvalidInput);
+    }
     let mut parsed = RoleRegistry::parse(&registry)?;
     let start = parsed.next_recipient;
-    let end = start.checked_add(RECIPIENTS_PER_SWAP).filter(|end| *end <= MAX_INDEX).ok_or(SignerError::InvalidInput)?;
+    let end = start.checked_add(count).filter(|end| *end <= MAX_INDEX).ok_or(SignerError::InvalidInput)?;
     parsed.next_recipient = end;
     Ok(RecipientAllocation { registry: parsed.json(), indices: (start..end).collect() })
 }
@@ -114,31 +119,34 @@ mod tests {
 
     #[test]
     fn allocation_moves_forward_and_never_reuses_indices() {
-        let first = allocate_swap_recipients(role_registry_initial()).unwrap();
+        let first = allocate_swap_recipients(role_registry_initial(), 3).unwrap();
         assert_eq!(first.indices, vec![3, 4, 5]);
-        let second = allocate_swap_recipients(first.registry.clone()).unwrap();
-        assert_eq!(second.indices, vec![6, 7, 8]);
+        let second = allocate_swap_recipients(first.registry.clone(), 2).unwrap();
+        assert_eq!(second.indices, vec![6, 7]);
         let merged = merge_role_registries(second.registry.clone(), first.registry).unwrap();
         assert_eq!(merged, second.registry);
-        assert_eq!(allocate_swap_recipients(merged).unwrap().indices, vec![9, 10, 11]);
+        assert_eq!(allocate_swap_recipients(merged, 3).unwrap().indices, vec![8, 9, 10]);
     }
 
     #[test]
-    fn rejects_registries_that_would_reset_or_overflow() {
+    fn rejects_registries_that_would_reset_or_overflow_and_bad_counts() {
         for bad in [
             r#"{"version":1,"nextRecipient":2}"#,
             r#"{"version":2,"nextRecipient":3}"#,
             r#"{"version":1,"nextRecipient":3,"extra":1}"#,
             r#"{"version":1,"nextRecipient":2147483646}"#,
         ] {
-            assert!(allocate_swap_recipients(bad.into()).is_err(), "{bad}");
+            assert!(allocate_swap_recipients(bad.into(), 3).is_err(), "{bad}");
         }
+        assert!(allocate_swap_recipients(role_registry_initial(), 0).is_err());
+        assert!(allocate_swap_recipients(role_registry_initial(), 33).is_err());
+        assert!(allocate_swap_recipients(role_registry_initial(), 32).is_ok());
     }
 
     #[test]
     fn covering_registry_starts_after_the_highest_used_index() {
         assert_eq!(role_registry_covering(0).unwrap(), role_registry_initial());
-        assert_eq!(allocate_swap_recipients(role_registry_covering(20).unwrap()).unwrap().indices, vec![21, 22, 23]);
+        assert_eq!(allocate_swap_recipients(role_registry_covering(20).unwrap(), 3).unwrap().indices, vec![21, 22, 23]);
     }
 
     #[test]

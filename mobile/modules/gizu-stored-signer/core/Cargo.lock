@@ -1571,6 +1571,7 @@ dependencies = [
  "bip39",
  "bs58",
  "k256 0.14.0",
+ "rand 0.8.8",
  "serde",
  "serde_json",
  "thiserror",

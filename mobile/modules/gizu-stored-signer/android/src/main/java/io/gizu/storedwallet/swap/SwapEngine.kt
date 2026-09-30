@@ -12,6 +12,7 @@ import uniffi.gizu_stored_signer_core.SwapOperation
 import uniffi.gizu_stored_signer_core.SwapStep
 import uniffi.gizu_stored_signer_core.allocateSwapRecipients
 import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
+import uniffi.gizu_stored_signer_core.planRecipientCount
 
 internal sealed class SwapUi {
   data class Review(val text: String) : SwapUi()
@@ -55,7 +56,10 @@ internal class SwapEngine(
     check(target.matches(Regex("0x[0-9a-fA-F]{40}")))
     if (amountAtoms != null)
       check(amountAtoms.matches(Regex("[1-9][0-9]{0,8}")) && amountAtoms.toLong() <= 10_000_000L)
-    val reserved = allocateSwapRecipients(record.roleRegistry)
+    // The private balance a payout spends is unknown until Aurora reports it, so its recipient
+    // count uses the plain low-amount rule (a requested amount always uses the real amount).
+    val count = planRecipientCount(amountAtoms ?: "0")
+    val reserved = allocateSwapRecipients(record.roleRegistry, count)
     store.persistRegistry(record.id, reserved.registry)
     val plan =
       JSONObject()
@@ -135,7 +139,9 @@ internal class SwapEngine(
         }
         plan.getString("target") to plan.getJSONArray("recipientIndices")
       }
-    val reserved = allocateSwapRecipients(record.roleRegistry)
+    // One fresh return wallet per holding wallet; not the amount-tiered count (there is no
+    // new swap amount here, just reversing however many wallets already hold the position).
+    val reserved = allocateSwapRecipients(record.roleRegistry, holders.length().toUInt())
     store.persistRegistry(record.id, reserved.registry)
     val next =
       JSONObject()

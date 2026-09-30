@@ -981,3 +981,81 @@ fn a_paused_sell_receiver_mismatch_can_resume_without_repeating_the_buy() {
     assert_eq!(world.orders, 6);
     assert_eq!(world.user_ops, 1, "resume must not fund another buy");
 }
+
+fn plan_with_indices(indices: &[u32], amount: Option<&str>) -> String {
+    let mut p = json!({"kind": "confidentialSwap", "target": AMZN.to_checksum(None), "recipientIndices": indices});
+    if let Some(a) = amount {
+        p["amountAtoms"] = json!(a);
+    }
+    p.to_string()
+}
+
+#[test]
+fn a_buy_with_two_recipients_splits_the_credit_and_completes() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = SwapOperation::start(plan_with_indices(&[9, 10], Some("2000000")), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    let text = review(&op, &mut world, &mut now);
+    assert!(text.contains("Payout 1 of 2"));
+    assert!(text.contains("Payout 2 of 2"));
+    assert!(!text.contains("of 3"));
+
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!((world.user_ops, world.intents, world.orders), (1, 2, 2));
+    let seed = seed_from_entropy(ENTROPY.to_vec()).unwrap();
+    let at = |i| evm::key_address(&derive_key(&seed, i).unwrap());
+    for a in [at(9), at(10)] {
+        assert!(world.usdg[&a].is_zero());
+        assert!(!world.target[&a].is_zero());
+    }
+    let s = status(&op);
+    assert_eq!(s["phase"], "COMPLETE");
+    assert_eq!(s["ordersComplete"], 2);
+}
+
+#[test]
+fn recipient_indices_must_be_distinct_and_within_bounds_at_any_count() {
+    // Duplicate index.
+    assert!(SwapOperation::start(plan_with_indices(&[9, 9], Some("2000000")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    // Below FIRST_RECIPIENT.
+    assert!(SwapOperation::start(plan_with_indices(&[0, 9], Some("2000000")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    // Empty.
+    assert!(SwapOperation::start(plan_with_indices(&[], Some("2000000")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    // Above the recipient-count ceiling.
+    let too_many: Vec<u32> = (3..3 + crate::swap::allocation::MAX_RECIPIENTS + 1).collect();
+    assert!(SwapOperation::start(plan_with_indices(&too_many, Some("2000000")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    // At the ceiling: accepted.
+    let exactly_max: Vec<u32> = (3..3 + crate::swap::allocation::MAX_RECIPIENTS).collect();
+    assert!(SwapOperation::start(plan_with_indices(&exactly_max, Some("2000000")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_ok());
+}
+
+#[test]
+fn a_sell_plan_needs_exactly_as_many_holders_as_recipients() {
+    let mismatched = json!({"kind": "confidentialSell", "target": AMZN.to_checksum(None), "holderIndices": [6, 7], "recipientIndices": [9, 10, 11]}).to_string();
+    assert!(SwapOperation::start(mismatched, ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    // A holder index reused as a recipient index is rejected even when the counts match.
+    let overlapping = json!({"kind": "confidentialSell", "target": AMZN.to_checksum(None), "holderIndices": [9, 7], "recipientIndices": [9, 10]}).to_string();
+    assert!(SwapOperation::start(overlapping, ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    let matched = json!({"kind": "confidentialSell", "target": AMZN.to_checksum(None), "holderIndices": [6, 7], "recipientIndices": [9, 10]}).to_string();
+    assert!(SwapOperation::start(matched, ENTROPY.to_vec(), GATEWAY.into(), T0).is_ok());
+}
+
+#[test]
+fn a_payout_can_split_an_existing_balance_across_five_wallets() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.credit = U256::from(3_945_530u64);
+    let indices: Vec<u32> = vec![9, 10, 11, 12, 13];
+    let plan = json!({"kind": "confidentialPayout", "target": AMZN.to_checksum(None), "recipientIndices": indices}).to_string();
+    let op = SwapOperation::start(plan, ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    let text = review(&op, &mut world, &mut now);
+    assert!(text.contains("Payout 5 of 5"));
+
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!((world.user_ops, world.intents, world.orders), (0, 5, 5));
+    let seed = seed_from_entropy(ENTROPY.to_vec()).unwrap();
+    let at = |i| evm::key_address(&derive_key(&seed, i).unwrap());
+    for i in indices {
+        assert!(!world.target[&at(i)].is_zero(), "index {i} never filled");
+    }
+}

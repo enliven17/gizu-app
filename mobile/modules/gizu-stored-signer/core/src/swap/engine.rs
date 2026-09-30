@@ -1,5 +1,6 @@
 //! Sans-IO swap state machine. The platform only moves HTTP bytes, persists `export_state` before every
 //! request, and shows the native review; every provider payload is validated here before any signature.
+use super::allocation;
 use super::aurora::{self, Quote, QuoteRequest};
 use super::evm;
 use super::funding::{self, FundingChain, UnsignedAuthorization, UserOperation};
@@ -87,9 +88,9 @@ struct Plan {
     target: Address,
     #[serde(default)]
     amount_atoms: Option<String>,
-    recipient_indices: [u32; 3],
+    recipient_indices: Vec<u32>,
     #[serde(default)]
-    holder_indices: Option<[u32; 3]>,
+    holder_indices: Option<Vec<u32>>,
     /// Recovery only: recipient indices below this (the registry's next index) are scanned.
     #[serde(default)]
     scan_to: Option<u32>,
@@ -159,10 +160,14 @@ struct Data {
     credit_basis: Option<String>,
     available: U256,
     private_token_id: Option<String>,
-    payouts: [Payout; 3],
-    orders: [Order; 3],
+    payouts: Vec<Payout>,
+    orders: Vec<Order>,
     #[serde(default)]
     leg: usize,
+    /// Permille (out of 1000) split for a buy/payout's payouts, decided once at plan time and
+    /// reapplied to the real total at both estimate and spend time. Unused by sell/recovery.
+    #[serde(default)]
+    shares: Vec<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -173,9 +178,9 @@ struct Machine {
     plan: Plan,
     source: Address,
     confidential: Address,
-    recipients: [Address; 3],
+    recipients: Vec<Address>,
     #[serde(default)]
-    holders: [Address; 3],
+    holders: Vec<Address>,
     created_ms: u64,
     approved_ms: Option<u64>,
     session_until_ms: u64,
@@ -332,7 +337,8 @@ impl Engine {
     fn recovery_range(&self) -> Result<std::ops::Range<u32>, SignerError> {
         let end = self.m.plan.scan_to.ok_or(SignerError::InvalidInput)?;
         let start = FIRST_RECIPIENT.max(end.saturating_sub(MAX_RECOVERY_SCAN));
-        if end < start + 3 {
+        let wanted = self.m.recipients.len() as u32;
+        if wanted == 0 || end < start + wanted {
             return Err(SignerError::InvalidInput);
         }
         Ok(start..end)
@@ -349,13 +355,13 @@ impl Engine {
     }
     fn signer_index(&self, i: usize) -> u32 {
         if self.sell() {
-            self.m.plan.holder_indices.map(|h| h[i]).unwrap_or(self.recipient_index(i))
+            self.m.plan.holder_indices.as_ref().map(|h| h[i]).unwrap_or(self.recipient_index(i))
         } else {
             self.recipient_index(i)
         }
     }
     fn next_sell_index(&self, from: usize) -> Option<usize> {
-        (from..3).find(|&i| !self.m.data.orders[i].amount.is_zero() && !self.m.data.orders[i].complete)
+        (from..self.m.data.orders.len()).find(|&i| !self.m.data.orders[i].amount.is_zero() && !self.m.data.orders[i].complete)
     }
 
     fn next(&mut self, now: u64) -> Result<SwapStep, SignerError> {
@@ -400,7 +406,7 @@ impl Engine {
             Step::Holdings => {
                 let t = self.m.plan.target;
                 let mut calls = Vec::new();
-                for i in 0..3 {
+                for i in 0..self.m.holders.len() {
                     let h = self.m.holders[i];
                     calls.push(("eth_call", Self::eth_call(t, call_data("balanceOf(address)", &[h]))));
                     calls.push(("eth_getBalance", json!([h.to_checksum(None), "latest"])));
@@ -429,7 +435,7 @@ impl Engine {
                 self.post("/v1/swap/monad/prepare-funding", json!({"owner": self.m.source.to_checksum(None), "recipient": quote.deposit_address, "amount": d.funding_amount.to_string()}))
             }
             Step::PayoutEstimate { index } => {
-                let portion = aurora::split(self.payout_base()?)[index];
+                let portion = allocation::apply_shares(self.payout_base()?, &d.shares)[index];
                 let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &d.source_asset, &d.destination_asset, portion);
                 self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
             }
@@ -528,7 +534,7 @@ impl Engine {
                     self.m.data.payouts[index].request = Some(request.clone());
                     self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
                 } else {
-                    let portion = aurora::split(d.available)[index];
+                    let portion = allocation::apply_shares(d.available, &d.shares)[index];
                     let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &d.source_asset, &d.destination_asset, portion);
                     self.m.data.payouts[index].portion = portion;
                     self.m.data.payouts[index].request = Some(request.clone());
@@ -761,12 +767,13 @@ impl Engine {
                     self.m.paused = Some("NOTHING_TO_RECOVER".into());
                     return Ok(());
                 }
-                // Up to three wallets per run; empty indices fill the remaining slots and are skipped.
-                held.truncate(3);
+                // Up to `wanted` wallets per run; empty indices fill the remaining slots and are skipped.
+                let wanted = self.m.recipients.len();
+                held.truncate(wanted);
                 let mut slots = held.clone();
                 slots.extend(empty.into_iter().map(|i| (i, U256::ZERO)));
-                slots.truncate(3);
-                if slots.len() != 3 {
+                slots.truncate(wanted);
+                if slots.len() != wanted {
                     return Err(SignerError::InvalidInput);
                 }
                 self.m.data.estimates.clear();
@@ -780,7 +787,7 @@ impl Engine {
             }
             (Step::Holdings, None) => {
                 let mut any = false;
-                for i in 0..3 {
+                for i in 0..self.m.holders.len() {
                     let amount = rpc_uint(&value, (i * 2) as u64)?;
                     let eth = rpc_quantity(&value, (i * 2 + 1) as u64)?;
                     if !eth.is_zero() {
@@ -872,7 +879,7 @@ impl Engine {
                 self.go(if execute { Step::FundingSign } else { Step::PayoutEstimate { index: 0 } });
             }
             (Step::PayoutEstimate { index }, None) => {
-                let portion = aurora::split(self.payout_base()?)[index];
+                let portion = allocation::apply_shares(self.payout_base()?, &self.m.data.shares)[index];
                 let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &self.m.data.source_asset, &self.m.data.destination_asset, portion);
                 let quote = aurora::check_quote(&request, &value, now)?;
                 if quote.amount_in > portion {
@@ -880,7 +887,7 @@ impl Engine {
                 }
                 self.m.data.estimates.truncate(index);
                 self.m.data.estimates.push((portion, quote.min_amount_out));
-                self.go(if index == 2 { Step::FusionEstimate } else { Step::PayoutEstimate { index: index + 1 } });
+                self.go(if index + 1 == self.m.recipients.len() { Step::FusionEstimate } else { Step::PayoutEstimate { index: index + 1 } });
             }
             (Step::FusionEstimate, None) => {
                 let end = evm::decimal(text(&value, "auctionEndAmount")?)?;
@@ -1011,7 +1018,7 @@ impl Engine {
                 if self.sell() {
                     self.go(Step::PayoutStatus { index, polls: 0, resubmitted: false });
                 } else {
-                    self.go(if index == 2 { Step::PayoutStatus { index: 0, polls: 0, resubmitted: false } } else { Step::PayoutQuote { index: index + 1 } });
+                    self.go(if index + 1 == self.m.recipients.len() { Step::PayoutStatus { index: 0, polls: 0, resubmitted: false } } else { Step::PayoutQuote { index: index + 1 } });
                 }
             }
             (Step::PayoutStatus { index, polls, resubmitted }, None) => match text(&value, "status")? {
@@ -1047,7 +1054,7 @@ impl Engine {
                     return Ok(());
                 }
                 self.m.data.payouts[index].delivered = usdg;
-                self.go(if index == 2 { Step::FusionBalance { index: 0 } } else { Step::PayoutStatus { index: index + 1, polls: 0, resubmitted: false } });
+                self.go(if index + 1 == self.m.recipients.len() { Step::FusionBalance { index: 0 } } else { Step::PayoutStatus { index: index + 1, polls: 0, resubmitted: false } });
             }
             (Step::FusionBalance { index }, None) => {
                 let (usdg, target, eth) = (rpc_uint(&value, 0)?, rpc_uint(&value, 1)?, rpc_quantity(&value, 2)?);
@@ -1311,7 +1318,7 @@ impl Engine {
                 None => self.go(Step::Done),
             }
         } else {
-            self.go(if index == 2 { Step::Done } else { Step::FusionBalance { index: index + 1 } });
+            self.go(if index + 1 == self.m.recipients.len() { Step::Done } else { Step::FusionBalance { index: index + 1 } });
         }
     }
 
@@ -1361,8 +1368,9 @@ impl Engine {
             min = q.map(|q| usdc(q.min_amount_out)).unwrap_or_default(),
             )
         };
+        let total_payouts = d.estimates.len();
         for (i, (portion, min)) in d.estimates.iter().enumerate() {
-            out.push_str(&format!("\nPayout {} of 3 (30/30/40) to fresh wallet A{} {}\n  {} USDC → at least {} USDG, then sold for {} via 1inch Fusion\n", i + 1, i + 1, self.m.recipients[i].to_checksum(None), usdc(*portion), usdc(*min), d.target_symbol));
+            out.push_str(&format!("\nPayout {} of {total_payouts} to fresh wallet A{} {}\n  {} USDC → at least {} USDG, then sold for {} via 1inch Fusion\n", i + 1, i + 1, self.m.recipients[i].to_checksum(None), usdc(*portion), usdc(*min), d.target_symbol));
         }
         out.push_str(&format!(
             "\nFusion limit: at least {} {} per {} USDG, 1% slippage, prices may move up to 3% before the app asks again.\n\nPRIVACY: F's deposit and the Ai stock balances are public on chain. One app gateway key and the timing of these steps can let the gateway operator link F with A1–A3.\n\nOne approval authorizes up to 12 signatures for 15 minutes, bound to these limits. After 15 minutes you unlock again for this same plan. The operation expires in 24 hours. Steps are sequential and cannot be undone once submitted.",
@@ -1402,9 +1410,10 @@ impl Engine {
             target = self.m.plan.target.to_checksum(None),
             c = self.m.confidential.to_checksum(None),
         );
-        for i in 0..3 {
+        let total_legs = self.m.holders.len();
+        for i in 0..total_legs {
             out.push_str(&format!(
-                "\nLeg {} of 3\n  Hold {sym} in {holder}\n  {amount} {sym} sells for USDG into Aurora, then pays Monad USDC to new wallet {ret}\n",
+                "\nLeg {} of {total_legs}\n  Hold {sym} in {holder}\n  {amount} {sym} sells for USDG into Aurora, then pays Monad USDC to new wallet {ret}\n",
                 i + 1,
                 sym = d.target_symbol,
                 holder = self.m.holders[i].to_checksum(None),
@@ -1486,7 +1495,6 @@ impl SwapOperation {
             return Err(SignerError::InvalidInput);
         }
         let plan: Plan = serde_json::from_str(&plan).map_err(|_| SignerError::InvalidInput)?;
-        let [a, b, c] = plan.recipient_indices;
         let sell = plan.kind == "confidentialSell";
         let payout = plan.kind == "confidentialPayout";
         let recovery = plan.kind == "confidentialRecovery";
@@ -1494,19 +1502,29 @@ impl SwapOperation {
         if recovery != plan.scan_to.is_some() || plan.scan_to.is_some_and(|end| end < FIRST_RECIPIENT + RECIPIENTS_PER_SWAP) {
             return Err(SignerError::InvalidInput);
         }
-        if (plan.kind != "confidentialSwap" && !sell && !payout && !recovery) || a < FIRST_RECIPIENT || a == b || b == c || a == c || b < FIRST_RECIPIENT || c < FIRST_RECIPIENT {
+        if plan.kind != "confidentialSwap" && !sell && !payout && !recovery {
+            return Err(SignerError::InvalidInput);
+        }
+        let recipient_count = plan.recipient_indices.len();
+        let distinct_recipients = plan.recipient_indices.iter().copied().collect::<std::collections::HashSet<_>>();
+        if recipient_count == 0
+            || recipient_count as u32 > allocation::MAX_RECIPIENTS
+            || distinct_recipients.len() != recipient_count
+            || plan.recipient_indices.iter().any(|i| *i < FIRST_RECIPIENT)
+        {
             return Err(SignerError::InvalidInput);
         }
         let holders = if sell {
-            let [h0, h1, h2] = plan.holder_indices.ok_or(SignerError::InvalidInput)?;
-            if h0 < FIRST_RECIPIENT || h1 < FIRST_RECIPIENT || h2 < FIRST_RECIPIENT || h0 == h1 || h1 == h2 || h0 == h2 {
+            let h = plan.holder_indices.clone().ok_or(SignerError::InvalidInput)?;
+            if h.len() != recipient_count || h.iter().any(|i| *i < FIRST_RECIPIENT) {
                 return Err(SignerError::InvalidInput);
             }
-            let used = [h0, h1, h2, a, b, c];
-            if used.iter().collect::<std::collections::HashSet<_>>().len() != 6 {
+            let mut all = distinct_recipients.clone();
+            all.extend(h.iter().copied());
+            if all.len() != recipient_count + h.len() {
                 return Err(SignerError::InvalidInput);
             }
-            Some([h0, h1, h2])
+            Some(h)
         } else if plan.holder_indices.is_some() {
             return Err(SignerError::InvalidInput);
         } else {
@@ -1522,17 +1540,23 @@ impl SwapOperation {
             }
         }
         let seed = seed_from_entropy(entropy)?;
-        let at = |i| derive_key(&seed, i).map(|k| evm::key_address(&k));
-        let holder_addrs = match holders {
-            Some([h0, h1, h2]) => [at(h0)?, at(h1)?, at(h2)?],
-            None => [Address::ZERO; 3],
+        let at = |i: u32| derive_key(&seed, i).map(|k| evm::key_address(&k));
+        let recipient_addrs = plan.recipient_indices.iter().map(|i| at(*i)).collect::<Result<Vec<_>, _>>()?;
+        let holder_addrs = match &holders {
+            Some(h) => h.iter().map(|i| at(*i)).collect::<Result<Vec<_>, _>>()?,
+            None => Vec::new(),
         };
+        // Sell/recovery pass USDG or fixed amounts through one wallet at a time; only a fresh
+        // buy or a payout from the private balance splits a pooled total across recipients.
+        let shares = if sell || recovery { Vec::new() } else { allocation::split_shares(recipient_count as u32) };
+        let payouts = vec![Payout::default(); recipient_count];
+        let orders = vec![Order::default(); recipient_count];
         let machine = Machine {
             version: STATE_VERSION,
             id: format!("{:#x}", keccak256(format!("{}:{}:{:?}:{}", now_ms, at(FUNDING_ACCOUNT)?, plan.recipient_indices, plan.kind))),
             source: at(FUNDING_ACCOUNT)?,
             confidential: at(CONFIDENTIAL_ACCOUNT)?,
-            recipients: [at(a)?, at(b)?, at(c)?],
+            recipients: recipient_addrs,
             holders: holder_addrs,
             plan,
             created_ms: now_ms,
@@ -1547,7 +1571,7 @@ impl SwapOperation {
             pending: None,
             failures: 0,
             wait_until_ms: 0,
-            data: Data::default(),
+            data: Data { payouts, orders, shares, ..Data::default() },
         };
         Ok(Arc::new(Self { inner: Mutex::new(Engine { m: machine, gateway: gateway_base(&gateway)?, seed: Some(seed) }) }))
     }
@@ -1609,13 +1633,17 @@ impl SwapOperation {
             return Err(SignerError::Expired);
         }
         let seed = seed_from_entropy(entropy)?;
-        let holders_ok = match e.m.plan.holder_indices {
-            Some(indices) => indices.iter().zip(e.m.holders).all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a)),
+        let holders_ok = match &e.m.plan.holder_indices {
+            Some(indices) => {
+                indices.len() == e.m.holders.len()
+                    && indices.iter().zip(&e.m.holders).all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == *a))
+            }
             None => e.m.holders.iter().all(|a| a.is_zero()),
         };
         let same = evm::key_address(&derive_key(&seed, FUNDING_ACCOUNT)?) == e.m.source
             && evm::key_address(&derive_key(&seed, CONFIDENTIAL_ACCOUNT)?) == e.m.confidential
-            && e.m.plan.recipient_indices.iter().zip(e.m.recipients).all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a))
+            && e.m.plan.recipient_indices.len() == e.m.recipients.len()
+            && e.m.plan.recipient_indices.iter().zip(&e.m.recipients).all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == *a))
             && holders_ok;
         if !same {
             return Err(SignerError::InvalidInput);

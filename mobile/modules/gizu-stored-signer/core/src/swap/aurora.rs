@@ -285,12 +285,6 @@ pub fn private_available(balances: &serde_json::Value, asset_id: &str) -> Result
     }
 }
 
-/// 30/30/40 without exceeding the total.
-pub fn split(total: U256) -> [U256; 3] {
-    let first = total * U256::from(3) / U256::from(10);
-    [first, first, total - first * U256::from(2)]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,11 +312,6 @@ mod tests {
             payload,
             r#"{"signer_id":"0xabcdef0000000000000000000000000000001234","verifying_contract":"intents.near","deadline":"2026-09-25T12:05:00.000Z","nonce":"Vij2xgAlKBKzADhrndWO2BgAgAbEj47YGAECAwQFBgc=","intents":[]}"#
         );
-    }
-
-    #[test]
-    fn splits_30_30_40_without_exceeding_the_budget() {
-        assert_eq!(split(U256::from(9_875_001u64)), [U256::from(2_962_500u64), U256::from(2_962_500u64), U256::from(3_950_001u64)]);
     }
 
     #[test]
