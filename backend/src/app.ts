@@ -8,6 +8,7 @@ import {
   type ZodTypeProvider,
 } from "@fastify/type-provider-zod";
 import { AuroraIntents } from "./adapters/aurora/aurora-intents.ts";
+import { diagnosticAuroraFetch } from "./adapters/aurora/diagnostics.ts";
 import { OneInchFusion } from "./adapters/oneinch/fusion.ts";
 import { OneInchTokenCatalog } from "./adapters/oneinch/token-catalog.ts";
 import { PimlicoMonadFunding } from "./adapters/pimlico/monad-funding.ts";
@@ -60,7 +61,7 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   registerHealthRoutes(app, healthController);
   registerTokenRoutes(app, new OneInchTokenCatalog(secret.ONEINCH_API_KEY));
   registerSwapRoutes(app, {
-    aurora: new AuroraIntents(secret.AURORA_API_KEY),
+    aurora: new AuroraIntents(secret.AURORA_API_KEY, diagnosticAuroraFetch((event) => app.log.info(event, "swap provider request"))),
     funding: new PimlicoMonadFunding(secret.PIMLICO_API_KEY),
     fusion: new OneInchFusion(secret.ONEINCH_API_KEY),
   });

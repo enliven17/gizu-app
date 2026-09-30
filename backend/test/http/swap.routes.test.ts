@@ -102,8 +102,24 @@ test("forwards an optional Fusion source token for a reverse sale", async () => 
     payload: { wallet, dstToken: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", amount: "1", preset: "fast", srcToken: amzn },
   });
   assert.equal(preview.statusCode, 200);
-  assert.equal(calls[0][0], "preview");
-  assert.equal(calls[0][2], "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168");
-  assert.equal(calls[0][5], "0x12f190a9F9d7D37a250758b26824B97CE941bF54");
+  const call = calls[0];
+  assert.ok(call);
+  assert.equal(call[0], "preview");
+  assert.equal(call[2], "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168");
+  assert.equal(call[5], "0x12f190a9F9d7D37a250758b26824B97CE941bF54");
   await app.close();
+});
+
+test("forwards the sell receiver and keeps buy receiver optional", async () => {
+  const calls: unknown[][] = [];
+  const app = build(calls);
+  const payload = { wallet, dstToken: amzn, amount: "123", permit: `0x${"11".repeat(224)}`, preset: "fast" };
+  try {
+    assert.equal((await app.inject({ method: "POST", url: "/v1/swap/fusion/order", payload: { ...payload, receiver: wallet, srcToken: amzn } })).statusCode, 200);
+    assert.deepEqual(calls[0], ["createOrder", "0x8ba1f109551bD432803012645Ac136ddd64DBA72", amzn, 123n, payload.permit, "fast", amzn, "0x8ba1f109551bD432803012645Ac136ddd64DBA72"]);
+    assert.equal((await app.inject({ method: "POST", url: "/v1/swap/fusion/order", payload })).statusCode, 200);
+    assert.equal(calls[1]?.[7], undefined);
+    assert.equal((await app.inject({ method: "POST", url: "/v1/swap/fusion/order", payload: { ...payload, receiver: "wrong" } })).statusCode, 400);
+    assert.equal(calls.length, 2);
+  } finally { await app.close(); }
 });

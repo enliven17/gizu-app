@@ -121,12 +121,14 @@ export class OneInchFusion {
     permit: Hex,
     preset: FusionPreset,
     srcToken: Address = ROBINHOOD_USDG,
+    receiver?: Address,
   ): Promise<FusionOrderDraft> {
     const created = await this.guard("order", () => this.sdk.createOrder({
       fromTokenAddress: srcToken,
       toTokenAddress: dstToken,
       amount: amount.toString(),
       walletAddress: wallet,
+      receiver,
       permit,
       preset: preset as PresetEnum,
     }));

@@ -377,7 +377,10 @@ impl World {
             taking
         };
         let receiver = if sell {
-            self.origin_deposit.get(&wallet).cloned().unwrap_or_else(|| format!("{FUSION_SETTLEMENT:#x}"))
+            // The provider only knows the request, not the engine's private quote state.
+            let receiver = body.get("receiver").and_then(Value::as_str).expect("sell must send its bridge receiver");
+            assert_eq!(evm::addr(receiver).unwrap(), evm::addr(self.origin_deposit.get(&wallet).unwrap()).unwrap());
+            receiver.to_string()
         } else {
             format!("{FUSION_SETTLEMENT:#x}")
         };
@@ -500,6 +503,20 @@ fn plan(amount: Option<&str>) -> String {
 
 fn start(amount: Option<&str>) -> Arc<SwapOperation> {
     SwapOperation::start(plan(amount), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap()
+}
+
+#[test]
+fn restored_review_requires_native_unlock_before_approval() {
+    let op = start(None);
+    let mut world = World::new();
+    let mut now = T0;
+    let original_review = review(&op, &mut world, &mut now);
+    let restored = SwapOperation::restore(op.export_state().unwrap(), GATEWAY.into()).unwrap();
+    assert_eq!(restored.next_step(now).unwrap(), SwapStep::Review { text: original_review });
+    assert!(restored.approve(now).is_err(), "restoring must not restore signing authority");
+    restored.unlock(ENTROPY.to_vec(), now).unwrap();
+    restored.approve(now).unwrap();
+    assert!(matches!(restored.next_step(now).unwrap(), SwapStep::Request { .. }));
 }
 
 /// Runs requests and waits until the machine needs the user, finishes or pauses.
@@ -938,4 +955,29 @@ fn only_recovery_scans_and_only_allocated_indices() {
     assert!(SwapOperation::start(plan(None).replace("}", r#","scanTo":15}"#), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
     let without = json!({"kind": "confidentialRecovery", "target": AMZN.to_checksum(None), "recipientIndices": [3, 4, 5]}).to_string();
     assert!(SwapOperation::start(without, ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+}
+
+#[test]
+fn a_paused_sell_receiver_mismatch_can_resume_without_repeating_the_buy() {
+    let (mut world, mut now) = (World::new(), T0);
+    let buy = start(Some("2000000"));
+    review(&buy, &mut world, &mut now);
+    buy.approve(now).unwrap();
+    assert_eq!(drive(&buy, &mut world, &mut now), SwapStep::Finished);
+    let sell = SwapOperation::start(sell_plan([3, 4, 5], [6, 7, 8]), ENTROPY.to_vec(), GATEWAY.into(), now).unwrap();
+    review(&sell, &mut world, &mut now);
+    sell.approve(now).unwrap();
+    let SwapStep::Request { id, url, body, .. } = drive_until(&sell, &mut world, &mut now, |url| url.ends_with("/fusion/order")) else { panic!() };
+    let (_, reply) = world.handle(&url, body.as_deref(), now);
+    let mut bad: Value = serde_json::from_str(&reply).unwrap();
+    bad["order"]["receiver"] = json!(format!("{:#x}", world.w.a[0]));
+    sell.on_response(id, 200, bad.to_string(), now).unwrap();
+    assert_eq!(status(&sell)["pausedCode"], "FUSION_1_ORDER_RECEIVER");
+    assert_eq!(world.orders, 3, "only the earlier buy was submitted");
+    let restored = SwapOperation::restore(sell.export_state().unwrap(), GATEWAY.into()).unwrap();
+    restored.retry();
+    restored.unlock(ENTROPY.to_vec(), now).unwrap();
+    assert_eq!(drive(&restored, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(world.orders, 6);
+    assert_eq!(world.user_ops, 1, "resume must not fund another buy");
 }

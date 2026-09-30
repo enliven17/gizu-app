@@ -600,7 +600,7 @@ impl Engine {
             Step::FusionOrder { index } => {
                 let o = &d.orders[index];
                 if self.sell() {
-                    self.post("/v1/swap/fusion/order", json!({"wallet": self.holder(index).to_checksum(None), "srcToken": self.m.plan.target.to_checksum(None), "dstToken": format!("{ROBINHOOD_USDG:#x}"), "amount": o.amount.to_string(), "permit": o.permit.clone().ok_or(SignerError::InvalidInput)?, "preset": "fast"}))
+                    self.post("/v1/swap/fusion/order", json!({"wallet": self.holder(index).to_checksum(None), "srcToken": self.m.plan.target.to_checksum(None), "dstToken": format!("{ROBINHOOD_USDG:#x}"), "receiver": evm::addr(&o.inbound.as_ref().ok_or(SignerError::InvalidInput)?.deposit_address)?.to_checksum(None), "amount": o.amount.to_string(), "permit": o.permit.clone().ok_or(SignerError::InvalidInput)?, "preset": "fast"}))
                 } else {
                     self.post("/v1/swap/fusion/order", json!({"wallet": self.m.recipients[index].to_checksum(None), "dstToken": self.m.plan.target.to_checksum(None), "amount": o.amount.to_string(), "permit": o.permit.clone().ok_or(SignerError::InvalidInput)?, "preset": "fast"}))
                 }

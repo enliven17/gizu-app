@@ -78,6 +78,12 @@ type Gateway = {
 
 // Addresses travel only in POST bodies so request logs never carry wallet links.
 export function registerSwapRoutes(app: FastifyInstance, gateway: Gateway) {
+  app.addHook("onResponse", async (request, reply) => {
+    const route = request.routeOptions.url;
+    if (route?.startsWith("/v1/swap/")) {
+      request.log.info({ event: "swap.gateway", route, status: reply.statusCode, elapsedMs: Math.round(reply.elapsedTime) }, "swap gateway request");
+    }
+  });
   const routes = app.withTypeProvider<ZodTypeProvider>();
 
   routes.get("/v1/swap/aurora/tokens", async () => ({ tokens: await gateway.aurora.tokens() }));
@@ -143,7 +149,7 @@ export function registerSwapRoutes(app: FastifyInstance, gateway: Gateway) {
   );
   routes.post(
     "/v1/swap/fusion/order",
-    { schema: { body: z.object({ wallet: address, dstToken: address, amount: atoms, permit: z.string().regex(/^0x[a-fA-F0-9]{448}$/), preset, srcToken: address.optional() }).strict() } },
+    { schema: { body: z.object({ wallet: address, dstToken: address, amount: atoms, permit: z.string().regex(/^0x[a-fA-F0-9]{448}$/), preset, srcToken: address.optional(), receiver: address.optional() }).strict() } },
     async (request) => gateway.fusion.createOrder(
       request.body.wallet,
       request.body.dstToken,
@@ -151,6 +157,7 @@ export function registerSwapRoutes(app: FastifyInstance, gateway: Gateway) {
       request.body.permit as Hex,
       request.body.preset,
       request.body.srcToken,
+      request.body.receiver,
     ),
   );
   routes.post(
