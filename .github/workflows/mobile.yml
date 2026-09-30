@@ -3,10 +3,14 @@ on:
   pull_request:
   push:
     branches: [main]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   native-core:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,7 +25,9 @@ jobs:
       - run: cargo fmt --check --manifest-path ../../gizu-stored-signer/core/Cargo.toml
       - run: cargo clippy --locked --all-targets --manifest-path ../../gizu-stored-signer/core/Cargo.toml -- -D warnings
   check:
+    timeout-minutes: 25
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -36,13 +42,19 @@ jobs:
         with:
           just-version: "1.40.0"
       - run: just mobile-install
+      - name: Test native build preflight
+        run: node --test scripts/tests/native-build.test.cjs
+        working-directory: mobile
       - run: just mobile-check
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-${{ matrix.os }}
           path: mobile/coverage
+          retention-days: 7
+          if-no-files-found: ignore
   android-build:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +88,19 @@ jobs:
         working-directory: mobile
       - run: ./gradlew :gizu-stored-signer:testDebugUnitTest assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a
         working-directory: mobile/android
+      - name: Upload Android test reports
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-test-reports
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            mobile/modules/gizu-stored-signer/android/build/reports/tests/
+            mobile/modules/gizu-stored-signer/android/build/test-results/
+            mobile/android/build/reports/
   ios-build:
+    timeout-minutes: 60
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -96,10 +120,13 @@ jobs:
         working-directory: mobile
       - run: npm run stored-signer:test:ios
         working-directory: mobile
+        env:
+          GIZU_IOS_TEST_RESULTS: ${{ runner.temp }}/gizu-native-debug.xcresult
       - run: npm run stored-signer:test:ios
         working-directory: mobile
         env:
           GIZU_IOS_TEST_CONFIGURATION: Release
+          GIZU_IOS_TEST_RESULTS: ${{ runner.temp }}/gizu-native-release.xcresult
       - run: npx expo prebuild --platform ios
         working-directory: mobile
         env:
@@ -107,9 +134,17 @@ jobs:
           EXPO_NO_DOTENV: "1"
       - run: npm run stored-signer:check:ios
         working-directory: mobile
-      - run: xcodebuild -workspace ios/Gizu.xcworkspace -scheme Gizu -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build
+      - run: xcodebuild -workspace ios/Gizu.xcworkspace -scheme Gizu -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO -resultBundlePath "${{ runner.temp }}/gizu-app-build.xcresult" build
         working-directory: mobile
         env:
           EAS_BUILD_PROFILE: testflight
           EXPO_NO_DOTENV: "1"
           EXPO_PUBLIC_API_URL: ""
+      - name: Upload iOS build and test reports
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-native-reports
+          retention-days: 7
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/gizu-*.xcresult

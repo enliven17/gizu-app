@@ -33,6 +33,8 @@ From the repository root:
 
 ```sh
 npm --prefix mobile ci
+# Generate native Rust libraries and bindings before the first Android build:
+npm --prefix mobile run stored-signer:build -- android
 npm --prefix mobile run android -- --no-bundler
 # macOS only (requires Rust 1.94.1 and Apple Rust targets):
 npm --prefix mobile run stored-signer:build:ios
@@ -366,3 +368,44 @@ prebuild returns to `GizuDev`. Neither command supplies signing credentials.
 
 References: [Expo build hooks](https://docs.expo.dev/build-reference/npm-hooks/),
 [Apple beta test information](https://developer.apple.com/help/app-store-connect/test-a-beta-version/provide-test-information/).
+
+## Native build diagnostics and CI reports
+
+Before compiling the stored signer, validate its toolchain without changing generated files:
+
+```sh
+bash mobile/modules/gizu-stored-signer/scripts/build.sh android --check
+# macOS only:
+bash mobile/modules/gizu-stored-signer/scripts/build.sh ios --check
+```
+
+Both commands use the pinned Rust toolchain in `core/rust-toolchain.toml`. Android
+requires the `aarch64-linux-android` Rust target and NDK `27.1.12297006` under
+`ANDROID_HOME` (or an explicit `ANDROID_NDK_HOME`). iOS requires full Xcode and both
+`aarch64-apple-ios` and `aarch64-apple-ios-sim` Rust targets. Failures print the missing
+prerequisite before compiling. These checks cover signer compilation; app builds
+also require the Java/CocoaPods and signing setup described above.
+
+Build outputs always use the signer's `core/target` directory so an inherited
+`CARGO_TARGET_DIR` cannot make bindings or library-copy steps read stale artifacts.
+The scripts require macOS or Linux; Windows CI tests JavaScript only.
+
+CI cancels older runs for the same branch/PR, limits job duration, and allows Linux
+and Windows checks to finish independently. Failed Android builds upload available
+Gradle test reports. Failed iOS jobs upload available Xcode `.xcresult` bundles for
+native tests and app compilation. Download them from the workflow run's Artifacts
+section; open `.xcresult` bundles in Xcode. Reports and coverage are retained for
+seven days; failures before a report is created still require the Actions step log.
+Artifacts exclude signing credentials and wallet storage.
+
+To retain a native iOS test report locally, choose a new output path:
+
+```sh
+cd mobile
+GIZU_IOS_TEST_RESULTS=/tmp/gizu-native-tests.xcresult npm run stored-signer:test:ios
+```
+
+An existing result path is rejected, preserving the earlier report. If there is no
+available iPhone simulator, install an iOS runtime in Xcode before rerunning tests.
+Preflight regression tests use stub tools and do not compile or authenticate:
+`node --test mobile/scripts/tests/native-build.test.cjs`.
