@@ -59,6 +59,7 @@ const config: ExpoConfig = {
         },
       },
     ],
+    "expo-localization",
     "./plugins/withAndroidDevelopmentSigning.cjs",
     "./plugins/withStoredSignerIos.cjs",
   ],
