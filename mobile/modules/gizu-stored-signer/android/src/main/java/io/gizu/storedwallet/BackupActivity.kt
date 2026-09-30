@@ -516,7 +516,10 @@ class BackupActivity : Activity() {
             .use { recovered ->
               if (!restore)
                 store.load().use { current ->
-                  check(current.id == restored.id && MessageDigest.isEqual(current.entropy, restored.entropy))
+                  check(
+                    current.id == restored.id &&
+                      MessageDigest.isEqual(current.entropy, restored.entropy)
+                  )
                   check(deriveAccountAddresses(current.entropy) == accounts)
                 }
               currentCoroutineContext().ensureActive()

@@ -132,31 +132,28 @@ test("falls back for missing/unsafe logos and displays unlisted assets with shar
   expect(screen.getAllByLabelText("AMZN logo unavailable")).toHaveLength(2);
 });
 
-test("release-mode navigation reaches the same read-only catalog through Swap", async () => {
+test("release-mode navigation opens native Swap and handles an unavailable token service", async () => {
   const runtime = globalThis as unknown as { __DEV__: boolean };
   const development = runtime.__DEV__;
   runtime.__DEV__ = false;
+  const fetchTokens = jest.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false } as Response);
   try {
     render(
-      <TokenCatalogContext.Provider value={{ list: jest.fn().mockResolvedValue(catalogPage) }}>
-        <AppRoot
-          accessService={{
-            request: jest.fn().mockResolvedValue({ kind: "demo", method: "Demo passkey" }),
-          }}
-        />
-      </TokenCatalogContext.Provider>,
+      <AppRoot
+        accessService={{
+          request: jest.fn().mockResolvedValue({ kind: "demo", method: "Demo passkey" }),
+        }}
+      />,
     );
     fireEvent.press(await screen.findByRole("button", { name: "Get started" }));
     fireEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
     fireEvent.press(await screen.findByLabelText("Swap tab"));
-    expect(await screen.findByText("Amazon")).toBeVisible();
-    expect(screen.getByLabelText("Search tokens")).toBeVisible();
-    expect(
-      screen.queryByRole("button", {
-        name: /^(Review swap|Simulate swap|Sign|Transfer|Get quote)$/i,
-      }),
-    ).toBeNull();
+    expect(await screen.findByText("Token list unavailable.")).toBeVisible();
+    expect(screen.getByLabelText("Amount in USDC")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Start swap" })).toBeDisabled();
+    expect(screen.queryByLabelText("Search tokens")).toBeNull();
   } finally {
+    fetchTokens.mockRestore();
     runtime.__DEV__ = development;
   }
 });

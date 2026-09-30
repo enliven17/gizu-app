@@ -37,10 +37,17 @@ pub struct Permit {
 
 impl Permit {
     pub fn digest(&self) -> Result<B256, SignerError> {
-        if self.name.is_empty() || self.name.len() > 64 || !matches!(self.version.as_str(), "1" | "2") {
+        if self.name.is_empty()
+            || self.name.len() > 64
+            || !matches!(self.version.as_str(), "1" | "2")
+        {
             return Err(SignerError::InvalidInput);
         }
-        let token = if self.token.is_zero() { ROBINHOOD_USDG } else { self.token };
+        let token = if self.token.is_zero() {
+            ROBINHOOD_USDG
+        } else {
+            self.token
+        };
         let domain = evm::domain_separator(&self.name, &self.version, ROBINHOOD_CHAIN_ID, token);
         Ok(evm::typed_hash(
             domain,
@@ -69,7 +76,12 @@ impl Permit {
 }
 
 pub fn order_hash(order: &LimitOrder) -> Result<B256, SignerError> {
-    let domain = evm::domain_separator("1inch Aggregation Router", "6", ROBINHOOD_CHAIN_ID, ONEINCH_LOP);
+    let domain = evm::domain_separator(
+        "1inch Aggregation Router",
+        "6",
+        ROBINHOOD_CHAIN_ID,
+        ONEINCH_LOP,
+    );
     Ok(evm::typed_hash(
         domain,
         "Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)",
@@ -112,7 +124,10 @@ fn parse_extension(bytes: &[u8]) -> Result<Extension<'_>, SignerError> {
         *field = &body[start..end];
         start = end;
     }
-    Ok(Extension { fields, custom: &body[start..] })
+    Ok(Extension {
+        fields,
+        custom: &body[start..],
+    })
 }
 
 fn bit(traits: U256, index: usize) -> bool {
@@ -179,12 +194,23 @@ impl OrderReject {
 }
 
 /// Research `validateFusionOrder`, plus the LOP v4 bindings the summary omitted: salt↔extension, traits and receiver.
-pub fn check_order(order: &LimitOrder, extension_hex: &str, approved: &ApprovedOrder, now_secs: u64) -> Result<CheckedOrder, SignerError> {
-    check_order_detail(order, extension_hex, approved, now_secs).map_err(|_| SignerError::InvalidInput)
+pub fn check_order(
+    order: &LimitOrder,
+    extension_hex: &str,
+    approved: &ApprovedOrder,
+    now_secs: u64,
+) -> Result<CheckedOrder, SignerError> {
+    check_order_detail(order, extension_hex, approved, now_secs)
+        .map_err(|_| SignerError::InvalidInput)
 }
 
 /// `check_order` that names the rule a draft broke.
-pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &ApprovedOrder, now_secs: u64) -> Result<CheckedOrder, OrderReject> {
+pub fn check_order_detail(
+    order: &LimitOrder,
+    extension_hex: &str,
+    approved: &ApprovedOrder,
+    now_secs: u64,
+) -> Result<CheckedOrder, OrderReject> {
     let binding = |_| OrderReject::Binding;
     let maker = evm::addr(&order.maker).map_err(binding)?;
     let receiver = evm::addr(&order.receiver).map_err(binding)?;
@@ -192,8 +218,16 @@ pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &Ap
     let taking = evm::decimal(&order.taking_amount).map_err(binding)?;
     let traits = evm::decimal(&order.maker_traits).map_err(binding)?;
     let salt = evm::decimal(&order.salt).map_err(binding)?;
-    let maker_asset = if approved.maker_asset.is_zero() { ROBINHOOD_USDG } else { approved.maker_asset };
-    let want_receiver = if approved.receiver.is_zero() { maker } else { approved.receiver };
+    let maker_asset = if approved.maker_asset.is_zero() {
+        ROBINHOOD_USDG
+    } else {
+        approved.maker_asset
+    };
+    let want_receiver = if approved.receiver.is_zero() {
+        maker
+    } else {
+        approved.receiver
+    };
     if maker != approved.maker
         || evm::addr(&order.maker_asset).map_err(binding)? != maker_asset
         || evm::addr(&order.taker_asset).map_err(binding)? != approved.target
@@ -206,10 +240,16 @@ pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &Ap
         return Err(OrderReject::BelowMinimum);
     }
     // HAS_EXTENSION set; no pre-interaction, Permit2, WETH unwrap or epoch manager.
-    if !bit(traits, 249) || bit(traits, 252) || bit(traits, 250) || bit(traits, 248) || bit(traits, 247) {
+    if !bit(traits, 249)
+        || bit(traits, 252)
+        || bit(traits, 250)
+        || bit(traits, 248)
+        || bit(traits, 247)
+    {
         return Err(OrderReject::Traits);
     }
-    let expiration: u64 = ((traits >> 80usize) & ((U256::from(1u64) << 40usize) - U256::from(1u64))).to();
+    let expiration: u64 =
+        ((traits >> 80usize) & ((U256::from(1u64) << 40usize) - U256::from(1u64))).to();
     if expiration <= now_secs || expiration >= approved.permit_deadline {
         return Err(OrderReject::Expiry);
     }
@@ -221,7 +261,8 @@ pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &Ap
     let ext = parse_extension(&extension).map_err(|_| OrderReject::Extension)?;
     let mut permit = maker_asset.as_slice().to_vec();
     permit.extend_from_slice(&approved.permit);
-    let settles = |data: &[u8]| data.len() >= 20 && Address::from_slice(&data[..20]) == FUSION_SETTLEMENT;
+    let settles =
+        |data: &[u8]| data.len() >= 20 && Address::from_slice(&data[..20]) == FUSION_SETTLEMENT;
     if !ext.fields[MAKER_ASSET_SUFFIX].is_empty()
         || !ext.fields[TAKER_ASSET_SUFFIX].is_empty()
         || !ext.fields[PREDICATE].is_empty()
@@ -235,7 +276,8 @@ pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &Ap
         return Err(OrderReject::Extension);
     }
     let real = if receiver == FUSION_SETTLEMENT {
-        fee_taker_receiver(ext.fields[POST_INTERACTION], maker).map_err(|_| OrderReject::Extension)?
+        fee_taker_receiver(ext.fields[POST_INTERACTION], maker)
+            .map_err(|_| OrderReject::Extension)?
     } else if receiver.is_zero() {
         maker
     } else {
@@ -244,7 +286,11 @@ pub fn check_order_detail(order: &LimitOrder, extension_hex: &str, approved: &Ap
     if real != want_receiver {
         return Err(OrderReject::Receiver);
     }
-    Ok(CheckedOrder { hash: order_hash(order).map_err(binding)?, taking_amount: taking, expiration })
+    Ok(CheckedOrder {
+        hash: order_hash(order).map_err(binding)?,
+        taking_amount: taking,
+        expiration,
+    })
 }
 
 /// Research `minimumOut`: the auction end amount less the Fusion slippage.
@@ -278,13 +324,24 @@ mod tests {
             maker_asset: Address::ZERO,
             receiver: Address::ZERO,
         };
-        (order, f["extension"].as_str().unwrap().to_string(), approved, f["orderHash"].as_str().unwrap().to_string())
+        (
+            order,
+            f["extension"].as_str().unwrap().to_string(),
+            approved,
+            f["orderHash"].as_str().unwrap().to_string(),
+        )
     }
 
     #[test]
     fn accepts_a_live_fusion_order_and_reproduces_its_hash() {
         let (order, extension, approved, hash) = live();
-        let checked = check_order(&order, &extension, &approved, approved.permit_deadline - 600).unwrap();
+        let checked = check_order(
+            &order,
+            &extension,
+            &approved,
+            approved.permit_deadline - 600,
+        )
+        .unwrap();
         assert_eq!(format!("{:#x}", checked.hash), hash);
     }
 
@@ -292,15 +349,77 @@ mod tests {
     fn rejects_changed_orders_extensions_and_expiry() {
         let (order, extension, approved, _) = live();
         let now = approved.permit_deadline - 600;
-        let rejects = |o: &LimitOrder, e: &str, a: &ApprovedOrder, t: u64| check_order(o, e, a, t).is_err();
-        assert!(rejects(&LimitOrder { maker: format!("{:#x}", amzn()), ..order.clone() }, &extension, &approved, now));
-        assert!(rejects(&LimitOrder { taker_asset: format!("{ROBINHOOD_USDG:#x}"), ..order.clone() }, &extension, &approved, now));
-        assert!(rejects(&LimitOrder { making_amount: "2000001".into(), ..order.clone() }, &extension, &approved, now));
-        assert!(rejects(&LimitOrder { receiver: format!("{:#x}", amzn()), ..order.clone() }, &extension, &approved, now));
-        assert!(rejects(&order, &extension, &ApprovedOrder { min_out: U256::from(8_000_000_000_000_000u64), ..approved_clone(&approved) }, now));
-        assert!(rejects(&order, &extension, &ApprovedOrder { permit: vec![0x22; 224], ..approved_clone(&approved) }, now));
-        assert!(rejects(&order, &extension, &ApprovedOrder { permit_deadline: approved.permit_deadline - 1, ..approved_clone(&approved) }, now));
-        assert!(rejects(&order, &extension, &approved, approved.permit_deadline));
+        let rejects =
+            |o: &LimitOrder, e: &str, a: &ApprovedOrder, t: u64| check_order(o, e, a, t).is_err();
+        assert!(rejects(
+            &LimitOrder {
+                maker: format!("{:#x}", amzn()),
+                ..order.clone()
+            },
+            &extension,
+            &approved,
+            now
+        ));
+        assert!(rejects(
+            &LimitOrder {
+                taker_asset: format!("{ROBINHOOD_USDG:#x}"),
+                ..order.clone()
+            },
+            &extension,
+            &approved,
+            now
+        ));
+        assert!(rejects(
+            &LimitOrder {
+                making_amount: "2000001".into(),
+                ..order.clone()
+            },
+            &extension,
+            &approved,
+            now
+        ));
+        assert!(rejects(
+            &LimitOrder {
+                receiver: format!("{:#x}", amzn()),
+                ..order.clone()
+            },
+            &extension,
+            &approved,
+            now
+        ));
+        assert!(rejects(
+            &order,
+            &extension,
+            &ApprovedOrder {
+                min_out: U256::from(8_000_000_000_000_000u64),
+                ..approved_clone(&approved)
+            },
+            now
+        ));
+        assert!(rejects(
+            &order,
+            &extension,
+            &ApprovedOrder {
+                permit: vec![0x22; 224],
+                ..approved_clone(&approved)
+            },
+            now
+        ));
+        assert!(rejects(
+            &order,
+            &extension,
+            &ApprovedOrder {
+                permit_deadline: approved.permit_deadline - 1,
+                ..approved_clone(&approved)
+            },
+            now
+        ));
+        assert!(rejects(
+            &order,
+            &extension,
+            &approved,
+            approved.permit_deadline
+        ));
         let tampered = format!("{}00", extension);
         assert!(rejects(&order, &tampered, &approved, now));
     }
@@ -339,9 +458,21 @@ mod tests {
         let wallet = evm::addr(fusion["wallet"].as_str().unwrap()).unwrap();
         let order: LimitOrder = serde_json::from_value(fusion["signed"]["order"].clone()).unwrap();
         let hash = order_hash(&order).unwrap();
-        assert_eq!(format!("{hash:#x}"), fusion["signed"]["orderHash"].as_str().unwrap());
+        assert_eq!(
+            format!("{hash:#x}"),
+            fusion["signed"]["orderHash"].as_str().unwrap()
+        );
         let sig = evm::hex_bytes(fusion["signed"]["signature"].as_str().unwrap()).unwrap();
-        assert_eq!(evm::recover(hash, sig[..32].try_into().unwrap(), sig[32..64].try_into().unwrap(), sig[64] - 27).unwrap(), wallet);
+        assert_eq!(
+            evm::recover(
+                hash,
+                sig[..32].try_into().unwrap(),
+                sig[32..64].try_into().unwrap(),
+                sig[64] - 27
+            )
+            .unwrap(),
+            wallet
+        );
         let data = evm::hex_bytes(fusion["permit"]["data"].as_str().unwrap()).unwrap();
         let permit = Permit {
             name: "Global Dollar".into(),
@@ -350,10 +481,21 @@ mod tests {
             owner: wallet,
             value: evm::decimal(fusion["amountInAtoms"].as_str().unwrap()).unwrap(),
             nonce: evm::decimal(fusion["permit"]["nonce"].as_str().unwrap()).unwrap(),
-            deadline: fusion["permit"]["deadline"].as_str().unwrap().parse().unwrap(),
+            deadline: fusion["permit"]["deadline"]
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap(),
         };
-        let raw = RawSignature { r: data[160..192].try_into().unwrap(), s: data[192..224].try_into().unwrap(), y_parity: data[159] - 27 };
-        assert_eq!(evm::recover(permit.digest().unwrap(), &raw.r, &raw.s, raw.y_parity).unwrap(), wallet);
+        let raw = RawSignature {
+            r: data[160..192].try_into().unwrap(),
+            s: data[192..224].try_into().unwrap(),
+            y_parity: data[159] - 27,
+        };
+        assert_eq!(
+            evm::recover(permit.digest().unwrap(), &raw.r, &raw.s, raw.y_parity).unwrap(),
+            wallet
+        );
         assert_eq!(permit.encode(&raw), data);
         let approved = ApprovedOrder {
             maker: wallet,
@@ -365,6 +507,12 @@ mod tests {
             maker_asset: Address::ZERO,
             receiver: Address::ZERO,
         };
-        check_order(&order, fusion["signed"]["extension"].as_str().unwrap(), &approved, permit.deadline - 3_590).unwrap();
+        check_order(
+            &order,
+            fusion["signed"]["extension"].as_str().unwrap(),
+            &approved,
+            permit.deadline - 3_590,
+        )
+        .unwrap();
     }
 }

@@ -32,7 +32,7 @@ internal enum StoredBackupCodec {
 
   private static func aad(_ h: [String: Any]) throws -> Data {
     guard let versionNumber = h["version"] as? Int else { throw WalletFailure.invalid }
-    var parts = ["gizu-stored-wallet", String(versionNumber), "gizu.io", "gizu-stored-evm-v1"]
+    var parts = try ["gizu-stored-wallet", String(versionNumber), "gizu.io", "gizu-stored-evm-v1"]
       + ["walletId", "credentialId", "x", "y"].map { try text(h, $0) }
     if versionNumber == 2 { parts.append(try text(h, "roleRegistry")) }
     return Data(parts.joined(separator: ":").utf8)
