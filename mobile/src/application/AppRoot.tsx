@@ -20,8 +20,8 @@ import {
   NavigationContainer,
   useNavigationContainerRef,
 } from "@react-navigation/native";
-import { PostHogProvider } from "posthog-react-native";
-import { analytics } from "@/services/analytics";
+import { analytics, type AnalyticsService } from "@/services/analytics";
+import { useScreenTracking } from "@/navigation/useScreenTracking";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { RootNavigator } from "@/navigation/RootNavigator";
@@ -43,6 +43,7 @@ const theme = {
   },
 };
 function AppNavigation({
+  analyticsService,
   investmentService,
   opportunityService = defaultOpportunityService,
   transactionService,
@@ -52,6 +53,7 @@ function AppNavigation({
   walletBalanceService,
   walletTransferService,
 }: {
+  analyticsService: AnalyticsService;
   investmentService?: InvestmentService;
   opportunityService?: OpportunityService;
   transactionService?: TransactionService;
@@ -63,11 +65,7 @@ function AppNavigation({
 }) {
   const { session } = useSession();
   const navigation = useNavigationContainerRef<RootStackParamList>();
-  // Route names only; params can carry account data.
-  const trackScreen = () => {
-    const route = navigation.getCurrentRoute();
-    if (route) void analytics.screen(route.name);
-  };
+  const { onReady, onStateChange } = useScreenTracking(navigation, analyticsService);
   if ((session?.kind === "testnet" || session?.kind === "mainnet") && renderNativeSession)
     return renderNativeSession(session);
   return (
@@ -78,8 +76,8 @@ function AppNavigation({
           : "guest"
       }
       ref={navigation}
-      onReady={trackScreen}
-      onStateChange={trackScreen}
+      onReady={onReady}
+      onStateChange={onStateChange}
       theme={theme}
       linking={createLinking(!!session)}
     >
@@ -124,6 +122,7 @@ function AppNavigation({
   );
 }
 export function AppRoot({
+  analyticsService = analytics,
   accessService,
   earlyAccessService,
   investmentService,
@@ -135,6 +134,7 @@ export function AppRoot({
   walletBalanceService,
   walletTransferService,
 }: {
+  analyticsService?: AnalyticsService;
   accessService?: AccessService;
   earlyAccessService?: EarlyAccessService;
   investmentService?: InvestmentService;
@@ -147,26 +147,25 @@ export function AppRoot({
   walletTransferService?: WalletTransferService;
 }) {
   return (
-    <PostHogProvider client={analytics} autocapture={false}>
-      <SafeAreaProvider>
-        <ErrorBoundary>
-          <SessionProvider accessService={accessService}>
-            <EarlyAccessProvider service={earlyAccessService}>
-              <StatusBar style="light" />
-              <AppNavigation
-                walletTransferService={walletTransferService}
-                walletBalanceService={walletBalanceService}
-                renderNativeSession={renderNativeSession}
-                accountDependencies={accountDependencies}
-                notificationService={notificationService}
-                opportunityService={opportunityService}
-                investmentService={investmentService}
-                transactionService={transactionService}
-              />
-            </EarlyAccessProvider>
-          </SessionProvider>
-        </ErrorBoundary>
-      </SafeAreaProvider>
-    </PostHogProvider>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <SessionProvider accessService={accessService}>
+          <EarlyAccessProvider service={earlyAccessService}>
+            <StatusBar style="light" />
+            <AppNavigation
+              analyticsService={analyticsService}
+              walletTransferService={walletTransferService}
+              walletBalanceService={walletBalanceService}
+              renderNativeSession={renderNativeSession}
+              accountDependencies={accountDependencies}
+              notificationService={notificationService}
+              opportunityService={opportunityService}
+              investmentService={investmentService}
+              transactionService={transactionService}
+            />
+          </EarlyAccessProvider>
+        </SessionProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
