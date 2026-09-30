@@ -10,6 +10,12 @@ import {
 } from "./confidentialSwap";
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 
+type SwapAction =
+  "start" | "payout" | "recover" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
+function diagnostic(action: SwapAction, outcome: "started" | "completed" | "failed") {
+  if (__DEV__) console.info("[swap]", { action, outcome });
+}
+
 export function useNativeSwap() {
   const [tokens, setTokens] = useState<ListedToken[]>([]);
   const [target, setTarget] = useState("");
@@ -26,7 +32,8 @@ export function useNativeSwap() {
     try {
       setStatus(parseSwapView(await native.getSwapStatus(swapGateway)));
     } catch {
-      setStatus(null);
+      diagnostic("status", "failed");
+      setError("Saved swap status unavailable. Refresh before starting another operation.");
     }
   }, []);
 
@@ -35,26 +42,31 @@ export function useNativeSwap() {
     loadSwapTokens()
       .then((list) => {
         if (!live) return;
+        diagnostic("tokens", "completed");
         setTokens(list);
         setTarget((current) => current || list[0]?.address || "");
       })
       .catch((cause: unknown) => {
+        diagnostic("tokens", "failed");
         if (live) setError(cause instanceof Error ? cause.message : "Token list unavailable.");
       });
     queueMicrotask(() => {
-      if (live) refresh().catch(() => {});
+      if (live) refresh().catch(() => diagnostic("refresh", "failed"));
     });
     return () => {
       live = false;
     };
   }, [refresh]);
 
-  async function run(action: () => Promise<void>) {
+  async function run(name: SwapAction, action: () => Promise<void>) {
+    diagnostic(name, "started");
     setBusy(true);
     setError("");
     try {
       await action();
+      diagnostic(name, "completed");
     } catch (cause) {
+      diagnostic(name, "failed");
       setError(cause instanceof Error ? cause.message : "Swap stopped.");
     } finally {
       setBusy(false);
@@ -80,22 +92,22 @@ export function useNativeSwap() {
       status.receivedTargetAtoms !== "0" &&
       !busy,
     start: () =>
-      run(async () => {
+      run("start", async () => {
         if (!atoms) throw new Error("Enter from 0.000001 to 10 USDC.");
         setStatus(parseSwapView(await swapSigner().startSwap(target, atoms, swapGateway)));
       }),
     // Only after a finished operation: a private balance left in C is spent without new funding.
     canPayout:
-      (status?.phase === "CANCELLED" || status?.phase === "COMPLETE") &&
+      status?.phase === "CANCELLED" &&
       /^[1-9]\d*$/.test(status.creditedAtoms) &&
       /^0x[0-9a-fA-F]{40}$/.test(target) &&
       !busy,
     sell: () =>
-      run(async () => {
+      run("sell", async () => {
         setStatus(parseSwapView(await swapSigner().startSell(swapGateway)));
       }),
     payout: () =>
-      run(async () => {
+      run("payout", async () => {
         setStatus(parseSwapView(await swapSigner().startPayout(target, swapGateway)));
       }),
     // Temporary recovery: no active operation to resume, and a token chosen for the leftover USDG.
@@ -105,13 +117,17 @@ export function useNativeSwap() {
       /^0x[0-9a-fA-F]{40}$/.test(target) &&
       !busy,
     recover: () =>
-      run(async () => {
+      run("recover", async () => {
         setStatus(parseSwapView(await swapSigner().startRecovery(target, swapGateway)));
       }),
     resume: () =>
-      run(async () => setStatus(parseSwapView(await swapSigner().resumeSwap(swapGateway)))),
+      run("resume", async () =>
+        setStatus(parseSwapView(await swapSigner().resumeSwap(swapGateway))),
+      ),
     cancel: () =>
-      run(async () => setStatus(parseSwapView(await swapSigner().cancelSwap(swapGateway)))),
-    refresh: () => run(refresh),
+      run("cancel", async () =>
+        setStatus(parseSwapView(await swapSigner().cancelSwap(swapGateway))),
+      ),
+    refresh: () => run("refresh", refresh),
   };
 }

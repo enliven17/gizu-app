@@ -15,6 +15,7 @@ function setup(state: StoredWalletState = { status: "absent" }) {
     backupWallet: jest.fn().mockResolvedValue(ready),
     openWallet: jest.fn().mockResolvedValue(ready),
     restoreWallet: jest.fn().mockResolvedValue(ready),
+    getSwapDeposit: jest.fn().mockResolvedValue({ fundingAddress: "0x" + "1".repeat(40) }),
     lock: jest.fn(),
   };
   return { native, service: createStoredWalletAccess(() => native) };
@@ -37,13 +38,13 @@ test("ready metadata requires fresh native access before returning a public sess
   expect(native.openWallet).toHaveBeenCalledTimes(1);
   expect(native.backupWallet).not.toHaveBeenCalled();
   expect(result).toEqual({
-    kind: "testnet",
+    kind: "mainnet",
     method: "Passkey",
     walletId,
     address: "0x" + "1".repeat(40),
     accountId: "0x" + "1".repeat(40),
-    accountIndex: 0,
-    chainId: 10143,
+    accountIndex: 1,
+    chainId: 143,
   });
 });
 test.each([pending, { status: "recoveryRequired" } as StoredWalletState])(

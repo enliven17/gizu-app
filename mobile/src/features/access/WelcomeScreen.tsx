@@ -52,7 +52,7 @@ export function WelcomeScreen({
             <Reveal delay={1500} duration={300} offset={0}>
               <Typography className="mt-6 max-w-[310px]" style={tagline}>
                 {native
-                  ? "Your passkey wallet on Monad testnet. Test tokens only."
+                  ? "Your passkey wallet for mainnet USDC and token swaps."
                   : "Explore curated confidential vaults and investment strategies."}
               </Typography>
             </Reveal>

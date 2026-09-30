@@ -1,3 +1,5 @@
+import { useSession } from "@/application/SessionProvider";
+import { MainnetTransaction } from "@/features/wallet/MainnetScreens";
 import { WalletOperations } from "@/features/wallet/WalletOperations";
 import { ArrowUpRight, ShieldCheck } from "lucide-react-native";
 import { GroupedRow } from "@/components/molecules/GroupedRow";
@@ -17,7 +19,7 @@ import { WalletHistoryRows } from "@/features/wallet/WalletHistoryRows";
 import colors from "@/theme/colors.json";
 import { NativeSignOverlay } from "./components/NativeSignOverlay";
 
-export function NativeTransaction({
+function TestnetNativeTransaction({
   route,
 }: NativeStackScreenProps<RootStackParamList, "Transaction">) {
   const wallet = useWallet();
@@ -177,5 +179,16 @@ export function NativeTransaction({
       </Screen>
       {kind === "withdraw" && <NativeSignOverlay phase={c.phase} />}
     </View>
+  );
+}
+
+export function NativeTransaction(
+  props: NativeStackScreenProps<RootStackParamList, "Transaction">,
+) {
+  const { session } = useSession();
+  return session?.kind === "mainnet" ? (
+    <MainnetTransaction {...props} />
+  ) : (
+    <TestnetNativeTransaction {...props} />
   );
 }

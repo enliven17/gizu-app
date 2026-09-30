@@ -14,6 +14,7 @@ export function NativeSwapScreen() {
   const selected = swap.tokens.find((token) => token.address === swap.target);
   const active =
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
+  const refunded = swap.status?.phase === "PAUSED" && swap.status.pausedCode === "FUNDING_REFUNDED";
   return (
     <Screen>
       <View className="gap-1">
@@ -57,6 +58,11 @@ export function NativeSwapScreen() {
             ) : null}
           </View>
         </Surface>
+      ) : null}
+      {swap.canSell ? (
+        <Typography variant="micro">
+          Your purchased tokens are also available under Token holdings on Home.
+        </Typography>
       ) : null}
       {!active && (
         <>
@@ -105,7 +111,7 @@ export function NativeSwapScreen() {
             onPress={swap.resume}
             disabled={swap.busy}
           />
-          {swap.status?.approved ? (
+          {swap.status?.approved && !refunded ? (
             <Typography variant="micro" className="px-1 text-center">
               Approved steps may already have moved funds, so this swap can only be resumed.
             </Typography>

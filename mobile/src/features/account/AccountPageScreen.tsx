@@ -18,7 +18,12 @@ import { AccountAddress } from "./AccountAddress";
 import { PreferenceFeedback } from "./PreferenceFeedback";
 import { SettingsGroup } from "./components/SettingsGroup";
 import { PageIntro } from "./components/PageIntro";
-import { informationPages, nativeInformationPages, type AccountPage } from "./pages";
+import {
+  informationPages,
+  nativeInformationPages,
+  testnetInformationPages,
+  type AccountPage,
+} from "./pages";
 
 const frequencies: StatementFrequency[] = ["Monthly", "Quarterly", "On request"];
 
@@ -33,7 +38,10 @@ function PageActions({ labels, delay }: { labels: string[]; delay: number }) {
 }
 
 function InformationPage({ page, native }: { page: AccountPage; native: boolean }) {
-  const info = (native ? nativeInformationPages[page] : undefined) ?? informationPages[page];
+  const { session } = useSession();
+  const walletPages =
+    session?.kind === "testnet" ? testnetInformationPages : nativeInformationPages;
+  const info = (native ? walletPages[page] : undefined) ?? informationPages[page];
   if (!info) return null;
   return (
     <>
@@ -93,15 +101,17 @@ function AlertsPage() {
 }
 
 function CurrencyPage({ native }: { native: boolean }) {
-  const currencies = native ? ["MON"] : ["USD", "EUR", "GBP", "TRY"];
-  const selected = native ? "MON" : "USD";
+  const { session } = useSession();
+  const asset = session?.kind === "mainnet" ? "USDC" : "MON";
+  const currencies = native ? [asset] : ["USD", "EUR", "GBP", "TRY"];
+  const selected = native ? asset : "USD";
   return (
     <>
       <PageIntro
         title="Currency"
         body={
           native
-            ? "Balances are shown in MON. Fiat values are not available yet."
+            ? `Balances are shown in ${asset}. Fiat values are not available yet.`
             : "USD is the only display currency for now."
         }
       />
@@ -153,7 +163,7 @@ export function AccountPageScreen({
 }: NativeStackScreenProps<RootStackParamList, "AccountPage">) {
   const page = route.params.page;
   const { session } = useSession();
-  const native = session?.kind === "testnet";
+  const native = session?.kind === "testnet" || session?.kind === "mainnet";
   const hasInfo = Boolean(
     (native ? nativeInformationPages[page] : undefined) ?? informationPages[page],
   );

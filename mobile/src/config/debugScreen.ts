@@ -1,4 +1,4 @@
-type DebugScreen = "ui" | "stored-wallet";
+type DebugScreen = "ui" | "stored-wallet" | "testnet";
 
 export function resolveDebugScreen(
   screen: string | undefined,
@@ -10,6 +10,7 @@ export function resolveDebugScreen(
   if (!development) throw new Error("Debug screens are development-only.");
   if (screen === "wallet" || screen === "signer")
     throw new Error("Legacy signer diagnostics are disconnected from the app.");
-  if (screen !== "stored-wallet" && screen !== "ui") throw new Error("Unknown debug screen.");
+  if (screen !== "stored-wallet" && screen !== "ui" && screen !== "testnet")
+    throw new Error("Unknown debug screen.");
   return screen;
 }

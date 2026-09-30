@@ -11,7 +11,11 @@ import { useInvestments } from "./InvestmentProvider";
 import { DataStatus } from "./DataStatus";
 export function ActivityScreen() {
   const { session } = useSession();
-  return session?.kind === "testnet" ? <NativeActivity /> : <DemoActivity />;
+  return session?.kind === "testnet" || session?.kind === "mainnet" ? (
+    <NativeActivity />
+  ) : (
+    <DemoActivity />
+  );
 }
 function DemoActivity() {
   const { data } = useInvestments();

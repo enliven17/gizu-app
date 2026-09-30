@@ -9,6 +9,7 @@ import org.json.JSONObject
 
 /** Encrypted swap machine state. Signed payloads stay in this file and never cross Expo. */
 internal class SwapStore(context: Context, record: WalletRecord) {
+  val portfolio = SwapPortfolioStore(context, record)
   private val file =
     AndroidWalletFile(context, "gizu-swap-${record.journalId}.enc", SWAP_FILE_LIMIT)
   private val key = { checkNotNull(AndroidWalletKeys().existing()) }

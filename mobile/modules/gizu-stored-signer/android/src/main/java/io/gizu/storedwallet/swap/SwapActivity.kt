@@ -17,8 +17,8 @@ import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -45,6 +45,7 @@ internal object SwapHost {
   var sell: Boolean = false
   var payout: Boolean = false
   var recovery: Boolean = false
+  var holdingId: String? = null
 
   suspend fun open(
     activity: Activity,
@@ -55,6 +56,7 @@ internal object SwapHost {
     sell: Boolean = false,
     payout: Boolean = false,
     recovery: Boolean = false,
+    holdingId: String? = null,
   ): Map<String, Any?> {
     try {
       return suspendCancellableCoroutine { continuation ->
@@ -67,10 +69,13 @@ internal object SwapHost {
         this.sell = sell
         this.payout = payout
         this.recovery = recovery
+        this.holdingId = holdingId
         completion = continuation
         continuation.invokeOnCancellation { activity.runOnUiThread { close(null) } }
         try {
-          activity.startActivity(Intent(activity, SwapActivity::class.java).putExtra("token", token))
+          activity.startActivity(
+            Intent(activity, SwapActivity::class.java).putExtra("token", token)
+          )
         } catch (_: Exception) {
           close(null)
         }
@@ -94,12 +99,14 @@ internal object SwapHost {
     else {
       current.stopWork()
       current.finish()
-      closing = CoroutineScope(Dispatchers.Main.immediate).launch {
-        current.awaitWork()
-        done()
-      }
+      closing =
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+          current.awaitWork()
+          done()
+        }
     }
   }
+
   fun close(view: Map<String, Any?>?) {
     val result = completion
     completion = null
@@ -115,10 +122,11 @@ internal object SwapHost {
     else {
       current.stopWork()
       current.finish()
-      closing = CoroutineScope(Dispatchers.Main.immediate).launch {
-        current.awaitWork()
-        done()
-      }
+      closing =
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+          current.awaitWork()
+          done()
+        }
     }
   }
 }
@@ -144,7 +152,9 @@ class SwapActivity : Activity() {
 
   override fun onCreate(state: Bundle?) {
     super.onCreate(state)
-    if (state != null || SwapHost.token == null || intent.getStringExtra("token") != SwapHost.token) {
+    if (
+      state != null || SwapHost.token == null || intent.getStringExtra("token") != SwapHost.token
+    ) {
       finish()
       return
     }
@@ -153,13 +163,22 @@ class SwapActivity : Activity() {
     // A buy runs for several minutes; a locked screen would pause it half way.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     if (Build.VERSION.SDK_INT >= 31) window.setHideOverlayWindows(true)
-    root = LinearLayout(this).apply {
-      orientation = LinearLayout.VERTICAL
-      setBackgroundColor(NativeStyle.ink)
-      setPadding(NativeStyle.dp(this@SwapActivity, 24), NativeStyle.dp(this@SwapActivity, 24), NativeStyle.dp(this@SwapActivity, 24), NativeStyle.dp(this@SwapActivity, 24))
-    }
+    root =
+      LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundColor(NativeStyle.ink)
+        setPadding(
+          NativeStyle.dp(this@SwapActivity, 24),
+          NativeStyle.dp(this@SwapActivity, 24),
+          NativeStyle.dp(this@SwapActivity, 24),
+          NativeStyle.dp(this@SwapActivity, 24),
+        )
+      }
     setContentView(root)
-    show("Preparing the swap", "Checking the funding wallet, quotes and limits. Nothing is signed yet.")
+    show(
+      "Preparing the swap",
+      "Checking the funding wallet, quotes and limits. Nothing is signed yet.",
+    )
     scope.launch {
       try {
         val gateway = checkNotNull(SwapHost.gateway)
@@ -175,7 +194,7 @@ class SwapActivity : Activity() {
             active.restore()
             active.retry()
           } else if (SwapHost.sell) {
-            active.startSell(record)
+            active.startSell(record, SwapHost.holdingId)
           } else if (SwapHost.recovery) {
             active.startRecovery(record, checkNotNull(SwapHost.target))
           } else if (SwapHost.payout) {
@@ -203,7 +222,8 @@ class SwapActivity : Activity() {
     }
   }
 
-  private fun approved() = runCatching { engine?.view()?.get("approved") == true }.getOrDefault(false)
+  private fun approved() =
+    runCatching { engine?.view()?.get("approved") == true }.getOrDefault(false)
 
   private fun progress(view: Map<String, Any?>) {
     if (stopped) return
@@ -213,9 +233,17 @@ class SwapActivity : Activity() {
       "${view["phase"]} · ${view["step"]}\nPayouts ${view["payoutsSubmitted"]}/3 · orders ${view["ordersComplete"]}/3\n\n" +
         "Keep this screen open until it finishes. Leaving pauses the swap: nothing is cancelled and Resume continues from here.",
     )
+    root.addView(
+      NativeStyle.button(this, if (approved()) "Pause and go back" else "Cancel swap", false)
+        .apply { setOnClickListener { cancelOrLeave() } },
+      NativeStyle.fullWidth(this, 16),
+    )
   }
 
-  /** After approval funds may be in flight, so leaving pauses the operation instead of cancelling it. */
+  /**
+   * After approval funds may be in flight, so leaving pauses the operation instead of cancelling
+   * it.
+   */
   private fun leave() {
     SwapHost.close(runCatching { engine?.view() }.getOrNull())
   }
@@ -235,10 +263,22 @@ class SwapActivity : Activity() {
     root.addView(NativeStyle.title(this, "Review swap", 22f))
     if (error != null) root.addView(NativeStyle.body(this, error), NativeStyle.fullWidth(this, 12))
     val scroll = ScrollView(this)
-    scroll.addView(NativeStyle.body(this, text, NativeStyle.primaryText).apply {
-      setPadding(NativeStyle.dp(this@SwapActivity, 16), NativeStyle.dp(this@SwapActivity, 16), NativeStyle.dp(this@SwapActivity, 16), NativeStyle.dp(this@SwapActivity, 16))
-    })
-    root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = NativeStyle.dp(this@SwapActivity, 16) })
+    scroll.addView(
+      NativeStyle.body(this, text, NativeStyle.primaryText).apply {
+        setPadding(
+          NativeStyle.dp(this@SwapActivity, 16),
+          NativeStyle.dp(this@SwapActivity, 16),
+          NativeStyle.dp(this@SwapActivity, 16),
+          NativeStyle.dp(this@SwapActivity, 16),
+        )
+      }
+    )
+    root.addView(
+      scroll,
+      LinearLayout.LayoutParams(-1, 0, 1f).apply {
+        topMargin = NativeStyle.dp(this@SwapActivity, 16)
+      },
+    )
     val approve = NativeStyle.button(this, "Approve for 15 minutes", true)
     approve.isEnabled = false
     approve.setOnClickListener {
@@ -247,8 +287,15 @@ class SwapActivity : Activity() {
       authorize(text)
     }
     root.addView(approve, NativeStyle.fullWidth(this, 16))
-    root.addView(NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply { setOnClickListener { cancelOrLeave() } }, NativeStyle.fullWidth(this, 10))
-    scroll.viewTreeObserver.addOnScrollChangedListener { approve.isEnabled = !scroll.canScrollVertically(1) && !stopped }
+    root.addView(
+      NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply {
+        setOnClickListener { cancelOrLeave() }
+      },
+      NativeStyle.fullWidth(this, 10),
+    )
+    scroll.viewTreeObserver.addOnScrollChangedListener {
+      approve.isEnabled = !scroll.canScrollVertically(1) && !stopped
+    }
     scroll.post { approve.isEnabled = !scroll.canScrollVertically(1) && !stopped }
   }
 
@@ -257,18 +304,40 @@ class SwapActivity : Activity() {
       try {
         val wallet = walletStore(applicationContext)
         val identity = withContext(Dispatchers.IO) { wallet.load().use { it.id to it.credential } }
-        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+        val digest =
+          MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") {
+            "%02x".format(it)
+          }
         providerPending = true
         try {
-          PasskeyGate(this@SwapActivity).authorize(identity.second, identity.first, "swap:v1:${engine?.view()?.get("operationId")}:$digest")
+          PasskeyGate(this@SwapActivity)
+            .authorize(
+              identity.second,
+              identity.first,
+              "swap:v1:${engine?.view()?.get("operationId")}:$digest",
+            )
           withTimeout(FOCUS_TIMEOUT_MS) { while (!hasWindowFocus()) delay(FOCUS_POLL_INTERVAL_MS) }
         } finally {
           providerPending = false
         }
         check(!stopped && hasWindowFocus())
         check(!(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
+        // Restored operations contain no signing key. Rehydrate it only after
+        // the passkey assertion, then approve the exact review shown above.
+        val record = withContext(Dispatchers.IO) { wallet.load() }
+        try {
+          check(!stopped && hasWindowFocus())
+          check(!(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
+          check(record.id == identity.first)
+          checkNotNull(engine).unlock(record)
+        } finally {
+          record.close()
+        }
         engine?.approve()
-        show("Swap in progress", "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.")
+        show(
+          "Swap in progress",
+          "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.",
+        )
         present(checkNotNull(engine).advance(::progress))
       } catch (error: CancellationException) {
         throw error
@@ -280,9 +349,20 @@ class SwapActivity : Activity() {
   }
 
   private fun unlock() {
-    show("New unlock required", "The 15-minute authorization ended. Unlock the same plan to continue. Nothing new is approved.")
-    root.addView(NativeStyle.button(this, "Unlock", true).apply { setOnClickListener { unlockPasskey() } }, NativeStyle.fullWidth(this, 16))
-    root.addView(NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply { setOnClickListener { cancelOrLeave() } }, NativeStyle.fullWidth(this, 10))
+    show(
+      "New unlock required",
+      "The 15-minute authorization ended. Unlock the same plan to continue. Nothing new is approved.",
+    )
+    root.addView(
+      NativeStyle.button(this, "Unlock", true).apply { setOnClickListener { unlockPasskey() } },
+      NativeStyle.fullWidth(this, 16),
+    )
+    root.addView(
+      NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply {
+        setOnClickListener { cancelOrLeave() }
+      },
+      NativeStyle.fullWidth(this, 10),
+    )
   }
 
   private fun unlockPasskey() {
@@ -292,7 +372,12 @@ class SwapActivity : Activity() {
         val identity = withContext(Dispatchers.IO) { wallet.load().use { it.id to it.credential } }
         providerPending = true
         try {
-          PasskeyGate(this@SwapActivity).authorize(identity.second, identity.first, "swap-unlock:v1:${engine?.view()?.get("operationId")}")
+          PasskeyGate(this@SwapActivity)
+            .authorize(
+              identity.second,
+              identity.first,
+              "swap-unlock:v1:${engine?.view()?.get("operationId")}",
+            )
           withTimeout(FOCUS_TIMEOUT_MS) { while (!hasWindowFocus()) delay(FOCUS_POLL_INTERVAL_MS) }
         } finally {
           providerPending = false

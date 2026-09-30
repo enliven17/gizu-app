@@ -73,6 +73,47 @@ export type StoredSwapView = {
   returnAddresses: string[];
 };
 
+export type SwapHolding = {
+  token: string;
+  chainId: 4663;
+  symbol: string;
+  decimals: number;
+  balanceAtoms: string;
+  batches: { id: string; balanceAtoms: string }[];
+};
+export type SwapHoldingsSnapshot = {
+  holdings: SwapHolding[];
+  checkedAt: number;
+  block: string;
+};
+
+export type MainnetPortfolioSnapshot = {
+  walletId: string;
+  chainId: 143;
+  asset: "USDC";
+  decimals: 6;
+  fundingAddress: string;
+  fundingAtoms: string;
+  returnAtoms: string;
+  totalAtoms: string;
+  checkedAt: number;
+  block: string;
+  accounts: {
+    address: string;
+    accountIndex: number;
+    role: "funding" | "receiving";
+    balanceAtoms: string;
+  }[];
+  history: {
+    operationId: string;
+    phase: string;
+    direction: "buy" | "sell";
+    symbol: string;
+    receivedAtoms: string;
+    recordedAt: number;
+  }[];
+};
+
 /** All dialogs, file IO and authorization originate natively. No JS approve/export API. */
 export interface StoredSignerContract {
   getCapabilities(): Promise<StoredSignerCapabilities>;
@@ -88,8 +129,11 @@ export interface StoredSignerContract {
   /** Reconcile then obtain new native review and passkey authorization; never automatic. */
   resumeOperation(operationId: string, expectedRevision: number): Promise<StoredOperation>;
   cancelOperation(operationId: string): Promise<StoredOperation>;
+  getMainnetPortfolio(): Promise<MainnetPortfolioSnapshot>;
   getSwapDeposit(): Promise<{ fundingAddress: string }>;
   startSwap(target: string, amountAtoms: string, gateway: string): Promise<StoredSwapView>;
+  getSwapHoldings(target: string): Promise<SwapHoldingsSnapshot>;
+  sellSwapHolding(holdingId: string, gateway: string): Promise<StoredSwapView>;
   startSell(gateway: string): Promise<StoredSwapView>;
   /** Buy `target` with the private balance C already holds; nothing is sent from Monad. */
   startPayout(target: string, gateway: string): Promise<StoredSwapView>;

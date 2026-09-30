@@ -20,7 +20,7 @@ type Props = {
 export function AccountAddress({ leading, heading, compact = false }: Props) {
   const { clipboard } = useAccount();
   const { session } = useSession();
-  const native = session?.kind === "testnet";
+  const native = session?.kind === "testnet" || session?.kind === "mainnet";
   const address = native ? session.address : profileFixture.address;
   const [status, setStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
   const mounted = useRef(true);
@@ -71,7 +71,11 @@ export function AccountAddress({ leading, heading, compact = false }: Props) {
       </View>
       {/* Functional safety note: which asset the address may receive. */}
       <Typography variant="micro" className="!text-fg-35">
-        {native ? "Receive Monad testnet MON only." : "This address cannot receive funds."}
+        {session?.kind === "mainnet"
+          ? "Swap funding address · Receive USDC on Monad mainnet only."
+          : native
+            ? "Receive Monad testnet MON only."
+            : "This address cannot receive funds."}
       </Typography>
       {status === "copied" && (
         <Typography variant="micro" className="!text-accent" accessibilityLiveRegion="polite">

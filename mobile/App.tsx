@@ -13,6 +13,8 @@ function NativeApp() {
 let Entry = NativeApp;
 if (__DEV__ && debugScreen === "stored-wallet") {
   Entry = require("./src/development/stored-wallet/StoredWalletDebugApp").StoredWalletDebugApp;
+} else if (__DEV__ && debugScreen === "testnet") {
+  Entry = require("./src/development/TestnetDebugApp").TestnetDebugApp;
 } else if (__DEV__ && debugScreen === "ui") {
   Entry = require("./src/development/PreviewDebugApp").PreviewDebugApp;
 }

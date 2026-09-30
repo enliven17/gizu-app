@@ -63,10 +63,26 @@ async function checked(
   if (value.contractVersion !== 1 || value.available !== true || value[capability] !== true)
     throw new WalletUnavailableError();
 }
+// Native read ceremonies share one store lock. Queue portfolio/holdings reads, never signing.
+let readTail: Promise<unknown> = Promise.resolve();
+function readNative<T>(work: () => Promise<T>): Promise<T> {
+  const generation = authorizationGeneration;
+  const run = () => {
+    if (generation !== authorizationGeneration) throw new Error("Wallet operation cancelled.");
+    return work();
+  };
+  const result = readTail.then(run, run);
+  readTail = result.catch(() => undefined);
+  return result;
+}
 export function getStoredSigner(): StoredWalletBridge | null {
   const native = nativeModule();
   if (!native) return null;
   return {
+    async getSwapDeposit() {
+      await checked(native, "walletStorage");
+      return native.getSwapDeposit();
+    },
     async getWalletState() {
       await checked(native, "walletStorage");
       return native.getWalletState();
@@ -134,7 +150,10 @@ export function getStoredTransferSigner(): StoredTransferBridge | null {
 }
 export type StoredSwapBridge = Pick<
   StoredSignerContract,
+  | "getMainnetPortfolio"
   | "getSwapDeposit"
+  | "getSwapHoldings"
+  | "sellSwapHolding"
   | "startSwap"
   | "startSell"
   | "startPayout"
@@ -155,6 +174,28 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
     async startSwap(target, amountAtoms, gateway) {
       await checked(native, "swaps");
       return native.startSwap(target, amountAtoms, gateway);
+    },
+    getMainnetPortfolio() {
+      return readNative(async () => {
+        await checked(native, "walletStorage");
+        if (typeof native.getMainnetPortfolio !== "function")
+          throw new Error("Mainnet balances need an updated native build on this platform.");
+        return native.getMainnetPortfolio();
+      });
+    },
+    getSwapHoldings(target) {
+      return readNative(async () => {
+        await checked(native, "swaps");
+        if (typeof native.getSwapHoldings !== "function")
+          throw new Error("Token holdings need an updated Android build.");
+        return native.getSwapHoldings(target);
+      });
+    },
+    async sellSwapHolding(holdingId, gateway) {
+      await checked(native, "swaps");
+      if (typeof native.sellSwapHolding !== "function")
+        throw new Error("Selling holdings is not available in this build.");
+      return native.sellSwapHolding(holdingId, gateway);
     },
     async startSell(gateway) {
       await checked(native, "swaps");

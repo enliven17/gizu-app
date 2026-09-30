@@ -25,6 +25,7 @@ function setup() {
     backupWallet: jest.fn().mockResolvedValue(ready),
     openWallet: jest.fn().mockResolvedValue(ready),
     restoreWallet: jest.fn().mockResolvedValue(ready),
+    getSwapDeposit: jest.fn().mockResolvedValue({ fundingAddress: "0x" + "1".repeat(40) }),
     lock: jest.fn(),
   } satisfies StoredWalletBridge;
   render(

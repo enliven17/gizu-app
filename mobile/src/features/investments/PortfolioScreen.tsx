@@ -1,3 +1,5 @@
+import { MainnetPortfolioScreen } from "@/features/wallet/MainnetScreens";
+import { SwapHoldingsSection } from "@/features/swap/SwapHoldingsSection";
 import type { ReactNode } from "react";
 import { useSession } from "@/application/SessionProvider";
 import { useWallet } from "@/features/wallet/WalletProvider";
@@ -5,7 +7,7 @@ import { useNotifications } from "@/features/notifications/NotificationProvider"
 import { useTransactions } from "@/features/transactions/TransactionProvider";
 import { OperationLink } from "@/features/transactions/OperationLink";
 import { decimal } from "@/domain/transactions";
-import { Image, View } from "react-native";
+import { Image, Platform, View } from "react-native";
 import monadMark from "../../../assets/logos/monad-white.png";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -37,7 +39,9 @@ type Props = BottomTabScreenProps<MainTabParamList, "Home">;
 
 export function PortfolioScreen(props: Props) {
   const { session } = useSession();
-  return session?.kind === "testnet" ? (
+  return session?.kind === "mainnet" ? (
+    <MainnetPortfolioScreen {...props} />
+  ) : session?.kind === "testnet" ? (
     <NativePortfolio {...props} />
   ) : (
     <DemoPortfolio {...props} />
@@ -236,6 +240,7 @@ function NativePortfolio({ navigation }: Props) {
           onActivity={() => root.navigate("Activity")}
         />
       </FadeIn>
+      {Platform.OS === "android" ? <SwapHoldingsSection /> : null}
       <FadeIn delay={sectionDelay(4)} className="mt-5">
         <VaultPreview
           onSeeAll={() => navigation.navigate("Vaults")}

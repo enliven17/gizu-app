@@ -33,7 +33,7 @@ internal class PasskeyGate(private val activity: Activity) {
           JSONObject()
             .put("id", encode(random()))
             .put("name", "gizu-stored-wallet")
-            .put("displayName", "Gizu testnet wallet"),
+            .put("displayName", "Gizu wallet"),
         )
         .put(
           "pubKeyCredParams",

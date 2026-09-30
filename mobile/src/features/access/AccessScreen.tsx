@@ -35,12 +35,12 @@ export function AccessScreen() {
             <GizuLogo width={(LOGO_HEIGHT * 638) / 866} height={LOGO_HEIGHT} />
           </View>
           <AccessHeading
-            lead={native ? "Your testnet" : "Create"}
+            lead={native ? "Your mainnet" : "Create"}
             accent={native ? "wallet" : "access"}
           />
           <Typography className="mt-3 max-w-[320px]" style={body}>
             {native
-              ? "Create or open your Monad testnet wallet with a passkey."
+              ? "Create or open your mainnet wallet with a passkey."
               : "Continue with a passkey to access Gizu."}
           </Typography>
         </Reveal>

@@ -22,7 +22,7 @@ export function TransactionScreen(
   props: NativeStackScreenProps<RootStackParamList, "Transaction">,
 ) {
   const { session } = useSession();
-  return session?.kind === "testnet" ? (
+  return session?.kind === "testnet" || session?.kind === "mainnet" ? (
     <NativeTransaction {...props} />
   ) : (
     <DemoTransaction {...props} />
