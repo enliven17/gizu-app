@@ -6,6 +6,21 @@ internal enum WalletFailure: Error {
   case invalid, unavailable, cancelled, busy, insufficientBalance
 }
 
+internal func requireRoleRegistry(_ value: String) throws {
+  guard let data = value.data(using: .utf8), data.count <= 1024,
+    let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], object.count == 2,
+    object["version"] as? Int == 1, let next = object["nextRecipient"] as? Int, next >= 3
+  else { throw WalletFailure.invalid }
+}
+
+internal func registryNext(_ value: String) throws -> Int {
+  guard let data = value.data(using: .utf8),
+    let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+    let next = object["nextRecipient"] as? Int
+  else { throw WalletFailure.invalid }
+  return next
+}
+
 internal func require(_ condition: Bool) throws {
   guard condition else { throw WalletFailure.invalid }
 }
@@ -79,17 +94,20 @@ internal final class WalletRecord {
   var entropy: Data
   var verified: Bool
   let journalId: String
+  let roleRegistry: String
   init(
     id: String, credential: StoredCredential, entropy: Data, verified: Bool = false,
-    journalId: String? = nil
+    journalId: String? = nil, roleRegistry: String = #"{"version":1,"nextRecipient":3}"#
   ) throws {
     try require(UUID(uuidString: id) != nil && entropy.count == 32)
     try credential.validate()
+    try requireRoleRegistry(roleRegistry)
     self.id = id
     self.credential = credential
     self.entropy = entropy
     self.verified = verified
     self.journalId = journalId ?? id
+    self.roleRegistry = roleRegistry
     try require(UUID(uuidString: self.journalId) != nil)
   }
 

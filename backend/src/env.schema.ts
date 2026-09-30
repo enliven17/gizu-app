@@ -7,6 +7,8 @@ const apiEnvSchema = z.object({
   MERKL_API_URL: z.string().min(1),
   MERKL_API_KEY: z.string().min(1),
   ONEINCH_API_KEY: z.string().min(1),
+  AURORA_API_KEY: z.string().min(1),
+  PIMLICO_API_KEY: z.string().min(1),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

@@ -13,18 +13,21 @@ internal object BackupCodec {
   private fun header(bytes: ByteArray): JSONObject {
     require(bytes.size in 1..65536)
     val h = JSONObject(String(bytes, Charsets.UTF_8))
-    require(h.getString("format") == "gizu-stored-wallet" && h.get("version") == 1)
-    require(
-      h.getString("rpId") == "gizu.io" && h.getString("derivationVersion") == "gizu-stored-evm-v1"
-    )
+    require(h.getString("format") == "gizu-stored-wallet")
+    require(h.getString("rpId") == "gizu.io" && h.getString("derivationVersion") == "gizu-stored-evm-v1")
     UUID.fromString(h.getString("walletId"))
+    val version = h.getInt("version")
+    require(version == 1 || version == 2)
+    if (version == 2) requireRoleRegistry(h.getString("roleRegistry"))
+    else require(!h.has("roleRegistry"))
     return h
   }
 
-  private fun aad(h: JSONObject): ByteArray =
-    listOf(
+  private fun aad(h: JSONObject): ByteArray {
+    val parts =
+      mutableListOf(
         "gizu-stored-wallet",
-        "1",
+        h.get("version").toString(),
         "gizu.io",
         "gizu-stored-evm-v1",
         h.getString("walletId"),
@@ -32,8 +35,9 @@ internal object BackupCodec {
         h.getString("x"),
         h.getString("y"),
       )
-      .joinToString(":")
-      .toByteArray()
+    if (h.getInt("version") == 2) parts.add(h.getString("roleRegistry"))
+    return parts.joinToString(":").toByteArray()
+  }
 
   fun credential(bytes: ByteArray): StoredPasskey {
     val h = header(bytes)
@@ -54,13 +58,14 @@ internal object BackupCodec {
     val h =
       JSONObject()
         .put("format", "gizu-stored-wallet")
-        .put("version", 1)
+        .put("version", 2)
         .put("rpId", "gizu.io")
         .put("derivationVersion", "gizu-stored-evm-v1")
         .put("walletId", record.id)
         .put("credentialId", enc(record.credential.credentialId))
         .put("x", enc(record.credential.publicKeyX))
         .put("y", enc(record.credential.publicKeyY))
+        .put("roleRegistry", record.roleRegistry)
     return h.put(
         "envelope",
         enc(CryptoEnvelope.encrypt(SecretKeySpec(prf, "AES"), record.entropy, aad(h))),
@@ -76,7 +81,12 @@ internal object BackupCodec {
     val entropy =
       CryptoEnvelope.decrypt(SecretKeySpec(prf, "AES"), dec(h.getString("envelope")), aad(h))
     try {
-      return WalletRecord(h.getString("walletId"), credential, entropy)
+      return WalletRecord(
+        h.getString("walletId"),
+        credential,
+        entropy,
+        roleRegistry = if (h.getInt("version") == 2) h.getString("roleRegistry") else INITIAL_ROLE_REGISTRY,
+      )
     } catch (e: Exception) {
       entropy.fill(0)
       throw e

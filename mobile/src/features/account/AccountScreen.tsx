@@ -59,7 +59,7 @@ function rowValue(page: AccountPage, native: boolean, preferences: Preferences |
 // Frontend Settings: title, glass identity card, groups staggered 60ms, glass Disconnect.
 export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamList, "Settings">) {
   const { session } = useSession();
-  const native = session?.kind === "testnet";
+  const native = session?.kind === "testnet" || session?.kind === "mainnet";
   const { preferences, busy, disconnectAccount } = useAccount();
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   const method = session?.method === "Demo passkey" ? "Passkey" : session?.method;
@@ -76,7 +76,11 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
               heading={
                 <>
                   <Typography variant="rowTitle" className="!text-[16px]">
-                    {native ? "Account 0" : profile.name}
+                    {session?.kind === "mainnet"
+                      ? "Swap funding account"
+                      : native
+                        ? "Account 0"
+                        : profile.name}
                   </Typography>
                   <Typography variant="micro">Access method: {method}</Typography>
                 </>

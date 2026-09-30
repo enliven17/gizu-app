@@ -1,3 +1,4 @@
+import { MainnetWalletProvider } from "@/features/wallet/MainnetWalletProvider";
 import { OpportunityServiceContext } from "@/features/opportunities/useOpportunities";
 import { opportunityService as defaultOpportunityService } from "@/services/opportunities";
 import type { OpportunityService } from "@/domain/opportunities";
@@ -54,18 +55,29 @@ function AppNavigation({
   walletTransferService?: WalletTransferService;
 }) {
   const { session } = useSession();
-  if (session?.kind === "testnet" && renderNativeSession) return renderNativeSession(session);
+  if ((session?.kind === "testnet" || session?.kind === "mainnet") && renderNativeSession)
+    return renderNativeSession(session);
   return (
     <NavigationContainer
       key={
         session
-          ? `${session.kind}:${session.accountId ?? "default"}:${session.kind === "testnet" ? session.chainId : "demo"}`
+          ? `${session.kind}:${session.accountId ?? "default"}:${session.kind !== "demo" ? session.chainId : "demo"}`
           : "guest"
       }
       theme={theme}
       linking={createLinking(!!session)}
     >
-      {session?.kind === "testnet" ? (
+      {session?.kind === "mainnet" ? (
+        <MainnetWalletProvider session={session}>
+          <OpportunityServiceContext.Provider value={opportunityService}>
+            <AccountProvider {...accountDependencies}>
+              <NotificationProvider service={emptyNotificationService}>
+                <RootNavigator />
+              </NotificationProvider>
+            </AccountProvider>
+          </OpportunityServiceContext.Provider>
+        </MainnetWalletProvider>
+      ) : session?.kind === "testnet" ? (
         <WalletProvider
           session={session}
           balance={walletBalanceService}

@@ -56,7 +56,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
     let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
       relyingPartyIdentifier: StoredPasskeyVerifier.rp)
     let registration = provider.createCredentialRegistrationRequest(
-      challenge: challenge, name: "Gizu testnet wallet", userID: try randomBytes())
+      challenge: challenge, name: "Gizu wallet", userID: try randomBytes())
     registration.userVerificationPreference = .required
     registration.attestationPreference = .none
     registration.prf = .checkForSupport

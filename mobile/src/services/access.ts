@@ -1,6 +1,6 @@
 export type AccessMethod = "Demo passkey" | "Passkey";
 export type DemoSession = { kind: "demo"; method: AccessMethod; accountId?: string };
-export type WalletSession = {
+export type TestnetWalletSession = {
   kind: "testnet";
   method: "Passkey";
   accountId: string;
@@ -9,6 +9,15 @@ export type WalletSession = {
   chainId: 10143;
   walletId?: string;
 };
+export type MainnetWalletSession = Omit<
+  TestnetWalletSession,
+  "kind" | "chainId" | "accountIndex"
+> & {
+  kind: "mainnet";
+  chainId: 143;
+  accountIndex: 1;
+};
+export type WalletSession = TestnetWalletSession | MainnetWalletSession;
 export type AppSession = DemoSession | WalletSession;
 export interface AccessService {
   method?: AccessMethod;

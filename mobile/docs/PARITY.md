@@ -26,6 +26,54 @@ are not zero-valued fictional holdings. No standalone wallet product UI is added
 Incoming and external history indexing is deferred. Core supports broader bounded
 native diagnostics, but that does not expand the main-app product scope.
 
+## Mainnet app flow on the confidential-swap branch
+
+Normal stored-wallet onboarding now creates a `mainnet` session for the existing
+swap funding account (index 1, Monad chain 143). It does not create a new wallet,
+move funds, change derivation, or expand the native testnet transfer policy.
+
+- Android Home reads mainnet USDC (6 decimals) from the funding account and every
+  locally allocated recipient account at one block, validates chain identity, and
+  shows the combined total with separate funding/receiving amounts and addresses.
+  Returned USDC is not automatically consolidated or spendable from the funding account.
+- Deposit and Account show the mainnet USDC funding address. Activity shows local
+  archived buy/sell summaries, including completed sales' USDC proceeds. It does not
+  claim complete incoming history or reconstruct overwritten historical records.
+- Direct mainnet Withdraw has no amount, review or signing controls. It explains
+  the unsupported operation and shows the current accounts instead.
+- Normal app composition never mounts the testnet balance/transfer provider.
+  `npm run debug:testnet` explicitly opens the retained Account 0 testnet harness;
+  the debug entry is rejected outside development. Old native testnet RPC and
+  transfer policies remain intact for that harness.
+- iOS uses mainnet-facing navigation, but its native mainnet portfolio reader and
+  independent holdings store still need implementation. It reports unavailable,
+  never a testnet balance relabelled as mainnet or a fabricated zero. This change
+  is not an iOS/TestFlight readiness claim.
+
+## Confidential-swap branch: Android holdings
+
+Home includes **Token holdings** for Robinhood mainnet tokens, separate from the
+Monad mainnet USDC total. This branch's Swap tab uses the native confidential-swap
+journey; the read-only Swap row above describes the earlier catalog baseline.
+
+- Native storage keeps tracked token contracts and completed/cancelled public
+  operation summaries in a separate encrypted, wallet-scoped portfolio file.
+  Replacing the active swap does not replace these records.
+- Holdings are ERC-20 balances at one RPC block across all locally allocated
+  recipient accounts. Refresh does not sign or advance an operation. RPC errors
+  retain visible previous results with a stale warning and disable selling.
+- **Find an earlier purchase** selects a token from the existing swap catalog and
+  checks its balances, recovering holdings whose old operation record was replaced.
+  Discovery covers selected/tracked tokens and locally recorded account indices,
+  not an exhaustive cross-device asset index or historical transaction ledger.
+- Selling uses a native-validated group of three allocated holder accounts, freshly
+  checks balances in Rust, allocates new return accounts, and requires native review
+  and passkey approval. An unfinished operation must be resumed through Swap first.
+  Multiple groups are sold one at a time; no automatic sale is started by refresh.
+- iOS holdings support is not yet implemented; this section is Android-only.
+  The portfolio file is local, outside the wallet backup format; the original
+  account registry and token selection are needed to rediscover balances after restore.
+
 ## Data and state boundaries
 
 Local access is not backend authentication. Balances come from RPC; transaction

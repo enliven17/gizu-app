@@ -1566,8 +1566,10 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
+ "base64",
  "bip32",
  "bip39",
+ "bs58",
  "k256 0.14.0",
  "serde",
  "serde_json",

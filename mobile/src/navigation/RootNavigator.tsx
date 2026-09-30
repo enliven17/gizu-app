@@ -16,7 +16,7 @@ import { durations } from "@/theme/motion";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const { session } = useSession();
-  const native = session?.kind === "testnet";
+  const native = session?.kind === "testnet" || session?.kind === "mainnet";
   return (
     <Stack.Navigator
       initialRouteName={session ? "Main" : "Welcome"}

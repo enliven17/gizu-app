@@ -1,3 +1,5 @@
+import { useSession } from "@/application/SessionProvider";
+import { MainnetActivity } from "@/features/wallet/MainnetScreens";
 import { WalletOperations } from "@/features/wallet/WalletOperations";
 import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
@@ -8,7 +10,7 @@ import { Button } from "@/components/atoms/Button";
 import { useWallet } from "@/features/wallet/WalletProvider";
 import { WalletHistoryRows } from "@/features/wallet/WalletHistoryRows";
 
-export function NativeActivity() {
+function TestnetNativeActivity() {
   const wallet = useWallet();
   const c = wallet.transfers;
   const { refresh } = c;
@@ -34,4 +36,9 @@ export function NativeActivity() {
       <WalletHistoryRows entries={c.history.entries} />
     </Screen>
   );
+}
+
+export function NativeActivity() {
+  const { session } = useSession();
+  return session?.kind === "mainnet" ? <MainnetActivity /> : <TestnetNativeActivity />;
 }

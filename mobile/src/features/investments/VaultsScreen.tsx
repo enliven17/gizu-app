@@ -18,7 +18,7 @@ import { useInvestments } from "./InvestmentProvider";
 import { DataStatus } from "./DataStatus";
 export function VaultsScreen(props: BottomTabScreenProps<MainTabParamList, "Vaults">) {
   const { session } = useSession();
-  if (session?.kind === "testnet")
+  if (session?.kind === "testnet" || session?.kind === "mainnet")
     return (
       <MainnetVaults
         onOpen={(id) =>

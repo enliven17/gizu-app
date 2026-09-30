@@ -57,6 +57,29 @@ export const informationPages: Partial<Record<AccountPage, InformationPage>> = {
 export const nativeInformationPages: Partial<Record<AccountPage, InformationPage>> = {
   "passkey-wallet": {
     title: "Passkey wallet",
+    body: "Your passkey opens your mainnet wallet. Funding and return accounts are shown separately. Wallet keys stay in the native signer. Local wallet access is not backend authentication.",
+    rows: [
+      { label: "Network", value: "Monad mainnet · 143" },
+      { label: "Funding account", value: "1" },
+      { label: "Recovery setup", value: "Unavailable" },
+    ],
+    actions: ["Add backup passkey"],
+  },
+  "transaction-signing": {
+    title: "Transaction signing",
+    body: "Signing requires a separate passkey unlock and native review of the approved operation. Swaps use native approval; direct withdrawals are not supported yet. A submitted operation cannot be undone.",
+    rows: [
+      { label: "Supported network", value: "Monad mainnet" },
+      { label: "Direct withdrawals", value: "Not available" },
+      { label: "Investment signing", value: "Unavailable" },
+    ],
+    actions: ["Change signing policy"],
+  },
+};
+
+export const testnetInformationPages: Partial<Record<AccountPage, InformationPage>> = {
+  "passkey-wallet": {
+    title: "Passkey wallet",
     body: "Your passkey opens Account 0 on Monad testnet. Wallet keys stay in the native signer. Local wallet access is not backend authentication.",
     rows: [
       { label: "Network", value: "Monad testnet · 10143" },

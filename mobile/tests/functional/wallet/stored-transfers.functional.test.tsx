@@ -3,7 +3,7 @@ import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
 import * as nativeBridge from "@/services/wallet/nativeBridge";
 import { createStoredTransfers } from "@/services/wallet/storedTransfers";
-import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
+import type { AccessService } from "@/services/access";
 import type { StoredOperation } from "@/domain/wallet/storedSigner";
 import { deferred } from "../../support/renderApp";
 const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
@@ -62,19 +62,18 @@ function setup(initial: StoredOperation[] = [], useDefaultSigner = false) {
     }),
     lock: jest.fn(),
   };
-  const state = {
-    status: "ready" as const,
-    walletId,
-    accounts: [{ accountIndex: 0, address, chainId: 10143 as const }],
+  // Retained testnet/debug journey: normal stored-wallet access now opens mainnet.
+  const access: AccessService = {
+    request: async () => ({
+      kind: "testnet",
+      method: "Passkey",
+      walletId,
+      address,
+      accountId: address.toLowerCase(),
+      accountIndex: 0,
+      chainId: 10143,
+    }),
   };
-  const access = createStoredWalletAccess(() => ({
-    getWalletState: async () => state,
-    createWallet: jest.fn(),
-    backupWallet: jest.fn(),
-    openWallet: async () => state,
-    restoreWallet: jest.fn(),
-    lock: jest.fn(),
-  }));
   if (useDefaultSigner) jest.spyOn(nativeBridge, "getStoredTransferSigner").mockReturnValue(native);
   const element = (
     <AppRoot
