@@ -86,7 +86,11 @@ pub fn decode_calls(call_data: &[u8]) -> Result<Vec<(Address, U256, Vec<u8>)>, S
     let body = AbiReader::new(&call_data[4..]);
     if call_data[..4] == evm::selector("execute(address,uint256,bytes)") {
         let data_offset = body.usize(64)?;
-        return Ok(vec![(body.address(0)?, body.uint(32)?, body.bytes(data_offset)?.to_vec())]);
+        return Ok(vec![(
+            body.address(0)?,
+            body.uint(32)?,
+            body.bytes(data_offset)?.to_vec(),
+        )]);
     }
     if call_data[..4] != evm::selector("executeBatch((address,uint256,bytes)[])") {
         return Err(SignerError::InvalidInput);
@@ -96,13 +100,25 @@ pub fn decode_calls(call_data: &[u8]) -> Result<Vec<(Address, U256, Vec<u8>)>, S
     if count == 0 || count > 2 {
         return Err(SignerError::InvalidInput);
     }
-    let items = AbiReader::new(call_data.get(4 + array + 32..).ok_or(SignerError::InvalidInput)?);
+    let items = AbiReader::new(
+        call_data
+            .get(4 + array + 32..)
+            .ok_or(SignerError::InvalidInput)?,
+    );
     (0..count)
         .map(|i| {
             let tuple_offset = items.usize(i * 32)?;
-            let tuple = AbiReader::new(call_data.get(4 + array + 32 + tuple_offset..).ok_or(SignerError::InvalidInput)?);
+            let tuple = AbiReader::new(
+                call_data
+                    .get(4 + array + 32 + tuple_offset..)
+                    .ok_or(SignerError::InvalidInput)?,
+            );
             let data_offset = tuple.usize(64)?;
-            Ok((tuple.address(0)?, tuple.uint(32)?, tuple.bytes(data_offset)?.to_vec()))
+            Ok((
+                tuple.address(0)?,
+                tuple.uint(32)?,
+                tuple.bytes(data_offset)?.to_vec(),
+            ))
         })
         .collect()
 }
@@ -113,7 +129,8 @@ pub fn fee_cap(op: &UserOperation, now_secs: u64) -> Result<U256, SignerError> {
     if data.len() < 182 || data[0] >> 1 != 1 || Address::from_slice(&data[14..34]) != MONAD_USDC {
         return Err(SignerError::InvalidInput);
     }
-    let valid_until = u64::from_be_bytes([0, 0, data[2], data[3], data[4], data[5], data[6], data[7]]);
+    let valid_until =
+        u64::from_be_bytes([0, 0, data[2], data[3], data[4], data[5], data[6], data[7]]);
     if valid_until != 0 && valid_until <= now_secs {
         return Err(SignerError::Expired);
     }
@@ -143,7 +160,10 @@ fn pack128(high: U256, low: U256) -> [u8; 32] {
 }
 
 /// ERC-4337 v0.8 userOpHash (EIP-712 over PackedUserOperation, 7702 initCode carries the delegate).
-pub fn user_operation_hash(op: &UserOperation, authorization: Option<&UnsignedAuthorization>) -> Result<B256, SignerError> {
+pub fn user_operation_hash(
+    op: &UserOperation,
+    authorization: Option<&UnsignedAuthorization>,
+) -> Result<B256, SignerError> {
     let init_code = match (&op.factory, authorization) {
         (None, _) => vec![],
         (Some(f), Some(a)) if f == "0x7702" => {
@@ -154,8 +174,11 @@ pub fn user_operation_hash(op: &UserOperation, authorization: Option<&UnsignedAu
         _ => return Err(SignerError::InvalidInput),
     };
     let mut paymaster_and_data = evm::addr(&op.paymaster)?.as_slice().to_vec();
-    paymaster_and_data.extend_from_slice(&u128_field(&op.paymaster_verification_gas_limit)?.to_be_bytes::<32>()[16..]);
-    paymaster_and_data.extend_from_slice(&u128_field(&op.paymaster_post_op_gas_limit)?.to_be_bytes::<32>()[16..]);
+    paymaster_and_data.extend_from_slice(
+        &u128_field(&op.paymaster_verification_gas_limit)?.to_be_bytes::<32>()[16..],
+    );
+    paymaster_and_data
+        .extend_from_slice(&u128_field(&op.paymaster_post_op_gas_limit)?.to_be_bytes::<32>()[16..]);
     paymaster_and_data.extend(evm::hex_bytes(&op.paymaster_data)?);
     let domain = evm::domain_separator("ERC4337", "1", MONAD_CHAIN_ID, ENTRY_POINT_V08);
     Ok(evm::typed_hash(
@@ -166,9 +189,15 @@ pub fn user_operation_hash(op: &UserOperation, authorization: Option<&UnsignedAu
             evm::word_u256(evm::quantity(&op.nonce)?),
             keccak256(&init_code).0,
             keccak256(evm::hex_bytes(&op.call_data)?).0,
-            pack128(u128_field(&op.verification_gas_limit)?, u128_field(&op.call_gas_limit)?),
+            pack128(
+                u128_field(&op.verification_gas_limit)?,
+                u128_field(&op.call_gas_limit)?,
+            ),
             evm::word_u256(u128_field(&op.pre_verification_gas)?),
-            pack128(u128_field(&op.max_priority_fee_per_gas)?, u128_field(&op.max_fee_per_gas)?),
+            pack128(
+                u128_field(&op.max_priority_fee_per_gas)?,
+                u128_field(&op.max_fee_per_gas)?,
+            ),
             keccak256(&paymaster_and_data).0,
         ],
     ))
@@ -199,7 +228,9 @@ pub fn check_funding(
     let factory_7702 = op.factory.as_deref() == Some("0x7702")
         && op.factory_data.as_deref().is_none_or(|d| d == "0x");
     let auth_7702 = authorization.is_some_and(|a| {
-        a.chain_id == MONAD_CHAIN_ID && a.address == SIMPLE_7702 && a.nonce == chain.transaction_count
+        a.chain_id == MONAD_CHAIN_ID
+            && a.address == SIMPLE_7702
+            && a.nonce == chain.transaction_count
     });
     match (delegated, factory_7702, auth_7702, authorization.is_some()) {
         (true, false, false, false) => {}
@@ -215,7 +246,10 @@ pub fn check_funding(
     }
     let calls = decode_calls(&evm::hex_bytes(&op.call_data)?)?;
     let (last, rest) = calls.split_last().ok_or(SignerError::InvalidInput)?;
-    if calls.iter().any(|(to, value, _)| *to != MONAD_USDC || !value.is_zero()) {
+    if calls
+        .iter()
+        .any(|(to, value, _)| *to != MONAD_USDC || !value.is_zero())
+    {
         return Err(SignerError::InvalidInput);
     }
     if transfer_call(&last.2)? != (deposit, amount) {
@@ -228,17 +262,27 @@ pub fn check_funding(
             // Pimlico rounds its token cap a few atoms either side of the signed paymaster fee.
             // The paymaster still charges at most `fee`, which the budget check above covers.
             let slack = fee / U256::from(50);
-            if spender != PIMLICO_ERC20_PAYMASTER || approved + slack < fee || approved > fee + slack {
+            if spender != PIMLICO_ERC20_PAYMASTER
+                || approved + slack < fee
+                || approved > fee + slack
+            {
                 return Err(SignerError::InvalidInput);
             }
         }
         _ => return Err(SignerError::InvalidInput),
     }
-    Ok(CheckedFunding { fee_cap: fee, hash: user_operation_hash(op, authorization)? })
+    Ok(CheckedFunding {
+        fee_cap: fee,
+        hash: user_operation_hash(op, authorization)?,
+    })
 }
 
 /// JSON-RPC `eth_sendUserOperation` body with the signature and optional EIP-7702 authorization.
-pub fn rpc_operation(op: &UserOperation, signature: &RawSignature, authorization: Option<(&UnsignedAuthorization, &RawSignature)>) -> serde_json::Value {
+pub fn rpc_operation(
+    op: &UserOperation,
+    signature: &RawSignature,
+    authorization: Option<(&UnsignedAuthorization, &RawSignature)>,
+) -> serde_json::Value {
     let mut value = serde_json::to_value(op).expect("user operation serializes");
     value["signature"] = serde_json::Value::String(signature.rsv_hex());
     if let Some((a, sig)) = authorization {
@@ -277,7 +321,11 @@ mod tests {
         (op, auth, signed)
     }
     fn fresh_chain() -> FundingChain {
-        FundingChain { code: vec![], transaction_count: 0, paymaster_allowance: U256::ZERO }
+        FundingChain {
+            code: vec![],
+            transaction_count: 0,
+            paymaster_allowance: U256::ZERO,
+        }
     }
     fn deposit() -> Address {
         evm::addr("0xc7e7a6F342D3B4EF26AE17e43A22F77B3dDc610B").unwrap()
@@ -291,7 +339,10 @@ mod tests {
     fn reproduces_the_research_user_operation_hash_and_signer() {
         let (op, auth, signed) = research_op();
         let hash = user_operation_hash(&op, Some(&auth)).unwrap();
-        assert_eq!(format!("{hash:#x}"), signed["userOperationHash"].as_str().unwrap());
+        assert_eq!(
+            format!("{hash:#x}"),
+            signed["userOperationHash"].as_str().unwrap()
+        );
         let sig = evm::hex_bytes(signed["rpcOperation"]["signature"].as_str().unwrap()).unwrap();
         let (mut r, mut s) = ([0u8; 32], [0u8; 32]);
         r.copy_from_slice(&sig[..32]);
@@ -302,7 +353,17 @@ mod tests {
     #[test]
     fn accepts_the_research_funding_within_its_budget() {
         let (op, auth, _) = research_op();
-        let checked = check_funding(&op, Some(&auth), source(), deposit(), U256::from(1_196_276u64), U256::from(1_200_000u64), &fresh_chain(), SIGNED_AT).unwrap();
+        let checked = check_funding(
+            &op,
+            Some(&auth),
+            source(),
+            deposit(),
+            U256::from(1_196_276u64),
+            U256::from(1_200_000u64),
+            &fresh_chain(),
+            SIGNED_AT,
+        )
+        .unwrap();
         assert_eq!(checked.fee_cap, U256::from(2_925u64));
     }
 
@@ -310,19 +371,62 @@ mod tests {
     fn rejects_a_changed_deposit_amount_budget_or_delegation() {
         let (op, auth, _) = research_op();
         let ok = |deposit_to: Address, amount: u64, budget: u64, chain: &FundingChain| {
-            check_funding(&op, Some(&auth), source(), deposit_to, U256::from(amount), U256::from(budget), chain, SIGNED_AT).is_ok()
+            check_funding(
+                &op,
+                Some(&auth),
+                source(),
+                deposit_to,
+                U256::from(amount),
+                U256::from(budget),
+                chain,
+                SIGNED_AT,
+            )
+            .is_ok()
         };
         assert!(!ok(source(), 1_196_276, 1_200_000, &fresh_chain()));
         assert!(!ok(deposit(), 1_196_275, 1_200_000, &fresh_chain()));
         assert!(!ok(deposit(), 1_196_276, 1_199_000, &fresh_chain()));
         assert!(!ok(deposit(), 1_196_276, 10_000_001, &fresh_chain()));
-        let unknown = FundingChain { code: vec![0xef, 0x01, 0x00, 1, 2, 3], ..fresh_chain() };
+        let unknown = FundingChain {
+            code: vec![0xef, 0x01, 0x00, 1, 2, 3],
+            ..fresh_chain()
+        };
         assert!(!ok(deposit(), 1_196_276, 1_200_000, &unknown));
-        let wrong_nonce = FundingChain { transaction_count: 1, ..fresh_chain() };
+        let wrong_nonce = FundingChain {
+            transaction_count: 1,
+            ..fresh_chain()
+        };
         assert!(!ok(deposit(), 1_196_276, 1_200_000, &wrong_nonce));
-        assert!(check_funding(&op, Some(&auth), source(), deposit(), U256::from(1_196_276u64), U256::from(1_200_000u64), &fresh_chain(), 1_800_000_000).is_err());
-        let delegated = FundingChain { code: delegation_code(), ..fresh_chain() };
-        assert!(check_funding(&op, Some(&auth), source(), deposit(), U256::from(1_196_276u64), U256::from(1_200_000u64), &delegated, SIGNED_AT).is_ok());
+        assert!(
+            check_funding(
+                &op,
+                Some(&auth),
+                source(),
+                deposit(),
+                U256::from(1_196_276u64),
+                U256::from(1_200_000u64),
+                &fresh_chain(),
+                1_800_000_000
+            )
+            .is_err()
+        );
+        let delegated = FundingChain {
+            code: delegation_code(),
+            ..fresh_chain()
+        };
+        assert!(
+            check_funding(
+                &op,
+                Some(&auth),
+                source(),
+                deposit(),
+                U256::from(1_196_276u64),
+                U256::from(1_200_000u64),
+                &delegated,
+                SIGNED_AT
+            )
+            .is_ok()
+        );
     }
 
     #[test]
@@ -335,8 +439,16 @@ mod tests {
             out
         };
         let raw = evm::hex_bytes(rpc["signature"].as_str().unwrap()).unwrap();
-        let sig = RawSignature { r: raw[..32].try_into().unwrap(), s: raw[32..64].try_into().unwrap(), y_parity: raw[64] - 27 };
-        let auth_sig = RawSignature { r: parse(&rpc["eip7702Auth"]["r"]), s: parse(&rpc["eip7702Auth"]["s"]), y_parity: 1 };
+        let sig = RawSignature {
+            r: raw[..32].try_into().unwrap(),
+            s: raw[32..64].try_into().unwrap(),
+            y_parity: raw[64] - 27,
+        };
+        let auth_sig = RawSignature {
+            r: parse(&rpc["eip7702Auth"]["r"]),
+            s: parse(&rpc["eip7702Auth"]["s"]),
+            y_parity: 1,
+        };
         let value = rpc_operation(&op, &sig, Some((&auth, &auth_sig)));
         assert_eq!(value["eip7702Auth"], rpc["eip7702Auth"]);
         assert_eq!(value["callData"], rpc["callData"]);

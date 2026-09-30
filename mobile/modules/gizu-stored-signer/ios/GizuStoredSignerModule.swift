@@ -27,9 +27,9 @@ public final class GizuStoredSignerModule: Module {
 
       Self.occupied = true
       self.task = Task { @MainActor in
-        var timeout: Task<Void, Never>?
+        var timeoutTask: Task<Void, Never>?
         defer {
-          timeout?.cancel()
+          timeoutTask?.cancel()
           self.ceremony?.close()
           self.ceremony = nil
           self.task = nil
@@ -40,7 +40,7 @@ public final class GizuStoredSignerModule: Module {
           let scope = try WalletCeremony(presenter: presenter)
           self.ceremony = scope
           scope.cancelTask = { [weak self] in self?.task?.cancel() }
-          timeout = Task { @MainActor [weak scope] in
+          timeoutTask = Task { @MainActor [weak scope] in
             do {
               try await Task.sleep(nanoseconds: timeout)
               scope?.cancel()

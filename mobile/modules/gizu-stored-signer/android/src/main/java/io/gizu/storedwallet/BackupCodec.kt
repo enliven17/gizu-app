@@ -14,7 +14,9 @@ internal object BackupCodec {
     require(bytes.size in 1..65536)
     val h = JSONObject(String(bytes, Charsets.UTF_8))
     require(h.getString("format") == "gizu-stored-wallet")
-    require(h.getString("rpId") == "gizu.io" && h.getString("derivationVersion") == "gizu-stored-evm-v1")
+    require(
+      h.getString("rpId") == "gizu.io" && h.getString("derivationVersion") == "gizu-stored-evm-v1"
+    )
     UUID.fromString(h.getString("walletId"))
     val version = h.getInt("version")
     require(version == 1 || version == 2)
@@ -85,7 +87,8 @@ internal object BackupCodec {
         h.getString("walletId"),
         credential,
         entropy,
-        roleRegistry = if (h.getInt("version") == 2) h.getString("roleRegistry") else INITIAL_ROLE_REGISTRY,
+        roleRegistry =
+          if (h.getInt("version") == 2) h.getString("roleRegistry") else INITIAL_ROLE_REGISTRY,
       )
     } catch (e: Exception) {
       entropy.fill(0)

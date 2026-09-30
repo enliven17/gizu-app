@@ -1,0 +1,20 @@
+name: Release validation
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-validation-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  mobile:
+    name: Mobile release
+    uses: ./.github/workflows/mobile-release.yml
+  backend:
+    name: Backend release
+    uses: ./.github/workflows/backend.yml
+  web:
+    name: Web release
+    uses: ./.github/workflows/web.yml
