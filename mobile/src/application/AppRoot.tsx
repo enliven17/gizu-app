@@ -15,7 +15,13 @@ import { EarlyAccessProvider } from "@/features/access/EarlyAccessProvider";
 import type { EarlyAccessService } from "@/services/earlyAccess";
 import { InvestmentProvider } from "@/features/investments/InvestmentProvider";
 import type { InvestmentService } from "@/services/investments";
-import { DarkTheme, NavigationContainer } from "@react-navigation/native";
+import {
+  DarkTheme,
+  NavigationContainer,
+  useNavigationContainerRef,
+} from "@react-navigation/native";
+import { analytics, type AnalyticsService } from "@/services/analytics";
+import { useScreenTracking } from "@/navigation/useScreenTracking";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { RootNavigator } from "@/navigation/RootNavigator";
@@ -23,6 +29,7 @@ import colors from "@/theme/colors.json";
 import { SessionProvider, useSession } from "./SessionProvider";
 import type { AccessService, WalletSession } from "@/services/access";
 import { createLinking } from "@/navigation/linking";
+import type { RootStackParamList } from "@/navigation/types";
 import { ErrorBoundary } from "./ErrorBoundary";
 const theme = {
   ...DarkTheme,
@@ -36,6 +43,7 @@ const theme = {
   },
 };
 function AppNavigation({
+  analyticsService,
   investmentService,
   opportunityService = defaultOpportunityService,
   transactionService,
@@ -45,6 +53,7 @@ function AppNavigation({
   walletBalanceService,
   walletTransferService,
 }: {
+  analyticsService: AnalyticsService;
   investmentService?: InvestmentService;
   opportunityService?: OpportunityService;
   transactionService?: TransactionService;
@@ -55,6 +64,8 @@ function AppNavigation({
   walletTransferService?: WalletTransferService;
 }) {
   const { session } = useSession();
+  const navigation = useNavigationContainerRef<RootStackParamList>();
+  const { onReady, onStateChange } = useScreenTracking(navigation, analyticsService);
   if ((session?.kind === "testnet" || session?.kind === "mainnet") && renderNativeSession)
     return renderNativeSession(session);
   return (
@@ -64,6 +75,9 @@ function AppNavigation({
           ? `${session.kind}:${session.accountId ?? "default"}:${session.kind !== "demo" ? session.chainId : "demo"}`
           : "guest"
       }
+      ref={navigation}
+      onReady={onReady}
+      onStateChange={onStateChange}
       theme={theme}
       linking={createLinking(!!session)}
     >
@@ -108,6 +122,7 @@ function AppNavigation({
   );
 }
 export function AppRoot({
+  analyticsService = analytics,
   accessService,
   earlyAccessService,
   investmentService,
@@ -119,6 +134,7 @@ export function AppRoot({
   walletBalanceService,
   walletTransferService,
 }: {
+  analyticsService?: AnalyticsService;
   accessService?: AccessService;
   earlyAccessService?: EarlyAccessService;
   investmentService?: InvestmentService;
@@ -137,6 +153,7 @@ export function AppRoot({
           <EarlyAccessProvider service={earlyAccessService}>
             <StatusBar style="light" />
             <AppNavigation
+              analyticsService={analyticsService}
               walletTransferService={walletTransferService}
               walletBalanceService={walletBalanceService}
               renderNativeSession={renderNativeSession}

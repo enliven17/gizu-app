@@ -412,3 +412,40 @@ An existing result path is rejected, preserving the earlier report. If there is 
 available iPhone simulator, install an iOS runtime in Xcode before rerunning tests.
 Preflight regression tests use stub tools and do not compile or authenticate:
 `node --test mobile/scripts/tests/native-build.test.cjs`.
+
+## Mobile analytics
+
+Optional PostHog analytics records allowlisted navigation screen names only.
+Set `EXPO_PUBLIC_POSTHOG_KEY` to a public project key (`phc_...`) and
+`EXPO_PUBLIC_POSTHOG_HOST` to its HTTPS origin, normally
+`https://us.i.posthog.com` or `https://eu.i.posthog.com`. The US host is the default.
+Whitespace is trimmed; invalid keys, malformed hosts, URL credentials, paths,
+queries and fragments disable capture. Never use a personal API key (`phx_...`).
+
+Leave the key empty for ordinary local development. For analytics verification,
+use a dedicated test project in local builds and the EAS `preview` environment
+used by TestFlight. Configure the production environment separately with its
+production project key. Values in EAS-managed environments can enable analytics
+without appearing in `eas.json`; verify the selected environment before building.
+Public Expo variables are bundled at build time: rebuild after changing them.
+Jest's default analytics service stays disabled even when these variables are set.
+
+The service initializes lazily and contains SDK failures. It sends one `$screen`
+event per focused-route transition, including back navigation, and starts again
+when the wallet session recreates navigation. Route keys are used only locally
+for deduplication. Parameters, URLs, wallet addresses, amounts and transaction
+hashes are not attached. Automatic lifecycle events, touch capture, replay,
+exception capture, surveys and feature-flag preloading are disabled. The outbound
+filter drops events other than `$screen`.
+
+Events still include PostHog's anonymous installation/session identifiers and
+standard SDK device/app metadata (such as OS, app version and device model).
+`personProfiles: "identified_only"` does not remove this metadata. We do not
+identify users or link analytics to wallet accounts. SDK configuration requests
+may still occur; this is not a promise that only event-upload requests are made.
+
+Tests inject `AnalyticsService` into `AppRoot` and mock PostHog only at the service
+boundary. Add new screen names to the allowlist deliberately. Before release,
+rebuild both native apps and inspect actual payloads in the dedicated test project,
+including cold-start deep links, screen/back navigation and session replacement.
+No production dashboard or privacy declaration is automatically changed by this code.
