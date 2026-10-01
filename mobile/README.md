@@ -423,3 +423,24 @@ boundary. Add new screen names to the allowlist deliberately. Before release,
 rebuild both native apps and inspect actual payloads in the dedicated test project,
 including cold-start deep links, screen/back navigation and session replacement.
 No production dashboard or privacy declaration is automatically changed by this code.
+
+## Error handling
+
+Use `AppError` from `src/domain/errors.ts` for application errors. Classify them
+by `code` (cancellation, timeout, network, unavailable, busy, invalid response,
+validation, passkey, backup required, recovery required or unknown). Only supply
+`userMessage` text authored by the app. Never copy provider/native descriptions,
+response bodies, URLs, credentials or backup paths into it.
+
+HTTP adapters use `getJson`/`requestJson` for timeout, cancellation, JSON parsing
+and transport classification. Native adapters use `callWallet` to normalize
+Android/iOS codes. Screens use `errorMessage` with a contextual fallback;
+unknown exceptions must not be rendered through `.message`. Existing typed
+`TransactionError` validation and submission states retain their domain-specific
+contract. Fixed-message catches may remain where no classification is needed.
+
+Cancellation does not imply that a submitted transaction was undone. These
+helpers never retry operations: preserve generation/signal checks for stale work,
+and reconcile financial operation status before any explicit retry. Keep
+backup-required and recovery-required distinct; neither permits a replacement
+wallet to be created automatically.

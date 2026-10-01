@@ -1,3 +1,5 @@
+import { AppError } from "@/domain/errors";
+import { requestJson } from "@/services/http";
 import { parseSwapAmount } from "@/domain/swap";
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
@@ -29,14 +31,14 @@ export function sourceAtoms(amount: string): string | null {
 }
 
 export function parseSwapView(value: unknown): StoredSwapView {
-  if (!value || typeof value !== "object") throw new Error("Invalid swap status");
+  if (!value || typeof value !== "object") throw new AppError("invalid-response");
   const view = value as Record<string, unknown>;
   if (
     typeof view.operationId !== "string" ||
     typeof view.phase !== "string" ||
     typeof view.fundingAddress !== "string"
   )
-    throw new Error("Invalid swap status");
+    throw new AppError("invalid-response");
   return {
     operationId: view.operationId,
     phase: view.phase,
@@ -60,12 +62,14 @@ export function parseSwapView(value: unknown): StoredSwapView {
 }
 
 export async function loadSwapTokens(fetchImpl: typeof fetch = fetch): Promise<ListedToken[]> {
-  const response = await fetchImpl(
+  const body = await requestJson(
     `${swapGateway}/v1/tokens?chainId=4663&category=rwa&search=&page=0&items=100`,
+    { signal: new AbortController().signal },
+    "Token list unavailable.",
+    fetchImpl,
   );
-  if (!response.ok) throw new Error("Token list unavailable.");
-  const body = (await response.json()) as { list?: unknown };
-  if (!Array.isArray(body.list)) throw new Error("Token list unavailable.");
+  if (!body || typeof body !== "object" || !("list" in body) || !Array.isArray(body.list))
+    throw new AppError("invalid-response", "Token list unavailable.");
   return body.list.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const token = item as Record<string, unknown>;
@@ -90,6 +94,6 @@ export async function loadSwapTokens(fetchImpl: typeof fetch = fetch): Promise<L
 
 export function swapSigner() {
   const native = getStoredSwapSigner();
-  if (!native) throw new Error("Confidential swap is unavailable in this build.");
+  if (!native) throw new AppError("unavailable", "Confidential swap is unavailable in this build.");
   return native;
 }

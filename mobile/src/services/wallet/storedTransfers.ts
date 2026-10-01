@@ -1,3 +1,4 @@
+import { AppError } from "@/domain/errors";
 import type { StoredOperation } from "@/domain/wallet/storedSigner";
 import type { WalletHistory, WalletTransferService } from "@/domain/wallet/types";
 import { transferProposal, walletAddressPattern } from "@/domain/wallet/transfers";
@@ -28,7 +29,7 @@ const stepStatuses: readonly string[] = [
 ];
 
 function parseStep(value: unknown, index: number): StoredStep {
-  if (!value || typeof value !== "object") throw new Error("Invalid step");
+  if (!value || typeof value !== "object") throw new AppError("invalid-response", "Invalid step");
   const step = value as Record<string, unknown>;
   if (
     step.index !== index ||
@@ -46,19 +47,19 @@ function parseStep(value: unknown, index: number): StoredStep {
     typeof step.status !== "string" ||
     !stepStatuses.includes(step.status)
   )
-    throw new Error("Invalid step");
+    throw new AppError("invalid-response", "Invalid step");
   const signed = step.status !== "planned";
   if (
     signed &&
     (typeof step.transactionHash !== "string" || !transactionHashPattern.test(step.transactionHash))
   )
-    throw new Error("Missing transaction hash");
-  if (signed && step.nonce === undefined) throw new Error("Missing nonce");
+    throw new AppError("invalid-response", "Missing transaction hash");
+  if (signed && step.nonce === undefined) throw new AppError("invalid-response", "Missing nonce");
   if (
     step.nonce !== undefined &&
     (typeof step.nonce !== "string" || !noncePattern.test(step.nonce))
   )
-    throw new Error("Invalid nonce");
+    throw new AppError("invalid-response", "Invalid nonce");
   // Only public, validated fields cross into application state.
   return {
     index,
@@ -74,7 +75,8 @@ function parseStep(value: unknown, index: number): StoredStep {
 }
 
 function parseOperation(value: unknown, walletId: string): StoredOperation {
-  if (!value || typeof value !== "object") throw new Error("Invalid operation");
+  if (!value || typeof value !== "object")
+    throw new AppError("invalid-response", "Invalid operation");
   const operation = value as Record<string, unknown>;
   if (
     typeof operation.operationId !== "string" ||
@@ -91,7 +93,7 @@ function parseOperation(value: unknown, walletId: string): StoredOperation {
     operation.steps.length < 1 ||
     operation.steps.length > MAX_OPERATION_STEPS
   )
-    throw new Error("Invalid operation");
+    throw new AppError("invalid-response", "Invalid operation");
   return {
     operationId: operation.operationId,
     walletId,
@@ -130,11 +132,11 @@ export function storedHistory(input: unknown, walletId: string, address: string)
     input.length > MAX_HISTORY_OPERATIONS ||
     !walletAddressPattern.test(address)
   )
-    throw new Error("Invalid operation history");
+    throw new AppError("invalid-response", "Invalid operation history");
   const ids = new Set<string>();
   const operations = input.map((value) => {
     const operation = parseOperation(value, walletId);
-    if (ids.has(operation.operationId)) throw new Error("Invalid operation");
+    if (ids.has(operation.operationId)) throw new AppError("invalid-response", "Invalid operation");
     ids.add(operation.operationId);
     return operation;
   });
@@ -150,7 +152,7 @@ export function createStoredTransfers(
 ): WalletTransferService {
   function native() {
     const bridge = getBridge();
-    if (!bridge) throw new Error("Native transfers unavailable");
+    if (!bridge) throw new AppError("unavailable", "Native transfers unavailable");
     return bridge;
   }
   async function history(address: string) {
@@ -159,7 +161,8 @@ export function createStoredTransfers(
   return {
     history,
     async send(address, recipient, amount) {
-      if (!walletAddressPattern.test(address)) throw new Error("Invalid wallet");
+      if (!walletAddressPattern.test(address))
+        throw new AppError("invalid-response", "Invalid wallet");
       const proposal = JSON.parse(transferProposal("0", recipient, amount));
       proposal.transfers[0].expectedFrom = address;
       await native().executeOperation({ walletId, chainId: 10143, transfers: proposal.transfers });

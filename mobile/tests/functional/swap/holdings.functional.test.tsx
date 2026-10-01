@@ -58,9 +58,11 @@ test("restores holdings and sell action independently of the latest swap after r
 test("failed refresh retains balances and disables selling stale data until retry", async () => {
   open();
   await screen.findByText("1.2345 GOOGL");
-  read.mockRejectedValueOnce(new Error("RPC unavailable"));
+  read.mockRejectedValueOnce(new Error("private provider payload"));
   fireEvent.press(screen.getByRole("button", { name: "Refresh token holdings" }));
   await screen.findByText(/Previously loaded balances may be stale/);
+  expect(screen.queryByText(/private provider payload/)).toBeNull();
+  expect(screen.getByText(/Holdings unavailable/)).toBeVisible();
   expect(screen.getByText("1.2345 GOOGL")).toBeVisible();
   expect(screen.getByRole("button", { name: "Sell GOOGL back to Monad USDC" })).toBeDisabled();
   fireEvent.press(screen.getByRole("button", { name: "Refresh token holdings" }));

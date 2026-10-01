@@ -63,7 +63,7 @@ test("propagates cancellation to the request", async () => {
   );
   const request = createOpportunityService("http://localhost:3000").list(query, parent.signal);
   parent.abort();
-  await expect(request).rejects.toThrow("aborted");
+  await expect(request).rejects.toMatchObject({ code: "cancelled" });
   expect(requestSignal?.aborted).toBe(true);
 });
 test("HTTP failure is rejected and missing configuration makes no request", async () => {

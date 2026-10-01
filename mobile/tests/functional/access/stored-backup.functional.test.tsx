@@ -116,6 +116,7 @@ test("Account can reverify backup and recover from cancellation without disconne
 });
 
 test.each([
+  ["CANCELLED", "Wallet access was cancelled"],
   ["WALLET_CANCELLED", "Wallet access was cancelled"],
   ["WALLET_TIMEOUT", "Wallet access timed out"],
   ["BUSY", "Another wallet operation"],
@@ -135,4 +136,18 @@ test.each([
   await proceed();
   expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
   expect(native.createWallet).toHaveBeenCalledTimes(1);
+});
+
+test("unreadable storage offers recovery without creating or opening another wallet", async () => {
+  const native = setup();
+  native.getWalletState.mockResolvedValue({ status: "recoveryRequired" });
+  await access();
+  await proceed();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /Restore your backup using the original passkey/,
+  );
+  expect(await screen.findByRole("button", { name: "Restore wallet from backup" })).toBeVisible();
+  expect(native.createWallet).not.toHaveBeenCalled();
+  expect(native.openWallet).not.toHaveBeenCalled();
+  expect(screen.queryByRole("header", { name: "Your portfolio" })).toBeNull();
 });

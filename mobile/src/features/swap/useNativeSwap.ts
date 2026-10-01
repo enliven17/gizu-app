@@ -1,3 +1,4 @@
+import { AppError, errorMessage, normalizeError } from "@/domain/errors";
 import { useCallback, useEffect, useState } from "react";
 import {
   loadSwapTokens,
@@ -12,8 +13,17 @@ import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 
 type SwapAction =
   "start" | "payout" | "recover" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
-function diagnostic(action: SwapAction, outcome: "started" | "completed" | "failed") {
-  if (__DEV__) console.info("[swap]", { action, outcome });
+function diagnostic(
+  action: SwapAction,
+  outcome: "started" | "completed" | "failed",
+  cause?: unknown,
+) {
+  if (__DEV__)
+    console.info("[swap]", {
+      action,
+      outcome,
+      ...(outcome === "failed" ? { code: normalizeError(cause).code } : {}),
+    });
 }
 
 export function useNativeSwap() {
@@ -47,8 +57,8 @@ export function useNativeSwap() {
         setTarget((current) => current || list[0]?.address || "");
       })
       .catch((cause: unknown) => {
-        diagnostic("tokens", "failed");
-        if (live) setError(cause instanceof Error ? cause.message : "Token list unavailable.");
+        diagnostic("tokens", "failed", cause);
+        if (live) setError(errorMessage(cause, "Token list unavailable."));
       });
     queueMicrotask(() => {
       if (live) refresh().catch(() => diagnostic("refresh", "failed"));
@@ -66,8 +76,11 @@ export function useNativeSwap() {
       await action();
       diagnostic(name, "completed");
     } catch (cause) {
-      diagnostic(name, "failed");
-      setError(cause instanceof Error ? cause.message : "Swap stopped.");
+      diagnostic(name, "failed", cause);
+      setError(
+        errorMessage(cause, "Swap stopped.") +
+          " Check Swap status before retrying; a submitted operation may still complete.",
+      );
     } finally {
       setBusy(false);
     }
@@ -93,7 +106,7 @@ export function useNativeSwap() {
       !busy,
     start: () =>
       run("start", async () => {
-        if (!atoms) throw new Error("Enter from 0.000001 to 10 USDC.");
+        if (!atoms) throw new AppError("validation", "Enter from 0.000001 to 10 USDC.");
         setStatus(parseSwapView(await swapSigner().startSwap(target, atoms, swapGateway)));
       }),
     // Only after a finished operation: a private balance left in C is spent without new funding.

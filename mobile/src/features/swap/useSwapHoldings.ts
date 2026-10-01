@@ -1,3 +1,4 @@
+import { errorMessage } from "@/domain/errors";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
@@ -37,8 +38,7 @@ export function useSwapHoldings() {
           );
       }
     } catch (cause) {
-      if (alive.current)
-        setError(cause instanceof Error ? cause.message : "Holdings unavailable. Retry.");
+      if (alive.current) setError(errorMessage(cause, "Holdings unavailable. Retry."));
     } finally {
       running.current = false;
       if (alive.current) setBusy(false);
@@ -75,9 +75,7 @@ export function useSwapHoldings() {
         );
     } catch (cause) {
       if (alive.current)
-        setNotice(
-          cause instanceof Error ? cause.message : "Sale stopped. Check Swap before retrying.",
-        );
+        setNotice(errorMessage(cause, "Sale stopped.") + " Check Swap before retrying.");
     } finally {
       running.current = false;
       if (alive.current) {

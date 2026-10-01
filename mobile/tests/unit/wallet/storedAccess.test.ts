@@ -29,7 +29,7 @@ test("cancel during creation cannot start a later backup ceremony", async () => 
   await Promise.resolve();
   service.cancel?.();
   creation.resolve(pending);
-  await expect(result).rejects.toThrow("Cancelled");
+  await expect(result).rejects.toMatchObject({ code: "cancelled" });
   expect(native.backupWallet).not.toHaveBeenCalled();
 });
 test("ready metadata requires fresh native access before returning a public session", async () => {
@@ -63,4 +63,17 @@ test("restore availability reflects native storage health", async () => {
   expect(await service.canRestore?.()).toBe(false);
   native.getWalletState.mockResolvedValue({ status: "recoveryRequired" });
   expect(await service.canRestore?.()).toBe(true);
+});
+
+test.each([
+  [{ status: "absent" }, "invalid-response"],
+  [{ ...ready, walletId: "invalid" }, "invalid-response"],
+  [pending, "backup-required"],
+  [{ status: "recoveryRequired" }, "recovery-required"],
+] as const)("classifies native session state %j as %s", async (state, code) => {
+  const { native, service } = setup(ready);
+  native.openWallet.mockResolvedValue(state);
+  native.backupWallet.mockResolvedValue(state);
+  await expect(service.request("Passkey")).rejects.toMatchObject({ code });
+  expect(native.createWallet).not.toHaveBeenCalled();
 });

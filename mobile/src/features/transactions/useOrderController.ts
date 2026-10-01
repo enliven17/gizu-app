@@ -36,7 +36,11 @@ export function useOrderController(kind: OperationKind, vaultId?: string) {
     try {
       edit(decimal((maximum(account, { kind, vaultId }) * BigInt(percent)) / 100n));
     } catch (cause) {
-      setError((cause as Error).message);
+      setError(
+        cause instanceof TransactionError
+          ? cause.message
+          : "Unable to validate the amount. Try again.",
+      );
     }
   }
   const blocked = loading || !!accountError || !account || !service || unresolved(operation);
@@ -46,7 +50,11 @@ export function useOrderController(kind: OperationKind, vaultId?: string) {
     try {
       calculateQuote(account, input);
     } catch (cause) {
-      setError((cause as Error).message);
+      setError(
+        cause instanceof TransactionError
+          ? cause.message
+          : "Unable to validate the amount. Try again.",
+      );
       return;
     }
     lock.current = true;

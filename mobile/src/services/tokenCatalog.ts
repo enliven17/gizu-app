@@ -1,3 +1,4 @@
+import { AppError } from "@/domain/errors";
 import {
   TOKEN_PAGE_SIZE,
   tokenIdentity,
@@ -44,7 +45,7 @@ function validatePage(body: unknown, query: TokenQuery): TokenPage {
       Math.min(TOKEN_PAGE_SIZE, Math.max(0, body.total - query.page * TOKEN_PAGE_SIZE)) ||
     new Set(body.list.map(tokenIdentity)).size !== body.list.length
   ) {
-    throw new Error("Invalid token catalog response.");
+    throw new AppError("invalid-response", "Invalid token catalog response.");
   }
   return body as unknown as TokenPage;
 }
@@ -52,7 +53,7 @@ export function createTokenCatalogService(baseUrl: string): TokenCatalogService 
   const root = baseUrl.replace(/\/$/, "");
   return {
     async list(query, signal) {
-      if (!root) throw new Error("Token catalog is not configured.");
+      if (!root) throw new AppError("unavailable", "Token catalog is not configured.");
       const params = `chainId=${query.chainId}&category=${query.category}&search=${encodeURIComponent(query.search)}&page=${query.page}&items=${TOKEN_PAGE_SIZE}`;
       const body = await getJson(
         `${root}/v1/tokens?${params}`,

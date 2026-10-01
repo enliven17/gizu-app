@@ -73,11 +73,11 @@ test("balance requests abort on timeout and caller cancellation", async () => {
   try {
     const controller = new AbortController();
     const timed = monadBalanceService.getBalance(address, controller.signal);
-    const timeoutResult = expect(timed).rejects.toThrow("aborted");
+    const timeoutResult = expect(timed).rejects.toMatchObject({ code: "timeout" });
     await jest.advanceTimersByTimeAsync(12_000);
     await timeoutResult;
     const pending = monadBalanceService.getBalance(address, controller.signal);
-    const cancelled = expect(pending).rejects.toThrow("aborted");
+    const cancelled = expect(pending).rejects.toMatchObject({ code: "cancelled" });
     controller.abort();
     await cancelled;
   } finally {

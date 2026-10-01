@@ -103,3 +103,28 @@ test("iOS Release uses native capabilities while Android Release stays disabled"
     Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: development });
   }
 });
+
+test.each(["ios", "android"] as const)(
+  "%s native failures are classified without retries or sensitive messages",
+  async (platform) => {
+    Object.defineProperty(Platform, "OS", { configurable: true, value: platform });
+    Object.defineProperty(Platform, "Version", {
+      configurable: true,
+      value: platform === "ios" ? "18.5" : 35,
+    });
+    const createWallet = jest.fn().mockRejectedValue({
+      code: platform === "ios" ? "WALLET_CANCELLED" : "CANCELLED",
+      message: "private credential data",
+    });
+    jest.mocked(requireOptionalNativeModule).mockReturnValue({
+      getCapabilities: jest
+        .fn()
+        .mockResolvedValue({ contractVersion: 1, available: true, walletStorage: true }),
+      createWallet,
+    });
+    const result = getStoredSigner()!.createWallet();
+    await expect(result).rejects.toMatchObject({ code: "cancelled" });
+    await expect(result).rejects.not.toThrow("private");
+    expect(createWallet).toHaveBeenCalledTimes(1);
+  },
+);

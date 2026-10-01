@@ -1,3 +1,4 @@
+import { AppError } from "@/domain/errors";
 import { getJson } from "./http";
 import type {
   Opportunity,
@@ -94,7 +95,7 @@ function isTvlRecord(value: unknown): value is TvlRecord {
 export function createOpportunityService(baseUrl: string): OpportunityService {
   const root = baseUrl.replace(/\/$/, "");
   function configured() {
-    if (!baseUrl) throw new Error("Vault catalog is not configured.");
+    if (!baseUrl) throw new AppError("unavailable", "Vault catalog is not configured.");
   }
   return {
     async list(query, signal) {
@@ -117,7 +118,7 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
         body.list.length > 8 ||
         new Set(body.list.map((row) => row.id)).size !== body.list.length
       ) {
-        throw new Error("Invalid vault catalog response.");
+        throw new AppError("invalid-response", "Invalid vault catalog response.");
       }
       return body as OpportunityPage;
     },
@@ -129,7 +130,7 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
         "Vault unavailable.",
       );
       if (!isRecord(body) || !isDetail(body.opportunity) || body.opportunity.id !== id) {
-        throw new Error("Invalid vault response.");
+        throw new AppError("invalid-response", "Invalid vault response.");
       }
       return body.opportunity;
     },
@@ -146,7 +147,7 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
         body.list.length > TVL_ITEMS ||
         !body.list.every(isTvlRecord)
       ) {
-        throw new Error("Invalid vault history response.");
+        throw new AppError("invalid-response", "Invalid vault history response.");
       }
       return body.list.map((row) => ({ total: row.total }));
     },

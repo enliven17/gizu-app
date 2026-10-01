@@ -1,3 +1,5 @@
+import { AppError } from "@/domain/errors";
+import { callWallet } from "./errors";
 import { requireOptionalNativeModule } from "expo";
 import type { StoredWalletBridge } from "./storedAccess";
 import type { StoredSignerContract, StoredSignerCapabilities } from "@/domain/wallet/storedSigner";
@@ -30,7 +32,7 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
   try {
     const native = nativeModule();
     if (!native) return unavailable;
-    const result = await native.getCapabilities();
+    const result = await callWallet(() => native.getCapabilities());
     if (result.contractVersion !== 1 || result.available !== true) return unavailable;
     return {
       contractVersion: 1,
@@ -44,9 +46,10 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
     return unavailable;
   }
 }
-export class WalletUnavailableError extends Error {
+export class WalletUnavailableError extends AppError {
   constructor() {
     super(
+      "unavailable",
       supportedPlatform()
         ? "Wallet access is temporarily unavailable in this build or its native capabilities are not ready."
         : "Wallet access is unavailable on this platform. Use Android 9+ or iOS 18+ in a development build.",
@@ -58,8 +61,8 @@ async function checked(
   capability: "walletStorage" | "backup" | "transfers" | "swaps",
 ) {
   const generation = authorizationGeneration;
-  const value = await native.getCapabilities();
-  if (generation !== authorizationGeneration) throw new Error("Wallet operation cancelled.");
+  const value = await callWallet(() => native.getCapabilities());
+  if (generation !== authorizationGeneration) throw new AppError("cancelled");
   if (value.contractVersion !== 1 || value.available !== true || value[capability] !== true)
     throw new WalletUnavailableError();
 }
@@ -68,7 +71,7 @@ let readTail: Promise<unknown> = Promise.resolve();
 function readNative<T>(work: () => Promise<T>): Promise<T> {
   const generation = authorizationGeneration;
   const run = () => {
-    if (generation !== authorizationGeneration) throw new Error("Wallet operation cancelled.");
+    if (generation !== authorizationGeneration) throw new AppError("cancelled");
     return work();
   };
   const result = readTail.then(run, run);
@@ -81,27 +84,27 @@ export function getStoredSigner(): StoredWalletBridge | null {
   return {
     async getSwapDeposit() {
       await checked(native, "walletStorage");
-      return native.getSwapDeposit();
+      return callWallet(() => native.getSwapDeposit());
     },
     async getWalletState() {
       await checked(native, "walletStorage");
-      return native.getWalletState();
+      return callWallet(() => native.getWalletState());
     },
     async createWallet() {
       await checked(native, "walletStorage");
-      return native.createWallet();
+      return callWallet(() => native.createWallet());
     },
     async openWallet() {
       await checked(native, "walletStorage");
-      return native.openWallet();
+      return callWallet(() => native.openWallet());
     },
     async backupWallet() {
       await checked(native, "backup");
-      return native.backupWallet();
+      return callWallet(() => native.backupWallet());
     },
     async restoreWallet() {
       await checked(native, "backup");
-      return native.restoreWallet();
+      return callWallet(() => native.restoreWallet());
     },
     lock: () => {
       authorizationGeneration++;
@@ -124,23 +127,23 @@ export function getStoredTransferSigner(): StoredTransferBridge | null {
   return {
     async executeOperation(proposal) {
       await checked(native, "transfers");
-      return native.executeOperation(proposal);
+      return callWallet(() => native.executeOperation(proposal));
     },
     async listOperations() {
       await checked(native, "transfers");
-      return native.listOperations();
+      return callWallet(() => native.listOperations());
     },
     async getOperationStatus(id) {
       await checked(native, "transfers");
-      return native.getOperationStatus(id);
+      return callWallet(() => native.getOperationStatus(id));
     },
     async resumeOperation(id, revision) {
       await checked(native, "transfers");
-      return native.resumeOperation(id, revision);
+      return callWallet(() => native.resumeOperation(id, revision));
     },
     async cancelOperation(id) {
       await checked(native, "transfers");
-      return native.cancelOperation(id);
+      return callWallet(() => native.cancelOperation(id));
     },
     lock: () => {
       authorizationGeneration++;
@@ -169,61 +172,67 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
   return {
     async getSwapDeposit() {
       await checked(native, "swaps");
-      return native.getSwapDeposit();
+      return callWallet(() => native.getSwapDeposit());
     },
     async startSwap(target, amountAtoms, gateway) {
       await checked(native, "swaps");
-      return native.startSwap(target, amountAtoms, gateway);
+      return callWallet(() => native.startSwap(target, amountAtoms, gateway));
     },
     getMainnetPortfolio() {
       return readNative(async () => {
         await checked(native, "walletStorage");
         if (typeof native.getMainnetPortfolio !== "function")
-          throw new Error("Mainnet balances need an updated native build on this platform.");
-        return native.getMainnetPortfolio();
+          throw new AppError(
+            "unavailable",
+            "Mainnet balances need an updated native build on this platform.",
+          );
+        return callWallet(() => native.getMainnetPortfolio());
       });
     },
     getSwapHoldings(target) {
       return readNative(async () => {
         await checked(native, "swaps");
         if (typeof native.getSwapHoldings !== "function")
-          throw new Error("Token holdings need an updated Android build.");
-        return native.getSwapHoldings(target);
+          throw new AppError("unavailable", "Token holdings need an updated Android build.");
+        return callWallet(() => native.getSwapHoldings(target));
       });
     },
     async sellSwapHolding(holdingId, gateway) {
       await checked(native, "swaps");
       if (typeof native.sellSwapHolding !== "function")
-        throw new Error("Selling holdings is not available in this build.");
-      return native.sellSwapHolding(holdingId, gateway);
+        throw new AppError("unavailable", "Selling holdings is not available in this build.");
+      return callWallet(() => native.sellSwapHolding(holdingId, gateway));
     },
     async startSell(gateway) {
       await checked(native, "swaps");
-      return native.startSell(gateway);
+      return callWallet(() => native.startSell(gateway));
     },
     async startPayout(target, gateway) {
       await checked(native, "swaps");
       if (typeof native.startPayout !== "function")
-        throw new Error("Buying from the private balance is not available in this build.");
-      return native.startPayout(target, gateway);
+        throw new AppError(
+          "unavailable",
+          "Buying from the private balance is not available in this build.",
+        );
+      return callWallet(() => native.startPayout(target, gateway));
     },
     async startRecovery(target, gateway) {
       await checked(native, "swaps");
       if (typeof native.startRecovery !== "function")
-        throw new Error("Swap recovery is not available in this build.");
-      return native.startRecovery(target, gateway);
+        throw new AppError("unavailable", "Swap recovery is not available in this build.");
+      return callWallet(() => native.startRecovery(target, gateway));
     },
     async resumeSwap(gateway) {
       await checked(native, "swaps");
-      return native.resumeSwap(gateway);
+      return callWallet(() => native.resumeSwap(gateway));
     },
     async getSwapStatus(gateway) {
       await checked(native, "swaps");
-      return native.getSwapStatus(gateway);
+      return callWallet(() => native.getSwapStatus(gateway));
     },
     async cancelSwap(gateway) {
       await checked(native, "swaps");
-      return native.cancelSwap(gateway);
+      return callWallet(() => native.cancelSwap(gateway));
     },
     lock: () => {
       authorizationGeneration++;

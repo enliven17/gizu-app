@@ -86,7 +86,9 @@ test("rejects missing configuration and invalid JSON", async () => {
       throw new Error("JSON");
     },
   });
-  await expect(service.list(query, new AbortController().signal)).rejects.toThrow("JSON");
+  await expect(service.list(query, new AbortController().signal)).rejects.toMatchObject({
+    code: "invalid-response",
+  });
 });
 function pendingFetch() {
   global.fetch = jest.fn(
@@ -101,9 +103,9 @@ function pendingFetch() {
 test("times out at 12 seconds", async () => {
   jest.useFakeTimers();
   pendingFetch();
-  const result = expect(service.list(query, new AbortController().signal)).rejects.toThrow(
-    "aborted",
-  );
+  const result = expect(service.list(query, new AbortController().signal)).rejects.toMatchObject({
+    code: "timeout",
+  });
   await jest.advanceTimersByTimeAsync(12000);
   await result;
   expect(jest.getTimerCount()).toBe(0);
@@ -112,7 +114,9 @@ test.each([true, false])("forwards caller cancellation (already aborted: %s)", a
   pendingFetch();
   const controller = new AbortController();
   if (before) controller.abort();
-  const result = expect(service.list(query, controller.signal)).rejects.toThrow("aborted");
+  const result = expect(service.list(query, controller.signal)).rejects.toMatchObject({
+    code: "cancelled",
+  });
   controller.abort();
   await result;
 });

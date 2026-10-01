@@ -1,3 +1,4 @@
+import { AppError, errorMessage } from "@/domain/errors";
 import {
   createContext,
   useCallback,
@@ -21,22 +22,22 @@ export function validateMainnetPortfolio(
     value.asset !== "USDC" ||
     value.decimals !== 6
   )
-    throw new Error("Invalid mainnet portfolio identity");
+    throw new AppError("invalid-response");
   const atoms = (value: string) => {
-    if (!/^(0|[1-9][0-9]*)$/.test(value)) throw new Error("Invalid USDC balance");
+    if (!/^(0|[1-9][0-9]*)$/.test(value)) throw new AppError("invalid-response");
     return BigInt(value);
   };
   if (atoms(value.fundingAtoms) + atoms(value.returnAtoms) !== atoms(value.totalAtoms))
-    throw new Error("Inconsistent USDC balances");
+    throw new AppError("invalid-response");
   const seen = new Set<string>();
   const total = value.accounts.reduce((sum, account) => {
     const address = account.address.toLowerCase();
     if (!/^0x[0-9a-f]{40}$/.test(address) || seen.has(address))
-      throw new Error("Invalid portfolio account");
+      throw new AppError("invalid-response");
     seen.add(address);
     return sum + atoms(account.balanceAtoms);
   }, 0n);
-  if (total !== atoms(value.totalAtoms)) throw new Error("Inconsistent account balances");
+  if (total !== atoms(value.totalAtoms)) throw new AppError("invalid-response");
   return value;
 }
 
@@ -59,14 +60,14 @@ function useMainnetState(session: MainnetWalletSession) {
     setError("");
     try {
       const signer = getStoredSwapSigner();
-      if (!signer) throw new Error("Native mainnet portfolio is unavailable in this build.");
+      if (!signer)
+        throw new AppError("unavailable", "Native mainnet portfolio is unavailable in this build.");
       const result = validateMainnetPortfolio(await signer.getMainnetPortfolio(), session.walletId);
       if (result.fundingAddress.toLowerCase() !== session.address.toLowerCase())
-        throw new Error("Funding account mismatch");
+        throw new AppError("invalid-response");
       if (alive.current) setSnapshot(result);
     } catch (cause) {
-      if (alive.current)
-        setError(cause instanceof Error ? cause.message : "Mainnet balance unavailable. Retry.");
+      if (alive.current) setError(errorMessage(cause, "Mainnet balance unavailable. Retry."));
     } finally {
       busy.current = false;
       if (alive.current) setLoading(false);
