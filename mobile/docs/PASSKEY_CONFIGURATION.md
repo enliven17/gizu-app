@@ -5,7 +5,8 @@ implement `GizuStoredSigner`: encrypted wallet storage, passkey create/open,
 verified backup/restore, native transfer approval and explicit operation resume.
 Access requires Android API 28+, the installed native module and a compatible
 credential provider. New wallets must complete backup verification before app access.
-iOS 18+ development wallet support is implemented; physical-device/provider acceptance remains pending. Production builds remain blocked.
+iOS 18+ wallet support and production build configuration are implemented;
+physical-device/provider acceptance remains pending.
 See [native signer architecture](NATIVE_SIGNER.md) for the active contract. Wallet
 entropy is randomly generated and encrypted locally; the passkey authorizes access
 and its PRF protects backups. It no longer determines wallet addresses.
@@ -70,3 +71,17 @@ provider-aware verification. Current evidence and remaining physical iOS/Android
 cases are tracked in [signer verification](NATIVE_SIGNER_VERIFICATION.md).
 No device test, hosting check or provisioning action was performed during this
 documentation consolidation.
+
+## iOS failure diagnostics
+
+In Console, filter for subsystem `io.gizu.storedwallet`, category `ceremony`.
+Each native call has a random attempt ID, operation, stage and classified error.
+Use these to distinguish passkey presentation/verification, storage, backup and
+lifecycle failures. Apple authorization failure alone does not prove a domain
+association problem; check the signed identity and hosted association separately.
+
+Logs exclude credentials, wallet identifiers, secrets, backup paths and raw error
+descriptions. The access screen uses fixed messages for cancellation, timeout,
+busy state and Apple passkey failure; unknown errors retain recovery guidance.
+A cancelled or failed backup can be retried against the same stored wallet.
+Native diagnostic changes require a rebuilt app.

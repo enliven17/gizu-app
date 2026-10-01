@@ -13,10 +13,12 @@ import UIKit
   }
 
   func backup() async throws -> [String: Any] {
+    diagnostics.mark("backup-load")
     let record = try store.load()
     let id = record.id
     let credential = record.credential
     record.close()
+    diagnostics.mark("backup-review")
     let screen = try await presentWalletUI()
     try await screen.confirm(
       "Back up wallet",
@@ -24,6 +26,7 @@ import UIKit
     )
     var prf = try await authorize(credential, walletId: id, purpose: "backup:v1", recovery: true)
     guard prf != nil else { throw WalletFailure.unavailable }
+    diagnostics.mark("backup-encryption")
     let current = try store.load()
     let bytes: Data
     do {
@@ -36,21 +39,25 @@ import UIKit
       throw error
     }
 
+    diagnostics.mark("backup-file-write")
     let temporary = try store.files.url("backup-\(UUID().uuidString).json")
     defer { try? FileManager.default.removeItem(at: temporary) }
     try store.files.write(temporary.lastPathComponent, bytes: bytes)
     // Only encrypted bytes survive the document picker; plaintext and PRF were cleared above.
+    diagnostics.mark("backup-export")
     _ = try await withSystemDialog { try await screen.pick(exporting: temporary) }
     try await screen.confirm(
       "Verify saved backup",
       "Reopen the file you just saved. Verification needs the same passkey again.",
       action: "Choose saved file")
+    diagnostics.mark("backup-reopen")
     let url = try await withSystemDialog { try await screen.pick() }
     let saved = try readBackup(url)
     var verification = try await authorize(
       credential, walletId: id, purpose: "backup-verify:v1", recovery: true)
     defer { verification?.wipe() }
     guard let verification else { throw WalletFailure.unavailable }
+    diagnostics.mark("backup-verify")
     let restored = try StoredBackupCodec.decrypt(saved, prf: verification)
     defer { restored.close() }
     let original = try store.load()
@@ -62,6 +69,7 @@ import UIKit
       try deriveAccountAddresses(entropy: restored.entropy)
         == deriveAccountAddresses(entropy: original.entropy))
     try checkAuthorization()
+    diagnostics.mark("backup-commit")
     original.verified = true
     try store.save(original)
     return try publicState()
@@ -104,7 +112,8 @@ import UIKit
     try checkAuthorization()
     let recovered = try StoredBackupCodec.decrypt(bytes, prf: commitPrf!)
     defer { recovered.close() }
-    let registry = await StoredSwapReconciler.covering(entropy: recovered.entropy, backup: recovered.roleRegistry)
+    let registry = await StoredSwapReconciler.covering(
+      entropy: recovered.entropy, backup: recovered.roleRegistry)
     let committed = try WalletRecord(
       id: recovered.id, credential: recovered.credential, entropy: Data(recovered.entropy),
       roleRegistry: registry)

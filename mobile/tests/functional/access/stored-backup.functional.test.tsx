@@ -114,3 +114,25 @@ test("Account can reverify backup and recover from cancellation without disconne
   expect(await screen.findByText(/Backup saved and verified/)).toBeVisible();
   expect(native.createWallet).toHaveBeenCalledTimes(1);
 });
+
+test.each([
+  ["WALLET_CANCELLED", "Wallet access was cancelled"],
+  ["WALLET_TIMEOUT", "Wallet access timed out"],
+  ["BUSY", "Another wallet operation"],
+  ["PASSKEY_FAILED", "Apple could not complete the passkey request"],
+  ["UNAVAILABLE", "Wallet access is unavailable right now"],
+  ["UNKNOWN", "Wallet access or backup was not completed"],
+])("%s shows safe guidance and retries the same wallet", async (code, message) => {
+  const native = setup();
+  native.backupWallet.mockRejectedValueOnce(
+    Object.assign(new Error("sensitive native error payload"), { code }),
+  );
+  await access();
+  await proceed();
+  expect(await screen.findByRole("alert")).toHaveTextContent(new RegExp(message));
+  expect(screen.queryByText(/sensitive native error payload/)).toBeNull();
+  expect(screen.queryByRole("header", { name: "Your portfolio" })).toBeNull();
+  await proceed();
+  expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
+  expect(native.createWallet).toHaveBeenCalledTimes(1);
+});

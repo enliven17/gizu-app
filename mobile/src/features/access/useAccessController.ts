@@ -67,7 +67,7 @@ export function useAccessController(): AccessViewModel {
             : cause instanceof AccessRejectedError
               ? "Access was rejected. You can try again."
               : accessService.method === "Passkey"
-                ? "Wallet access or backup was not completed. Continue to retry the same wallet. If local storage cannot be read, restore your backup with the original passkey."
+                ? passkeyErrorMessage(cause)
                 : "Access failed. Please try again.",
         );
     } finally {
@@ -78,4 +78,22 @@ export function useAccessController(): AccessViewModel {
     }
   }
   return { pending, error, start, cancel, canRestore, restore: () => start(true) };
+}
+
+function passkeyErrorMessage(cause: unknown): string {
+  const code = cause && typeof cause === "object" && "code" in cause ? cause.code : null;
+  switch (code) {
+    case "WALLET_CANCELLED":
+      return "Wallet access was cancelled. Continue when you are ready to try again.";
+    case "WALLET_TIMEOUT":
+      return "Wallet access timed out. Keep the app open and try again. Any saved wallet is retained.";
+    case "BUSY":
+      return "Another wallet operation is still closing or in progress. Wait a moment, then try again.";
+    case "PASSKEY_FAILED":
+      return "Apple could not complete the passkey request. Try again. If it keeps failing, contact support with your app version and the step where it stopped.";
+    case "UNAVAILABLE":
+      return "Wallet access is unavailable right now. Bring the app to the foreground and try again.";
+    default:
+      return "Wallet access or backup was not completed. Continue to retry the same wallet. If local storage cannot be read, restore your backup with the original passkey.";
+  }
 }

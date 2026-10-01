@@ -7,10 +7,14 @@ import UIKit
 internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDelegate,
   ASAuthorizationControllerPresentationContextProviding
 {
+  private let diagnostics: WalletDiagnostics
   private let window: UIWindow
   private var continuation: CheckedContinuation<ASAuthorizationCredential, Error>?
   private var controller: ASAuthorizationController?
-  init(window: UIWindow) { self.window = window }
+  init(window: UIWindow, diagnostics: WalletDiagnostics) {
+    self.window = window
+    self.diagnostics = diagnostics
+  }
   func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
     window
   }
@@ -21,7 +25,10 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
   ) { finish(.success(authorization.credential)) }
   func authorizationController(
     controller: ASAuthorizationController, didCompleteWithError error: Error
-  ) { finish(.failure(WalletFailure.cancelled)) }
+  ) {
+    diagnostics.failed(error)
+    finish(.failure(error))
+  }
   private func finish(_ result: Result<ASAuthorizationCredential, Error>) {
     let pending = continuation
     continuation = nil
@@ -52,6 +59,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
     }
   }
   func register() async throws -> StoredCredential {
+    diagnostics.mark("passkey-registration")
     let challenge = try randomBytes()
     let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
       relyingPartyIdentifier: StoredPasskeyVerifier.rp)
@@ -66,6 +74,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
       let attestation = result.rawAttestationObject
     else { throw WalletFailure.invalid }
     // The recovery assertion below proves PRF availability before any wallet entropy is generated.
+    diagnostics.mark("registration-verification")
     return try StoredPasskeyVerifier.registration(
       id: result.credentialID, clientData: result.rawClientDataJSON, attestation: attestation,
       challenge: challenge)
@@ -74,6 +83,7 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
   func authorize(
     _ credential: StoredCredential, walletId: String, purpose: String, recovery: Bool = false
   ) async throws -> Data? {
+    diagnostics.mark("passkey-assertion")
     let challenge = try digest(
       Data("gizu-stored-wallet:\(purpose):\(walletId):".utf8) + randomBytes())
     let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
@@ -92,11 +102,13 @@ internal final class StoredPasskeyGate: NSObject, ASAuthorizationControllerDeleg
       let result = try await request(assertion)
         as? ASAuthorizationPlatformPublicKeyCredentialAssertion
     else { throw WalletFailure.invalid }
+    diagnostics.mark("assertion-verification")
     try StoredPasskeyVerifier.assertion(
       id: result.credentialID, clientData: result.rawClientDataJSON,
       auth: result.rawAuthenticatorData, signature: result.signature, credential: credential,
       challenge: challenge)
     if recovery {
+      diagnostics.mark("prf-validation")
       guard let secret = result.prf?.first else { throw WalletFailure.unavailable }
       let bytes = secret.withUnsafeBytes { Data($0) }
       try require(bytes.count == 32)

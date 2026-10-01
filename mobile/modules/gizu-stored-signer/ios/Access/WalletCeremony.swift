@@ -2,6 +2,7 @@ import UIKit
 
 @available(iOS 18.0, *)
 @MainActor internal final class WalletCeremony {
+  let diagnostics: WalletDiagnostics
   let store: WalletStorage
   let presenter: UIViewController
   var ui: NativeWalletUI?
@@ -12,7 +13,8 @@ import UIKit
   var operationId: String?
   private var observers: [NSObjectProtocol] = []
   var cancelTask: (() -> Void)?
-  init(presenter: UIViewController) throws {
+  init(presenter: UIViewController, diagnostics: WalletDiagnostics) throws {
+    self.diagnostics = diagnostics
     self.presenter = presenter
     store = WalletStorage(files: try ProtectedFiles())
     for event in [
@@ -27,6 +29,7 @@ import UIKit
             if note.name == UIApplication.protectedDataWillBecomeUnavailableNotification
               || !self.isPresentingSystemDialog
             {
+              self.diagnostics.event("lifecycle-cancel")
               self.cancel()
             }
           }
@@ -34,13 +37,29 @@ import UIKit
     }
   }
   func checkAuthorization() throws {
-    try Task.checkCancellation()
-    try lifetime.check(
-      active: UIApplication.shared.applicationState == .active,
-      protected: UIApplication.shared.isProtectedDataAvailable)
+    do {
+      try Task.checkCancellation()
+      try lifetime.check(
+        active: UIApplication.shared.applicationState == .active,
+        protected: UIApplication.shared.isProtectedDataAvailable)
+    } catch {
+      if Task.isCancelled {
+        diagnostics.event("task-cancelled")
+      } else if lifetime.cancelled {
+        diagnostics.event("authority-cancelled")
+      } else if UIApplication.shared.applicationState != .active {
+        diagnostics.event("app-inactive")
+      } else if !UIApplication.shared.isProtectedDataAvailable {
+        diagnostics.event("protected-data-unavailable")
+      } else {
+        diagnostics.event("authority-expired")
+      }
+      throw error
+    }
   }
 
   func cancel() {
+    diagnostics.event("cancel")
     lifetime.cancel()
     engine?.close()
     gate?.cancel()
@@ -54,7 +73,7 @@ import UIKit
     engine?.close()
     gate?.cancel()
     ui?.stop()
-    ui?.dismiss(animated: false)
+    ui?.dismiss(animated: false) { [diagnostics] in diagnostics.event("dismissal-completed") }
     ui = nil
     gate = nil
     cancelTask = nil
@@ -65,6 +84,7 @@ import UIKit
   func presentWalletUI() async throws -> NativeWalletUI {
     try checkAuthorization()
     if let ui { return ui }
+    diagnostics.event("presentation-start")
     let screen = NativeWalletUI()
     screen.onCancel = { [weak self] in self?.cancel() }
     ui = screen
@@ -72,6 +92,7 @@ import UIKit
       presenter.present(screen, animated: true) { continuation.resume() }
     }
 
+    diagnostics.event("presentation-completed")
     try checkAuthorization()
     return screen
   }
@@ -97,7 +118,7 @@ import UIKit
   private func makePasskeyProvider() async throws -> StoredPasskeyGate {
     let screen = try await presentWalletUI()
     guard let window = screen.view.window else { throw WalletFailure.unavailable }
-    let value = StoredPasskeyGate(window: window)
+    let value = StoredPasskeyGate(window: window, diagnostics: diagnostics)
     gate = value
     return value
   }
@@ -112,6 +133,7 @@ import UIKit
     }
   }
   func publicState() throws -> [String: Any] {
+    diagnostics.mark("read-wallet-state")
     let state = store.state()
     if state == "absent" || state == "recoveryRequired" { return ["status": state] }
     let record = try store.load()
@@ -128,6 +150,7 @@ import UIKit
   }
 
   func create() async throws -> [String: Any] {
+    diagnostics.mark("create-preflight")
     try require(!store.exists())
     let screen = try await presentWalletUI()
     try await screen.confirm(
@@ -137,20 +160,25 @@ import UIKit
     let provider = try await makePasskeyProvider()
     let credential = try await withSystemDialog { try await provider.register() }
     let id = UUID().uuidString
+    diagnostics.mark("create-recovery-assertion")
     var proof = try await authorize(
       credential, walletId: id, purpose: "create-recovery-check:v1", recovery: true)
     proof?.wipe()
     try checkAuthorization()
+    diagnostics.mark("create-entropy")
     var entropy = try randomBytes()
     defer { entropy.wipe() }
     let record = try WalletRecord(id: id, credential: credential, entropy: entropy)
     defer { record.close() }
     try require(try deriveAccountAddresses(entropy: entropy).count == 16)
+    diagnostics.mark("create-persist")
     try store.create(record)
+    diagnostics.event("wallet-persisted")
     return try publicState()
   }
 
   func open() async throws -> [String: Any] {
+    diagnostics.mark("read-wallet-state")
     let state = store.state()
     if ["absent", "recoveryRequired"].contains(state) { return ["status": state] }
     let record = try store.load()
