@@ -42,11 +42,13 @@ function TestnetNativeTransaction({
               ? "Withdraw"
               : "Investment unavailable"}
         </Typography>
-        <Typography variant="caption">Monad testnet · Account 0</Typography>
+        <Typography variant="caption">{wallet.asset.network} · Account 0</Typography>
         {kind === "deposit" ? (
           <>
             <Typography>
-              Receive testnet MON at your wallet address. This does not invest in a vault.
+              {wallet.asset.symbol === "USDC"
+                ? "Deposit USDC to your source wallet. Investing requires a separate review and approval."
+                : "Receive testnet MON at your wallet address. This does not invest in a vault."}
             </Typography>
             <Surface>
               <View className="pt-5">
@@ -66,9 +68,11 @@ function TestnetNativeTransaction({
                 ? "Loading balance…"
                 : wallet.error
                   ? "Balance unavailable. Please retry."
-                  : wallet.balance + " MON"}
+                  : wallet.balance + " " + wallet.asset.symbol}
             </Typography>
           </>
+        ) : kind === "withdraw" && !wallet.transfersAvailable ? (
+          <Typography>USDC withdrawals are not available in this build yet.</Typography>
         ) : kind === "withdraw" ? (
           <>
             <Surface>
@@ -177,7 +181,7 @@ function TestnetNativeTransaction({
           <Typography>Vault buy/sell is not connected to your wallet.</Typography>
         )}
       </Screen>
-      {kind === "withdraw" && <NativeSignOverlay phase={c.phase} />}
+      {kind === "withdraw" && wallet.transfersAvailable && <NativeSignOverlay phase={c.phase} />}
     </View>
   );
 }

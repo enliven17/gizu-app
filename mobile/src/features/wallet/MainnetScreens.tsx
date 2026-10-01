@@ -1,3 +1,4 @@
+import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
 import { useCallback, useState } from "react";
 import { Platform, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -34,11 +35,14 @@ function BalanceStatus() {
   const wallet = useMainnetWallet();
   return (
     <>
-      {wallet.loading ? (
+      {wallet.loading || wallet.snapshot?.balanceComplete === false ? (
         <Typography variant="micro" accessibilityLiveRegion="polite">
           Checking Monad mainnet balances…
         </Typography>
       ) : null}
+      {wallet.snapshot?.stale && !wallet.error && (
+        <Typography variant="micro">Previously cached balances are being checked.</Typography>
+      )}
       {wallet.error ? (
         <Notice
           error
@@ -74,7 +78,11 @@ function ReceivingAccounts() {
                 ? "Swap funding"
                 : `Receiving account ${account.accountIndex}`}
             </Typography>
-            <Typography>{holdingAmount(account.balanceAtoms, 6)} USDC</Typography>
+            <Typography>
+              {snapshot.balanceComplete === false
+                ? "Checking balance…"
+                : `${holdingAmount(account.balanceAtoms, 6)} USDC`}
+            </Typography>
             <Typography variant="micro" selectable>
               {account.address}
             </Typography>
@@ -100,6 +108,77 @@ function ReceivingAccounts() {
   );
 }
 
+function OwnedBalanceRow({
+  asset,
+  position = false,
+}: {
+  asset: OwnedPortfolioAsset | OwnedPortfolioPosition;
+  position?: boolean;
+}) {
+  const estimated = position && "conversionEstimated" in asset && asset.conversionEstimated;
+  const amount =
+    position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
+  const observedAmount = position
+    ? "observedUnderlyingAtoms" in asset
+      ? asset.observedUnderlyingAtoms
+      : null
+    : asset.observedAtoms;
+  return (
+    <Surface>
+      <View className="gap-2 p-5">
+        <Typography variant="rowTitle">
+          {position ? "Vault position" : "Token balance"} · {asset.symbol}
+        </Typography>
+        <Typography variant="micro">Chain {asset.chainId}</Typography>
+        <Typography>
+          {asset.complete && amount !== null && asset.decimals !== null
+            ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
+            : `Checking ${asset.symbol} balance…`}
+        </Typography>
+        {!asset.complete &&
+          typeof observedAmount === "string" &&
+          observedAmount !== "0" &&
+          asset.decimals !== null && (
+            <Typography variant="micro">
+              Previously observed: {holdingAmount(observedAmount, asset.decimals)} {asset.symbol}
+            </Typography>
+          )}
+        {asset.valueUsdcAtoms !== null ? (
+          <Typography>Value: {holdingAmount(asset.valueUsdcAtoms, 6)} USDC</Typography>
+        ) : (
+          <Typography variant="micro">
+            {asset.valuationUnavailable ? "USDC value unavailable." : "Checking USDC value…"}
+          </Typography>
+        )}
+        {asset.stale && <Typography variant="micro">Cached amount awaiting refresh.</Typography>}
+      </View>
+    </Surface>
+  );
+}
+function OwnedBalances() {
+  const { snapshot } = useMainnetWallet();
+  if (!snapshot?.ownedAssets && !snapshot?.positions) return null;
+  return (
+    <View className="gap-3">
+      <Typography variant="section">Tokens and vault positions</Typography>
+      {snapshot.ownedBalanceComplete === false && (
+        <Typography variant="micro">Checking owned token balances and positions…</Typography>
+      )}
+      {snapshot.valuationComplete === false && (
+        <Typography variant="micro">
+          Some assets have no verified USDC value. Token amounts are shown separately.
+        </Typography>
+      )}
+      {snapshot.ownedAssets?.map((asset) => (
+        <OwnedBalanceRow key={asset.assetId} asset={asset} />
+      ))}
+      {snapshot.positions?.map((asset) => (
+        <OwnedBalanceRow key={asset.assetId} asset={asset} position />
+      ))}
+    </View>
+  );
+}
+
 export function MainnetPortfolioScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParamList, "Home">) {
@@ -112,13 +191,16 @@ export function MainnetPortfolioScreen({
       </Typography>
       <Typography variant="caption">Monad mainnet · USDC</Typography>
       <BalanceStatus />
-      {wallet.snapshot ? (
+      {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
         <Surface>
           <View className="gap-3 p-5">
             <Typography variant="micro">
               Total USDC across funding and receiving accounts
             </Typography>
-            <Typography variant="title">
+            <Typography
+              variant="title"
+              accessibilityLabel={`${holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC`}
+            >
               {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC
             </Typography>
             <Typography>
@@ -133,6 +215,8 @@ export function MainnetPortfolioScreen({
           </View>
         </Surface>
       ) : null}
+      <Button label="Confidential earn" variant="secondary" onPress={() => root.navigate("Earn")} />
+      <OwnedBalances />
       <PortfolioActions
         onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}
         onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
@@ -175,7 +259,7 @@ export function MainnetTransaction({
         <Notice message="Direct mainnet withdrawals are not available yet. Returned USDC remains in your receiving wallets. Selling tokens through Swap is a separate approved operation." />
       )}
       <BalanceStatus />
-      {wallet.snapshot ? (
+      {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
         <Typography>Total: {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC</Typography>
       ) : null}
       <ReceivingAccounts />

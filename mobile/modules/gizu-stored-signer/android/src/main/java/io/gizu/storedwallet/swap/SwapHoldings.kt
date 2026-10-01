@@ -2,6 +2,7 @@ package io.gizu.storedwallet.swap
 
 import io.gizu.storedwallet.NativeRpcTransport
 import io.gizu.storedwallet.WalletRecord
+import io.gizu.storedwallet.earnWithdrawalIndices
 import java.math.BigInteger
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,13 +12,14 @@ import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
 internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTransport(RPC)) {
   suspend fun read(record: WalletRecord, targets: List<String>): Map<String, Any?> {
     val end = JSONObject(record.roleRegistry).getInt("nextRecipient")
-    require(end >= 3 && (end - 3) % 3 == 0)
+    require(end >= 3)
+    val indices = (3 until end).filterNot { it in earnWithdrawalIndices(record) }
     val head = request(listOf("eth_chainId" to JSONArray(), "eth_blockNumber" to JSONArray()))
     check(quantity(head[0]) == BigInteger.valueOf(4663))
     val block = head[1]
     quantity(block)
     val addresses =
-      (3 until end).map { deriveAccountAddressRange(record.entropy, it.toUInt(), 1u).single() }
+      indices.map { deriveAccountAddressRange(record.entropy, it.toUInt(), 1u).single() }
     val holdings =
       targets.distinct().mapNotNull { target ->
         require(target.matches(Regex("0x[0-9a-f]{40}")))
@@ -48,7 +50,7 @@ internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTrans
           balances.chunked(3).mapIndexedNotNull { index, amounts ->
             val total = amounts.fold(BigInteger.ZERO, BigInteger::add)
             if (total.signum() == 0) null
-            else mapOf("id" to "$target:${3 + index * 3}", "balanceAtoms" to total.toString())
+            else mapOf("id" to "$target:${indices[index * 3]}", "balanceAtoms" to total.toString())
           }
         if (batches.isEmpty()) null
         else
@@ -123,12 +125,18 @@ internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTrans
       id: String,
       nextRecipient: Int,
       tracked: List<String>,
+      excluded: Set<Int> = emptySet(),
     ): Pair<String, List<Int>> {
       val parts = id.split(':')
       require(parts.size == 2 && parts[0] in tracked)
       val first = parts[1].toInt()
-      require(first >= 3 && (first - 3) % 3 == 0 && first <= nextRecipient - 3)
-      return parts[0] to listOf(first, first + 1, first + 2)
+      val indices =
+        (3 until nextRecipient)
+          .filterNot { it in excluded }
+          .chunked(3)
+          .singleOrNull { it.size == 3 && it.first() == first }
+      require(indices != null)
+      return parts[0] to indices
     }
   }
 }

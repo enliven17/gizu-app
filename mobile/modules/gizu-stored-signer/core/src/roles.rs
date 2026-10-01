@@ -100,6 +100,39 @@ pub fn role_registry_covering(highest_used: u32) -> Result<String, SignerError> 
     .json())
 }
 
+/// Single-use Earn withdrawal recipient. Persist registry before broadcasting.
+#[uniffi::export]
+pub fn allocate_earn_recipient(registry: String) -> Result<RecipientAllocation, SignerError> {
+    let mut parsed = RoleRegistry::parse(&registry)?;
+    let index = parsed.next_recipient;
+    parsed.next_recipient = index
+        .checked_add(1)
+        .filter(|n| *n <= MAX_INDEX)
+        .ok_or(SignerError::InvalidInput)?;
+    Ok(RecipientAllocation {
+        registry: parsed.json(),
+        indices: vec![index],
+    })
+}
+pub(crate) fn eligible_public_source(registry: &str, index: u32) -> Result<(), SignerError> {
+    let parsed = RoleRegistry::parse(registry)?;
+    if index == APP_ACCOUNT
+        || index == FUNDING_ACCOUNT
+        || (index >= FIRST_RECIPIENT && index < parsed.next_recipient)
+    {
+        Ok(())
+    } else {
+        Err(SignerError::InvalidInput)
+    }
+}
+pub(crate) fn validate_public_source_index(index: u32) -> Result<(), SignerError> {
+    if index == CONFIDENTIAL_ACCOUNT || index > MAX_INDEX {
+        Err(SignerError::InvalidInput)
+    } else {
+        Ok(())
+    }
+}
+
 pub(crate) fn seed_from_entropy(entropy: Vec<u8>) -> Result<Zeroizing<[u8; 64]>, SignerError> {
     let entropy = Zeroizing::new(entropy);
     if entropy.len() != 32 {
@@ -198,5 +231,17 @@ mod tests {
         );
         assert!(derive_account_address_range(vec![0; 32], 0, 65).is_err());
         assert!(derive_account_address_range(vec![0; 32], MAX_INDEX, 2).is_err());
+    }
+
+    #[test]
+    fn earn_allocation_moves_swap_registry_forward_without_reuse() {
+        let earn = allocate_earn_recipient(role_registry_initial()).unwrap();
+        assert_eq!(earn.indices, vec![3]);
+        let swap = allocate_swap_recipients(earn.registry).unwrap();
+        assert_eq!(swap.indices, vec![4, 5, 6]);
+        assert_eq!(
+            allocate_earn_recipient(swap.registry).unwrap().indices,
+            vec![7]
+        );
     }
 }

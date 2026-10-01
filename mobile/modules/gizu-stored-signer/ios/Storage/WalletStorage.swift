@@ -28,19 +28,24 @@ internal final class WalletStorage {
     // Public metadata is JSON; entropy is a fixed binary suffix, never a JSON string.
     try require(clear.count > 32)
     let metadata = try JSONDecoder().decode(Metadata.self, from: clear.dropLast(32))
-    try require(metadata.version == 1 || metadata.version == 2)
+    try require([1, 2, 3].contains(metadata.version))
     return try WalletRecord(
       id: metadata.id, credential: metadata.credential, entropy: Data(clear.suffix(32)),
-      verified: metadata.verified, journalId: metadata.journalId, roleRegistry: metadata.roleRegistry)
+      verified: metadata.verified, journalId: metadata.journalId, roleRegistry: metadata.roleRegistry,
+      earnChain: metadata.earnChain, earnRecoveryRequired: metadata.earnRecoveryRequired,
+      earnCycleIndex: metadata.earnCycleIndex, earnCycles: metadata.earnCycles)
   }
 
   func save(_ record: WalletRecord, allowKeyCreation: Bool = false) throws {
     var clear = try JSONEncoder().encode(
       Metadata(
-        version: 2, id: record.id, journalId: record.journalId, credential: record.credential,
-        verified: record.verified, roleRegistry: record.roleRegistry))
+        version: 3, id: record.id, journalId: record.journalId, credential: record.credential,
+        verified: record.verified, roleRegistry: record.roleRegistry, earnChain: record.earnChain,
+        earnRecoveryRequired: record.earnRecoveryRequired, earnCycleIndex: record.earnCycleIndex,
+        earnCycles: record.earnCycles))
     clear.append(record.entropy)
     defer { clear.wipe() }
+    try require(clear.count + 32 <= WalletLimits.walletRecordBytes)
     let key: SymmetricKey
     if let existing = try keys.existing() {
       key = existing
@@ -55,7 +60,10 @@ internal final class WalletStorage {
     defer { committed.close() }
     try require(
       committed.id == record.id && committed.entropy == record.entropy
-        && committed.verified == record.verified && committed.roleRegistry == record.roleRegistry)
+        && committed.verified == record.verified && committed.roleRegistry == record.roleRegistry
+        && committed.earnChain == record.earnChain
+        && committed.earnRecoveryRequired == record.earnRecoveryRequired
+        && committed.earnCycleIndex == record.earnCycleIndex && committed.earnCycles == record.earnCycles)
   }
 
   func create(_ record: WalletRecord) throws {
@@ -68,7 +76,8 @@ internal final class WalletStorage {
     // Reuse an accessible storage key, or create one if lost. Never replace a healthy wallet.
     let restored = try WalletRecord(
       id: record.id, credential: record.credential, entropy: record.entropy, verified: true,
-      journalId: UUID().uuidString, roleRegistry: record.roleRegistry)
+      journalId: UUID().uuidString, roleRegistry: record.roleRegistry, earnChain: record.earnChain,
+      earnRecoveryRequired: true, earnCycleIndex: record.earnCycleIndex, earnCycles: record.earnCycles)
     defer { restored.close() }
     try save(restored, allowKeyCreation: true)
   }
@@ -82,7 +91,26 @@ internal final class WalletStorage {
     try require(next >= registryNext(current.roleRegistry))
     let updated = try WalletRecord(
       id: current.id, credential: current.credential, entropy: Data(current.entropy),
-      verified: current.verified, journalId: current.journalId, roleRegistry: registry)
+      verified: current.verified, journalId: current.journalId, roleRegistry: registry,
+      earnChain: current.earnChain, earnRecoveryRequired: current.earnRecoveryRequired,
+      earnCycleIndex: current.earnCycleIndex, earnCycles: current.earnCycles)
+    defer { updated.close() }
+    try save(updated)
+  }
+
+  func bindEarnChain(_ expected: WalletRecord, chain: Int) throws {
+    try require([1, 4663].contains(chain))
+    let current = try load()
+    defer { current.close() }
+    try require(current.verified && expected.verified && current.id == expected.id
+      && current.journalId == expected.journalId && current.entropy == expected.entropy)
+    try require(current.earnChain == 0 || current.earnChain == chain || current.earnRecoveryRequired)
+    if current.earnChain == chain { return }
+    let updated = try WalletRecord(
+      id: current.id, credential: current.credential, entropy: Data(current.entropy),
+      verified: true, journalId: current.journalId, roleRegistry: current.roleRegistry,
+      earnChain: chain, earnRecoveryRequired: current.earnRecoveryRequired,
+      earnCycleIndex: current.earnCycleIndex, earnCycles: current.earnCycles)
     defer { updated.close() }
     try save(updated)
   }
@@ -94,28 +122,29 @@ internal final class WalletStorage {
     let credential: StoredCredential
     let verified: Bool
     let roleRegistry: String
+    let earnChain: Int
+    let earnRecoveryRequired: Bool
+    let earnCycleIndex: Int
+    let earnCycles: String
 
-    init(version: Int, id: String, journalId: String, credential: StoredCredential, verified: Bool, roleRegistry: String) {
+    init(version: Int, id: String, journalId: String, credential: StoredCredential, verified: Bool,
+      roleRegistry: String, earnChain: Int, earnRecoveryRequired: Bool, earnCycleIndex: Int,
+      earnCycles: String) {
       self.version = version
       self.id = id
       self.journalId = journalId
       self.credential = credential
       self.verified = verified
       self.roleRegistry = roleRegistry
+      self.earnChain = earnChain
+      self.earnRecoveryRequired = earnRecoveryRequired
+      self.earnCycleIndex = earnCycleIndex
+      self.earnCycles = earnCycles
     }
 
     private enum CodingKeys: String, CodingKey {
-      case version, id, journalId, credential, verified, roleRegistry
-    }
-
-    func encode(to encoder: Encoder) throws {
-      var values = encoder.container(keyedBy: CodingKeys.self)
-      try values.encode(version, forKey: .version)
-      try values.encode(id, forKey: .id)
-      try values.encode(journalId, forKey: .journalId)
-      try values.encode(credential, forKey: .credential)
-      try values.encode(verified, forKey: .verified)
-      try values.encode(roleRegistry, forKey: .roleRegistry)
+      case version, id, journalId, credential, verified, roleRegistry, earnChain
+      case earnRecoveryRequired, earnCycleIndex, earnCycles
     }
 
     init(from decoder: Decoder) throws {
@@ -126,6 +155,10 @@ internal final class WalletStorage {
       credential = try values.decode(StoredCredential.self, forKey: .credential)
       verified = try values.decode(Bool.self, forKey: .verified)
       roleRegistry = try values.decodeIfPresent(String.self, forKey: .roleRegistry) ?? #"{"version":1,"nextRecipient":3}"#
+      earnChain = try values.decodeIfPresent(Int.self, forKey: .earnChain) ?? 0
+      earnRecoveryRequired = try values.decodeIfPresent(Bool.self, forKey: .earnRecoveryRequired) ?? false
+      earnCycleIndex = try values.decodeIfPresent(Int.self, forKey: .earnCycleIndex) ?? 0
+      earnCycles = try values.decodeIfPresent(String.self, forKey: .earnCycles) ?? "[]"
     }
   }
 }

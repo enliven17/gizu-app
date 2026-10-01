@@ -2,6 +2,10 @@ Current mainnet result: [Mainnet verification](MAINNET-TEST.md). **Both routes c
 
 # Confidential routing into Morpho Earn
 
+**Next step — app integration:** [APP-INTEGRATION-HANDOVER.md](APP-INTEGRATION-HANDOVER.md) consolidates fee formulas, user-facing reviews and warnings, completed mainnet accounting, privacy constraints, recovery and production gaps. [APP-INTEGRATION-TASK.md](APP-INTEGRATION-TASK.md) is the ready-to-use implementation brief and acceptance checklist. These distinguish the current design from the historical Circle flow below.
+
+**Device-owned multi-account MVP:** [MULTI-ACCOUNT-MVP-PLAN.md](MULTI-ACCOUNT-MVP-PLAN.md) records shared Swap/Earn source selection, one passkey approval per funding batch, encrypted reservations, bounded portfolio refresh and fresh investment/withdrawal addresses. Implementation and verification limits are recorded in the [mobile integration notes](../../mobile/docs/CONFIDENTIAL_EARN.md#october-1-multi-account-refresh-and-approval).
+
 **Current two-route commands:** [TWO-ROUTES.md](TWO-ROUTES.md) documents Monad → Ethereum USDC (Fusion/native ETH) and Monad → Robinhood USDG (token paymaster), both with separate 10/90 payouts and wallet-2-only vault deposits. Both chains use the same DEST1/DEST2 addresses. Run `allocate` once after recovery to reserve 70% of the Monad USDC balance for Ethereum and 30% for Robinhood. Use these profiles for the new tests. The Circle records below are historical.
 
 **Native CLI integration:** [NATIVE-CLI.md](NATIVE-CLI.md) contains the implemented `native-preview`, `native-deposit`, `native-withdraw`, `native-return`, `native-status`, and `native-reprice` commands, configuration, and recovery instructions. These explicitly opt into the Fusion/native-ETH flow; legacy `vault-*` commands still use Circle.

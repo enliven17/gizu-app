@@ -7,6 +7,7 @@ export function useWalletController(
   address: string,
   service: WalletBalanceService,
   clipboard: ClipboardService,
+  formatBalance: (atoms: string) => string = formatMon,
 ) {
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,8 +22,8 @@ export function useWalletController(
     request.current = controller;
     return Promise.resolve()
       .then(() => service.getBalance(address, controller.signal))
-      .then((wei) => {
-        const value = formatMon(wei);
+      .then((atoms) => {
+        const value = formatBalance(atoms);
         if (active.current && !controller.signal.aborted) setBalance(value);
       })
       .catch(() => {
@@ -35,7 +36,7 @@ export function useWalletController(
         if (request.current === controller) request.current = null;
         if (active.current && !controller.signal.aborted) setLoading(false);
       });
-  }, [address, service]);
+  }, [address, service, formatBalance]);
   useEffect(() => {
     active.current = true;
     void load();

@@ -101,3 +101,12 @@ test("rejects cross-wallet/network snapshots, inconsistent sums and duplicate ac
   ])
     expect(() => validateMainnetPortfolio(invalid as MainnetPortfolioSnapshot, walletId)).toThrow();
 });
+
+test("Swap shows the same total public USDC funding balance including receiving accounts", async () => {
+  await open();
+  await screen.findByLabelText("3 USDC");
+  fireEvent.press(screen.getByLabelText("Swap tab"));
+  expect(await screen.findByText("Available: 3 USDC")).toBeVisible();
+  expect(screen.getByText("You pay · USDC budget")).toBeVisible();
+  expect(screen.queryByText(/maximum 10 USDC/)).toBeNull();
+});

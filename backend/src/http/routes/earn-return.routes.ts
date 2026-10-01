@@ -1,0 +1,5 @@
+import type {FastifyInstance} from 'fastify';
+import type {ZodTypeProvider} from '@fastify/type-provider-zod';
+import {z} from 'zod';
+import type {EthereumReturnPlanner} from '../../adapters/earn/ethereum-return-planner.ts';
+export function registerEarnReturnRoutes(app:FastifyInstance,planner:Pick<EthereumReturnPlanner,'plan'>){app.withTypeProvider<ZodTypeProvider>().post('/v1/earn/ethereum/return-plan',{logLevel:'silent',bodyLimit:2048,schema:{body:z.object({owner:z.string().regex(/^0x[0-9a-f]{40}$/i),confidentialAccount:z.string().regex(/^0x[0-9a-f]{40}$/i),operationId:z.string().regex(/^[-a-zA-Z0-9_]{1,128}$/),revision:z.number().int().positive().max(2147483647),returnAsset:z.enum(['usdc','native'])}).strict()}},async(request,reply)=>{reply.header('Cache-Control','no-store');try{return reply.send(await planner.plan(request.body));}catch{return reply.code(502).send({code:'EARN_RETURN_PLAN_UNAVAILABLE',message:'No verified current return quote and gas budget is available. Funds remain in the investment wallet.'});}});}

@@ -19,7 +19,7 @@ internal object BackupCodec {
     )
     UUID.fromString(h.getString("walletId"))
     val version = h.getInt("version")
-    require(version == 1 || version == 2)
+    require(version in 1..3)
     if (version == 2) requireRoleRegistry(h.getString("roleRegistry"))
     else require(!h.has("roleRegistry"))
     return h
@@ -60,39 +60,66 @@ internal object BackupCodec {
     val h =
       JSONObject()
         .put("format", "gizu-stored-wallet")
-        .put("version", 2)
+        .put("version", 3)
         .put("rpId", "gizu.io")
         .put("derivationVersion", "gizu-stored-evm-v1")
         .put("walletId", record.id)
         .put("credentialId", enc(record.credential.credentialId))
         .put("x", enc(record.credential.publicKeyX))
         .put("y", enc(record.credential.publicKeyY))
+
+    val clear =
+      JSONObject()
+        .put("version", 3)
+        .put("entropy", enc(record.entropy))
         .put("roleRegistry", record.roleRegistry)
-    return h.put(
-        "envelope",
-        enc(CryptoEnvelope.encrypt(SecretKeySpec(prf, "AES"), record.entropy, aad(h))),
-      )
-      .toString()
-      .toByteArray()
+        .put("earnChain", record.earnChain)
+        .put("earnRecoveryRequired", record.earnRecoveryRequired)
+        .put("earnCycleIndex", record.earnCycleIndex)
+        .put("earnCycles", record.earnCycles)
+        .toString()
+        .toByteArray()
+    try {
+      return h.put(
+          "envelope",
+          enc(CryptoEnvelope.encrypt(SecretKeySpec(prf, "AES"), clear, aad(h))),
+        )
+        .toString()
+        .toByteArray()
+    } finally {
+      clear.fill(0)
+    }
   }
 
   fun decrypt(bytes: ByteArray, prf: ByteArray): WalletRecord {
     require(prf.size == 32)
     val h = header(bytes)
     val credential = credential(bytes)
-    val entropy =
+    val clear =
       CryptoEnvelope.decrypt(SecretKeySpec(prf, "AES"), dec(h.getString("envelope")), aad(h))
+    var entropy: ByteArray? = null
     try {
+      val metadata =
+        if (h.getInt("version") == 3) JSONObject(String(clear, Charsets.UTF_8)) else null
+      if (metadata != null) require(metadata.getInt("version") == 3)
+      entropy = if (metadata != null) dec(metadata.getString("entropy")) else clear.copyOf()
       return WalletRecord(
         h.getString("walletId"),
         credential,
         entropy,
         roleRegistry =
-          if (h.getInt("version") == 2) h.getString("roleRegistry") else INITIAL_ROLE_REGISTRY,
+          metadata?.getString("roleRegistry")
+            ?: if (h.getInt("version") == 2) h.getString("roleRegistry") else INITIAL_ROLE_REGISTRY,
+        earnChain = metadata?.getInt("earnChain") ?: 0,
+        earnRecoveryRequired = metadata?.getBoolean("earnRecoveryRequired") ?: false,
+        earnCycleIndex = metadata?.getInt("earnCycleIndex") ?: 0,
+        earnCycles = metadata?.getString("earnCycles") ?: "[]",
       )
     } catch (e: Exception) {
-      entropy.fill(0)
+      entropy?.fill(0)
       throw e
+    } finally {
+      clear.fill(0)
     }
   }
 }

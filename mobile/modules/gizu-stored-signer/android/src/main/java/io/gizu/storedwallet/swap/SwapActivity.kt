@@ -13,7 +13,6 @@ import android.widget.TextView
 import io.gizu.storedwallet.NativeStyle
 import io.gizu.storedwallet.PasskeyGate
 import io.gizu.storedwallet.walletStore
-import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -279,7 +278,12 @@ class SwapActivity : Activity() {
         topMargin = NativeStyle.dp(this@SwapActivity, 16)
       },
     )
-    val approve = NativeStyle.button(this, "Approve for 15 minutes", true)
+    val approve =
+      NativeStyle.button(
+        this,
+        if (engine?.hasFundingBatch == true) "Approve funding batch" else "Approve for 15 minutes",
+        true,
+      )
     approve.isEnabled = false
     approve.setOnClickListener {
       if (!approve.isEnabled || stopped) return@setOnClickListener
@@ -304,10 +308,7 @@ class SwapActivity : Activity() {
       try {
         val wallet = walletStore(applicationContext)
         val identity = withContext(Dispatchers.IO) { wallet.load().use { it.id to it.credential } }
-        val digest =
-          MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") {
-            "%02x".format(it)
-          }
+        val digest = checkNotNull(engine).reviewDigest(text)
         providerPending = true
         try {
           PasskeyGate(this@SwapActivity)
@@ -329,11 +330,10 @@ class SwapActivity : Activity() {
           check(!stopped && hasWindowFocus())
           check(!(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
           check(record.id == identity.first)
-          checkNotNull(engine).unlock(record)
+          checkNotNull(engine).authorizeReviewed(record, text)
         } finally {
           record.close()
         }
-        engine?.approve()
         show(
           "Swap in progress",
           "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.",
@@ -343,7 +343,20 @@ class SwapActivity : Activity() {
         throw error
       } catch (error: Exception) {
         android.util.Log.e("SwapActivity", "approval failed", error)
-        if (!stopped) showReview(text, error.message ?: error.javaClass.simpleName)
+        if (!stopped) {
+          if (engine?.hasFundingBatch == true) {
+            try {
+              val refreshed = checkNotNull(engine).advance(::progress)
+              if (refreshed is SwapUi.Review)
+                showReview(refreshed.text, error.message ?: error.javaClass.simpleName)
+              else present(refreshed)
+            } catch (refreshError: CancellationException) {
+              throw refreshError
+            } catch (refreshError: Exception) {
+              SwapHost.fail(refreshError.message ?: refreshError.javaClass.simpleName)
+            }
+          } else showReview(text, error.message ?: error.javaClass.simpleName)
+        }
       }
     }
   }

@@ -99,3 +99,25 @@ export const testnetInformationPages: Partial<Record<AccountPage, InformationPag
     actions: ["Change signing policy"],
   },
 };
+
+export const mainnetInformationPages: Partial<Record<AccountPage, InformationPage>> = {
+  "passkey-wallet": {
+    title: "Passkey wallet",
+    body: "Your passkey opens Account 0, your funded source wallet. Home shows native USDC on Monad mainnet. Wallet keys stay in the native signer.",
+    rows: [
+      { label: "Network", value: "Monad mainnet · 143" },
+      { label: "Asset", value: "USDC · 6 decimals" },
+      { label: "Account", value: "0" },
+      { label: "Recovery", value: "Encrypted backup and original passkey" },
+    ],
+  },
+  "transaction-signing": {
+    title: "Transaction signing",
+    body: "Opening your wallet and checking USDC do not authorize spending. Confidential Earn requires separate native reviews and passkey approval for funding, investment, withdrawal and returns. Each action depends on current provider and device availability.",
+    rows: [
+      { label: "Balance network", value: "Monad mainnet" },
+      { label: "Confidential Earn", value: "Separate review and passkey approval" },
+      { label: "Vault withdrawal", value: "Only after you request Withdraw" },
+    ],
+  },
+};

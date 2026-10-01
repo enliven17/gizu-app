@@ -1,4 +1,7 @@
-import { MainnetWalletProvider } from "@/features/wallet/MainnetWalletProvider";
+import {
+  MainnetWalletProvider,
+  type MainnetPortfolioService,
+} from "@/features/wallet/MainnetWalletProvider";
 import { OpportunityServiceContext } from "@/features/opportunities/useOpportunities";
 import { opportunityService as defaultOpportunityService } from "@/services/opportunities";
 import type { OpportunityService } from "@/domain/opportunities";
@@ -27,10 +30,21 @@ import { StatusBar } from "expo-status-bar";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import colors from "@/theme/colors.json";
 import { SessionProvider, useSession } from "./SessionProvider";
-import type { AccessService, WalletSession } from "@/services/access";
+import { type AccessService, type WalletSession } from "@/services/access";
 import { createLinking } from "@/navigation/linking";
 import type { RootStackParamList } from "@/navigation/types";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { EarnProvider } from "@/features/earn/EarnProvider";
+import type { EarnVaultExecutionService } from "@/domain/earn/vaultExecution";
+import type { EarnPayoutService } from "@/domain/earn/privatePayout";
+import type { EarnRobinhoodService } from "@/domain/earn/robinhoodExecution";
+import type { EarnLiquidityService } from "@/domain/earn/ethereumLiquidity";
+import type { EarnSourceFundingService } from "@/domain/earn/sourceFunding";
+import type {
+  EarnWalletService,
+  EarnPreflightService,
+  EarnPrivateBalanceService,
+} from "@/domain/earn/types";
 const theme = {
   ...DarkTheme,
   colors: {
@@ -51,7 +65,16 @@ function AppNavigation({
   notificationService,
   renderNativeSession,
   walletBalanceService,
+  mainnetPortfolioService,
   walletTransferService,
+  earnWalletService,
+  earnPreflightService,
+  earnPrivateBalanceService,
+  earnVaultService,
+  earnSourceService,
+  earnLiquidityService,
+  earnPayoutService,
+  earnRobinhoodService,
 }: {
   analyticsService: AnalyticsService;
   investmentService?: InvestmentService;
@@ -61,7 +84,16 @@ function AppNavigation({
   notificationService?: NotificationService;
   renderNativeSession?: (session: WalletSession) => ReactNode;
   walletBalanceService?: WalletBalanceService;
+  mainnetPortfolioService?: MainnetPortfolioService;
   walletTransferService?: WalletTransferService;
+  earnWalletService?: EarnWalletService;
+  earnPreflightService?: EarnPreflightService;
+  earnPrivateBalanceService?: EarnPrivateBalanceService;
+  earnVaultService?: EarnVaultExecutionService;
+  earnSourceService?: EarnSourceFundingService;
+  earnLiquidityService?: EarnLiquidityService;
+  earnPayoutService?: EarnPayoutService;
+  earnRobinhoodService?: EarnRobinhoodService;
 }) {
   const { session } = useSession();
   const navigation = useNavigationContainerRef<RootStackParamList>();
@@ -82,14 +114,25 @@ function AppNavigation({
       linking={createLinking(!!session)}
     >
       {session?.kind === "mainnet" ? (
-        <MainnetWalletProvider session={session}>
-          <OpportunityServiceContext.Provider value={opportunityService}>
-            <AccountProvider {...accountDependencies}>
-              <NotificationProvider service={emptyNotificationService}>
-                <RootNavigator />
-              </NotificationProvider>
-            </AccountProvider>
-          </OpportunityServiceContext.Provider>
+        <MainnetWalletProvider session={session} service={mainnetPortfolioService}>
+          <EarnProvider
+            service={earnWalletService}
+            preflight={earnPreflightService}
+            privateBalance={earnPrivateBalanceService}
+            vaultExecution={earnVaultService}
+            sourceFunding={earnSourceService}
+            liquidity={earnLiquidityService}
+            payout={earnPayoutService}
+            robinhood={earnRobinhoodService}
+          >
+            <OpportunityServiceContext.Provider value={opportunityService}>
+              <AccountProvider {...accountDependencies}>
+                <NotificationProvider service={emptyNotificationService}>
+                  <RootNavigator />
+                </NotificationProvider>
+              </AccountProvider>
+            </OpportunityServiceContext.Provider>
+          </EarnProvider>
         </MainnetWalletProvider>
       ) : session?.kind === "testnet" ? (
         <WalletProvider
@@ -97,13 +140,24 @@ function AppNavigation({
           balance={walletBalanceService}
           transfers={walletTransferService}
         >
-          <OpportunityServiceContext.Provider value={opportunityService}>
-            <AccountProvider {...accountDependencies}>
-              <NotificationProvider service={emptyNotificationService}>
-                <RootNavigator />
-              </NotificationProvider>
-            </AccountProvider>
-          </OpportunityServiceContext.Provider>
+          <EarnProvider
+            service={earnWalletService}
+            preflight={earnPreflightService}
+            privateBalance={earnPrivateBalanceService}
+            vaultExecution={earnVaultService}
+            sourceFunding={earnSourceService}
+            liquidity={earnLiquidityService}
+            payout={earnPayoutService}
+            robinhood={earnRobinhoodService}
+          >
+            <OpportunityServiceContext.Provider value={opportunityService}>
+              <AccountProvider {...accountDependencies}>
+                <NotificationProvider service={emptyNotificationService}>
+                  <RootNavigator />
+                </NotificationProvider>
+              </AccountProvider>
+            </OpportunityServiceContext.Provider>
+          </EarnProvider>
         </WalletProvider>
       ) : session ? (
         <InvestmentProvider service={investmentService}>
@@ -132,7 +186,16 @@ export function AppRoot({
   notificationService,
   renderNativeSession,
   walletBalanceService,
+  mainnetPortfolioService,
   walletTransferService,
+  earnWalletService,
+  earnPreflightService,
+  earnPrivateBalanceService,
+  earnVaultService,
+  earnSourceService,
+  earnLiquidityService,
+  earnPayoutService,
+  earnRobinhoodService,
 }: {
   analyticsService?: AnalyticsService;
   accessService?: AccessService;
@@ -144,7 +207,16 @@ export function AppRoot({
   notificationService?: NotificationService;
   renderNativeSession?: (session: WalletSession) => ReactNode;
   walletBalanceService?: WalletBalanceService;
+  mainnetPortfolioService?: MainnetPortfolioService;
   walletTransferService?: WalletTransferService;
+  earnWalletService?: EarnWalletService;
+  earnPreflightService?: EarnPreflightService;
+  earnPrivateBalanceService?: EarnPrivateBalanceService;
+  earnVaultService?: EarnVaultExecutionService;
+  earnSourceService?: EarnSourceFundingService;
+  earnLiquidityService?: EarnLiquidityService;
+  earnPayoutService?: EarnPayoutService;
+  earnRobinhoodService?: EarnRobinhoodService;
 }) {
   return (
     <SafeAreaProvider>
@@ -154,8 +226,17 @@ export function AppRoot({
             <StatusBar style="light" />
             <AppNavigation
               analyticsService={analyticsService}
+              earnWalletService={earnWalletService}
+              earnPreflightService={earnPreflightService}
+              earnPrivateBalanceService={earnPrivateBalanceService}
+              earnVaultService={earnVaultService}
+              earnSourceService={earnSourceService}
+              earnLiquidityService={earnLiquidityService}
+              earnPayoutService={earnPayoutService}
+              earnRobinhoodService={earnRobinhoodService}
               walletTransferService={walletTransferService}
               walletBalanceService={walletBalanceService}
+              mainnetPortfolioService={mainnetPortfolioService}
               renderNativeSession={renderNativeSession}
               accountDependencies={accountDependencies}
               notificationService={notificationService}

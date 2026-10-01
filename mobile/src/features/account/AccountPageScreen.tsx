@@ -21,6 +21,7 @@ import { PageIntro } from "./components/PageIntro";
 import {
   informationPages,
   nativeInformationPages,
+  mainnetInformationPages,
   testnetInformationPages,
   type AccountPage,
 } from "./pages";
@@ -40,7 +41,7 @@ function PageActions({ labels, delay }: { labels: string[]; delay: number }) {
 function InformationPage({ page, native }: { page: AccountPage; native: boolean }) {
   const { session } = useSession();
   const walletPages =
-    session?.kind === "testnet" ? testnetInformationPages : nativeInformationPages;
+    session?.kind === "testnet" ? testnetInformationPages : mainnetInformationPages;
   const info = (native ? walletPages[page] : undefined) ?? informationPages[page];
   if (!info) return null;
   return (

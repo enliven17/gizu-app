@@ -1570,6 +1570,7 @@ dependencies = [
  "bip32",
  "bip39",
  "bs58",
+ "chrono",
  "k256 0.14.0",
  "serde",
  "serde_json",

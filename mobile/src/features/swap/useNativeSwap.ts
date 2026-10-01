@@ -93,7 +93,8 @@ export function useNativeSwap() {
       !busy,
     start: () =>
       run("start", async () => {
-        if (!atoms) throw new Error("Enter from 0.000001 to 10 USDC.");
+        if (!atoms)
+          throw new Error("Enter a positive USDC amount with at most six decimal places.");
         setStatus(parseSwapView(await swapSigner().startSwap(target, atoms, swapGateway)));
       }),
     // Only after a finished operation: a private balance left in C is spent without new funding.

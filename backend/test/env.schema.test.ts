@@ -66,7 +66,18 @@ test("rejects an empty database url", () => {
 test("rejects development as node env", () => {
   assert.throws(
     () => parseApiEnv({ ...apiEnv, NODE_ENV: "development" }),
-    (err: unknown) =>
-      err instanceof Error && err.message.includes("NODE_ENV"),
+    (err: unknown) => err instanceof Error && err.message.includes("NODE_ENV"),
+  );
+});
+
+test("payout recovery key is optional but when supplied must be a durable 32-byte hex value", () => {
+  assert.equal(
+    parseApiEnv({ ...apiEnv, EARN_GATEWAY_RECOVERY_KEY: "11".repeat(32) })
+      .EARN_GATEWAY_RECOVERY_KEY,
+    "11".repeat(32),
+  );
+  assert.throws(
+    () => parseApiEnv({ ...apiEnv, EARN_GATEWAY_RECOVERY_KEY: "too-short" }),
+    /EARN_GATEWAY_RECOVERY_KEY/,
   );
 });

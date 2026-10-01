@@ -48,7 +48,7 @@ class BackupCodecTest {
     for ((field, value) in
       listOf(
         "walletId" to "7aafcc2e-0891-4e31-a7d4-03780d7b4f13",
-        "version" to 3,
+        "version" to 4,
         "rpId" to "other.io",
         "derivationVersion" to "other",
       )) {

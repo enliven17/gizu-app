@@ -1,9 +1,13 @@
 import { loadSwapTokens, parseSwapView, sourceAtoms } from "@/features/swap/confidentialSwap";
 
-test("source amount stays inside the 10 USDC cap", () => {
+test("source budgets accept more than 10 USDC and stay inside native integer representability", () => {
   expect(sourceAtoms("2")).toBe("2000000");
   expect(sourceAtoms("10")).toBe("10000000");
-  expect(sourceAtoms("10.000001")).toBeNull();
+  expect(sourceAtoms("10.000001")).toBe("10000001");
+  expect(sourceAtoms("12.5")).toBe("12500000");
+  expect(sourceAtoms("18446744073709.551615")).toBe("18446744073709551615");
+  expect(sourceAtoms("18446744073709.551616")).toBeNull();
+  expect(sourceAtoms("1.0000001")).toBeNull();
   expect(sourceAtoms("0")).toBeNull();
 });
 
