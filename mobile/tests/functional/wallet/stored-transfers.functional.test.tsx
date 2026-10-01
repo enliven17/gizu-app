@@ -77,7 +77,16 @@ function setup(initial: StoredOperation[] = [], useDefaultSigner = false) {
   if (useDefaultSigner) jest.spyOn(nativeBridge, "getStoredTransferSigner").mockReturnValue(native);
   const element = (
     <AppRoot
-      accessService={access}
+      // These regressions exercise the retained 10143 MON diagnostics. Normal
+      // stored-wallet access now selects the mainnet USDC view, which cannot send MON.
+      accessService={{
+        ...access,
+        async request(method) {
+          const session = await access.request(method);
+          if (session.kind === "demo") throw new Error("Native wallet required");
+          return { ...session, kind: "testnet", accountIndex: 0, chainId: 10143 };
+        },
+      }}
       walletBalanceService={{ getBalance: async () => "1000000000000000000" }}
       walletTransferService={
         useDefaultSigner ? undefined : createStoredTransfers(walletId, () => native)

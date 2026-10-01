@@ -1,0 +1,11 @@
+{
+  "format": "gizu-stored-wallet",
+  "version": 3,
+  "rpId": "gizu.io",
+  "derivationVersion": "gizu-stored-evm-v1",
+  "walletId": "7aafcc2e-0891-4e31-a7d4-03780d7b4f12",
+  "credentialId": "AQID",
+  "x": "axfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpY",
+  "y": "T-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
+  "envelope": "R1NXMQMDAwMDAwMDAwMDA17c1WYoWzctFGJ5b8d1mmKZTo-fzbeuUm6fxvCipAH58OY8Y9q65AGPyQpEzI-mBGZlUoXIw3w2bWlv4n9tySm2onpag4QGfiWD5eKz_rdHj9PrTygYEg-aNKakGm9PXuf4AYvwQU4uBLl0bAmKbc3_-x0zXa7wdIu3xf0MPnCj09SEqAMt0AunZHKVDVj-Dbwd8r2qwd1weZgLkL1m__kGXeVodk7mES2n58kP8Z5jH9jLslvpRfqfssj2tESZDFt57sZhHkJuzDtiLvKDXNYkLjSv09EQDNZ63TxJDP2G6T-dnB6u1fLr0muFK0e_eb4r_sYvue-q7HKrqk9ycpKhag1U4GBOEqY-Vv5xpPLY5NJK_O1DdohdxdZneuZFXL_2pg0jFQ7-M9408ZsKAjP_T2BX-Edd_mJH8JRNb4X8o8UMP0Zw5aHtpNasq3LlshhvyjTw2C19AILXYy7_5UiDT4RMy5T4HysqltiQbuO0wRDtgAS0G9Nxn-3pGf-THFNUNKid5UQRazOFQWdJ8jQVjAy3EOt2QUB9sKrcKnetTwbJt0VuR5vum86f86lwhKZIwSO18gqVBA"
+}

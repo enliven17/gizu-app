@@ -16,11 +16,11 @@ Saved budgets: Ethereum 7.652756 USDC; Robinhood 3.279753 USDC. Both use the sam
 - Wallet 1 retains its intentional 10% payout: **0.174875 USDG**. It did not participate in the vault operations.
 - Monad source remaining: **7.663622 USDC**, including the untouched 7.652756 Ethereum allocation and 0.010866 unused Robinhood source allowance.
 
-| Operation | Signed maximum gas charge (USDG) | Actual charge (USDG) | Transaction |
-| --- | ---: | ---: | --- |
-| Deposit | 0.073750 | 0.042774 | `0xc9b55f68e8440744f76826f8bee960abc53183e062d49656b3b173a1d565f551` |
-| Withdrawal | 0.059697 | 0.025875 | `0xd73878e17d1e230d3dff97bdbd41e45ad877fe6864d6285fc7589f874810dbb0` |
-| Return transfer | 0.025334 | 0.011068 | `0x6a039a08bbde5b823ea6c5ee8ba68123544aa3df448d569deae9cee9bad88c7b` |
+| Operation       | Signed maximum gas charge (USDG) | Actual charge (USDG) | Transaction                                                          |
+| --------------- | -------------------------------: | -------------------: | -------------------------------------------------------------------- |
+| Deposit         |                         0.073750 |             0.042774 | `0xc9b55f68e8440744f76826f8bee960abc53183e062d49656b3b173a1d565f551` |
+| Withdrawal      |                         0.059697 |             0.025875 | `0xd73878e17d1e230d3dff97bdbd41e45ad877fe6864d6285fc7589f874810dbb0` |
+| Return transfer |                         0.025334 |             0.011068 | `0x6a039a08bbde5b823ea6c5ee8ba68123544aa3df448d569deae9cee9bad88c7b` |
 
 Total destination gas paid: **0.079717 USDG**. Receipts show actual fee transfers to the established provider recipient, rather than a Circle-style upfront maximum pull followed by a refund. The final 0.044207 remainder is the 0.055275 return reserve minus the 0.011068 actual return charge. It includes deliberately unused reserve, not just signed-cap headroom.
 
@@ -32,15 +32,15 @@ Initial Aurora payout quoting returned HTTP 400, then a fresh unsigned quote pas
 
 **Completed Ethereum mainnet cycle:** the revised Fusion order filled, wallet 2 deposited **1.084570 USDC**, redeemed all old/new shares for **1.218730 USDC**, and returned **1.268730 USDC + 0.000678997020223204 ETH** through separate Aurora intents. Both intents report SUCCESS; authenticated private credit is **3.081997 Monad-asset USDC**. Final wallet-2 balances are **zero ETH, USDC, WETH and shares**, meeting both residual targets. Wallet 1's ETH and USDC match its pre-test balances. No second Fusion purchase, helper, wallet-to-wallet transfer or joint destination transaction was used. [Mainnet evidence](fixtures/ethereum-mainnet-cycle.json).
 
-| Step | Amount / actual gas | Transaction |
-| --- | --- | --- |
-| Fusion | 5.121694 USDC → 0.001133295335295891 native ETH | [Receipt](https://eth.blockscout.com/tx/0x84ebe0def4280bc6bad436c8f777696c6d51b230cb0abfbed416d22955815202) |
-| approve_deposit | 0.00003079308789181 ETH at 0.554251195 gwei | [Receipt](https://eth.blockscout.com/tx/0xd3f15d713e3d131aab284f966fc24cb7da3bfd6c650cda0c31b8d98ba5f0ce41) |
-| deposit | 0.000176694376170259 ETH at 0.568337347 gwei | [Receipt](https://eth.blockscout.com/tx/0xf8eefbb2fe0531e7f3163e759b26ad0ddf9e6f105cd0cef3c75acb5e9d7309d5) |
-| approve_withdraw | 0.000025755692155296 ETH at 0.560101169 gwei | [Receipt](https://eth.blockscout.com/tx/0x30fdde9da342ce61ddf1edfdb8cb33a510f98f5f4ade5ca70ef47b2917f10600) |
-| withdraw | 0.00017201310622037 ETH at 0.58431739 gwei | [Receipt](https://eth.blockscout.com/tx/0xf05040a31622f38a37250e96060524f43ce1b429a1c8f0f369c6a126f47c5998) |
-| return_usdc | 0.000033866934480952 ETH at 0.589523299 gwei | [Receipt](https://eth.blockscout.com/tx/0xcb9a5c5a8b4b8bc56d9d06032c9adefef649a1ce856d6e7f3a40cb9a40673e88) |
-| return_eth | 0.000015175118154 ETH at 0.722624674 gwei | [Receipt](https://eth.blockscout.com/tx/0x0267b347ddc9682b624571e448686130bb02647574b743d3da1f5f8978ab0903) |
+| Step             | Amount / actual gas                             | Transaction                                                                                                 |
+| ---------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Fusion           | 5.121694 USDC → 0.001133295335295891 native ETH | [Receipt](https://eth.blockscout.com/tx/0x84ebe0def4280bc6bad436c8f777696c6d51b230cb0abfbed416d22955815202) |
+| approve_deposit  | 0.00003079308789181 ETH at 0.554251195 gwei     | [Receipt](https://eth.blockscout.com/tx/0xd3f15d713e3d131aab284f966fc24cb7da3bfd6c650cda0c31b8d98ba5f0ce41) |
+| deposit          | 0.000176694376170259 ETH at 0.568337347 gwei    | [Receipt](https://eth.blockscout.com/tx/0xf8eefbb2fe0531e7f3163e759b26ad0ddf9e6f105cd0cef3c75acb5e9d7309d5) |
+| approve_withdraw | 0.000025755692155296 ETH at 0.560101169 gwei    | [Receipt](https://eth.blockscout.com/tx/0x30fdde9da342ce61ddf1edfdb8cb33a510f98f5f4ade5ca70ef47b2917f10600) |
+| withdraw         | 0.00017201310622037 ETH at 0.58431739 gwei      | [Receipt](https://eth.blockscout.com/tx/0xf05040a31622f38a37250e96060524f43ce1b429a1c8f0f369c6a126f47c5998) |
+| return_usdc      | 0.000033866934480952 ETH at 0.589523299 gwei    | [Receipt](https://eth.blockscout.com/tx/0xcb9a5c5a8b4b8bc56d9d06032c9adefef649a1ce856d6e7f3a40cb9a40673e88) |
+| return_eth       | 0.000015175118154 ETH at 0.722624674 gwei       | [Receipt](https://eth.blockscout.com/tx/0x0267b347ddc9682b624571e448686130bb02647574b743d3da1f5f8978ab0903) |
 
 Total owner-paid native gas across the six approval/deposit/withdrawal/return transactions: **0.000454298315072687 ETH**. This excludes resolver gas, which is embedded in the Fusion exchange terms. Purchased ETH reconciles exactly: 0.001133295335295891 − 0.000454298315072687 = **0.000678997020223204 ETH returned**. The 0.05 USDC retained during investment was included in the USDC return, not left as final dust. The returned credit is inside Aurora's confidential account in the Monad-USDC asset; it is not a public transfer to the Monad source wallet.
 
@@ -51,7 +51,6 @@ One preparation expired before submission. After the fill, increased fees tempor
 Evidence captures independent receipts, exact fees, both wallets' balances, successful Aurora statuses and authenticated confidential credit. Wallet 1 was compared with block 26085617: 1.125870 USDC and 0.000030933 ETH before and after. Its intentional payout is excluded from wallet 2's residual criterion. This is one completed mainnet cycle; future gas, resolver economics and route eligibility remain variable. The previously verified suite contains 118 passing tests; this mainnet run changed documentation/evidence only.
 
 ### Earlier attempts and implementation history — superseded by the completed run above
-
 
 **Pre-run resolver-economics implementation:** At this earlier checkpoint no third public order had been submitted. The runner now incorporates a custom full-fill auction priced for provider-estimated gas, gas/fee headroom and a proportional profit allowance. The old second order covered only about **0.080245 gwei** using its 202,859-gas direct-fill replay and recorded token prices, before resolver profit/routing costs. The revised local test used block 26085513 wallet state and recorded 0.675754118/1.351508236 gwei native caps: **4.648302 USDC** purchased ETH, **1.557962 USDC** deposited, and 0.05 USDC stayed liquid. It filled locally at 1/90/180 seconds at **0.844692648 gwei**, with positive modeled margins, then withdrew all old/new shares without injecting ETH into the owner. Provider gas estimate was 587,548 versus 202,485–202,600 measured for the inventory-funded direct fill. Public acceptance, actual resolver routing cost and current affordability are still unproved. This is a recorded fee scenario, not a live mainnet quote. See [pricing equation](NATIVE-CLI.md#resolver-pricing-after-the-two-expired-orders) and [evidence](fixtures/fusion-economics-lab.json).
 
@@ -90,3 +89,20 @@ Local journals and detailed provider outputs are in `.local/ethereum/`, `.local/
 - A quote's deposit address can remain active beyond its requested swap deadline. Quote validation, funding, payout signing, and return planning now use the earlier of those deadlines. Expired saved quotes are rejected.
 
 All three fixes have regression tests. No extra public funding transfer was sent to work around Aurora's delays or liquidity errors. Do not reuse this run's funded return quote or delete its completed journal.
+
+## September 30 app test funding
+
+After the Ethereum test above, the user requested funding the phone app's Monad source from the returned Aurora confidential balance. The user explicitly approved the research configuration's 4-bps application fee/referral for this one transfer. This exception does not change the mobile Earn fee policy.
+
+- Confidential input: **3.081997 USDC**.
+- Actual finalized Monad receipt: **3.079262 Circle USDC**.
+- Input/output difference: **0.002735 USDC**.
+- Recipient: `0x069b3c1DD949E01504DD6Ac0a9729b730Cc87A4E`.
+- Circle USDC: `0x754704Bc059F8C67012fEd69BC8A327a5aafb603`, chain **143**.
+- Transaction: `0xfe7291aa5cfa443d68a08d123336d81a9702fba1bde7319ab589ce25bb663acc`.
+- Receipt block: **109353503**, hash `0x294252b37491aea265f08b515cc2ba390bcf8c2238525c08c5f681d848895a9e`.
+- Verification: receipt success, exact token/recipient/value Transfer, canonical block and pre-transfer reference rechecked; finalized head **109354195** exceeded the receipt block. Source balance changed from **0** to **3.079262 USDC**.
+
+The exact signed intent was durably saved before a single submission in a separate ignored, permission-restricted funding journal. Expired unsigned quotes were archived without signing. The spending deadline was narrowed before signing; transfer amount, receiver and nonce were preserved. Earlier wallet 1 and the new app destination pair were not used as funding sources. No Earn or vault operation was authorized by this funding transfer.
+
+Aurora's public status later reported SUCCESS. Authenticated history for this key returned an invite-only error, so operation-specific private history is **not verified**. A missing entry in the post-transfer authenticated balance response is not asserted as zero. These limits do not change the observed finalized destination receipt, but they block native Earn settlement acceptance until the provider enables history access.

@@ -117,9 +117,9 @@ The capture writes `fixtures/robinhood-cycle-operations.json` with synthetic sig
 
 ## Recorded results (29 September 2026)
 
-Live Robinhood cycle: **complete**, 2.521136 USDG deposited and redeemed, 2.636109 USDC credited privately, final wallet-2 remainder **0.044207 USDG / zero ETH / zero shares**. Ethereum later completed funding and separate 10/90 payouts; wallet 2 received **6.256264 USDC**. Its first Fusion order expired unfilled and two retries stopped on stale reference blocks, leaving no active order and no new vault deposit. Continue from the existing Ethereum native journal; never repeat source funding or payouts. See [mainnet results](MAINNET-TEST.md).
+**Both mainnet cycles completed.** Robinhood deposited and redeemed 2.521136 USDG, credited 2.636109 confidential USDC, and left **0.044207 USDG / zero ETH / zero shares**. Ethereum's later Fusion order filled; it deposited 1.084570 USDC, redeemed all old/new shares, credited 3.081997 confidential USDC through USDC and ETH returns, and left **zero ETH / USDC / WETH / shares**. Earlier expired orders are historical. Preserve the completed journals; do not repeat funding or payouts. See [mainnet results](MAINNET-TEST.md) and the [app integration handover](APP-INTEGRATION-HANDOVER.md).
 
-- Unit/regression suite: **103 passed**.
+- Unit/regression suite at the original local checkpoint: **103 passed**; the later pre-completion suite recorded **118 passed** in [mainnet results](MAINNET-TEST.md).
 - Robinhood lifecycle, fork block **75,777,651**, synthetic starting balance **10 USDG / zero ETH**: **9.807085 USDG** invested; **0.163288 USDG** liquid afterward; full redemption left **9.959578 USDG**; Aurora funding transferred **9.931601 USDG**; final remainder **0.025111 USDG / zero ETH / zero shares**. Mock valuation was 1 USDG = 1 USDC. These are measured local results, not fixed live fees.
 - Separate fresh-wallet authorization: passed at fork block **75,775,406** with zero destination ETH.
 - Exact replay: **passed**, all three operations reproduced identical UserOperation gas usage and final balances; see [replay evidence](fixtures/robinhood-replay.json).

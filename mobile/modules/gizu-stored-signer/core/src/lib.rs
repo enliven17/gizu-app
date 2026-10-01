@@ -1,8 +1,11 @@
 //! Native-private entropy derivation and transaction policy. Never export secrets to JS.
+mod earn_fees;
+mod source_planner;
 use alloy_primitives::{Address, keccak256};
 use bip32::{DerivationPath, XPrv};
 use bip39::{Language, Mnemonic};
 use k256::ecdsa::VerifyingKey;
+pub use source_planner::*;
 use zeroize::Zeroizing;
 uniffi::setup_scaffolding!();
 
@@ -46,12 +49,48 @@ pub fn derive_account_addresses(entropy: Vec<u8>) -> Result<Vec<String>, SignerE
         })
         .collect()
 }
+mod earn_auth;
 mod roles;
 mod swap;
+pub use earn_auth::*;
+mod earn_payout;
+pub use earn_payout::*;
+mod earn_ethereum_liquidity;
+pub use earn_ethereum_liquidity::*;
+mod earn_sponsored;
+pub use earn_sponsored::*;
+mod earn_execution;
+pub use earn_execution::*;
 mod transfers;
 pub use roles::*;
 pub use swap::*;
 pub use transfers::*;
+
+/// Earn v1 has one immutable pair per source wallet and selected profile.
+/// A separate derivation namespace keeps legacy accounts and destination chains apart.
+/// The original verified entropy backup recovers both supported profile candidates.
+#[uniffi::export]
+pub fn derive_earn_addresses(entropy: Vec<u8>, chain_id: u64) -> Result<Vec<String>, SignerError> {
+    let entropy = Zeroizing::new(entropy);
+    if entropy.len() != 32 || ![1, 4663].contains(&chain_id) {
+        return Err(SignerError::InvalidInput);
+    }
+    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)
+        .map_err(|_| SignerError::CryptoFailed)?;
+    let seed = Zeroizing::new(mnemonic.to_seed(""));
+    drop(mnemonic);
+    drop(entropy);
+    (0..2)
+        .map(|role| {
+            let path: DerivationPath = format!("m/44'/60'/143'/{chain_id}'/{role}")
+                .parse()
+                .map_err(|_| SignerError::InvalidInput)?;
+            let child = XPrv::derive_from_path(seed.as_ref(), &path)
+                .map_err(|_| SignerError::CryptoFailed)?;
+            Ok(address(child.private_key().verifying_key()))
+        })
+        .collect()
+}
 
 #[cfg(test)]
 mod tests {
@@ -71,4 +110,137 @@ mod tests {
             assert!(derive_account_addresses(vec![0; n]).is_err());
         }
     }
+    #[test]
+    fn earn_pair_is_recoverable_distinct_and_profile_bound() {
+        let ethereum = derive_earn_addresses(vec![0; 32], 1).unwrap();
+        assert_eq!(
+            ethereum,
+            vec![
+                "0x115Fd06B8190FDb68C1A840468661Ada279D1d72",
+                "0xB5927c0bbE474886EA8A87a2E9a761386Dec63bc"
+            ]
+        );
+        assert_eq!(ethereum.len(), 2);
+        assert_eq!(ethereum, derive_earn_addresses(vec![0; 32], 1).unwrap());
+        let robinhood = derive_earn_addresses(vec![0; 32], 4663).unwrap();
+        assert_eq!(
+            robinhood,
+            vec![
+                "0xbA8794cf84F56Aa255d51E7260F16f3a15e5128b",
+                "0x378740d42cdfa6Cf83D531359299E79e03f869A9"
+            ]
+        );
+        let source = derive_account_addresses(vec![0; 32]).unwrap();
+        let all: Vec<_> = ethereum.iter().chain(robinhood.iter()).collect();
+        assert_eq!(
+            all.iter().collect::<std::collections::HashSet<_>>().len(),
+            4
+        );
+        assert!(all.iter().all(|a| !source.contains(a)));
+        assert_ne!(ethereum, derive_earn_addresses(vec![1; 32], 1).unwrap());
+    }
+    #[test]
+    fn earn_rejects_other_profiles_and_invalid_entropy() {
+        for chain in [0, 143, 10143, u64::MAX] {
+            assert!(derive_earn_addresses(vec![0; 32], chain).is_err());
+        }
+        for n in [0, 16, 31, 33, 64] {
+            assert!(derive_earn_addresses(vec![0; n], 1).is_err());
+        }
+    }
+}
+
+#[uniffi::export]
+pub fn derive_earn_cycle_addresses(
+    entropy: Vec<u8>,
+    chain_id: u64,
+    cycle_index: u32,
+) -> Result<Vec<String>, SignerError> {
+    let seed = roles::seed_from_entropy(entropy)?;
+    (0..2)
+        .map(|role| {
+            earn_cycle_key(&seed, chain_id, cycle_index, role)
+                .map(|key| address(key.private_key().verifying_key()))
+        })
+        .collect()
+}
+#[uniffi::export]
+pub fn derive_earn_cycle_confidential_address(
+    entropy: Vec<u8>,
+    chain_id: u64,
+    cycle_index: u32,
+) -> Result<String, SignerError> {
+    let seed = roles::seed_from_entropy(entropy)?;
+    let key = earn_cycle_key(&seed, chain_id, cycle_index, 2)?;
+    Ok(address(key.private_key().verifying_key()))
+}
+#[cfg(test)]
+mod cycle_tests {
+    use super::*;
+    #[test]
+    fn fresh_cycles_are_distinct_recoverable_and_preserve_v1() {
+        for chain in [1, 4663] {
+            assert_eq!(
+                derive_earn_cycle_addresses(vec![0; 32], chain, 0).unwrap(),
+                derive_earn_addresses(vec![0; 32], chain).unwrap()
+            );
+            assert_eq!(
+                derive_earn_cycle_confidential_address(vec![0; 32], chain, 0).unwrap(),
+                derive_earn_confidential_address(vec![0; 32], chain).unwrap()
+            );
+            let all: Vec<_> = (0..4)
+                .flat_map(|cycle| {
+                    let mut addresses =
+                        derive_earn_cycle_addresses(vec![0; 32], chain, cycle).unwrap();
+                    addresses.push(
+                        derive_earn_cycle_confidential_address(vec![0; 32], chain, cycle).unwrap(),
+                    );
+                    addresses
+                })
+                .collect();
+            assert_eq!(
+                all.iter().collect::<std::collections::HashSet<_>>().len(),
+                12
+            );
+            assert_eq!(
+                derive_earn_cycle_addresses(vec![0; 32], chain, 1).unwrap(),
+                derive_earn_cycle_addresses(vec![0; 32], chain, 1).unwrap()
+            );
+        }
+    }
+    #[test]
+    fn cycles_reject_overflow_and_other_profiles() {
+        assert!(derive_earn_cycle_addresses(vec![0; 32], 1, u32::MAX).is_err());
+        assert!(derive_earn_cycle_addresses(vec![0; 32], 1, (0x7fff_ffff - 2) / 3 + 1).is_err());
+        assert!(derive_earn_cycle_confidential_address(vec![0; 32], 143, 1).is_err());
+    }
+}
+
+/// Fixed, validated role paths only. Cycle zero preserves every v1 address.
+pub(crate) fn earn_cycle_key(
+    seed: &[u8; 64],
+    chain_id: u64,
+    cycle_index: u32,
+    role: u8,
+) -> Result<XPrv, SignerError> {
+    if ![1, 4663].contains(&chain_id) || role > 2 || cycle_index > (0x7fff_ffff - 2) / 3 {
+        return Err(SignerError::InvalidInput);
+    }
+    let path = if cycle_index == 0 {
+        format!("m/44'/60'/143'/{chain_id}'/{role}")
+    } else {
+        let child = cycle_index
+            .checked_mul(3)
+            .and_then(|n| n.checked_add(u32::from(role)))
+            .filter(|n| *n <= 0x7fff_ffff)
+            .ok_or(SignerError::InvalidInput)?;
+        format!("m/44'/60'/144'/{chain_id}'/{child}")
+    };
+    XPrv::derive_from_path(
+        seed,
+        &path
+            .parse::<DerivationPath>()
+            .map_err(|_| SignerError::InvalidInput)?,
+    )
+    .map_err(|_| SignerError::CryptoFailed)
 }

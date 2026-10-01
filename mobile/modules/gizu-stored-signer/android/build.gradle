@@ -2,10 +2,23 @@ plugins {
   id 'com.android.library'
   id 'expo-module-gradle-plugin'
 }
+// Only an explicit local USB debug opt-in is accepted; no arbitrary endpoint property.
+def earnBackendProperty = providers.gradleProperty('gizuEarnBackend').orNull
+if (earnBackendProperty != null && earnBackendProperty != 'usb') {
+  throw new GradleException("gizuEarnBackend accepts only 'usb'; omit it for the fixed hosted backend")
+}
+def debugEarnBackendMode = earnBackendProperty == 'usb' ? 'usb' : 'hosted'
+
 group = 'io.gizu.storedwallet'
 version = '0.1.0'
 android {
   namespace 'io.gizu.storedwallet'
+  buildFeatures { buildConfig true }
+  buildTypes {
+    debug { buildConfigField 'String', 'GIZU_EARN_BACKEND_MODE', '"' + debugEarnBackendMode + '"' }
+    // Release never inherits the USB opt-in, even when the property is passed.
+    release { buildConfigField 'String', 'GIZU_EARN_BACKEND_MODE', '"hosted"' }
+  }
   defaultConfig { minSdk 24; versionCode 1; versionName "0.1.0" }
   sourceSets.main.java.srcDirs += '../generated'
   sourceSets.test.resources.srcDirs += '../ios/Tests/Fixtures'

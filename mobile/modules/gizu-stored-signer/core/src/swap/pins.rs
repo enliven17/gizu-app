@@ -17,7 +17,8 @@ pub const ONEINCH_LOP: Address = address!("0x5A705DE8982235a7fa45bB83dCaCf03a211
 pub const FUSION_SETTLEMENT: Address = address!("0xb55ba9617dafae1236313c3cb7806439ceefbd13");
 
 pub const USDC_DECIMALS: u8 = 6;
-pub const MAX_SOURCE_ATOMS: u64 = 10_000_000;
+// Numeric representability bound; production budgets have no ten-USDC test cap.
+pub const MAX_SOURCE_ATOMS: u64 = u64::MAX;
 pub const QUOTE_SLIPPAGE_BPS: u32 = 100;
 pub const FUSION_SLIPPAGE_BPS: u64 = 100;
 pub const PERMIT_LIFETIME_SECS: u64 = 3_600;

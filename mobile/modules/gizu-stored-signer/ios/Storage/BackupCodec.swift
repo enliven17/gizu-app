@@ -9,11 +9,11 @@ internal enum StoredBackupCodec {
     }
 
     guard let version = h["version"] as? NSNumber, CFGetTypeID(version) != CFBooleanGetTypeID(),
-      version.stringValue == "1" || version.stringValue == "2"
+      ["1", "2", "3"].contains(version.stringValue)
     else { throw WalletFailure.invalid }
     try require(
       h["format"] as? String == "gizu-stored-wallet"
-        && (h["version"] as? Int == 1 || h["version"] as? Int == 2)
+        && [1, 2, 3].contains(h["version"] as? Int ?? 0)
         && h["rpId"] as? String == "gizu.io"
         && h["derivationVersion"] as? String == "gizu-stored-evm-v1")
     if version.intValue == 2 { try requireRoleRegistry(try text(h, "roleRegistry")) }
@@ -50,25 +50,56 @@ internal enum StoredBackupCodec {
   static func encrypt(_ record: WalletRecord, prf: Data) throws -> Data {
     try require(prf.count == 32)
     var h: [String: Any] = [
-      "format": "gizu-stored-wallet", "version": 2, "rpId": "gizu.io",
+      "format": "gizu-stored-wallet", "version": 3, "rpId": "gizu.io",
       "derivationVersion": "gizu-stored-evm-v1", "walletId": record.id,
       "credentialId": record.credential.id.base64URL, "x": record.credential.x.base64URL,
-      "y": record.credential.y.base64URL, "roleRegistry": record.roleRegistry,
+      "y": record.credential.y.base64URL,
     ]
+    var clear = try JSONSerialization.data(withJSONObject: [
+      "version": 3, "entropy": record.entropy.base64URL, "roleRegistry": record.roleRegistry,
+      "earnChain": record.earnChain, "earnRecoveryRequired": record.earnRecoveryRequired,
+      "earnCycleIndex": record.earnCycleIndex, "earnCycles": record.earnCycles,
+    ], options: [.sortedKeys])
+    defer { clear.wipe() }
     h["envelope"] = try WalletEnvelope.encrypt(
-      record.entropy, key: SymmetricKey(data: prf), aad: aad(h)
+      clear, key: SymmetricKey(data: prf), aad: aad(h)
     ).base64URL
-    return try JSONSerialization.data(withJSONObject: h, options: [.sortedKeys])
+    let bytes = try JSONSerialization.data(withJSONObject: h, options: [.sortedKeys])
+    try require(bytes.count <= WalletLimits.backupBytes)
+    return bytes
+  }
+
+  private static func integer(_ object: [String: Any], _ key: String) throws -> Int {
+    guard let value = object[key] as? NSNumber,
+      CFGetTypeID(value) != CFBooleanGetTypeID(),
+      let integer = Int(value.stringValue)
+    else { throw WalletFailure.invalid }
+    return integer
   }
 
   static func decrypt(_ bytes: Data, prf: Data) throws -> WalletRecord {
     try require(prf.count == 32)
     let h = try header(bytes)
-    var entropy = try WalletEnvelope.decrypt(
+    var clear = try WalletEnvelope.decrypt(
       Data(urlEncoded: text(h, "envelope")), key: SymmetricKey(data: prf), aad: aad(h))
-    defer { entropy.wipe() }
+    defer { clear.wipe() }
+    if h["version"] as? Int == 3 {
+      guard let payload = try JSONSerialization.jsonObject(with: clear) as? [String: Any],
+        Set(payload.keys) == Set(["version", "entropy", "roleRegistry", "earnChain", "earnRecoveryRequired", "earnCycleIndex", "earnCycles"]),
+        let recovery = payload["earnRecoveryRequired"] as? NSNumber,
+        CFGetTypeID(recovery) == CFBooleanGetTypeID()
+      else { throw WalletFailure.invalid }
+      try require(try integer(payload, "version") == 3)
+      var entropy = try Data(urlEncoded: text(payload, "entropy"))
+      defer { entropy.wipe() }
+      return try WalletRecord(
+        id: text(h, "walletId"), credential: credential(bytes), entropy: entropy,
+        roleRegistry: text(payload, "roleRegistry"), earnChain: integer(payload, "earnChain"),
+        earnRecoveryRequired: recovery.boolValue, earnCycleIndex: integer(payload, "earnCycleIndex"),
+        earnCycles: text(payload, "earnCycles"))
+    }
     return try WalletRecord(
-      id: text(h, "walletId"), credential: credential(bytes), entropy: entropy,
+      id: text(h, "walletId"), credential: credential(bytes), entropy: clear,
       roleRegistry: h["version"] as? Int == 2 ? text(h, "roleRegistry") : #"{"version":1,"nextRecipient":3}"#)
   }
 }

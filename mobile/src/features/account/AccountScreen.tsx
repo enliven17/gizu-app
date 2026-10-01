@@ -49,8 +49,13 @@ const groups: { title: string; rows: Row[] }[] = [
   },
 ];
 
-function rowValue(page: AccountPage, native: boolean, preferences: Preferences | null) {
-  if (page === "currency") return native ? "MON" : "USD";
+function rowValue(
+  page: AccountPage,
+  native: boolean,
+  preferences: Preferences | null,
+  mainnet = false,
+) {
+  if (page === "currency") return native ? (mainnet ? "USDC" : "MON") : "USD";
   if (page === "statements") return preferences?.statements;
   if (page === "alerts" && preferences) return preferences.alerts ? "On" : "Off";
   return undefined;
@@ -99,7 +104,7 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
               last={rowIndex === group.rows.length - 1}
               label={row.label}
               icon={row.icon}
-              value={rowValue(row.page, native, preferences)}
+              value={rowValue(row.page, native, preferences, native && session.chainId === 143)}
               onPress={() => root.navigate("AccountPage", { page: row.page })}
             />
           ))}

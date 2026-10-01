@@ -207,14 +207,16 @@ function NativePortfolio({ navigation }: Props) {
             </Typography>
           ) : wallet.balance !== null ? (
             <Balance
-              value={wallet.balance + " MON"}
+              value={wallet.balance + " " + wallet.asset.symbol}
               icon={
-                <Image
-                  source={monadMark}
-                  className="h-7 w-7"
-                  accessibilityIgnoresInvertColors
-                  accessible={false}
-                />
+                wallet.asset.symbol === "MON" ? (
+                  <Image
+                    source={monadMark}
+                    className="h-7 w-7"
+                    accessibilityIgnoresInvertColors
+                    accessible={false}
+                  />
+                ) : undefined
               }
             />
           ) : null}
@@ -242,6 +244,13 @@ function NativePortfolio({ navigation }: Props) {
       </FadeIn>
       {Platform.OS === "android" ? <SwapHoldingsSection /> : null}
       <FadeIn delay={sectionDelay(4)} className="mt-5">
+        {wallet.asset.symbol === "USDC" && (
+          <Button
+            label="Confidential earn"
+            variant="secondary"
+            onPress={() => root.navigate("Earn")}
+          />
+        )}
         <VaultPreview
           onSeeAll={() => navigation.navigate("Vaults")}
           onOpen={(id) => root.navigate("OpportunityDetail", { id })}

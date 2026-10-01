@@ -53,5 +53,13 @@ Apple file at `https://gizu.io/.well-known/assetlinks.json`, returning HTTP 200 
 path if needed. Preserve both files and any future approved signing identities.
 
 Only the public fingerprint is published; the private keystore stays on the
-developer's Mac. This does not configure Play production signing or enable the
-currently iOS-only mobile probe. See `mobile/docs/ANDROID_SIGNING.md` in the repo.
+developer's Mac. This does not configure Play production signing. Android native stored-wallet
+passkeys require the installed APK certificate to appear in this association. See `mobile/docs/ANDROID_SIGNING.md` in the repo.
+
+
+The September 30 local APK update preserves the existing fingerprint and adds:
+
+`9B:24:1F:AD:F5:9F:6B:D0:70:7B:92:88:59:46:8C:63:C6:9B:3E:CB:9B:10:60:FB:5A:2B:3A:4F:4B:C2:1C:67`
+
+This is the public certificate verified from the rebuilt `com.example.gizu.dev` APK.
+The source update is prepared; publishing it on `gizu.io` remains a deployment step.

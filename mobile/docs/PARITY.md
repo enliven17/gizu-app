@@ -1,6 +1,6 @@
 # Gizu product capabilities and parity
 
-Consolidated 2026-09-24. Existing frontend-inspired mobile design is retained;
+Updated 2026-09-30. Existing frontend-inspired mobile design is retained;
 service availability differs by mode. Future work belongs in [PLAN](../PLAN.md).
 
 The native-mode entries describe the Android app using the stored-wallet signer.
@@ -8,18 +8,19 @@ Platform acceptance and remaining migration work are tracked in
 [the migration plan](SIGNER_MIGRATION.md). Historical fixture journeys remain in tests and the isolated UI playground;
 simulated passkey startup has been removed.
 
-| Journey                         | Normal native mode                                             | Test/preview fixtures                        |
-| ------------------------------- | -------------------------------------------------------------- | -------------------------------------------- |
-| Welcome/access                  | Native passkey create/open; Account 0 viewing session          | Simulated passkey access                     |
-| Request access                  | Development mock; no real waitlist submission                  | Same mock                                    |
-| Home                            | Actual Monad testnet MON balance, error/retry, address actions | Fixture portfolio and charts                 |
-| Vaults                          | Read-only mainnet catalog, TVL charts and details; no signing  | Search/filter, details, charts and sharing   |
-| Swap                            | Read-only live token catalog in development and TestFlight     | Read-only token catalog                      |
-| Deposit                         | Receiving address/network/copy; no signing                     | Simulated transfer journey                   |
-| Withdraw                        | <=0.1 MON, expected sender binding, native approval            | Simulated review/signing/result              |
-| Activity                        | Account-filtered local outgoing journal only                   | Fixture activity                             |
-| Account                         | Real address/copy, local preferences, disconnect               | Fixture profile and secondary pages          |
-| Notifications/support/documents | Unsupported service actions guarded                            | Local fixture interactions, no real delivery |
+| Journey                         | Normal native mode                                                                      | Test/preview fixtures                        |
+| ------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Welcome/access                  | Native passkey create/open; Account 0 viewing session                                   | Simulated passkey access                     |
+| Request access                  | Development mock; no real waitlist submission                                           | Same mock                                    |
+| Home                            | Actual Monad mainnet USDC balance, error/retry, address actions                         | Fixture portfolio and charts                 |
+| Vaults                          | Read-only mainnet catalog, TVL charts and details; no signing                           | Search/filter, details, charts and sharing   |
+| Swap                            | Read-only live token catalog in development and TestFlight                              | Read-only token catalog                      |
+| Deposit                         | Receiving address/network/copy; no signing                                              | Simulated transfer journey                   |
+| Withdraw                        | Mainnet USDC transfer execution unavailable                                             | Simulated review/signing/result              |
+| Activity                        | Mainnet USDC indexing unavailable                                                       | Fixture activity                             |
+| Confidential Earn               | Native intent wallet pair, read-only readiness/private balance/routing; execution gated | Adapter and real-screen fixtures             |
+| Account                         | Real address/copy, local preferences, disconnect                                        | Fixture profile and secondary pages          |
+| Notifications/support/documents | Unsupported service actions guarded                                                     | Local fixture interactions, no real delivery |
 
 Native sessions mount no mock financial providers. Unsupported balances/positions
 are not zero-valued fictional holdings. No standalone wallet product UI is added.
@@ -76,7 +77,9 @@ journey; the read-only Swap row above describes the earlier catalog baseline.
 
 ## Data and state boundaries
 
-Local access is not backend authentication. Balances come from RPC; transaction
+Wallet access itself is local. Confidential balance checks use a separate, native
+read-only authentication; aggregate balances do not prove operation settlement.
+Source balances come from RPC; transaction
 history is not a complete chain ledger. Unknown/pending native entries block new
 transfers until reconciliation. Closing a screen cannot undo a submitted operation.
 Legacy journal details remain missing when never recorded. Preferences are local,

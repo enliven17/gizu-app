@@ -12,7 +12,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
 internal fun walletStore(context: Context) =
-  WalletStore(AndroidWalletFile(context), AndroidWalletKeys())
+  WalletStore(AndroidWalletFile(context, limit = 65536), AndroidWalletKeys())
 
 internal class AndroidWalletFile(
   context: Context,

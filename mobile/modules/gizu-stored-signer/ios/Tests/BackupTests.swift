@@ -28,6 +28,61 @@ final class BackupTests: WalletTestCase {
     XCTAssertThrowsError(try StoredBackupCodec.credential(Data(repeating: 1, count: 65537)))
   }
 
+  func testEncryptedV3FixtureRestoresCatalogueAndDoesNotExposeItInHeader() throws {
+    let url = Bundle.module.url(
+      forResource: "android-compatible-backup-v3", withExtension: "json", subdirectory: "Fixtures")!
+    let fixture = try Data(contentsOf: url)
+    let restored = try StoredBackupCodec.decrypt(fixture, prf: Data(repeating: 7, count: 32))
+    defer { restored.close() }
+    XCTAssertEqual(restored.entropy, Data(repeating: 0, count: 32))
+    XCTAssertEqual(try registryNext(restored.roleRegistry), 7)
+    XCTAssertEqual(restored.earnChain, 1)
+    XCTAssertEqual(restored.earnCycleIndex, 2)
+    XCTAssertFalse(restored.earnRecoveryRequired)
+    let cycles = try JSONSerialization.jsonObject(with: Data(restored.earnCycles.utf8)) as! [[String: Any]]
+    XCTAssertEqual(cycles.count, 2)
+    XCTAssertEqual(cycles[0]["withdrawalIndex"] as? Int, 3)
+    XCTAssertEqual(cycles[1]["withdrawalIndex"] as? Int, 6)
+    let encrypted = try StoredBackupCodec.encrypt(restored, prf: Data(repeating: 7, count: 32))
+    let header = try JSONSerialization.jsonObject(with: encrypted) as! [String: Any]
+    XCTAssertEqual(header["version"] as? Int, 3)
+    for field in ["entropy", "roleRegistry", "earnChain", "earnRecoveryRequired", "earnCycleIndex", "earnCycles"] {
+      XCTAssertNil(header[field])
+    }
+    let copy = try StoredBackupCodec.decrypt(encrypted, prf: Data(repeating: 7, count: 32))
+    defer { copy.close() }
+    XCTAssertEqual(copy.roleRegistry, restored.roleRegistry)
+    XCTAssertEqual(copy.earnCycles, restored.earnCycles)
+    XCTAssertEqual(copy.earnCycleIndex, restored.earnCycleIndex)
+    XCTAssertThrowsError(try StoredBackupCodec.decrypt(fixture, prf: Data(repeating: 8, count: 32)))
+  }
+
+  func testV2BackupRetainsAuthenticatedRegistryAndDefaultsEarnMetadata() throws {
+    let wallet = try record()
+    defer { wallet.close() }
+    let registry = #"{"version":1,"nextRecipient":8}"#
+    var header: [String: Any] = [
+      "format": "gizu-stored-wallet", "version": 2, "rpId": "gizu.io",
+      "derivationVersion": "gizu-stored-evm-v1", "walletId": wallet.id,
+      "credentialId": wallet.credential.id.base64URL, "x": wallet.credential.x.base64URL,
+      "y": wallet.credential.y.base64URL, "roleRegistry": registry,
+    ]
+    let aad = Data((["gizu-stored-wallet", "2", "gizu.io", "gizu-stored-evm-v1", wallet.id,
+      wallet.credential.id.base64URL, wallet.credential.x.base64URL,
+      wallet.credential.y.base64URL, registry].joined(separator: ":")).utf8)
+    header["envelope"] = try WalletEnvelope.encrypt(wallet.entropy,
+      key: SymmetricKey(data: Data(repeating: 7, count: 32)), aad: aad).base64URL
+    let restored = try StoredBackupCodec.decrypt(JSONSerialization.data(withJSONObject: header),
+      prf: Data(repeating: 7, count: 32))
+    defer { restored.close() }
+    XCTAssertEqual(restored.roleRegistry, registry)
+    XCTAssertEqual(restored.earnCycleIndex, 0)
+    XCTAssertEqual(restored.earnCycles, "[]")
+    header["roleRegistry"] = #"{"version":1,"nextRecipient":9}"#
+    XCTAssertThrowsError(try StoredBackupCodec.decrypt(JSONSerialization.data(withJSONObject: header),
+      prf: Data(repeating: 7, count: 32)))
+  }
+
   func testBackupRoundTripAndEnvelopeAuthentication() throws {
     let wallet = try record()
     defer { wallet.close() }
