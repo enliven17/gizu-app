@@ -22,6 +22,12 @@ test.each([
   ["BUSY", "busy"],
   ["UNAVAILABLE", "unavailable"],
   ["PASSKEY_FAILED", "passkey"],
+  ["NETWORK_ERROR", "network"],
+  ["INVALID_INPUT", "validation"],
+  ["INVALID_RESPONSE", "invalid-response"],
+  ["VERIFICATION_FAILED", "verification-failed"],
+  ["RECOVERY_REQUIRED", "recovery-required"],
+  ["INSUFFICIENT_BALANCE", "validation"],
   ["WALLET_FAILED", "unknown"],
   ["WALLET_STOPPED", "unknown"],
 ])("normalizes %s without native messages", async (code, expected) => {

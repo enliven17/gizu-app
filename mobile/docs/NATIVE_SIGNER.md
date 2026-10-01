@@ -26,6 +26,30 @@ authority without deleting wallet storage or broadcast evidence. Native failures
 will use sanitized errors; no key material, raw signed bytes or file contents cross
 the app bridge.
 
+### Native error contract
+
+Swift `WalletErrors` and Kotlin `WalletErrors` classify failures at the bridge
+boundary. Public codes distinguish cancellation (`WALLET_CANCELLED`), expiry or
+timeout (`WALLET_TIMEOUT`), network (`NETWORK_ERROR`), unavailable services
+(`UNAVAILABLE`), concurrent ceremonies (`BUSY`), invalid input/response
+(`INVALID_INPUT` / `INVALID_RESPONSE`), cryptographic verification
+(`VERIFICATION_FAILED`), missing storage keys (`RECOVERY_REQUIRED`), passkey
+provider failure (`PASSKEY_FAILED`) and insufficient funds (`INSUFFICIENT_BALANCE`).
+Unclassified failures use `WALLET_STOPPED`. JavaScript maps these to `AppError`;
+user-facing messages are fixed application text, never exception descriptions.
+
+Rust retains its three payload-free error variants. Their stable display codes
+and both platform mappings are checked against `ios/Tests/Fixtures/native-error-codes.json`.
+Generated bindings must be regenerated with the module build script, not edited.
+Native diagnostics contain fixed stages and safe classifications; iOS also retains
+allowlisted Apple error numbers and a per-attempt identifier. Do not log underlying
+exceptions, response bodies, wallet identifiers, credentials or file contents.
+
+Classification does not authorize retry, erase storage or change a persisted
+operation. Swap pause codes and transfer journal outcomes remain separate state
+contracts. After timeout or cancellation, reconcile submitted operations before
+explicit resume; neither event proves that a transaction was undone.
+
 The replacement storage namespace is `io.gizu.storedwallet.v1`; backup format
 `gizu-stored-wallet` version 1; derivation `gizu-stored-evm-v1`; recovery PRF salt
 is SHA-256 of UTF-8 `gizu.stored-wallet.recovery-prf.v1`. These identities are distinct

@@ -12,6 +12,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import io.gizu.storedwallet.NativeStyle
 import io.gizu.storedwallet.PasskeyGate
+import io.gizu.storedwallet.WalletDiagnostics
+import io.gizu.storedwallet.WalletErrorCode
+import io.gizu.storedwallet.WalletErrors
+import io.gizu.storedwallet.WalletException
+import io.gizu.storedwallet.WalletStage
 import io.gizu.storedwallet.walletStore
 import java.security.MessageDigest
 import java.util.UUID
@@ -24,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -86,14 +92,15 @@ internal object SwapHost {
     }
   }
 
-  fun fail(message: String) {
+  fun fail(error: Exception) {
     val result = completion
     completion = null
     token = null
     val current = screen
     screen = null
     fun done() {
-      if (result?.isActive == true) result.resumeWithException(IllegalStateException(message))
+      if (result?.isActive == true)
+        result.resumeWithException(WalletException(WalletErrors.code(error)))
     }
     if (current == null) done()
     else {
@@ -204,11 +211,13 @@ class SwapActivity : Activity() {
           record.close()
         }
         present(checkNotNull(engine).advance(::progress))
+      } catch (error: TimeoutCancellationException) {
+        SwapHost.fail(WalletException(WalletErrorCode.WALLET_TIMEOUT))
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
-        android.util.Log.e("SwapActivity", "swap failed", error)
-        SwapHost.fail(error.message ?: error.javaClass.simpleName)
+        WalletDiagnostics.failed(WalletStage.SWAP_START, error)
+        SwapHost.fail(error)
       }
     }
   }
@@ -339,11 +348,13 @@ class SwapActivity : Activity() {
           "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.",
         )
         present(checkNotNull(engine).advance(::progress))
+      } catch (error: TimeoutCancellationException) {
+        SwapHost.fail(WalletException(WalletErrorCode.WALLET_TIMEOUT))
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
-        android.util.Log.e("SwapActivity", "approval failed", error)
-        if (!stopped) showReview(text, error.message ?: error.javaClass.simpleName)
+        WalletDiagnostics.failed(WalletStage.SWAP_APPROVAL, error)
+        if (!stopped) showReview(text, WalletErrors.code(error).message)
       }
     }
   }
@@ -389,10 +400,12 @@ class SwapActivity : Activity() {
           record.close()
         }
         present(checkNotNull(engine).advance(::progress))
+      } catch (error: TimeoutCancellationException) {
+        SwapHost.fail(WalletException(WalletErrorCode.WALLET_TIMEOUT))
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
-        android.util.Log.e("SwapActivity", "unlock failed", error)
+        WalletDiagnostics.failed(WalletStage.SWAP_UNLOCK, error)
         if (!stopped) unlock()
       }
     }

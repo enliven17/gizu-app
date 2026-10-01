@@ -120,7 +120,7 @@ test.each([
   ["WALLET_CANCELLED", "Wallet access was cancelled"],
   ["WALLET_TIMEOUT", "Wallet access timed out"],
   ["BUSY", "Another wallet operation"],
-  ["PASSKEY_FAILED", "Apple could not complete the passkey request"],
+  ["PASSKEY_FAILED", "The passkey request could not be completed"],
   ["UNAVAILABLE", "Wallet access is unavailable right now"],
   ["UNKNOWN", "Wallet access or backup was not completed"],
 ])("%s shows safe guidance and retries the same wallet", async (code, message) => {

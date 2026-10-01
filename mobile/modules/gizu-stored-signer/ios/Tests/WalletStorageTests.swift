@@ -18,6 +18,9 @@ final class WalletStorageTests: WalletTestCase {
     XCTAssertEqual(store.state(), "ready")
     XCTAssertThrowsError(try store.restore(wallet))
     keys.key = nil
+    XCTAssertThrowsError(try store.load()) {
+      XCTAssertEqual(WalletErrors.code($0), "RECOVERY_REQUIRED")
+    }
     XCTAssertEqual(store.state(), "recoveryRequired")
     XCTAssertThrowsError(try store.create(wallet))
     XCTAssertNil(keys.key)

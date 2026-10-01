@@ -15,6 +15,7 @@ import android.widget.*
 import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.*
 
 internal object TransferHost {
@@ -54,7 +55,7 @@ internal object TransferHost {
     }
   }
 
-  fun close(success: Boolean) {
+  fun close(success: Boolean, failure: WalletErrorCode? = null) {
     val result = completion
     completion = null
     token = null
@@ -63,7 +64,8 @@ internal object TransferHost {
     screen = null
     fun done() {
       if (result?.isActive == true) {
-        if (success) result.resume(Unit) else result.cancel()
+        if (failure != null) result.resumeWithException(WalletException(failure))
+        else if (success) result.resume(Unit) else result.cancel()
       }
     }
     if (current == null) done()
@@ -192,9 +194,14 @@ class TransferActivity : Activity() {
         withTimeout(FOCUS_TIMEOUT_MS) { while (!hasWindowFocus()) delay(FOCUS_POLL_INTERVAL_MS) }
         authorizedForeground()
         showReview(review)
-      } catch (_: CancellationException) {
-        TransferHost.close(false)
+      } catch (failure: CancellationException) {
+        WalletDiagnostics.failed(WalletStage.TRANSFER, failure)
+        TransferHost.close(
+          false,
+          if (failure is TimeoutCancellationException) WalletErrorCode.WALLET_TIMEOUT else null,
+        )
       } catch (failure: Exception) {
+        WalletDiagnostics.failed(WalletStage.TRANSFER, failure)
         showFailure(failure)
       }
     }
@@ -308,9 +315,14 @@ class TransferActivity : Activity() {
           text("Executing approved transfers. Cancellation cannot undo submitted transfers.", 15f)
         engine!!.execute(review, ::authorizedForeground)
         TransferHost.close(true)
-      } catch (_: CancellationException) {
-        TransferHost.close(false)
+      } catch (failure: CancellationException) {
+        WalletDiagnostics.failed(WalletStage.TRANSFER, failure)
+        TransferHost.close(
+          false,
+          if (failure is TimeoutCancellationException) WalletErrorCode.WALLET_TIMEOUT else null,
+        )
       } catch (failure: Exception) {
+        WalletDiagnostics.failed(WalletStage.TRANSFER, failure)
         showFailure(failure)
       }
     }

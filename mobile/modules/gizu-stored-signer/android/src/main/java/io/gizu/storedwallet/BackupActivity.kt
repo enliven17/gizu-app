@@ -20,6 +20,7 @@ import io.gizu.storedwallet.swap.SwapReconciler
 import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.*
 import uniffi.gizu_stored_signer_core.deriveAccountAddresses
 
@@ -56,7 +57,7 @@ internal object BackupHost {
     }
   }
 
-  fun close(success: Boolean) {
+  fun close(success: Boolean, failure: WalletErrorCode? = null) {
     val result = completion
     completion = null
     token = null
@@ -64,7 +65,8 @@ internal object BackupHost {
     screen = null
     fun complete() {
       if (result?.isActive == true) {
-        if (success) result.resume(Unit) else result.cancel()
+        if (failure != null) result.resumeWithException(WalletException(failure))
+        else if (success) result.resume(Unit) else result.cancel()
       }
     }
     if (current != null) {
@@ -359,9 +361,14 @@ class BackupActivity : Activity() {
       try {
         unlocked()
         block()
-      } catch (_: CancellationException) {
-        BackupHost.close(false)
-      } catch (_: Exception) {
+      } catch (failure: CancellationException) {
+        WalletDiagnostics.failed(WalletStage.BACKUP, failure)
+        BackupHost.close(
+          false,
+          if (failure is TimeoutCancellationException) WalletErrorCode.WALLET_TIMEOUT else null,
+        )
+      } catch (error: Exception) {
+        WalletDiagnostics.failed(WalletStage.BACKUP, error)
         showStatus(
           "Backup could not be verified. Use the original passkey and an unchanged Gizu backup. Your current wallet has not been replaced. You can retry or cancel.",
           failed = true,

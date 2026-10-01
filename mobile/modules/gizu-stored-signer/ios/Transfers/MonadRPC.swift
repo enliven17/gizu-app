@@ -25,23 +25,23 @@ internal final class StoredMonadRPC: NSObject, URLSessionTaskDelegate, StoredTra
     let session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
     defer { session.invalidateAndCancel() }
     let (stream, response) = try await session.bytes(for: request)
-    guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw WalletFailure.invalid }
+    guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw WalletFailure.unavailable }
     var data = Data()
     for try await byte in stream {
-      guard data.count < 1_048_576 else { throw WalletFailure.invalid }
+      guard data.count < 1_048_576 else { throw WalletFailure.invalidResponse }
       data.append(byte)
     }
 
     guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
       object["error"] == nil, object["id"] as? Int == 1, object["jsonrpc"] as? String == "2.0",
       let result = object["result"]
-    else { throw WalletFailure.invalid }
+    else { throw WalletFailure.invalidResponse }
     return result
   }
 
   func text(_ method: String, _ params: [Any] = []) async throws -> String {
     guard let result = try await call(method, params) as? String else {
-      throw WalletFailure.invalid
+      throw WalletFailure.invalidResponse
     }
 
     return result

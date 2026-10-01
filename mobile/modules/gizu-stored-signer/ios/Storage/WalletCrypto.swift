@@ -3,7 +3,8 @@ import Foundation
 import Security
 
 internal enum WalletFailure: Error {
-  case invalid, unavailable, cancelled, busy, insufficientBalance
+  case invalid, invalidResponse, unavailable, cancelled, expired, busy, insufficientBalance,
+    recoveryRequired
 }
 
 internal func requireRoleRegistry(_ value: String) throws {

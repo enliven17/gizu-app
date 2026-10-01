@@ -6,13 +6,14 @@ use k256::ecdsa::VerifyingKey;
 use zeroize::Zeroizing;
 uniffi::setup_scaffolding!();
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+/// Payload-free errors with stable public codes. Never attach parser/crypto diagnostics or input.
+#[derive(Debug, thiserror::Error, uniffi::Error, PartialEq, Eq)]
 pub enum SignerError {
-    #[error("Invalid native input")]
+    #[error("INVALID_INPUT")]
     InvalidInput,
-    #[error("Native cryptographic check failed")]
+    #[error("VERIFICATION_FAILED")]
     CryptoFailed,
-    #[error("Native operation expired")]
+    #[error("WALLET_TIMEOUT")]
     Expired,
 }
 fn address(key: &VerifyingKey) -> String {
@@ -56,6 +57,29 @@ pub use transfers::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn public_error_codes_match_native_platforms_and_never_include_inputs() {
+        let codes: serde_json::Value = serde_json::from_str(include_str!(
+            "../../ios/Tests/Fixtures/native-error-codes.json"
+        ))
+        .unwrap();
+        for (name, error) in [
+            ("InvalidInput", SignerError::InvalidInput),
+            ("CryptoFailed", SignerError::CryptoFailed),
+            ("Expired", SignerError::Expired),
+        ] {
+            assert_eq!(error.to_string(), codes[name].as_str().unwrap());
+            assert!(std::error::Error::source(&error).is_none());
+        }
+        let rejected =
+            merge_role_registries("private-wallet-data".into(), "{}".into()).unwrap_err();
+        assert_eq!(rejected, SignerError::InvalidInput);
+        assert!(!format!("{rejected:?} {rejected}").contains("private-wallet-data"));
+        assert_eq!(
+            derive_account_addresses(vec![0; 31]).unwrap_err(),
+            SignerError::InvalidInput
+        );
+    }
     #[test]
     fn entropy_is_deterministic_and_accounts_are_distinct() {
         let a = derive_account_addresses(vec![0; 32]).unwrap();

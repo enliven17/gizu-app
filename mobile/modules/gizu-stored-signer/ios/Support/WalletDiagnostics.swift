@@ -32,26 +32,16 @@ import OSLog
 
   /// Stable public categories only; never forward native descriptions across the bridge.
   nonisolated static func bridgeCode(_ error: Error) -> String {
-    if error is CancellationError { return "WALLET_CANCELLED" }
-    if let failure = error as? WalletFailure {
-      switch failure {
-      case .cancelled: return "WALLET_CANCELLED"
-      case .busy: return "BUSY"
-      default: return "WALLET_STOPPED"
-      }
-    }
-    let native = error as NSError
-    if native.domain == ASAuthorizationError.errorDomain {
-      return native.code == ASAuthorizationError.canceled.rawValue
-        ? "WALLET_CANCELLED" : "PASSKEY_FAILED"
-    }
-    return "WALLET_STOPPED"
+    WalletErrors.code(error)
   }
 
   nonisolated static func errorSummary(_ error: Error) -> String {
     if let failure = error as? WalletFailure {
       switch failure {
       case .invalid: return "wallet.invalid"
+      case .invalidResponse: return "wallet.invalidResponse"
+      case .expired: return "wallet.expired"
+      case .recoveryRequired: return "wallet.recoveryRequired"
       case .unavailable: return "wallet.unavailable"
       case .cancelled: return "wallet.cancelled"
       case .busy: return "wallet.busy"
@@ -66,7 +56,9 @@ import OSLog
     case NSCocoaErrorDomain: return "cocoa:\(native.code)"
     case NSOSStatusErrorDomain: return "osstatus:\(native.code)"
     case NSPOSIXErrorDomain: return "posix:\(native.code)"
-    default: return "unclassified"
+    default:
+      let code = WalletErrors.code(error)
+      return code == "WALLET_STOPPED" ? "unclassified" : code
     }
   }
 }

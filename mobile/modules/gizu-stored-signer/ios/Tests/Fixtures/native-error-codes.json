@@ -1,0 +1,5 @@
+{
+  "InvalidInput": "INVALID_INPUT",
+  "CryptoFailed": "VERIFICATION_FAILED",
+  "Expired": "WALLET_TIMEOUT"
+}

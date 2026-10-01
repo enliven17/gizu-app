@@ -428,7 +428,7 @@ No production dashboard or privacy declaration is automatically changed by this 
 
 Use `AppError` from `src/domain/errors.ts` for application errors. Classify them
 by `code` (cancellation, timeout, network, unavailable, busy, invalid response,
-validation, passkey, backup required, recovery required or unknown). Only supply
+validation, verification failed, passkey, backup required, recovery required or unknown). Only supply
 `userMessage` text authored by the app. Never copy provider/native descriptions,
 response bodies, URLs, credentials or backup paths into it.
 

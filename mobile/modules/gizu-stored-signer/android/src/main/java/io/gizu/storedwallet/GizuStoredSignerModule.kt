@@ -154,19 +154,10 @@ class GizuStoredSignerModule : Module() {
         currentCoroutineContext().ensureActive()
         requireForeground(activity)
         promise.resolve(result)
-      } catch (error: CancellationException) {
-        promise.reject(
-          "CANCELLED",
-          "Wallet operation cancelled or expired. Check wallet state before retrying creation.",
-          null,
-        )
       } catch (error: Exception) {
-        promise.reject(
-          "WALLET_FAILED",
-          error.message
-            ?: "Wallet operation failed. Check wallet state; an existing wallet must not be overwritten.",
-          null,
-        )
+        WalletDiagnostics.failed(WalletStage.CEREMONY, error)
+        val code = WalletErrors.code(error)
+        promise.reject(code.name, code.message, null)
       } finally {
         dialog?.dismiss()
         dialog = null

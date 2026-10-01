@@ -7,7 +7,7 @@ final class WalletDiagnosticsTests: XCTestCase {
   func testBridgeCodesDoNotConfuseFailureWithCancellation() {
     XCTAssertEqual(WalletDiagnostics.bridgeCode(CancellationError()), "WALLET_CANCELLED")
     XCTAssertEqual(WalletDiagnostics.bridgeCode(WalletFailure.cancelled), "WALLET_CANCELLED")
-    XCTAssertEqual(WalletDiagnostics.bridgeCode(WalletFailure.invalid), "WALLET_STOPPED")
+    XCTAssertEqual(WalletDiagnostics.bridgeCode(WalletFailure.invalid), "INVALID_INPUT")
     XCTAssertEqual(WalletDiagnostics.bridgeCode(WalletFailure.busy), "BUSY")
     for (code, expected) in [
       (ASAuthorizationError.canceled.rawValue, "WALLET_CANCELLED"),
@@ -19,6 +19,37 @@ final class WalletDiagnosticsTests: XCTestCase {
       XCTAssertEqual(
         WalletDiagnostics.bridgeCode(NSError(domain: "untrusted", code: code)), "WALLET_STOPPED")
     }
+  }
+
+  func testRustCodesMatchSharedFixture() throws {
+    let url = try XCTUnwrap(
+      Bundle.module.url(
+        forResource: "native-error-codes", withExtension: "json", subdirectory: "Fixtures"))
+    let codes = try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
+    for (name, error) in [
+      ("InvalidInput", SignerError.InvalidInput), ("CryptoFailed", SignerError.CryptoFailed),
+      ("Expired", SignerError.Expired),
+    ] {
+      XCTAssertEqual(WalletErrors.code(error), codes[name])
+    }
+  }
+
+  func testTransportAndStorageErrorsUseSafeCategories() {
+    for (error, code) in [
+      (NSURLErrorTimedOut, "WALLET_TIMEOUT"),
+      (NSURLErrorCancelled, "WALLET_CANCELLED"),
+      (NSURLErrorNotConnectedToInternet, "NETWORK_ERROR"),
+    ] {
+      let failure = NSError(
+        domain: NSURLErrorDomain, code: error, userInfo: [NSLocalizedDescriptionKey: "secret-url"])
+      XCTAssertEqual(WalletErrors.code(failure), code)
+      XCTAssertFalse(WalletDiagnostics.errorSummary(failure).contains("secret-url"))
+    }
+    XCTAssertEqual(WalletErrors.code(WalletFailure.recoveryRequired), "RECOVERY_REQUIRED")
+    XCTAssertEqual(WalletErrors.code(WalletFailure.expired), "WALLET_TIMEOUT")
+    XCTAssertEqual(WalletErrors.code(WalletFailure.invalidResponse), "INVALID_RESPONSE")
+    XCTAssertEqual(WalletErrors.code(WalletFailure.insufficientBalance), "INSUFFICIENT_BALANCE")
+    XCTAssertEqual(WalletErrors.code(WalletFailure.unavailable), "UNAVAILABLE")
   }
 
   func testAppleCodesRemainDistinctWithoutLeakingErrorPayloads() {

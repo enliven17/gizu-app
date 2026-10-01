@@ -8,6 +8,7 @@ internal struct AuthorizationLifetime {
   func check(
     now: TimeInterval = ProcessInfo.processInfo.systemUptime, active: Bool, protected: Bool
   ) throws {
-    try require(!cancelled && now < deadline && active && protected)
+    guard !cancelled, active, protected else { throw WalletFailure.cancelled }
+    guard now < deadline else { throw WalletFailure.expired }
   }
 }

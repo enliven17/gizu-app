@@ -6,6 +6,7 @@ export type AppErrorCode =
   | "busy"
   | "invalid-response"
   | "validation"
+  | "verification-failed"
   | "passkey"
   | "backup-required"
   | "recovery-required"

@@ -21,7 +21,7 @@ internal final class WalletStorage {
   }
 
   func load() throws -> WalletRecord {
-    guard let key = try keys.existing() else { throw WalletFailure.unavailable }
+    guard let key = try keys.existing() else { throw WalletFailure.recoveryRequired }
     var clear = try WalletEnvelope.decrypt(
       files.read("wallet.enc", limit: WalletLimits.walletRecordBytes), key: key, aad: aad)
     defer { clear.wipe() }
@@ -31,7 +31,8 @@ internal final class WalletStorage {
     try require(metadata.version == 1 || metadata.version == 2)
     return try WalletRecord(
       id: metadata.id, credential: metadata.credential, entropy: Data(clear.suffix(32)),
-      verified: metadata.verified, journalId: metadata.journalId, roleRegistry: metadata.roleRegistry)
+      verified: metadata.verified, journalId: metadata.journalId,
+      roleRegistry: metadata.roleRegistry)
   }
 
   func save(_ record: WalletRecord, allowKeyCreation: Bool = false) throws {
@@ -95,7 +96,10 @@ internal final class WalletStorage {
     let verified: Bool
     let roleRegistry: String
 
-    init(version: Int, id: String, journalId: String, credential: StoredCredential, verified: Bool, roleRegistry: String) {
+    init(
+      version: Int, id: String, journalId: String, credential: StoredCredential, verified: Bool,
+      roleRegistry: String
+    ) {
       self.version = version
       self.id = id
       self.journalId = journalId
@@ -125,7 +129,9 @@ internal final class WalletStorage {
       journalId = try values.decode(String.self, forKey: .journalId)
       credential = try values.decode(StoredCredential.self, forKey: .credential)
       verified = try values.decode(Bool.self, forKey: .verified)
-      roleRegistry = try values.decodeIfPresent(String.self, forKey: .roleRegistry) ?? #"{"version":1,"nextRecipient":3}"#
+      roleRegistry =
+        try values.decodeIfPresent(String.self, forKey: .roleRegistry)
+        ?? #"{"version":1,"nextRecipient":3}"#
     }
   }
 }

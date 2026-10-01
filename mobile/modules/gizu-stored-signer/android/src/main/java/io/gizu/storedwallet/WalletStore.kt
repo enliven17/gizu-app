@@ -72,7 +72,7 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
   fun load(): WalletRecord {
     check(exists())
     // Never generate a new key when existing data cannot be decrypted.
-    val key = keys.existing() ?: error("Missing storage key")
+    val key = keys.existing() ?: throw WalletException(WalletErrorCode.RECOVERY_REQUIRED)
     val encrypted = file.read()
     require(encrypted.size in 1..8192)
     val clear = CryptoEnvelope.decrypt(key, encrypted, aad)
