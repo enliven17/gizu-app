@@ -70,8 +70,8 @@ export const tvlRecords: TvlRecord[] = [
 ];
 
 type Mocked<K extends keyof OpportunityService> = jest.Mock<
-  ReturnType<OpportunityService[K]>,
-  Parameters<OpportunityService[K]>
+  ReturnType<NonNullable<OpportunityService[K]>>,
+  Parameters<NonNullable<OpportunityService[K]>>
 >;
 export type MockOpportunityService = {
   list: Mocked<"list">;

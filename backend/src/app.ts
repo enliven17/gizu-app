@@ -2,6 +2,10 @@ import Fastify, {
   type FastifyInstance,
   type FastifyServerOptions,
 } from "fastify";
+import { createHash } from "node:crypto";
+import { legacyCatalogChains } from "./domain/catalog.ts";
+import { ConfiguredOpportunities } from "./adapters/catalog/configured-opportunities.ts";
+import { MorphoVaults } from "./adapters/catalog/morpho-vaults.ts";
 import {
   serializerCompiler,
   validatorCompiler,
@@ -97,18 +101,26 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   registerEarnFusionRoutes(app,new FusionNativeGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,apiKey:secret.ONEINCH_API_KEY,rpcUrl:ethereumPlannerConfig.rpcUrl}));
   registerEarnExitRoutes(app, new EarnExitSnapshot({ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL,auroraApiKey:secret.AURORA_API_KEY}));
   registerEarnPayoutRoutes(app,new PrivatePayoutGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined,ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com"}));
-  const opportunities = new HttpMerklOpportunities(
-    secret.MERKL_API_URL,
-    secret.MERKL_API_KEY,
+  const chains = secret.CATALOG_CHAINS_JSON ?? legacyCatalogChains;
+  const vaults = secret.CATALOG_VAULTS_JSON ?? [];
+  const namespace = `catalog:v1:${createHash("sha256")
+    .update(JSON.stringify({ chains, vaults, morpho: secret.MORPHO_API_URL, merkl: secret.MERKL_API_URL }))
+    .digest("hex")}`;
+  const opportunities = new ConfiguredOpportunities(
+    chains,
+    vaults,
+    new HttpMerklOpportunities(secret.MERKL_API_URL, secret.MERKL_API_KEY),
+    new MorphoVaults(secret.MORPHO_API_URL),
   );
   const cache = new PgCache(pgPool);
   registerOpportunityRoutes(
     app,
     new OpportunitiesController(
-      new ListOpportunitiesUseCase(opportunities, cache),
-      new GetOpportunityUseCase(opportunities, cache),
-      new GetOpportunityTvlRecordsUseCase(opportunities, cache),
+      new ListOpportunitiesUseCase(opportunities, cache, namespace),
+      new GetOpportunityUseCase(opportunities, cache, namespace),
+      new GetOpportunityTvlRecordsUseCase(opportunities, cache, namespace),
     ),
+    chains,
   );
   app.setErrorHandler(mapRequestError);
 

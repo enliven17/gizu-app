@@ -28,12 +28,14 @@ export function useInfiniteList<T, Cursor extends PageCursor>({
   loadPage,
   getIdentity,
   debounceMs = 0,
+  enabled = true,
 }: {
   queryKey: string;
   initialCursor: Cursor;
   loadPage: (cursor: Cursor, signal: AbortSignal) => Promise<InfinitePage<T, Cursor>>;
   getIdentity: (item: T) => string;
   debounceMs?: number;
+  enabled?: boolean;
 }): InfiniteListState<T> & { invalidate(): void } {
   const [state, setState] = useState<State<T, Cursor>>({
     items: [],
@@ -100,22 +102,26 @@ export function useInfiniteList<T, Cursor extends PageCursor>({
     // Query/service changes reset the state of the external request, including its cursor history.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     invalidate();
+    if (!enabled) return cancel;
     if (debounceMs)
       timer.current = setTimeout(() => void run("initial", initialCursor), debounceMs);
     else void run("initial", initialCursor);
     return cancel;
-  }, [queryKey, initialCursor, debounceMs, run, invalidate, cancel]);
+  }, [queryKey, initialCursor, debounceMs, enabled, run, invalidate, cancel]);
   const loadMore = () => {
+    if (!enabled) return;
     const value = current.current;
     if (value.pending || value.error || value.nextCursor === null) return;
     void run("more", value.nextCursor);
   };
   const refresh = () => {
+    if (!enabled) return;
     if (current.current.pending === "refresh") return;
     cancel();
     void run("refresh", initialCursor);
   };
   const retry = () => {
+    if (!enabled) return;
     const value = current.current;
     if (value.pending || !value.error) return;
     if (value.error === "refresh" || value.error === "stalled") refresh();

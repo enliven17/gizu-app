@@ -9,10 +9,11 @@ export class GetOpportunityTvlRecordsUseCase {
   constructor(
     private readonly opportunities: Opportunities,
     private readonly cache: Cache,
+    private readonly namespace = "opportunities",
   ) {}
 
   async execute(input: TvlRecordsQuery): Promise<TvlRecord[]> {
-    const cacheKey = `opportunities:tvl:${input.id}:${input.items}`;
+    const cacheKey = `${this.namespace}:tvl:${input.id}:${input.items}`;
     const cached = await this.cache.get<TvlRecord[]>(cacheKey);
     if (cached !== null) {
       return cached;

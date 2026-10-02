@@ -6,7 +6,7 @@ import { FadeIn } from "@/components/molecules/FadeIn";
 import type { OpportunityDetail } from "@/domain/opportunities";
 import colors from "@/theme/colors.json";
 import { sectionDelay } from "@/theme/motion";
-import { percent } from "../format";
+import { rate } from "../format";
 import { protocolLogo } from "../protocolLogos";
 
 const tabular = { fontVariant: ["tabular-nums" as const] };
@@ -15,14 +15,21 @@ const tabular = { fontVariant: ["tabular-nums" as const] };
 export function OpportunityHero({ opportunity }: { opportunity: OpportunityDetail }) {
   // Remeasure native text after Dynamic Type changes.
   const { fontScale } = useWindowDimensions();
-  const apr = `${percent.format(opportunity.totalApr)}%`;
-  const logo = protocolLogo(opportunity.protocol.name);
+  const apr = rate(opportunity.totalApr);
+  const label = opportunity.rateType === "apy" ? "Net APY" : "Total APR";
+  const logo = protocolLogo(opportunity.protocol.name, opportunity.protocol.id);
   return (
     <FadeIn delay={sectionDelay(1)} className="mt-4 gap-7">
       <View className="flex-row items-center gap-3">
         <View className="h-14 min-w-14 max-w-[88px] items-center justify-center rounded-2xl border border-glassBorder bg-glass px-3">
           {logo ? (
-            <Image source={logo} className="h-9 w-9 rounded-xl" accessibilityIgnoresInvertColors />
+            <Image
+              source={logo}
+              className="h-9 w-9 rounded-xl"
+              resizeMode="contain"
+              accessibilityLabel={`${opportunity.protocol.name} logo`}
+              accessibilityIgnoresInvertColors
+            />
           ) : (
             <Text
               key={fontScale}
@@ -50,7 +57,7 @@ export function OpportunityHero({ opportunity }: { opportunity: OpportunityDetai
       <View
         className="flex-row flex-wrap items-end gap-3"
         accessible
-        accessibilityLabel={`Total APR ${apr}`}
+        accessibilityLabel={`${label} ${apr}`}
       >
         <Text
           key={fontScale}
@@ -60,7 +67,7 @@ export function OpportunityHero({ opportunity }: { opportunity: OpportunityDetai
           {apr}
         </Text>
         <Text key={`${fontScale}-suffix`} className="font-sans mb-1.5 text-[13px] text-fg-45">
-          Total APR
+          {label}
         </Text>
       </View>
     </FadeIn>

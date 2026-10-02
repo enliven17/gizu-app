@@ -60,7 +60,12 @@ function TickerChip({ ticker, logo }: { ticker: string; logo?: ImageSourcePropTy
   return (
     <View className="relative min-h-10 min-w-10 max-w-[72px] items-center justify-center rounded-xl bg-neon/10 px-1.5">
       {logo ? (
-        <Image source={logo} className="h-7 w-7 rounded-lg" accessibilityIgnoresInvertColors />
+        <Image
+          source={logo}
+          className="h-7 w-7 rounded-lg"
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
       ) : (
         <CardText numberOfLines={1} className="font-sans text-[11px] font-bold text-neon">
           {ticker}

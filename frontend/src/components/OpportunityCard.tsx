@@ -4,7 +4,8 @@ import { Lock } from 'lucide-react'
 import Sparkline from './Sparkline'
 import type { Opportunity } from '../opportunities'
 
-function money(value: number) {
+function money(value: number | null) {
+  if (value === null) return 'Unavailable'
   return value.toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -115,7 +116,8 @@ export default function OpportunityCard({
             {money(opportunity.tvl)} tvl
           </span>
           <span className="font-mono text-[13px] text-neon">
-            {opportunity.totalApr.toLocaleString('en-US', { maximumFractionDigits: 2 })}%
+            {opportunity.totalApr === null ? 'Unavailable' : `${opportunity.totalApr.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`}
+            {opportunity.rateType === 'apy' ? ' net APY' : ''}
           </span>
         </div>
       </div>

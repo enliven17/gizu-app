@@ -5,9 +5,12 @@ export type ProtocolSelection = 'all' | 'aave' | 'morpho' | 'curvance'
 export type Opportunity = {
   id: string
   name: string
-  apr: number
-  totalApr: number
-  tvl: number
+  symbol?: string
+  apr: number | null
+  totalApr: number | null
+  tvl: number | null
+  vaultAddress?: string
+  rateType?: 'apr' | 'apy'
   chainId: number
   chain: { name: string }
   protocol: { name: string }
@@ -26,7 +29,7 @@ export type OpportunityToken = {
   symbol: string
   address: string
   decimals: number
-  price: number
+  price: number | null
 }
 
 export type OpportunityCampaign = {
@@ -45,9 +48,9 @@ export type OpportunityDetail = Opportunity & {
   action: string
   type: string
   status: string
-  dailyRewards: number
+  dailyRewards: number | null
   liveCampaigns: number
-  nativeApr: number
+  nativeApr: number | null
   explorerAddress: string
   howToSteps: string[]
   depositUrl: string

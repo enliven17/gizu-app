@@ -3,21 +3,36 @@ export type OpportunityProtocol = (typeof opportunityProtocols)[number];
 export type Opportunity = {
   id: string;
   name: string;
-  chainId: 143;
+  symbol?: string;
+  chainId: number;
+  vaultAddress?: string;
+  rateType?: "apr" | "apy";
   protocol: { id: string; name: string };
   status: string;
-  totalApr: number;
-  tvl: number;
+  totalApr: number | null;
+  tvl: number | null;
 };
-export type OpportunityQuery = { search: string; protocol: OpportunityProtocol; page: number };
-export type OpportunityPage = { list: Opportunity[]; total: number; page: number; items: number };
+export type CatalogChain = { id: number; name: string; explorerUrl?: string };
+export type OpportunityQuery = {
+  search: string;
+  protocol: OpportunityProtocol;
+  page: number;
+  chainId?: number;
+};
+export type OpportunityPage = {
+  list: Opportunity[];
+  total: number;
+  page: number;
+  items: number;
+  partial?: boolean;
+};
 export type OpportunityToken = {
   id: string;
   name: string;
   symbol: string;
   address: string;
   decimals: number;
-  price: number;
+  price: number | null;
 };
 export type OpportunityCampaign = {
   id: string;
@@ -33,14 +48,14 @@ export type OpportunityCampaign = {
 };
 /** Backend `GET /v1/opportunities/:id` → `{ opportunity }`. */
 export type OpportunityDetail = Opportunity & {
-  apr: number;
+  apr: number | null;
   chain: { name: string };
   description: string;
   action: string;
   type: string;
-  dailyRewards: number;
+  dailyRewards: number | null;
   liveCampaigns: number;
-  nativeApr: number;
+  nativeApr: number | null;
   explorerAddress: string;
   howToSteps: string[];
   depositUrl: string;
@@ -52,6 +67,8 @@ export type OpportunityDetail = Opportunity & {
 /** Backend `GET /v1/opportunities/:id/tvl-records` row, newest first. */
 export type TvlRecord = { total: number };
 export interface OpportunityService {
+  /** Optional for older injected adapters; production loads the backend chain catalog. */
+  chains?(signal: AbortSignal): Promise<CatalogChain[]>;
   list(query: OpportunityQuery, signal: AbortSignal): Promise<OpportunityPage>;
   detail(id: string, signal: AbortSignal): Promise<OpportunityDetail>;
   tvlRecords(id: string, signal: AbortSignal): Promise<TvlRecord[]>;

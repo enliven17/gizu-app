@@ -7,6 +7,7 @@ import { Linking } from "react-native";
 import type { OpportunityDetail } from "@/domain/opportunities";
 import { OpportunityDetailScreen } from "@/features/opportunities/OpportunityDetailScreen";
 import { OpportunityServiceContext } from "@/features/opportunities/useOpportunities";
+import { EarnScreen } from "@/features/earn/EarnScreen";
 import type { RootStackParamList } from "@/navigation/types";
 import { deferred } from "../../support/renderApp";
 import {
@@ -30,6 +31,7 @@ function setup(service: MockOpportunityService = mockOpportunityService()) {
               component={OpportunityDetailScreen}
               initialParams={{ id: "op-1" }}
             />
+            <Stack.Screen name="Earn" component={EarnScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </OpportunityServiceContext.Provider>
@@ -38,7 +40,7 @@ function setup(service: MockOpportunityService = mockOpportunityService()) {
   return service;
 }
 
-test("detail shows the frontend sections, TVL history and only an external deposit link", async () => {
+test("detail shows sections and TVL history, then opens Deposit inside Gizu", async () => {
   const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
   const service = mockOpportunityService();
   const pending = deferred<OpportunityDetail>();
@@ -66,17 +68,21 @@ test("detail shows the frontend sections, TVL history and only an external depos
   expect(service.detail).toHaveBeenCalledWith("op-1", expect.anything());
   expect(service.tvlRecords).toHaveBeenCalledWith("op-1", expect.anything());
 
-  expect(screen.queryByRole("button", { name: /buy|sell|withdraw|deposit/i })).toBeNull();
-  await userEvent.press(screen.getByRole("link", { name: "Open deposit page" }));
-  expect(openURL).toHaveBeenCalledWith("https://app.aave.com/reserve");
+  expect(screen.queryByRole("link", { name: "Open deposit page" })).toBeNull();
+  await userEvent.press(screen.getByRole("button", { name: "Deposit" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Deposits to this vault are not available in Gizu yet. No funds have moved.",
+  );
+  expect(openURL).not.toHaveBeenCalled();
 });
 
-test("non-https deposit URLs are not offered", async () => {
+test("Deposit stays inside Gizu regardless of provider URLs", async () => {
   const service = mockOpportunityService();
   service.detail.mockResolvedValue({ ...opportunityDetail(1), depositUrl: "javascript:alert(1)" });
   setup(service);
   expect(await screen.findByLabelText("Mainnet vault 1")).toBeVisible();
   expect(screen.queryByRole("link", { name: "Open deposit page" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Deposit" })).toBeEnabled();
 });
 
 test("detail failure can be retried and a failed history still shows a flat chart", async () => {
@@ -99,6 +105,38 @@ test("a vault without history draws a flat line", async () => {
   setup(service);
   expect(await screen.findByLabelText("No TVL history yet")).toBeVisible();
   expect(screen.queryByText(/no data/i)).toBeNull();
+});
+
+test("configured vault detail shows the contract and unavailable metrics without invented prices or history", async () => {
+  const service = mockOpportunityService();
+  const address = "0x1111111111111111111111111111111111111111";
+  const base = opportunityDetail(1);
+  service.detail.mockResolvedValue({
+    ...base,
+    name: "Configured vault",
+    symbol: "gzpAUSD",
+    protocol: { id: "morpho", name: "Morpho" },
+    vaultAddress: address,
+    rateType: "apy",
+    totalApr: null,
+    apr: null,
+    tvl: null,
+    nativeApr: null,
+    dailyRewards: null,
+    liveCampaigns: 0,
+    campaigns: [],
+    tokens: base.tokens.map((token) => ({ ...token, price: null })),
+  });
+  service.tvlRecords.mockResolvedValue([]);
+  setup(service);
+  expect(await screen.findByLabelText("Configured vault")).toBeVisible();
+  expect(screen.getByLabelText(`Vault contract: ${address}`)).toBeVisible();
+  expect(screen.getByLabelText("Share symbol: gzpAUSD")).toBeVisible();
+  expect(screen.getByLabelText("Morpho logo", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByLabelText("Net APY Unavailable")).toBeVisible();
+  expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(3);
+  expect(screen.queryByLabelText("No TVL history yet")).toBeNull();
+  expect(screen.queryByText("$0")).toBeNull();
 });
 
 test("returning from vault details retains appended catalog pages without reloading", async () => {

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "@fastify/type-provider-zod";
 import { z } from "zod";
 import { supportedProtocolIds } from "../../domain/protocol.ts";
+import { legacyCatalogChains, type CatalogChain } from "../../domain/catalog.ts";
 import type { OpportunitiesController } from "../controllers/opportunities.controller.ts";
 
 export const ListOpportunitiesQuerySchema = z.object({
@@ -37,8 +38,10 @@ export type TvlRecordsQuery = z.infer<typeof TvlRecordsQuerySchema>;
 export function registerOpportunityRoutes(
   app: FastifyInstance,
   controller: OpportunitiesController,
+  chains: CatalogChain[] = legacyCatalogChains,
 ) {
   const server = app.withTypeProvider<ZodTypeProvider>();
+  server.get("/v1/chains", async () => ({ list: chains }));
   server.get("/v1/protocols", controller.protocols);
   server.get(
     "/v1/opportunities",

@@ -7,7 +7,9 @@ import morpho from "../../../assets/logos/morpho.png";
 // so they sit on the dark UI like the rest of the monochrome iconography.
 const logos: Record<string, ImageSourcePropType> = { aave, morpho, curvance };
 
-/** Logo for a catalog protocol name, or undefined to fall back to the text chip. */
-export function protocolLogo(name: string): ImageSourcePropType | undefined {
-  return logos[name.trim().toLowerCase().split(/\s+/)[0] ?? ""];
+/** Stable provider ID takes precedence; older adapters can still use display names. */
+export function protocolLogo(name: string, id?: string): ImageSourcePropType | undefined {
+  return (
+    logos[id?.trim().toLowerCase() ?? ""] ?? logos[name.trim().toLowerCase().split(/\s+/)[0] ?? ""]
+  );
 }

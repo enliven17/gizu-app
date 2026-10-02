@@ -131,6 +131,74 @@ invite-only history. Reconciliation still checks the live authenticated evidence
 never substitutes balances or public SUCCESS. Dry source previews remain unsigned,
 uncached and unusable as quote bindings, and show the blockers on the existing screen.
 
+## Vault catalog configuration
+
+Set these server variables in `.env` locally and in Render's environment when deploying:
+
+```dotenv
+CATALOG_CHAINS_JSON='[{"id":4663,"name":"Robinhood"},{"id":1,"name":"Ethereum"},{"id":143,"name":"Monad"}]'
+CATALOG_VAULTS_JSON='[{"chainId":143,"address":"0x997D5064A7B48305c15C9D55AC2D94D7069Fc008","name":"Gizu Prime AUSD","symbol":"gzpAUSD","asset":{"address":"0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a","name":"AUSD","symbol":"AUSD","decimals":6}}]'
+MORPHO_API_URL=https://api.morpho.org/graphql
+```
+
+In Render, enter the JSON value without the surrounding shell quotes. Restart the
+backend after changing configuration. `GET /v1/chains` returns `{ "list": [...] }`;
+the existing opportunities endpoints filter Merkl by the requested enabled chain
+and retain the Aave/Morpho/Curvance protocol filters. Mobile combines the enabled
+chains into one catalog and Home preview, without a chain picker.
+Without `CATALOG_CHAINS_JSON`,
+the legacy Monad-only catalog remains enabled. The example and local configuration
+include the operator-selected Gizu Prime AUSD vault on Monad. The same array accepts
+Ethereum (1), Robinhood (4663), and any other chain enabled in `CATALOG_CHAINS_JSON`.
+An omitted or empty `CATALOG_VAULTS_JSON` adds no custom contracts.
+
+Each entry has its own chain ID. For example, the configured Monad vault is:
+
+```json
+[
+  {
+    "chainId": 143,
+    "address": "0x997D5064A7B48305c15C9D55AC2D94D7069Fc008",
+    "name": "Gizu Prime AUSD",
+    "symbol": "gzpAUSD",
+    "description": "Gizu Prime AUSD vault on Morpho, Monad mainnet.",
+    "depositUrl": "https://app.morpho.org/monad/vault/0x997D5064A7B48305c15C9D55AC2D94D7069Fc008/gizu-prime-ausd#overview",
+    "tags": ["lending"]
+  }
+]
+```
+
+Contract addresses must be real nonzero 20-byte EVM addresses.
+Optional `asset` metadata takes `{ "address": "0x…", "name": "USD Coin",
+"symbol": "USDC", "decimals": 6 }`, using that chain's actual underlying token.
+Duplicate chain IDs, duplicate chain/contract pairs, malformed JSON, invalid
+addresses and contracts on disabled chains stop startup with a field-specific error.
+
+Only configured contracts are looked up through Morpho's public
+[GraphQL API](https://docs.morpho.org/developers/earn/tutorials/get-data/).
+V1 and V2 are queried separately: a missing non-nullable version otherwise nulls
+the entire GraphQL result. Available API metadata wins; environment values fill
+missing name/symbol/description/asset fields. Without either source, the name uses
+the chain and shortened contract address. Missing yield, TVL and prices are `null`
+and displayed as unavailable. Morpho net APY is explicitly labeled APY using
+`rateType: "apy"`; it is not presented as Merkl APR. History is empty for custom
+entries because this integration has no historical Morpho series.
+
+Configured rows have stable `configured:<chainId>:<lowercase address>` IDs,
+`vaultAddress` and share `symbol` in list/detail responses. Matching Merkl contract entries are merged
+once across pages. Chains without extra contracts retain Merkl's existing paging.
+For chains with extras, a shared five-minute snapshot loads at most ten 100-item
+Merkl pages under one shared eight-second provider deadline, then applies
+protocol/search/paging locally. Morpho lookups are also
+cached/coalesced for five minutes. A Merkl failure or a catalog exceeding that bound
+sets `partial: true`; the mobile screen explicitly marks the available subset.
+Persistent response caches are namespaced by configuration so removed chains or
+contracts cannot reappear from an earlier configuration's cache.
+
+Catalog configuration is read-only. It does not change the funded source network,
+native signing policies or the pinned Confidential Earn execution registry. Listing
+a contract does not enable investing into it through the native Earn flow.
+
 ## Fork isolation and capacity
 
 Anvil binds only to `127.0.0.1` on an allocated free port, with zero generated

@@ -15,7 +15,7 @@ export type RootStackParamList = {
   VaultDetail: { id: string };
   OpportunityDetail: { id: string };
   Activity: undefined;
-  Earn: undefined;
+  Earn: { opportunityId: string } | undefined;
   Notifications: undefined;
   AccountPage: { page: AccountPage };
   Transaction: { kind?: OperationKind; vaultId?: string; resume?: boolean };

@@ -11,7 +11,8 @@ const units: [number, string][] = [
  * Hand-rolled because Hermes on Android ignores `notation: "compact"`.
  */
 export const money = {
-  format(value: number): string {
+  format(value: number | null): string {
+    if (value === null) return "Unavailable";
     const sign = value < 0 ? "-" : "";
     const abs = Math.abs(value);
     for (const [size, suffix] of units) {
@@ -27,6 +28,9 @@ export const money = {
 
 /** Frontend `percent()` digits: up to two fraction digits. */
 export const percent = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+export function rate(value: number | null): string {
+  return value === null ? "Unavailable" : `${percent.format(value)}%`;
+}
 
 /** Frontend `unixDate()`: e.g. `Sep 28, 2026`. */
 export function unixDate(seconds: number): string {

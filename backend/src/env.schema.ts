@@ -1,30 +1,55 @@
 import { z } from "zod";
+import {
+  catalogChainsSchema,
+  catalogVaultsSchema,
+  jsonEnvironment,
+  legacyCatalogChains,
+} from "./domain/catalog.ts";
 
-const apiEnvSchema = z.object({
-  NODE_ENV: z.enum(["local", "production", "test"]),
-  PORT: z.coerce.number().int().positive(),
-  DATABASE_URL: z.string().min(1),
-  MERKL_API_URL: z.string().min(1),
-  MERKL_API_KEY: z.string().min(1),
-  ONEINCH_API_KEY: z.string().min(1),
-  AURORA_API_KEY: z.string().min(1),
-  PIMLICO_API_KEY: z.string().min(1),
-  ETHEREUM_RPC_URL: z
-    .url()
-    .refine((value) => value.startsWith("https://"))
-    .optional(),
-  ROBINHOOD_RPC_URL: z
-    .url()
-    .refine((value) => value.startsWith("https://"))
-    .optional(),
-  EARN_GATEWAY_RECOVERY_KEY: z
-    .string()
-    .regex(/^[0-9a-f]{64}$/i)
-    .optional(),
-  EARN_AURORA_HISTORY_QUALIFIED: z.enum(["true", "false"]).optional(),
-  EARN_ANVIL_PATH: z.string().min(1).optional(),
-  EARN_AURORA_FEE_QUALIFICATION_JSON: z.string().min(1).max(16384).optional(),
-});
+const apiEnvSchema = z
+  .object({
+    NODE_ENV: z.enum(["local", "production", "test"]),
+    PORT: z.coerce.number().int().positive(),
+    DATABASE_URL: z.string().min(1),
+    MERKL_API_URL: z.string().min(1),
+    MERKL_API_KEY: z.string().min(1),
+    ONEINCH_API_KEY: z.string().min(1),
+    AURORA_API_KEY: z.string().min(1),
+    PIMLICO_API_KEY: z.string().min(1),
+    ETHEREUM_RPC_URL: z
+      .url()
+      .refine((value) => value.startsWith("https://"))
+      .optional(),
+    ROBINHOOD_RPC_URL: z
+      .url()
+      .refine((value) => value.startsWith("https://"))
+      .optional(),
+    EARN_GATEWAY_RECOVERY_KEY: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/i)
+      .optional(),
+    EARN_AURORA_HISTORY_QUALIFIED: z.enum(["true", "false"]).optional(),
+    EARN_ANVIL_PATH: z.string().min(1).optional(),
+    EARN_AURORA_FEE_QUALIFICATION_JSON: z.string().min(1).max(16384).optional(),
+    CATALOG_CHAINS_JSON: jsonEnvironment(catalogChainsSchema).optional(),
+    CATALOG_VAULTS_JSON: jsonEnvironment(catalogVaultsSchema).optional(),
+    MORPHO_API_URL: z
+      .url()
+      .refine((value) => value.startsWith("https://"))
+      .optional(),
+  })
+  .superRefine((env, context) => {
+    const enabled = new Set(
+      (env.CATALOG_CHAINS_JSON ?? legacyCatalogChains).map((chain) => chain.id),
+    );
+    if (env.CATALOG_VAULTS_JSON?.some((vault) => !enabled.has(vault.chainId))) {
+      context.addIssue({
+        code: "custom",
+        path: ["CATALOG_VAULTS_JSON"],
+        message: "every vault must belong to an enabled catalog chain",
+      });
+    }
+  });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
 
