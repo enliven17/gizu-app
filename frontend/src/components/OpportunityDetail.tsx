@@ -6,7 +6,8 @@ import SpotlightCard from './SpotlightCard'
 import GlitchText from './GlitchText'
 import { useOpportunity } from '../useOpportunities'
 
-function money(value: number) {
+function money(value: number | null) {
+  if (value === null) return 'Unavailable'
   return value.toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -15,7 +16,8 @@ function money(value: number) {
   })
 }
 
-function percent(value: number) {
+function percent(value: number | null) {
+  if (value === null) return 'Unavailable'
   return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`
 }
 
@@ -76,7 +78,7 @@ export default function OpportunityDetail({
   let tradeAsset: { name: string; ticker: string; price: number } | null = null
   if (load.kind === 'ready' && load.opportunity.tokens.length > 0) {
     const token = load.opportunity.tokens[0]
-    tradeAsset = {
+    if (token.price !== null) tradeAsset = {
       name: load.opportunity.name,
       ticker: token.symbol,
       price: token.price,
@@ -139,7 +141,7 @@ export default function OpportunityDetail({
                   {percent(load.opportunity.totalApr)}
                 </span>
                 <span className="mb-1 font-mono text-[11px] uppercase tracking-widest text-white/30">
-                  total apr
+                  {load.opportunity.rateType === 'apy' ? 'net apy' : 'total apr'}
                 </span>
               </div>
             </motion.div>
@@ -153,7 +155,7 @@ export default function OpportunityDetail({
             <div className="mt-8 grid grid-cols-2 gap-2">
               {[
                 { label: 'TVL', value: money(load.opportunity.tvl) },
-                { label: 'APR', value: percent(load.opportunity.apr) },
+                { label: load.opportunity.rateType === 'apy' ? 'Net APY' : 'APR', value: percent(load.opportunity.apr) },
                 { label: 'Native APR', value: percent(load.opportunity.nativeApr) },
                 { label: 'Daily rewards', value: money(load.opportunity.dailyRewards) },
                 { label: 'Live campaigns', value: String(load.opportunity.liveCampaigns) },

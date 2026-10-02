@@ -1,7 +1,8 @@
-import { useCallback, useContext, useState } from "react";
-import type { Opportunity, OpportunityQuery } from "@/domain/opportunities";
+import { useCallback, useContext, useEffect, useState } from "react";
+import type { CatalogChain, Opportunity, OpportunityQuery } from "@/domain/opportunities";
 import { useInfiniteList } from "@/hooks/useInfiniteList";
 import { OpportunityServiceContext } from "./useOpportunities";
+import { catalogCursor, readCatalogPage } from "./catalogPages";
 export const opportunityIdentity = (item: Opportunity) => item.id;
 export function useInfiniteOpportunities() {
   const service = useContext(OpportunityServiceContext);
@@ -10,28 +11,64 @@ export function useInfiniteOpportunities() {
     protocol: "all",
   });
   const [debounceMs, setDebounceMs] = useState(0);
+  const [chains, setChains] = useState<CatalogChain[]>([]);
+  const [chainStatus, setChainStatus] = useState<"loading" | "ready" | "failed">(
+    service.chains ? "loading" : "ready",
+  );
+  const [chainRevision, setChainRevision] = useState(0);
+  const [partial, setPartial] = useState(false);
+  useEffect(() => {
+    if (!service.chains) return;
+    const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setChainStatus("loading");
+    void service.chains(controller.signal).then(
+      (rows) => {
+        if (controller.signal.aborted) return;
+        setChains(rows);
+        setChainStatus("ready");
+      },
+      () => {
+        if (!controller.signal.aborted) setChainStatus("failed");
+      },
+    );
+    return () => controller.abort();
+  }, [service, chainRevision]);
   const queryKey = JSON.stringify(query);
+  const initialCursor = catalogCursor(service.chains ? chains : undefined);
   const loadPage = useCallback(
-    async (page: number, signal: AbortSignal) => {
-      const data = await service.list({ ...query, page }, signal);
-      return {
-        items: data.list,
-        nextCursor: (data.page + 1) * data.items < data.total ? data.page + 1 : null,
-      };
+    async (cursor: string, signal: AbortSignal) => {
+      const data = await readCatalogPage(service, query, cursor, signal);
+      if (!signal.aborted)
+        setPartial((previous) => data.partial || (cursor !== initialCursor && previous));
+      return data;
     },
-    [query, service],
+    [query, service, initialCursor],
   );
   const list = useInfiniteList({
     queryKey,
-    initialCursor: 0,
+    initialCursor,
     loadPage,
     getIdentity: opportunityIdentity,
     debounceMs,
+    enabled: chainStatus === "ready",
   });
   function change(next: typeof query) {
     list.invalidate();
     setDebounceMs(next.search !== query.search ? 300 : 0);
     setQuery(next);
+    setPartial(false);
   }
-  return { query, queryKey, list, change };
+  return {
+    query,
+    queryKey,
+    partial,
+    list: {
+      ...list,
+      loading: chainStatus === "loading" || (chainStatus === "ready" && list.loading),
+      error: chainStatus === "failed" ? ("initial" as const) : list.error,
+      retry: chainStatus === "failed" ? () => setChainRevision((value) => value + 1) : list.retry,
+    },
+    change,
+  };
 }

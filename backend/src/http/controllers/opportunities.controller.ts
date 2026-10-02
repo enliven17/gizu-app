@@ -38,6 +38,7 @@ export class OpportunitiesController {
       page: request.query.page,
       items: request.query.items,
       total: response.total,
+      ...(response.partial ? { partial: true } : {}),
     });
   };
 
@@ -60,6 +61,7 @@ export class OpportunitiesController {
       page: request.query.page,
       items: request.query.items,
       total: response.total,
+      ...(response.partial ? { partial: true } : {}),
     });
   };
 

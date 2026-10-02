@@ -11,7 +11,7 @@ import { useInfiniteOpportunities, opportunityIdentity } from "./useInfiniteOppo
 import { OpportunityCard } from "./components/OpportunityCard";
 const labels = { all: "All protocols", aave: "Aave", morpho: "Morpho", curvance: "Curvance" };
 export function MainnetVaults({ onOpen }: { onOpen: (id: string) => void }) {
-  const { query, queryKey, list, change } = useInfiniteOpportunities();
+  const { query, queryKey, list, change, partial } = useInfiniteOpportunities();
   const filtered = query.search !== "" || query.protocol !== "all";
   return (
     <InfiniteListScreen
@@ -41,6 +41,11 @@ export function MainnetVaults({ onOpen }: { onOpen: (id: string) => void }) {
             value={query.search}
             onChangeText={(search) => change({ ...query, search })}
           />
+          {partial && (
+            <Typography accessibilityRole="alert">
+              Some vaults are unavailable. Showing the available catalog.
+            </Typography>
+          )}
           <View
             className="flex-row flex-wrap gap-2"
             accessibilityRole="radiogroup"
@@ -60,7 +65,7 @@ export function MainnetVaults({ onOpen }: { onOpen: (id: string) => void }) {
               <Button
                 label="Clear filters"
                 variant="quiet"
-                onPress={() => change({ search: "", protocol: "all" })}
+                onPress={() => change({ ...query, search: "", protocol: "all" })}
               />
             </View>
           )}

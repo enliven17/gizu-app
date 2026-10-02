@@ -5,6 +5,9 @@ import { AppRoot } from "@/application/AppRoot";
 import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import { defaultPreferences } from "@/domain/preferences";
 import { deferred } from "../../support/renderApp";
+import { opportunityDetail } from "../../support/opportunities";
+import { earnProfiles } from "@/domain/earn/types";
+import type { OpportunityDetail } from "@/domain/opportunities";
 const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
 const address = "0x" + "1".repeat(40);
 const intent = {
@@ -27,7 +30,7 @@ const intent = {
 };
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
-function setup() {
+function setup(catalog?: OpportunityDetail) {
   const ready = {
     status: "ready",
     walletId,
@@ -75,8 +78,13 @@ function setup() {
       walletBalanceService={{ getBalance: jest.fn().mockResolvedValue("19990574") }}
       walletTransferService={{ history: jest.fn(), send: jest.fn(), cancel: jest.fn() }}
       opportunityService={{
-        list: jest.fn().mockResolvedValue({ list: [], page: 0, items: 8, total: 0 }),
-        detail: jest.fn(),
+        list: jest.fn().mockResolvedValue({
+          list: catalog ? [catalog] : [],
+          page: 0,
+          items: 8,
+          total: catalog ? 1 : 0,
+        }),
+        detail: jest.fn().mockResolvedValue(catalog),
         tvlRecords: jest.fn().mockResolvedValue([]),
       }}
       accountDependencies={{
@@ -261,4 +269,52 @@ test("a new Earn cycle retains the previous pair and selecting it remounts that 
   expect(cycles.select).toHaveBeenCalledWith({ walletId, address }, intent.intentId);
   expect(await screen.findByText(intent.destinations[0].address)).toBeVisible();
   expect(earn.prepare).toHaveBeenCalledTimes(1);
+});
+
+test("catalog Deposit uses the exact supported vault and allocates only after explicit intent", async () => {
+  const vault = {
+    ...opportunityDetail(1),
+    chainId: 1,
+    vaultAddress: earnProfiles["ethereum-usdc"].vault,
+  };
+  const { earn } = setup(vault);
+  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
+  await userEvent.press(await screen.findByRole("button", { name: `View ${vault.name}` }));
+  await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
+  expect(await screen.findByText("Ethereum · Pendle")).toBeVisible();
+  expect(earn.prepare).not.toHaveBeenCalled();
+  await userEvent.press(screen.getByRole("button", { name: "Prepare deposit wallets" }));
+  expect(await screen.findByText("Wallet 1 · Hold 10%")).toBeVisible();
+  expect(earn.prepare).toHaveBeenCalledWith({ walletId, address }, "ethereum-usdc");
+});
+
+test("catalog Deposit starts a fresh cycle rather than reusing an existing investment", async () => {
+  const vault = {
+    ...opportunityDetail(1),
+    chainId: 1,
+    vaultAddress: earnProfiles["ethereum-usdc"].vault,
+  };
+  const { earn } = setup(vault);
+  earn.load.mockResolvedValue(intent);
+  const next = {
+    ...intent,
+    version: "gizu-earn-v2" as const,
+    cycleIndex: 1,
+    intentId: `earn-v2:${walletId}:ethereum-usdc:1`,
+  };
+  const pending = deferred<typeof next>();
+  const prepareNew = jest.fn().mockReturnValue(pending.promise);
+  Object.assign(earn, { prepareNew });
+  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
+  await userEvent.press(await screen.findByRole("button", { name: `View ${vault.name}` }));
+  await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Prepare deposit wallets" }));
+  expect(screen.queryByText("Wallet 1 · Hold 10%")).toBeNull();
+  expect(screen.getByRole("button", { name: "Prepare deposit wallets" })).toBeDisabled();
+  expect(prepareNew).toHaveBeenCalledWith({ walletId, address }, "ethereum-usdc");
+  await act(async () => pending.resolve(next));
+  expect(await screen.findByText("Wallet 1 · Hold 10%")).toBeVisible();
+  expect(earn.prepare).not.toHaveBeenCalled();
 });

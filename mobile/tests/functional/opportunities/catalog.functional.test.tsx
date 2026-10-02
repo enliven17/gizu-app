@@ -13,6 +13,7 @@ import { OpportunityServiceContext } from "@/features/opportunities/useOpportuni
 import type { OpportunityPage, OpportunityService } from "@/domain/opportunities";
 import { deferred } from "../../support/renderApp";
 import { tvlRecords } from "../../support/opportunities";
+import { VaultPreview } from "@/features/investments/components/VaultPreview";
 // The sparkline is decorative (hidden from assistive tech); query it explicitly.
 const hidden = { includeHiddenElements: true };
 const page: OpportunityPage = {
@@ -31,7 +32,7 @@ const page: OpportunityPage = {
     },
   ],
 };
-function setup(fail = false) {
+function setup(fail = false, chains?: OpportunityService["chains"]) {
   const list = jest
     .fn<ReturnType<OpportunityService["list"]>, Parameters<OpportunityService["list"]>>()
     .mockResolvedValue(page);
@@ -47,7 +48,12 @@ function setup(fail = false) {
     Parameters<OpportunityService["detail"]>
   >();
   const onOpen = jest.fn<void, [string]>();
-  const service: OpportunityService = { list, detail, tvlRecords: tvl };
+  const service: OpportunityService = {
+    list,
+    detail,
+    tvlRecords: tvl,
+    ...(chains ? { chains } : {}),
+  };
   const view = render(
     <SafeAreaProvider>
       <OpportunityServiceContext.Provider value={service}>
@@ -162,4 +168,107 @@ test("refresh replaces vault results and reuses successful sparkline history", a
   expect(screen.queryByText("Second vault")).toBeNull();
   expect(list.mock.lastCall?.[0].page).toBe(0);
   expect(tvl.mock.calls.filter(([id]) => id === "1")).toHaveLength(1);
+});
+
+test("chainless catalog combines supported chains, retains protocol filters and only pages unfinished chains", async () => {
+  const chainResponse = deferred<{ id: number; name: string }[]>();
+  const chains = jest.fn().mockReturnValueOnce(chainResponse.promise);
+  const { list } = setup(false, chains);
+  list.mockImplementation(async (query) => ({
+    ...page,
+    page: query.page,
+    total: query.chainId === 143 ? 9 : 1,
+    partial: query.chainId === 1,
+    list: [
+      {
+        ...page.list[0]!,
+        id: `${query.chainId}-${query.protocol}-${query.page}`,
+        chainId: query.chainId!,
+        name: `${query.protocol} vault ${query.chainId} page ${query.page}`,
+      },
+    ],
+  }));
+  expect(list).not.toHaveBeenCalled();
+  await act(async () =>
+    chainResponse.resolve([
+      { id: 143, name: "Monad" },
+      { id: 1, name: "Ethereum" },
+      { id: 4663, name: "Robinhood" },
+    ]),
+  );
+  expect(await screen.findByText("all vault 143 page 0")).toBeVisible();
+  expect(screen.getByText("all vault 1 page 0")).toBeVisible();
+  expect(screen.getByText("all vault 4663 page 0")).toBeVisible();
+  expect(screen.queryByRole("radiogroup", { name: "Chain filter" })).toBeNull();
+  for (const name of ["Robinhood", "Ethereum", "Monad"])
+    expect(screen.queryByRole("radio", { name })).toBeNull();
+  for (const name of ["Aave", "Morpho", "Curvance"])
+    expect(screen.getByRole("radio", { name })).toBeVisible();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Some vaults are unavailable. Showing the available catalog.",
+  );
+  await userEvent.press(screen.getByRole("button", { name: "Load more" }));
+  expect(await screen.findByText("all vault 143 page 1")).toBeVisible();
+  expect(screen.getByText("all vault 1 page 0")).toBeVisible();
+  expect(await screen.findByText("All vaults loaded.")).toBeVisible();
+  expect(
+    list.mock.calls.filter(([query]) => query.page === 1).map(([query]) => query.chainId),
+  ).toEqual([143]);
+  await userEvent.press(screen.getByRole("radio", { name: "Morpho" }));
+  expect(await screen.findByText("morpho vault 143 page 0")).toBeVisible();
+  expect(screen.getByText("morpho vault 1 page 0")).toBeVisible();
+  expect(screen.getByText("morpho vault 4663 page 0")).toBeVisible();
+  expect(screen.queryByText("all vault 143 page 1")).toBeNull();
+  await userEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+  expect(await screen.findByText("all vault 143 page 0")).toBeVisible();
+  expect(screen.getByText("all vault 4663 page 0")).toBeVisible();
+});
+
+test("chain endpoint failure retries without issuing a default-chain vault request", async () => {
+  const chains = jest
+    .fn()
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValue([{ id: 4663, name: "Robinhood" }]);
+  const { list } = setup(false, chains);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Vault catalog unavailable. Please retry.",
+  );
+  expect(list).not.toHaveBeenCalled();
+  await userEvent.press(screen.getByRole("button", { name: "Retry vaults" }));
+  await screen.findByText("Lend USDC on Aave");
+  expect(list).toHaveBeenCalledWith(
+    { search: "", protocol: "all", chainId: 4663, page: 0 },
+    expect.anything(),
+  );
+});
+
+test("Home preview combines the configured chains without a chain selector", async () => {
+  const service: OpportunityService = {
+    chains: jest.fn().mockResolvedValue([
+      { id: 1, name: "Ethereum" },
+      { id: 143, name: "Monad" },
+    ]),
+    list: jest.fn().mockImplementation(async (query) => ({
+      ...page,
+      list: [
+        {
+          ...page.list[0]!,
+          id: `home-${query.chainId}`,
+          name: `Home vault ${query.chainId}`,
+          chainId: query.chainId,
+        },
+      ],
+    })),
+    detail: jest.fn(),
+    tvlRecords: jest.fn().mockResolvedValue([]),
+  };
+  render(
+    <SafeAreaProvider>
+      <OpportunityServiceContext.Provider value={service}>
+        <VaultPreview onOpen={jest.fn()} onSeeAll={jest.fn()} />
+      </OpportunityServiceContext.Provider>
+    </SafeAreaProvider>,
+  );
+  expect(await screen.findByText("Home vault 1")).toBeVisible();
+  expect(screen.getByText("Home vault 143")).toBeVisible();
 });

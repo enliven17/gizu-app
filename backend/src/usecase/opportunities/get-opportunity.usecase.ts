@@ -9,10 +9,11 @@ export class GetOpportunityUseCase {
   constructor(
     private readonly opportunities: Opportunities,
     private readonly cache: Cache,
+    private readonly namespace = "opportunities",
   ) {}
 
   async execute(id: string): Promise<OpportunityDetail> {
-    const cacheKey = `opportunities:detail:${id}`;
+    const cacheKey = `${this.namespace}:detail:${id}`;
     const cached = await this.cache.get<OpportunityDetail>(cacheKey);
     if (cached !== null) {
       return this.withLiveCampaigns(cached);

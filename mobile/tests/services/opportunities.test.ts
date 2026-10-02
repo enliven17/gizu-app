@@ -183,3 +183,60 @@ test("detail and history HTTP failures and missing configuration are rejected", 
   );
   expect(fetchMock).not.toHaveBeenCalled();
 });
+
+test("uses the selected catalog chain and accepts unknown configured-vault metrics", async () => {
+  const ethereum = {
+    ...row,
+    chainId: 1,
+    vaultAddress: "0x1111111111111111111111111111111111111111",
+    totalApr: null,
+    tvl: null,
+  };
+  const response = { ...body, list: [ethereum] };
+  fetchMock.mockResolvedValue({ ok: true, json: async () => response });
+  expect(
+    await createOpportunityService("https://backend.example").list(
+      { ...query, chainId: 1 },
+      new AbortController().signal,
+    ),
+  ).toEqual(response);
+  expect(fetchMock.mock.calls[0][0]).toContain("chainId=1");
+});
+
+test("loads environment-configured chains before accepting their detail responses", async () => {
+  const service = createOpportunityService("https://backend.example");
+  fetchMock.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({
+      list: [
+        { id: 4663, name: "Robinhood" },
+        { id: 143, name: "Monad" },
+      ],
+    }),
+  });
+  expect(await service.chains!(new AbortController().signal)).toEqual([
+    { id: 4663, name: "Robinhood" },
+    { id: 143, name: "Monad" },
+  ]);
+  expect(fetchMock.mock.calls[0][0]).toBe("https://backend.example/v1/chains");
+  await expect(
+    service.list({ ...query, chainId: 1 }, new AbortController().signal),
+  ).rejects.toThrow("Chain is not available");
+});
+
+test.each(
+  [
+    [],
+    [{ id: 143, name: "" }],
+    [
+      { id: 143, name: "Monad" },
+      { id: 143, name: "Duplicate" },
+    ],
+    [{ id: 143, name: "Monad", explorerUrl: "http://unsafe" }],
+  ].map((list) => [list]),
+)("rejects malformed chain catalogs %j", async (list) => {
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ list }) });
+  await expect(
+    createOpportunityService("https://backend.example").chains!(new AbortController().signal),
+  ).rejects.toThrow("Invalid chain catalog");
+});

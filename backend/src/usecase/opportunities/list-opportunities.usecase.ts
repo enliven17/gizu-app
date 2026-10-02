@@ -9,10 +9,11 @@ export class ListOpportunitiesUseCase {
   constructor(
     private readonly opportunities: Opportunities,
     private readonly cache: Cache,
+    private readonly namespace = "opportunities",
   ) {}
 
   async execute(input: ListOpportunitiesQuery): Promise<OpportunityPage> {
-    const cacheKey = `opportunities:list:${input.protocol}:${input.chainId}:${input.page}:${input.items}:${input.search}`;
+    const cacheKey = `${this.namespace}:list:${input.protocol}:${input.chainId}:${input.page}:${input.items}:${input.search}`;
     const cached = await this.cache.get<OpportunityPage>(cacheKey);
     if (cached !== null) {
       return cached;

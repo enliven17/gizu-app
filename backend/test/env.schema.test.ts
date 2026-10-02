@@ -81,3 +81,69 @@ test("payout recovery key is optional but when supplied must be a durable 32-byt
     /EARN_GATEWAY_RECOVERY_KEY/,
   );
 });
+
+test("catalog accepts environment-defined chains and an empty contract allowlist", () => {
+  const chains = [
+    { id: 4663, name: "Robinhood" },
+    { id: 1, name: "Ethereum" },
+    { id: 143, name: "Monad" },
+  ];
+  const env = parseApiEnv({
+    ...apiEnv,
+    CATALOG_CHAINS_JSON: JSON.stringify(chains),
+    CATALOG_VAULTS_JSON: "[]",
+  });
+  assert.deepEqual(env.CATALOG_CHAINS_JSON, chains);
+  assert.deepEqual(env.CATALOG_VAULTS_JSON, []);
+});
+
+test("configured vaults accept Ethereum, Robinhood and additional enabled chains together", () => {
+  const chainIds = [1, 4663, 143, 8453];
+  const env = parseApiEnv({
+    ...apiEnv,
+    CATALOG_CHAINS_JSON: JSON.stringify(
+      chainIds.map((id) => ({ id, name: `Chain ${id}` })),
+    ),
+    CATALOG_VAULTS_JSON: JSON.stringify(
+      chainIds.map((chainId) => ({
+        chainId,
+        address: "0x1111111111111111111111111111111111111111",
+      })),
+    ),
+  });
+  assert.deepEqual(
+    env.CATALOG_VAULTS_JSON?.map((vault) => vault.chainId),
+    chainIds,
+  );
+});
+
+test("catalog rejects malformed JSON, duplicate chains, invalid addresses and disabled-chain vaults", () => {
+  for (const value of [
+    "not json",
+    "{}",
+    '[{"id":143,"name":"Monad"},{"id":143,"name":"Duplicate"}]',
+  ]) {
+    assert.throws(
+      () => parseApiEnv({ ...apiEnv, CATALOG_CHAINS_JSON: value }),
+      /CATALOG_CHAINS_JSON/,
+    );
+  }
+  assert.throws(
+    () =>
+      parseApiEnv({
+        ...apiEnv,
+        CATALOG_VAULTS_JSON: '[{"chainId":143,"address":"invalid"}]',
+      }),
+    /CATALOG_VAULTS_JSON/,
+  );
+  assert.throws(
+    () =>
+      parseApiEnv({
+        ...apiEnv,
+        CATALOG_CHAINS_JSON: '[{"id":143,"name":"Monad"}]',
+        CATALOG_VAULTS_JSON:
+          '[{"chainId":1,"address":"0x1111111111111111111111111111111111111111"}]',
+      }),
+    /CATALOG_VAULTS_JSON/,
+  );
+});
