@@ -77,7 +77,7 @@ async function checked(
   if (value.contractVersion !== 1 || value.available !== true || value[capability] !== true)
     throw new WalletUnavailableError();
 }
-// Native read ceremonies share one store lock. Queue portfolio/holdings reads, never signing.
+// Native read ceremonies share one store lock. Queue background and screen reads, never signing.
 let readTail: Promise<unknown> = Promise.resolve();
 function readNative<T>(work: () => Promise<T>): Promise<T> {
   const generation = authorizationGeneration;
@@ -93,9 +93,11 @@ export function getStoredSigner(): StoredWalletBridge | null {
   const native = nativeModule();
   if (!native) return null;
   return {
-    async getSwapDeposit() {
-      await checked(native, "walletStorage");
-      return native.getSwapDeposit();
+    getSwapDeposit() {
+      return readNative(async () => {
+        await checked(native, "walletStorage");
+        return native.getSwapDeposit();
+      });
     },
     async getWalletState() {
       await checked(native, "walletStorage");
@@ -181,9 +183,11 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
   const native = nativeModule();
   if (!native) return null;
   return {
-    async getSwapDeposit() {
-      await checked(native, "swaps");
-      return native.getSwapDeposit();
+    getSwapDeposit() {
+      return readNative(async () => {
+        await checked(native, "swaps");
+        return native.getSwapDeposit();
+      });
     },
     async startSwap(target, amountAtoms, gateway) {
       await checked(native, "swaps");
@@ -231,9 +235,11 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
       await checked(native, "swaps");
       return native.resumeSwap(gateway);
     },
-    async getSwapStatus(gateway) {
-      await checked(native, "swaps");
-      return native.getSwapStatus(gateway);
+    getSwapStatus(gateway) {
+      return readNative(async () => {
+        await checked(native, "swaps");
+        return native.getSwapStatus(gateway);
+      });
     },
     async cancelSwap(gateway) {
       await checked(native, "swaps");

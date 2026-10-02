@@ -16,13 +16,13 @@ const MAX_RANGE: u32 = 64;
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct RoleRegistry {
+pub(crate) struct RoleRegistry {
     version: u32,
-    next_recipient: u32,
+    pub(crate) next_recipient: u32,
 }
 
 impl RoleRegistry {
-    fn parse(json: &str) -> Result<Self, SignerError> {
+    pub(crate) fn parse(json: &str) -> Result<Self, SignerError> {
         if json.len() > 1024 {
             return Err(SignerError::InvalidInput);
         }

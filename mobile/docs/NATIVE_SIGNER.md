@@ -39,6 +39,48 @@ Storage, passkey authorization, verified onboarding backup and transfer/resume a
 implemented; see [the migration plan](SIGNER_MIGRATION.md). No old state or provider passkeys
 are deleted or migrated. Web wallet sharing and physical iOS acceptance are deferred.
 
+## Shared public Monad portfolio
+
+`core/src/portfolio.rs` owns public account selection, bounded derivation, ABI
+uint256 decoding and checked aggregation. Swift and Kotlin consume its generated
+UniFFI bindings and serialize the same `MainnetPortfolioSnapshot` for Home.
+Account 1 supplies `fundingAtoms`; `returnAtoms` includes account 0 and allocated
+public recipients. Account 0 retains its existing `funding` row role for wire
+compatibility. Account 2 and unallocated recipients are excluded. The registry's
+`nextRecipient` cannot exceed 8192 (8191 included public accounts).
+
+The shared core rejects invalid registry versions, unknown/duplicate accounts,
+noncanonical decimal amounts, malformed ABI balances and uint256 sum overflow.
+Unknown cached amounts stay absent and cannot produce a complete snapshot.
+Android retains its encrypted incremental cache, history and additional assets.
+Its partial/stale flags pass through without changing their meaning.
+
+The iOS reader requires an existing backup-verified record, derives public accounts
+in cancellable batches of 64 and releases the record before networking. It uses
+`https://rpc.monad.xyz`, validates chain 143, pins every USDC call to the same
+finalized canonical block hash, and rechecks the hash before returning. There are
+at most four concurrent batches of 40 calls, a 15-second request timeout,
+20-second resource timeout and the enclosing 120-second ceremony deadline.
+Any missing/invalid observation fails the refresh; no partial result is labeled
+complete. The previous Home snapshot remains visible with an error. Reading does
+not invoke passkeys, grant signing authority or change wallet files.
+
+The JavaScript bridge serializes portfolio, holdings, funding-address and saved
+swap-status reads through one queue. Opening Swap during a balance refresh waits
+for that read to settle, including failure, before loading its address and status.
+Locking invalidates pending reads; signing and cancellation actions are not queued
+or automatically replayed.
+
+`ios/Tests/Fixtures/public-portfolio.json` is consumed by Rust, Kotlin, Swift and
+the Home validator tests. It includes account-0 funds, values above JavaScript's
+safe integer range, zero balances and Android partial/stale observations. Run
+`stored-signer:build` before Android unit tests: the latter load the host Rust
+library via JNA as well as compiling Android's generated bindings.
+
+The iOS portfolio currently has no persistent transaction history or additional
+owned-asset observations. The testnet transfer transport/policy remains separate.
+See [GIZU-1](GIZU-1_IOS_MONAD_PORTFOLIO.md) for verification and device acceptance.
+
 ## iOS storage and authorization
 
 The replacement includes a Swift Expo module backed by the stored-wallet Rust core.

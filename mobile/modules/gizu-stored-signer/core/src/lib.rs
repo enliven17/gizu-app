@@ -1,10 +1,12 @@
 //! Native-private entropy derivation and transaction policy. Never export secrets to JS.
 mod earn_fees;
+mod portfolio;
 mod source_planner;
 use alloy_primitives::{Address, keccak256};
 use bip32::{DerivationPath, XPrv};
 use bip39::{Language, Mnemonic};
 use k256::ecdsa::VerifyingKey;
+pub use portfolio::*;
 pub use source_planner::*;
 use zeroize::Zeroizing;
 uniffi::setup_scaffolding!();

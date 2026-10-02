@@ -4,9 +4,39 @@ import {
   getSignerCapabilities,
   getStoredSigner,
   getStoredTransferSigner,
+  getStoredSwapSigner,
 } from "@/services/wallet/nativeBridge";
 
 jest.mock("expo", () => ({ requireOptionalNativeModule: jest.fn() }));
+
+test("iOS release reads public portfolio without enabling unsupported execution", async () => {
+  const development = __DEV__;
+  Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: false });
+  const native = {
+    getCapabilities: jest.fn().mockResolvedValue({
+      contractVersion: 1,
+      available: true,
+      walletStorage: true,
+      earnVaultExecution: false,
+    }),
+    getMainnetPortfolio: jest.fn().mockResolvedValue({ walletId: "wallet" }),
+  };
+  try {
+    jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
+    await expect(getStoredSwapSigner()!.getMainnetPortfolio()).resolves.toEqual({
+      walletId: "wallet",
+    });
+    expect(native.getMainnetPortfolio).toHaveBeenCalledTimes(1);
+    jest
+      .mocked(requireOptionalNativeModule)
+      .mockReturnValue({ getCapabilities: native.getCapabilities });
+    await expect(getStoredSwapSigner()!.getMainnetPortfolio()).rejects.toThrow(
+      /updated native build/,
+    );
+  } finally {
+    Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: development });
+  }
+});
 const originalOS = Platform.OS;
 const originalVersion = Platform.Version;
 beforeEach(() => {
