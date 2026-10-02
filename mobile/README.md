@@ -51,7 +51,7 @@ installed development app. Rebuild after native dependency/config changes.
 `just mobile-install`, `just mobile-android`, `just mobile-ios` and
 `just mobile-start` are equivalent shortcuts.
 
-App identity: **Gizu**, iOS `io.gizo.ios`, Android `com.example.gizu.dev`,
+App identity: **Gizu**, iOS `io.gizo.ios`, Android `io.gizu.android`,
 URL scheme `gizu`. The Android package is retained for installation and wallet
 storage continuity; changing it requires an explicit migration. Both platforms
 use `gizu.io` as their passkey relying-party domain.

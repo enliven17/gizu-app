@@ -63,3 +63,22 @@ The September 30 local APK update preserves the existing fingerprint and adds:
 
 This is the public certificate verified from the rebuilt `com.example.gizu.dev` APK.
 The source update is prepared; publishing it on `gizu.io` remains a deployment step.
+
+## Production Android package
+
+The configured Android package is **`io.gizu.android`**. The association file
+includes this package with the existing local development certificates and keeps
+`com.example.gizu.dev` for older installations. Deploy this change to `gizu.io`
+before testing the renamed app. Verify the production APK certificate and add it
+to the `io.gizu.android` statement before distributing a release signed with a
+different key. For Google Play, use the Play app-signing certificate, not the upload
+certificate. Registration or a config change alone does not verify release signing.
+
+Production EAS certificate reported for `io.gizu.android` on October 2, 2026:
+
+```text
+42:09:4C:36:22:7B:49:2C:DA:6D:52:83:65:7E:87:99:41:DD:22:7C:1F:05:AF:9E:5A:5D:E1:31:73:51:49:08
+```
+
+This fingerprint is included in the source association. Deployment and verification
+against the distributed APK remain required; Play app signing may use a different key.
