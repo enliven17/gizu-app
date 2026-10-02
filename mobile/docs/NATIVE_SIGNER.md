@@ -65,6 +65,12 @@ Any missing/invalid observation fails the refresh; no partial result is labeled
 complete. The previous Home snapshot remains visible with an error. Reading does
 not invoke passkeys, grant signing authority or change wallet files.
 
+The JavaScript bridge serializes portfolio, holdings, funding-address and saved
+swap-status reads through one queue. Opening Swap during a balance refresh waits
+for that read to settle, including failure, before loading its address and status.
+Locking invalidates pending reads; signing and cancellation actions are not queued
+or automatically replayed.
+
 `ios/Tests/Fixtures/public-portfolio.json` is consumed by Rust, Kotlin, Swift and
 the Home validator tests. It includes account-0 funds, values above JavaScript's
 safe integer range, zero balances and Android partial/stale observations. Run
