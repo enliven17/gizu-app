@@ -43,7 +43,22 @@ test("lists the three protocols and scopes each opportunity request", async () =
       new GetOpportunityUseCase(opportunities, cache),
       new GetOpportunityTvlRecordsUseCase(opportunities, cache),
     ),
+    [
+      { id: 4663, name: "Robinhood" },
+      { id: 1, name: "Ethereum" },
+      { id: 143, name: "Monad" },
+    ],
   );
+
+  const chains = await app.inject({ method: "GET", url: "/v1/chains" });
+  assert.equal(chains.statusCode, 200);
+  assert.deepEqual(chains.json(), {
+    list: [
+      { id: 4663, name: "Robinhood" },
+      { id: 1, name: "Ethereum" },
+      { id: 143, name: "Monad" },
+    ],
+  });
 
   const catalog = await app.inject({ method: "GET", url: "/v1/protocols" });
   assert.equal(catalog.statusCode, 200);

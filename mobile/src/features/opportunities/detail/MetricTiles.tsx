@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { FadeIn } from "@/components/molecules/FadeIn";
 import { Metric } from "@/components/molecules/Metric";
 import type { OpportunityDetail } from "@/domain/opportunities";
-import { money, percent } from "../format";
+import { money, rate } from "../format";
 
 /** Frontend detail stat tiles enter 40 ms apart. */
 const TILE_STAGGER = 40;
@@ -17,8 +17,8 @@ export function MetricTiles({
 }) {
   const metrics = [
     { label: "TVL", value: money.format(opportunity.tvl) },
-    { label: "APR", value: `${percent.format(opportunity.apr)}%` },
-    { label: "Native APR", value: `${percent.format(opportunity.nativeApr)}%` },
+    { label: opportunity.rateType === "apy" ? "Net APY" : "APR", value: rate(opportunity.apr) },
+    { label: "Native APR", value: rate(opportunity.nativeApr) },
     { label: "Daily rewards", value: money.format(opportunity.dailyRewards) },
     { label: "Live campaigns", value: String(opportunity.liveCampaigns) },
     { label: "Action", value: opportunity.action },

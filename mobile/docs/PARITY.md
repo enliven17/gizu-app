@@ -154,17 +154,27 @@ focused on reusable approaches. They supplement the journey statuses above.
 
 ## Mainnet catalog
 
-Native-mode Vaults reads the backend opportunity catalog on chain 143, with search,
-protocol filters, pagination, APR and TVL. Cards on Vaults and the Home preview draw a
+Native-mode Vaults loads `/v1/chains` from the backend configuration and combines the
+supported chains in one catalog, with search, protocol filters, pagination,
+APR and TVL. The example environment enables Robinhood (4663), Ethereum (1), and
+Monad (143). There is no chain picker; Aave/Morpho/Curvance filters remain. Home previews
+the combined catalog too. Each chain is paged independently; exhausted chains are not
+queried again when loading more. Optional configured contracts add Morpho metadata with operator fallback
+names/descriptions; details display the contract address and share symbol. The example
+includes Gizu Prime AUSD on Monad, whose underlying asset is AUSD. Missing rates, TVL and
+token prices show `Unavailable`; Morpho net APY is labeled explicitly. A partial
+provider catalog is marked on the screen. Cards on Vaults and the Home preview draw a
 sparkline from the latest 30 TVL records (`/v1/opportunities/:id/tvl-records`), loaded
 lazily per card and cached per vault for the app session; a failed history omits the
-sparkline, an empty one draws a flat line at zero. Tapping a card opens the browse-only
+sparkline, an empty one draws a flat line only when TVL is known. Tapping a card opens the browse-only
 mainnet vault detail (`/v1/opportunities/:id`), ported from the frontend: glitch name,
 total APR, TVL chart, stat tiles, about, how-to, tokens, details, tags and campaigns,
-with loading and error/retry states. Like the frontend, the header offers an external
-Deposit link to the protocol page (https only, opened in the browser). The app never
-changes the wallet network (chain 10143) or signs for mainnet vaults, and has no
-buy/sell/withdraw actions there. Unsupported demo risk, APY and price values are not
+with loading and error/retry states. Deposit opens an in-app entry bound to the selected
+vault. Exact existing Ethereum/Robinhood profile matches request a fresh native Earn
+cycle after explicit intent and reuse funding/fee reviews. Other vaults show a deposit
+unavailable state; catalog metadata does not enable Monad/AUSD execution. The app
+never changes the funding network or extends native Earn's signing registry. Buy/sell
+and withdraw actions are absent from catalog details. Unsupported demo risk, APY and price values are not
 synthesized. Backend responses may be cached for five minutes.
 
 ### Catalog scrolling

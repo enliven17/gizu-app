@@ -3,10 +3,13 @@ import type { ProtocolSelection } from "../domain/protocol.ts";
 export type Opportunity = {
   id: string;
   name: string;
+  symbol?: string;
   status: string;
-  apr: number;
-  totalApr: number;
-  tvl: number;
+  apr: number | null;
+  totalApr: number | null;
+  tvl: number | null;
+  vaultAddress?: string;
+  rateType?: "apr" | "apy";
   chainId: number;
   chain: {
     id: number;
@@ -28,11 +31,14 @@ export type ListOpportunitiesQuery = {
   page: number;
   items: number;
   chainId: number;
+  /** Internal provider deadline; never part of the HTTP or cache key. */
+  signal?: AbortSignal;
 };
 
 export type OpportunityPage = {
   list: Opportunity[];
   total: number;
+  partial?: boolean;
 };
 
 export type TvlRecordsQuery = {
@@ -46,7 +52,7 @@ export type OpportunityToken = {
   symbol: string;
   address: string;
   decimals: number;
-  price: number;
+  price: number | null;
 };
 
 export type OpportunityCampaign = {
@@ -64,9 +70,9 @@ export type OpportunityDetail = Opportunity & {
   description: string;
   action: string;
   type: string;
-  dailyRewards: number;
+  dailyRewards: number | null;
   liveCampaigns: number;
-  nativeApr: number;
+  nativeApr: number | null;
   explorerAddress: string;
   howToSteps: string[];
   depositUrl: string;

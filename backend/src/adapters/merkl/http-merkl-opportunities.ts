@@ -28,6 +28,7 @@ export class HttpMerklOpportunities implements Opportunities {
   ) {}
 
   async list(query: ListOpportunitiesQuery): Promise<OpportunityPage> {
+    const signal = query.signal ? AbortSignal.any([query.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]) : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
     const headers = { "X-API-Key": this.apiKey };
     const listUrl = new URL("/v4/opportunities", this.apiUrl);
     listUrl.searchParams.set("page", String(query.page));
@@ -52,11 +53,11 @@ export class HttpMerklOpportunities implements Opportunities {
       [listResponse, countResponse] = await Promise.all([
         this.fetchImpl(listUrl, {
           headers,
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          signal,
         }),
         this.fetchImpl(countUrl, {
           headers,
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          signal,
         }),
       ]);
     } catch (err) {

@@ -111,6 +111,8 @@ export function OpportunitySections({ opportunity }: { opportunity: OpportunityD
     ["Explorer", opportunity.explorerAddress],
     ["Opportunity id", opportunity.id],
   ];
+  if (opportunity.vaultAddress) details.unshift(["Vault contract", opportunity.vaultAddress]);
+  if (opportunity.symbol) details.unshift(["Share symbol", opportunity.symbol]);
   if (opportunity.tags.length > 0) details.push(["Tags", opportunity.tags.join(", ")]);
   return (
     <>

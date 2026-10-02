@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { View } from "react-native";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
@@ -14,11 +15,115 @@ import { PreflightPanel } from "./PreflightPanel";
 import { VaultExecutionPanel } from "./VaultExecutionPanel";
 import { RobinhoodExecutionPanel } from "./RobinhoodExecutionPanel";
 import { SourceFundingPanel } from "./SourceFundingPanel";
+import type { RootStackParamList } from "@/navigation/types";
+import { useOpportunityDetail } from "@/features/opportunities/useOpportunityDetail";
+import { catalogEarnProfile } from "@/domain/earn/catalog";
 
-export function EarnScreen() {
+export function EarnScreen({ route }: NativeStackScreenProps<RootStackParamList, "Earn">) {
+  return route.params?.opportunityId ? (
+    <CatalogEarnEntry opportunityId={route.params.opportunityId} />
+  ) : (
+    <EarnJourney />
+  );
+}
+
+function CatalogEarnEntry({ opportunityId }: { opportunityId: string }) {
+  const { load, retry } = useOpportunityDetail(opportunityId);
+  if (load.kind !== "ready")
+    return (
+      <Screen>
+        <BackAction fallback="Vaults" />
+        <Typography variant="title">Deposit</Typography>
+        {load.kind === "loading" ? (
+          <Typography>Checking vault…</Typography>
+        ) : (
+          <>
+            <Typography accessibilityRole="alert">Vault unavailable. Please retry.</Typography>
+            <Button label="Retry vault" onPress={retry} />
+          </>
+        )}
+      </Screen>
+    );
+  const vault = load.opportunity;
+  const profile = catalogEarnProfile(vault);
+  if (profile) return <CatalogEarnStart profile={profile} />;
+  return (
+    <Screen>
+      <BackAction fallback="Vaults" />
+      <Typography variant="title">Deposit</Typography>
+      <Typography variant="heading">{vault.name}</Typography>
+      <Typography>
+        {vault.chain.name} · {vault.tokens[0]?.symbol ?? "Deposit asset unavailable"}
+      </Typography>
+      <Typography selectable variant="caption">
+        {vault.vaultAddress ?? vault.explorerAddress}
+      </Typography>
+      <Typography accessibilityRole="alert">
+        Deposits to this vault are not available in Gizu yet. No funds have moved.
+      </Typography>
+    </Screen>
+  );
+}
+
+/** Each new catalog Deposit request starts a fresh cycle; existing investments stay intact. */
+function CatalogEarnStart({ profile }: { profile: EarnProfileId }) {
+  const earn = useEarn();
+  const [initialIntentId, setInitialIntentId] = useState<string | null>(null);
+  const [requested, setRequested] = useState(false);
+  const intent = earn.state && "intentId" in earn.state ? earn.state : null;
+  if (requested && intent && intent.intentId !== initialIntentId && intent.profileId === profile)
+    return <EarnJourney profile={profile} />;
+  const canStart =
+    !!earn.state &&
+    !earn.loading &&
+    !earn.busy &&
+    earn.state.status !== "recoveryRequired" &&
+    (!intent || !!earn.prepareNew);
+  return (
+    <Screen>
+      <BackAction fallback="Vaults" />
+      <Typography variant="title">Deposit</Typography>
+      <Typography variant="heading">{earnProfiles[profile].name}</Typography>
+      <Typography selectable variant="caption">
+        {earnProfiles[profile].vault}
+      </Typography>
+      <Typography>
+        Prepare a new earn cycle for this vault, then review fees and funding before authorizing
+        spending.
+      </Typography>
+      {earn.state?.status === "recoveryRequired" && (
+        <Typography accessibilityRole="alert">
+          Recover your existing earn activity before starting another deposit.
+        </Typography>
+      )}
+      <Button
+        label="Prepare deposit wallets"
+        disabled={!canStart}
+        loading={earn.busy}
+        onPress={() => {
+          setInitialIntentId(intent?.intentId ?? null);
+          setRequested(true);
+          if (intent) void earn.prepareNew?.(profile);
+          else void earn.prepare(profile);
+        }}
+      />
+      {earn.message !== "" && <Typography accessibilityRole="alert">{earn.message}</Typography>}
+      {!earn.state && !earn.loading && (
+        <Button
+          label="Check saved intent"
+          variant="secondary"
+          onPress={() => void earn.refresh()}
+        />
+      )}
+    </Screen>
+  );
+}
+
+function EarnJourney({ profile }: { profile?: EarnProfileId }) {
   const wallet = useFundingWallet();
   const earn = useEarn();
-  const [selected, setSelected] = useState<EarnProfileId>("ethereum-usdc");
+  const [selected, setSelected] = useState<EarnProfileId>(profile ?? "ethereum-usdc");
+  const profiles = profile ? [profile] : (Object.keys(earnProfiles) as EarnProfileId[]);
   const intent = earn.state && "intentId" in earn.state ? earn.state : null;
   const recovery = earn.state?.status === "recoveryRequired";
   return (
@@ -27,15 +132,17 @@ export function EarnScreen() {
       <Typography variant="title">Confidential earn</Typography>
       <Typography>Use USDC from your funded Monad mainnet accounts.</Typography>
       {earn.cycles.length > 1 &&
-        earn.cycles.map((cycle) => (
-          <Button
-            key={cycle.intentId}
-            variant="secondary"
-            label={`Open ${earnProfiles[cycle.profileId].name} cycle ${cycle.cycleIndex ?? 0}`}
-            disabled={earn.busy || cycle.intentId === intent?.intentId}
-            onPress={() => void earn.selectCycle?.(cycle.intentId)}
-          />
-        ))}
+        earn.cycles
+          .filter((cycle) => !profile || cycle.profileId === profile)
+          .map((cycle) => (
+            <Button
+              key={cycle.intentId}
+              variant="secondary"
+              label={`Open ${earnProfiles[cycle.profileId].name} cycle ${cycle.cycleIndex ?? 0}`}
+              disabled={earn.busy || cycle.intentId === intent?.intentId}
+              onPress={() => void earn.selectCycle?.(cycle.intentId)}
+            />
+          ))}
       <Surface>
         <View className="gap-2 p-5">
           <Typography variant="row">Source · Monad mainnet USDC</Typography>
@@ -58,7 +165,7 @@ export function EarnScreen() {
           <Typography variant="heading">{earnProfiles[intent.profileId].name}</Typography>
           {earn.prepareNew && (
             <View className="gap-2">
-              {(Object.keys(earnProfiles) as EarnProfileId[]).map((profile) => (
+              {profiles.map((profile) => (
                 <Button
                   key={profile}
                   variant="secondary"
@@ -100,7 +207,7 @@ export function EarnScreen() {
           )}
           {recovery && (
             <View className="gap-2">
-              {(Object.keys(earnProfiles) as EarnProfileId[]).map((profile) => (
+              {profiles.map((profile) => (
                 <Button
                   key={profile}
                   label={`Recover ${earnProfiles[profile].name} wallets`}
@@ -138,7 +245,7 @@ export function EarnScreen() {
           )}
           <Typography variant="heading">Choose destination</Typography>
           <View className="gap-2">
-            {(Object.keys(earnProfiles) as EarnProfileId[]).map((profile) => (
+            {profiles.map((profile) => (
               <Choice
                 key={profile}
                 label={earnProfiles[profile].name}

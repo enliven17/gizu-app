@@ -1,7 +1,7 @@
 import { VaultCard } from "@/components/organisms/VaultList";
 import { tvlChange, type Opportunity } from "@/domain/opportunities";
 import { useTvlSeries } from "../useTvlSeries";
-import { money, percent } from "../format";
+import { money, percent, rate } from "../format";
 import { protocolLogo } from "../protocolLogos";
 
 /** No history yet: a flat line at zero rather than an empty-state message. */
@@ -28,9 +28,12 @@ export function OpportunityCard({
 }) {
   const history = useTvlSeries(opportunity.id);
   const tvl = money.format(opportunity.tvl);
-  const apr = percent.format(opportunity.totalApr);
+  const apr = rate(opportunity.totalApr);
+  const label = opportunity.rateType === "apy" ? "net APY" : "total APR";
   let series: number[] | undefined;
-  if (history.kind === "ready") series = history.series.length >= 2 ? history.series : flat;
+  if (history.kind === "ready")
+    series =
+      history.series.length >= 2 ? history.series : opportunity.tvl === null ? undefined : flat;
   const change = series ? tvlChange(series) : null;
   const up = change === null || change >= 0;
   return (
@@ -38,17 +41,17 @@ export function OpportunityCard({
       index={index}
       virtualized={virtualized}
       ticker={opportunity.protocol.name.slice(0, 4)}
-      logo={protocolLogo(opportunity.protocol.name)}
+      logo={protocolLogo(opportunity.protocol.name, opportunity.protocol.id)}
       name={opportunity.name}
       tvl={tvl}
-      rate={`${apr}%`}
-      rateSuffix={rateSuffix}
+      rate={apr}
+      rateSuffix={opportunity.rateType === "apy" ? " net APY" : rateSuffix}
       trailing={change === null ? opportunity.status : `${up ? "+" : ""}${percent.format(change)}%`}
       trailingTone={change === null ? "muted" : up ? "positive" : "negative"}
       series={series}
       negative={!up}
       accessibilityLabel={`View ${opportunity.name}`}
-      accessibilityHint={`${opportunity.protocol.name}, ${opportunity.status}, TVL ${tvl}, total APR ${apr} percent`}
+      accessibilityHint={`${opportunity.protocol.name}, ${opportunity.status}, TVL ${tvl}, ${label} ${apr}`}
       onPress={() => onOpen(opportunity.id)}
     />
   );

@@ -7,6 +7,7 @@ import type {
   OpportunityService,
   OpportunityToken,
   TvlRecord,
+  CatalogChain,
 } from "@/domain/opportunities";
 
 /** Frontend requests the latest 30 TVL records per vault. */
@@ -21,19 +22,28 @@ function isFiniteNumber(value: unknown): value is number {
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
+function isMetric(value: unknown): value is number | null {
+  return value === null || isFiniteNumber(value);
+}
 function hasOpportunityFields(value: Record<string, unknown>): boolean {
   return (
     typeof value.id === "string" &&
     value.id.length > 0 &&
     typeof value.name === "string" &&
-    value.chainId === 143 &&
+    (value.symbol === undefined || typeof value.symbol === "string") &&
+    typeof value.chainId === "number" &&
+    Number.isSafeInteger(value.chainId) &&
+    value.chainId > 0 &&
+    (value.vaultAddress === undefined ||
+      (typeof value.vaultAddress === "string" && /^0x[0-9a-f]{40}$/i.test(value.vaultAddress))) &&
+    (value.rateType === undefined || value.rateType === "apr" || value.rateType === "apy") &&
     isRecord(value.protocol) &&
     typeof value.protocol.id === "string" &&
     typeof value.protocol.name === "string" &&
     typeof value.status === "string" &&
-    isFiniteNumber(value.totalApr) &&
-    isFiniteNumber(value.tvl) &&
-    value.tvl >= 0
+    isMetric(value.totalApr) &&
+    isMetric(value.tvl) &&
+    (value.tvl === null || value.tvl >= 0)
   );
 }
 function isOpportunity(value: unknown): value is Opportunity {
@@ -47,7 +57,7 @@ function isToken(value: unknown): value is OpportunityToken {
     typeof value.symbol === "string" &&
     typeof value.address === "string" &&
     isFiniteNumber(value.decimals) &&
-    isFiniteNumber(value.price)
+    isMetric(value.price)
   );
 }
 function isCampaign(value: unknown): value is OpportunityCampaign {
@@ -67,15 +77,15 @@ function isDetail(value: unknown): value is OpportunityDetail {
   return (
     isRecord(value) &&
     hasOpportunityFields(value) &&
-    isFiniteNumber(value.apr) &&
+    isMetric(value.apr) &&
     isRecord(value.chain) &&
     typeof value.chain.name === "string" &&
     typeof value.description === "string" &&
     typeof value.action === "string" &&
     typeof value.type === "string" &&
-    isFiniteNumber(value.dailyRewards) &&
+    isMetric(value.dailyRewards) &&
     isFiniteNumber(value.liveCampaigns) &&
-    isFiniteNumber(value.nativeApr) &&
+    isMetric(value.nativeApr) &&
     typeof value.explorerAddress === "string" &&
     isStringArray(value.howToSteps) &&
     typeof value.depositUrl === "string" &&
@@ -93,22 +103,56 @@ function isTvlRecord(value: unknown): value is TvlRecord {
 
 export function createOpportunityService(baseUrl: string): OpportunityService {
   const root = baseUrl.replace(/\/$/, "");
+  let enabledChains = new Set([143]);
+  let hasChainCatalog = false;
   function configured() {
     if (!baseUrl) throw new Error("Vault catalog is not configured.");
   }
   return {
+    async chains(signal) {
+      configured();
+      const body = await getJson(`${root}/v1/chains`, signal, "Chain catalog unavailable.");
+      if (
+        !isRecord(body) ||
+        !Array.isArray(body.list) ||
+        body.list.length === 0 ||
+        body.list.length > 64 ||
+        !body.list.every(
+          (row) =>
+            isRecord(row) &&
+            typeof row.id === "number" &&
+            Number.isSafeInteger(row.id) &&
+            row.id > 0 &&
+            typeof row.name === "string" &&
+            row.name.trim().length > 0 &&
+            (row.explorerUrl === undefined ||
+              (typeof row.explorerUrl === "string" && /^https:\/\//.test(row.explorerUrl))),
+        ) ||
+        new Set(body.list.map((row) => row.id)).size !== body.list.length
+      ) {
+        throw new Error("Invalid chain catalog response.");
+      }
+      enabledChains = new Set(body.list.map((row) => row.id as number));
+      hasChainCatalog = true;
+      return body.list as CatalogChain[];
+    },
     async list(query, signal) {
       configured();
       const path =
         query.protocol === "all"
           ? "/v1/opportunities"
           : `/v1/protocols/${query.protocol}/opportunities`;
-      const params = `chainId=143&page=${query.page}&items=8&search=${encodeURIComponent(query.search)}`;
+      const chainId = query.chainId ?? 143;
+      if (hasChainCatalog && !enabledChains.has(chainId))
+        throw new Error("Chain is not available in the vault catalog.");
+      const params = `chainId=${chainId}&page=${query.page}&items=8&search=${encodeURIComponent(query.search)}`;
       const body = await getJson(`${root}${path}?${params}`, signal, "Vault catalog unavailable.");
       if (
         !isRecord(body) ||
         !Array.isArray(body.list) ||
         !body.list.every(isOpportunity) ||
+        body.list.some((row) => row.chainId !== chainId) ||
+        (body.partial !== undefined && typeof body.partial !== "boolean") ||
         body.page !== query.page ||
         body.items !== 8 ||
         typeof body.total !== "number" ||
@@ -119,6 +163,7 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
       ) {
         throw new Error("Invalid vault catalog response.");
       }
+      enabledChains.add(chainId);
       return body as OpportunityPage;
     },
     async detail(id, signal) {
@@ -128,7 +173,12 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
         signal,
         "Vault unavailable.",
       );
-      if (!isRecord(body) || !isDetail(body.opportunity) || body.opportunity.id !== id) {
+      if (
+        !isRecord(body) ||
+        !isDetail(body.opportunity) ||
+        body.opportunity.id !== id ||
+        !enabledChains.has(body.opportunity.chainId)
+      ) {
         throw new Error("Invalid vault response.");
       }
       return body.opportunity;

@@ -272,10 +272,24 @@ harness and retained legacy source remain separate from normal entry.
 
 ## Local vault catalog
 
-Normal wallet mode lists Monad mainnet opportunities from the backend and reads
-Monad mainnet USDC balances. Historical MON signing remains limited to the isolated
-Monad testnet diagnostic. The catalog is read-only: no deposit, withdrawal,
-or external deposit link is exposed. Fixture vaults remain in tests and the isolated UI playground.
+Normal wallet mode reads the backend's `GET /v1/chains` and combines opportunities
+from all configured chains without a chain selector. The initial environment example enables Robinhood,
+Ethereum and Monad. Set `CATALOG_CHAINS_JSON` and optional `CATALOG_VAULTS_JSON` on
+the backend; see [catalog configuration](../backend/DEPLOYMENT.md#vault-catalog-configuration)
+for contracts on any enabled chain and fallback metadata. The example includes
+Gizu Prime AUSD on Monad (`0x997D5064A7B48305c15C9D55AC2D94D7069Fc008`, share symbol
+`gzpAUSD`, underlying asset AUSD). Merkl discovery is preserved.
+The existing Aave/Morpho/Curvance protocol choices, search, paging and retry controls share one screen.
+Paging tracks each chain independently and stops querying exhausted chains.
+Details show contract addresses and share symbols; unknown metrics show `Unavailable`,
+and Morpho net APY is labeled separately from Merkl APR. Protocol logos resolve by
+stable protocol ID before display name. Wallet balances still use Monad mainnet USDC.
+Deposit stays inside Gizu and rechecks the selected vault. An exact match to an
+existing Ethereum/Robinhood native profile prepares a fresh Earn cycle only after
+explicit intent, then reuses the existing funding and fee reviews. Unsupported vaults
+show their selected identity and an unavailable state. Monad/AUSD execution is not
+implemented in this catalog change. Catalog metadata cannot grant signing authority.
+Fixture vaults remain in tests and the isolated UI playground.
 
 Start PostgreSQL with `docker compose up -d` in `backend/`. Set the backend local
 `DATABASE_URL` to match `backend/.env.example` (port 54329), then run `npm run build`
