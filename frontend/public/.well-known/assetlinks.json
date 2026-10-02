@@ -8,7 +8,8 @@
       "namespace": "android_app",
       "package_name": "com.example.gizu.dev",
       "sha256_cert_fingerprints": [
-        "49:91:65:19:5C:9C:4D:2E:C2:D1:65:C8:09:19:EB:52:42:1F:50:31:0E:8C:48:60:53:32:39:F1:B1:58:A8:C6"
+        "49:91:65:19:5C:9C:4D:2E:C2:D1:65:C8:09:19:EB:52:42:1F:50:31:0E:8C:48:60:53:32:39:F1:B1:58:A8:C6",
+        "9B:24:1F:AD:F5:9F:6B:D0:70:7B:92:88:59:46:8C:63:C6:9B:3E:CB:9B:10:60:FB:5A:2B:3A:4F:4B:C2:1C:67"
       ]
     }
   }

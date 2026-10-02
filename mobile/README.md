@@ -1,16 +1,20 @@
 # Gizu mobile
 
 Expo SDK 57 development app for iOS and Android. Normal startup now uses native
-passkey access and the existing Gizu tabs. Home shows Account 0's Monad testnet MON
-balance; Account shows its address, copy, local preferences and disconnect.
+passkey access and the existing Gizu tabs. Home shows the native Circle USDC portfolio
+across public Monad mainnet accounts (143); Account shows the receiving address,
+copy, local preferences and disconnect.
 Wallet secrets remain in the native signer. This is local wallet access, not
-backend authentication; production and physical-iOS acceptance remain pending.
+backend authentication; physical-iOS acceptance remains pending.
 
 From welcome choose **Get started**, then **Continue with passkey**. New development
 wallets must save and reopen an encrypted backup before Home opens. Recovery needs
-the file and original passkey. Vault services, notifications, fiat valuations and
-performance history remain unavailable. Deposit shows the receiving address;
-Withdraw uses native approval; Activity shows local outgoing history and explicit resume.
+the file and original passkey. Notifications, fiat valuations and performance history
+remain unavailable. Deposit shows the Monad mainnet USDC receiving address.
+Direct standalone USDC withdrawals remain unavailable. Earn can review a separate
+withdrawal of verified investment return credit to a native Monad receiving account. Confidential Earn
+prepares two native-owned wallets after intent, reads vault readiness and private
+balances, and executes independently reviewed native funding, payouts and investments. See [Confidential Earn](docs/CONFIDENTIAL_EARN.md).
 iOS 18+ stored-wallet support is implemented; physical-device acceptance is pending. Incoming/external activity is not indexed.
 
 Normal startup supports native access only. Historical M2–M5 fixture flows remain
@@ -253,8 +257,9 @@ Account offers **Save and verify wallet backup**. Recovery requires both the bac
 file and original passkey. Restore is shown only for absent/unreadable local storage;
 use another installation/device to test it without deleting this wallet.
 
-After rebuilding, fund the new Account 0 with testnet MON only. Use the existing
-Withdraw screen for a small transfer. Read the native review, approve and unlock
+The following historical checks apply to the isolated testnet transfer diagnostic,
+not the normal mainnet USDC Home. In that diagnostic, fund Account 0 with testnet MON only
+and use its transfer action for a small transfer. Read the native review, approve and unlock
 with the wallet's passkey. Activity **Refresh** only reconciles; **Review and resume**
 requires a new native review/passkey prompt. Cancel stops unsigned remaining steps;
 it cannot undo signed/submitted transfers. Pending or nonce-conflicting operations
@@ -267,8 +272,9 @@ harness and retained legacy source remain separate from normal entry.
 
 ## Local vault catalog
 
-Normal wallet mode lists Monad mainnet opportunities from the backend; wallet balances
-and signing remain on Monad testnet. The catalog is read-only: no deposit, withdrawal,
+Normal wallet mode lists Monad mainnet opportunities from the backend and reads
+Monad mainnet USDC balances. Historical MON signing remains limited to the isolated
+Monad testnet diagnostic. The catalog is read-only: no deposit, withdrawal,
 or external deposit link is exposed. Fixture vaults remain in tests and the isolated UI playground.
 
 Start PostgreSQL with `docker compose up -d` in `backend/`. Set the backend local
@@ -444,3 +450,25 @@ helpers never retry operations: preserve generation/signal checks for stale work
 and reconcile financial operation status before any explicit retry. Keep
 backup-required and recovery-required distinct; neither permits a replacement
 wallet to be created automatically.
+
+## Mainnet portfolio and Confidential Earn
+
+The mainnet session composes `MainnetWalletProvider` and `EarnProvider`. Swap and Earn
+share the native public-account portfolio. Native storage owns account selection,
+balance synchronization and signing keys; JavaScript receives public snapshots and
+per-account funding terms. Opening the app or returning to the foreground refreshes
+the native portfolio. No hosted account catalogue or DeBank indexer is used.
+
+Funding a budget across multiple public accounts retains a separate fee cap and
+reserve for each account. All unsigned child plans are saved natively before the first
+account can be approved, allowing recovery after interruption. One native batch review and passkey authorization covers the selected source operations; their journals and settlement checks remain separate. Expired unsigned quotes refresh the same saved operations and budget before approval.
+Earn cycles retain distinct destination pairs and journals; cycle zero preserves the
+legacy v1 intent, while later cycles use v2 identities.
+
+The batch approval uses the existing 15-minute signing session and ends when its
+native screen/session closes or reviewed terms change. Transaction deadlines and
+fresh native fee checks still apply. See the [multi-account implementation plan](../research/confidential-earn/MULTI-ACCOUNT-MVP-PLAN.md).
+
+Native token and vault-position rows display token amounts independently from the
+public Monad USDC total. A USDC valuation appears only when native data supplies it;
+unpriced assets and incomplete balance coverage are labeled explicitly.

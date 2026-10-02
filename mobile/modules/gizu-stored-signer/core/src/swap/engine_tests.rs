@@ -788,9 +788,15 @@ fn plans_reviews_and_completes_the_whole_swap_with_the_expected_signers() {
 }
 
 #[test]
-fn caps_the_source_at_ten_usdc_and_rejects_bad_plans() {
+fn rejects_invalid_plans_and_preserves_an_explicit_production_budget() {
     assert!(
-        SwapOperation::start(plan(Some("10000001")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err()
+        SwapOperation::start(
+            plan(Some("18446744073709551616")),
+            ENTROPY.to_vec(),
+            GATEWAY.into(),
+            T0
+        )
+        .is_err()
     );
     assert!(SwapOperation::start(plan(Some("0")), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
     let reused = plan(None).replace("[3,4,5]", "[3,3,5]");
@@ -809,8 +815,8 @@ fn caps_the_source_at_ten_usdc_and_rejects_bad_plans() {
 
     let (mut world, mut now) = (World::new(), T0);
     world.f_balance = U256::from(50_000_000u64);
-    let text = review(&start(None), &mut world, &mut now);
-    assert!(text.contains("Used now 9.997000 USDC + gas at most 0.003000 USDC"));
+    let text = review(&start(Some("50000000")), &mut world, &mut now);
+    assert!(text.contains("Used now 49.997000 USDC + gas at most 0.003000 USDC"));
 }
 
 #[test]
@@ -1362,4 +1368,63 @@ fn a_paused_sell_receiver_mismatch_can_resume_without_repeating_the_buy() {
     assert_eq!(drive(&restored, &mut world, &mut now), SwapStep::Finished);
     assert_eq!(world.orders, 6);
     assert_eq!(world.user_ops, 1, "resume must not fund another buy");
+}
+
+#[test]
+fn funding_binds_selected_source_across_restore_unlock() {
+    let mut p: Value = serde_json::from_str(&plan(Some("1000000"))).unwrap();
+    p["sourceIndex"] = json!(0);
+    let operation =
+        SwapOperation::start(p.to_string(), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    let seed = seed_from_entropy(ENTROPY.to_vec()).unwrap();
+    let expected = evm::key_address(&derive_key(&seed, 0).unwrap());
+    {
+        let e = operation.inner.lock().unwrap();
+        assert_eq!(e.m.source, expected);
+    }
+    let restored =
+        SwapOperation::restore(operation.export_state().unwrap(), GATEWAY.into()).unwrap();
+    restored.unlock(ENTROPY.to_vec(), T0).unwrap();
+    {
+        let e = restored.inner.lock().unwrap();
+        assert_eq!(e.m.source, expected);
+    }
+    p["sourceIndex"] = json!(2);
+    assert!(SwapOperation::start(p.to_string(), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+    p["sourceIndex"] = json!(3);
+    assert!(SwapOperation::start(p.to_string(), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err());
+}
+#[test]
+fn requested_budget_above_source_balance_stops_instead_of_shrinking() {
+    let op = start(Some("3000000"));
+    let mut world = World::new();
+    let mut now = T0;
+    let result = drive(&op, &mut world, &mut now);
+    assert!(!matches!(result, SwapStep::Review { .. }));
+    assert_eq!(world.user_ops, 0);
+    assert!(op.inner.lock().unwrap().m.data.funding_amount.is_zero());
+}
+
+#[test]
+fn selected_account_zero_funds_the_entire_swap_with_its_own_signature() {
+    let mut p: Value = serde_json::from_str(&plan(Some("2000000"))).unwrap();
+    p["sourceIndex"] = json!(0);
+    let op = SwapOperation::start(p.to_string(), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    let seed = seed_from_entropy(ENTROPY.to_vec()).unwrap();
+    let mut world = World::new();
+    world.w.f = evm::key_address(&derive_key(&seed, 0).unwrap());
+    let mut now = T0;
+    assert!(review(&op, &mut world, &mut now).contains(&world.w.f.to_checksum(None)));
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(world.user_ops, 1);
+}
+
+#[test]
+fn explicit_fifteen_usdc_budget_is_supported_without_a_test_cap() {
+    let op = start(Some("15000000"));
+    let mut world = World::new();
+    world.f_balance = U256::from(15000000u64);
+    let mut now = T0;
+    assert!(review(&op, &mut world, &mut now).contains("Used now 14.997000 USDC"));
 }

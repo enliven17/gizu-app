@@ -18,7 +18,6 @@ import io.gizu.storedwallet.WalletErrors
 import io.gizu.storedwallet.WalletException
 import io.gizu.storedwallet.WalletStage
 import io.gizu.storedwallet.walletStore
-import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -288,7 +287,12 @@ class SwapActivity : Activity() {
         topMargin = NativeStyle.dp(this@SwapActivity, 16)
       },
     )
-    val approve = NativeStyle.button(this, "Approve for 15 minutes", true)
+    val approve =
+      NativeStyle.button(
+        this,
+        if (engine?.hasFundingBatch == true) "Approve funding batch" else "Approve for 15 minutes",
+        true,
+      )
     approve.isEnabled = false
     approve.setOnClickListener {
       if (!approve.isEnabled || stopped) return@setOnClickListener
@@ -313,10 +317,7 @@ class SwapActivity : Activity() {
       try {
         val wallet = walletStore(applicationContext)
         val identity = withContext(Dispatchers.IO) { wallet.load().use { it.id to it.credential } }
-        val digest =
-          MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") {
-            "%02x".format(it)
-          }
+        val digest = checkNotNull(engine).reviewDigest(text)
         providerPending = true
         try {
           PasskeyGate(this@SwapActivity)
@@ -338,11 +339,10 @@ class SwapActivity : Activity() {
           check(!stopped && hasWindowFocus())
           check(!(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked)
           check(record.id == identity.first)
-          checkNotNull(engine).unlock(record)
+          checkNotNull(engine).authorizeReviewed(record, text)
         } finally {
           record.close()
         }
-        engine?.approve()
         show(
           "Swap in progress",
           "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.",
@@ -354,7 +354,21 @@ class SwapActivity : Activity() {
         throw error
       } catch (error: Exception) {
         WalletDiagnostics.failed(WalletStage.SWAP_APPROVAL, error)
-        if (!stopped) showReview(text, WalletErrors.code(error).message)
+        if (!stopped) {
+          if (engine?.hasFundingBatch == true) {
+            try {
+              val refreshed = checkNotNull(engine).advance(::progress)
+              if (refreshed is SwapUi.Review)
+                showReview(refreshed.text, WalletErrors.code(error).message)
+              else present(refreshed)
+            } catch (refreshError: CancellationException) {
+              throw refreshError
+            } catch (refreshError: Exception) {
+              WalletDiagnostics.failed(WalletStage.SWAP_APPROVAL, refreshError)
+              SwapHost.fail(refreshError)
+            }
+          } else showReview(text, WalletErrors.code(error).message)
+        }
       }
     }
   }

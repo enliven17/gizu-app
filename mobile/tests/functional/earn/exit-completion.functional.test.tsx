@@ -1,0 +1,161 @@
+import { mainnetPortfolio } from "../../support/mainnetWallet";
+import { render, screen, userEvent } from "@testing-library/react-native";
+import { Linking } from "react-native";
+import { AppRoot } from "@/application/AppRoot";
+import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
+import { parseRobinhoodPlan, type RobinhoodKind } from "@/domain/earn/robinhoodExecution";
+import type { SponsoredOperation } from "@/domain/earn/sourceFunding";
+import { hoodIntent, hoodRaw } from "../../support/robinhoodEarn";
+import { exitSnapshot, returnRow } from "../../support/exitCompletion";
+function operation(
+  kind: RobinhoodKind = "hoodDeposit",
+  status: SponsoredOperation["status"] = "invested",
+): SponsoredOperation {
+  return {
+    operationId: `hood_${kind}`,
+    walletId: hoodIntent.walletId,
+    revision: 3,
+    kind,
+    chainId: 4663,
+    from: hoodIntent.destinations[1].address,
+    amountAtoms:
+      kind === "hoodDeposit"
+        ? "937500"
+        : kind === "hoodRedeemAll"
+          ? "800000000000000000"
+          : "989500",
+    nonce: "0x2",
+    blocked: status === "pending",
+    canResume: false,
+    status,
+    ...(status === "pending" ? { userOperationHash: "0x" + "a".repeat(64) } : {}),
+    actualTokenFeeAtoms: "10000",
+  };
+}
+function plan(kind: RobinhoodKind) {
+  const now = Date.now();
+  return parseRobinhoodPlan(
+    hoodRaw(kind, now, `hood_${kind}`),
+    hoodIntent,
+    kind,
+    `hood_${kind}`,
+    1,
+    now,
+  );
+}
+beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+afterEach(() => jest.restoreAllMocks());
+function setup(saved: SponsoredOperation[] = [], available = true) {
+  const ready = {
+    status: "ready",
+    walletId: hoodIntent.walletId,
+    accounts: [{ accountIndex: 0, address: hoodIntent.sourceAddress, chainId: 10143 }],
+  };
+  const access = {
+    getSwapDeposit: jest.fn().mockResolvedValue({ fundingAddress: hoodIntent.sourceAddress }),
+    getWalletState: jest.fn().mockResolvedValue(ready),
+    openWallet: jest.fn().mockResolvedValue(ready),
+    createWallet: jest.fn(),
+    backupWallet: jest.fn(),
+    restoreWallet: jest.fn(),
+    lock: jest.fn(),
+  };
+  const service = {
+    available: jest.fn().mockResolvedValue(available),
+    list: jest.fn().mockResolvedValue(saved),
+    plan: jest.fn().mockImplementation(async (_intent, kind: RobinhoodKind) => plan(kind)),
+    execute: jest
+      .fn()
+      .mockImplementation(async (_intent, p) =>
+        operation(
+          p.kind,
+          p.kind === "hoodDeposit"
+            ? "invested"
+            : p.kind === "hoodRedeemAll"
+              ? "withdrawn"
+              : "awaitingSettlement",
+        ),
+      ),
+    resume: jest.fn(),
+    reconcileCredit: jest.fn().mockResolvedValue({
+      ...operation("hoodTokenReturn", "credited"),
+      creditedAtoms: "980000",
+      transactionHash: "0x" + "b".repeat(64),
+    }),
+    cancelUnsigned: jest.fn(),
+    cancel: jest.fn(),
+  };
+  render(
+    <AppRoot
+      mainnetPortfolioService={{
+        getMainnetPortfolio: jest
+          .fn()
+          .mockResolvedValue(mainnetPortfolio(hoodIntent.walletId, hoodIntent.sourceAddress)),
+      }}
+      accessService={createStoredWalletAccess(() => access)}
+      earnWalletService={{
+        load: jest.fn().mockResolvedValue(hoodIntent),
+        prepare: jest.fn(),
+        cancel: jest.fn(),
+      }}
+      earnRobinhoodService={service}
+      walletBalanceService={{ getBalance: jest.fn().mockResolvedValue("10000000") }}
+      walletTransferService={{ history: jest.fn(), send: jest.fn(), cancel: jest.fn() }}
+      opportunityService={{
+        list: jest.fn().mockResolvedValue({ list: [], page: 0, items: 8, total: 0 }),
+        detail: jest.fn(),
+        tvlRecords: jest.fn().mockResolvedValue([]),
+      }}
+    />,
+  );
+  return service;
+}
+async function open() {
+  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
+}
+test("real AppRoot explicit exit check uses injected refreshed native return journal and clears completion after reorg", async () => {
+  const service = setup([operation("hoodRedeemAll", "withdrawn"), returnRow()]);
+  const fetcher = jest
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(
+      async () => ({ ok: true, json: async () => exitSnapshot(Date.now()) }) as Response,
+    );
+  await open();
+  const button = await screen.findByRole("button", { name: "Check exit completion" });
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(service.execute).not.toHaveBeenCalled();
+  await userEvent.press(button);
+  expect(await screen.findByText(/Investment exit complete:/)).toBeVisible();
+  expect(service.list).toHaveBeenCalledTimes(2);
+  const sent = JSON.parse(String(fetcher.mock.calls[0]![1]?.body));
+  expect(Object.keys(sent).sort()).toEqual(["owner", "profileId"]);
+  expect(sent.owner).toBe(hoodIntent.destinations[1].address);
+  service.list.mockResolvedValueOnce([{ ...returnRow(), status: "pending", blocked: true }]);
+  await userEvent.press(screen.getByRole("button", { name: "Check exit completion" }));
+  expect(await screen.findByText("Saved native progress must be reconciled.")).toBeVisible();
+  expect(screen.queryByText(/Investment exit complete:/)).toBeNull();
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(service.execute).not.toHaveBeenCalled();
+});
+test("real AppRoot reports dust and zero-share failure only after explicit read-only check", async () => {
+  setup([operation("hoodRedeemAll", "withdrawn"), returnRow()]);
+  let shares = false;
+  jest.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    const value = exitSnapshot(Date.now());
+    value.balances.tokenAtoms = shares ? "100000" : "500000";
+    value.balances.shares = shares ? "1" : "0";
+    value.residualUsdcAtoms = shares ? "100000" : "500000";
+    value.publicResidualReady = false;
+    return { ok: true, json: async () => value } as Response;
+  });
+  await open();
+  await userEvent.press(await screen.findByRole("button", { name: "Check exit completion" }));
+  expect(await screen.findByText(/Investment exit incomplete:/)).toBeVisible();
+  expect(screen.getByText("Current residual value: 0.5 USDC")).toBeVisible();
+  shares = true;
+  await userEvent.press(screen.getByRole("button", { name: "Check exit completion" }));
+  expect(await screen.findByText("Current residual value: 0.1 USDC")).toBeVisible();
+  expect(screen.getByText(/Investment exit incomplete:/)).toBeVisible();
+});

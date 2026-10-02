@@ -11,6 +11,7 @@ import { useSession } from "@/application/SessionProvider";
 import { WelcomeScreen } from "@/features/access/WelcomeScreen";
 import { AccessScreen } from "@/features/access/AccessScreen";
 import { MainTabs } from "./MainTabs";
+import { EarnScreen } from "@/features/earn/EarnScreen";
 import type { RootStackParamList } from "./types";
 import { durations } from "@/theme/motion";
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -32,6 +33,10 @@ export function RootNavigator() {
       {session ? (
         <Stack.Group navigationKey={session.kind + ":" + session.accountId}>
           <Stack.Screen name="AccountPage" component={AccountPageScreen} />
+          <Stack.Screen
+            name="Earn"
+            component={native && session.chainId === 143 ? EarnScreen : UnavailableScreen}
+          />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen
             name="Transaction"

@@ -23,6 +23,11 @@ export type StoredSignerCapabilities = {
   backup: boolean;
   transfers: boolean;
   swaps: boolean;
+  earnWallets?: boolean;
+  earnVaultExecution?: boolean;
+  earnSponsoredExecution?: boolean;
+  earnEthereumLiquidityExecution?: boolean;
+  earnPrivatePayoutExecution?: boolean;
   reason?: "notImplemented" | "unsupportedPlatform" | "unsupportedProvider";
 };
 export type StoredTransferProposal = {
@@ -87,7 +92,39 @@ export type SwapHoldingsSnapshot = {
   block: string;
 };
 
+export type OwnedPortfolioAsset = {
+  assetId: string;
+  chainId: number;
+  token: string;
+  symbol: string;
+  decimals: number | null;
+  balanceAtoms: string | null;
+  observedAtoms: string;
+  complete: boolean;
+  stale: boolean;
+  checkedAt: number;
+  valueUsdcAtoms: string | null;
+  valuationUnavailable: boolean;
+};
+export type OwnedPortfolioPosition = OwnedPortfolioAsset & {
+  shareDecimals?: number | null;
+  conversionEstimated?: boolean;
+  shareAtoms: string | null;
+  underlyingAtoms: string | null;
+  observedUnderlyingAtoms?: string | null;
+};
+
 export type MainnetPortfolioSnapshot = {
+  ownedAssets?: OwnedPortfolioAsset[];
+  positions?: OwnedPortfolioPosition[];
+  valuationComplete?: boolean;
+  ownedBalanceComplete?: boolean;
+  ownedStale?: boolean;
+  ownedSyncPending?: boolean;
+  ownedCheckedAt?: number;
+  balanceComplete?: boolean;
+  stale?: boolean;
+  syncPending?: boolean;
   walletId: string;
   chainId: 143;
   asset: "USDC";
@@ -142,5 +179,148 @@ export interface StoredSignerContract {
   resumeSwap(gateway: string): Promise<StoredSwapView>;
   getSwapStatus(gateway: string): Promise<StoredSwapView>;
   cancelSwap(gateway: string): Promise<StoredSwapView>;
+  /** Native intent review, authorization and immutable public wallet pair. No signing. */
+  prepareEarnIntent?(walletId: string, profile: string): Promise<unknown>;
+  getEarnIntent?(walletId: string): Promise<unknown>;
+  /** Native-only authentication/signature and transport; public balance result only. */
+  executeEarnFundingBatch?(walletId: string, fundingBatchId: string): Promise<unknown>;
+  registerEarnFundingPlans?(
+    walletId: string,
+    requests: import("@/domain/earn/sourceFunding").SponsoredRequest[],
+  ): Promise<unknown>;
+  planPublicFunding?(walletId: string, budgetAtoms: string): Promise<unknown>;
+  prepareEarnSourceQuoteForAccount?(
+    walletId: string,
+    sourceIndex: number,
+    amountAtoms: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  prepareNewEarnIntent?(walletId: string, profile: string): Promise<unknown>;
+  listEarnIntents?(walletId: string): Promise<unknown>;
+  selectEarnIntent?(walletId: string, intentId: string): Promise<unknown>;
+  readEarnBalance?(walletId: string): Promise<unknown>;
+  executeEarnVault?(
+    proposal: import("@/domain/earn/vaultExecution").VaultProposal,
+  ): Promise<unknown>;
+  listEarnVaultOperations?(walletId: string): Promise<unknown>;
+  resumeEarnVaultOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  cancelEarnVaultOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  prepareEarnSourceQuote?(
+    walletId: string,
+    amountAtoms: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  executeEarnSponsored?(
+    request:
+      | import("@/domain/earn/sourceFunding").SponsoredRequest
+      | import("@/domain/earn/robinhoodExecution").RobinhoodRequest,
+  ): Promise<unknown>;
+  listEarnSponsoredOperations?(walletId: string): Promise<unknown>;
+  resumeEarnSponsoredOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  cancelEarnSponsoredOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  readEarnSponsoredSettlement?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  prepareEarnFusionQuote?(request: {
+    walletId: string;
+    operationId: string;
+    revision: number;
+    inputAtoms: string;
+    resolverGasPriceWei: string;
+    minimumEthWei: string;
+    maximumResolverOverheadWei: string;
+    fundingMode: "permit";
+  }): Promise<unknown>;
+  prepareEarnEthereumReturnQuote?(
+    walletId: string,
+    amountAtoms: string,
+    operationId: string,
+    revision: number,
+    returnAsset: "usdc" | "native",
+  ): Promise<unknown>;
+  executeEarnEthereumLiquidity?(
+    request: import("@/domain/earn/ethereumLiquidity").LiquidityRequest,
+  ): Promise<unknown>;
+  listEarnEthereumLiquidityOperations?(walletId: string): Promise<unknown>;
+  resumeEarnEthereumLiquidityOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  cancelEarnEthereumLiquidityOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  cancelPendingEarnEthereumLiquidityOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  readEarnEthereumLiquiditySettlement?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  executeEarnPrivatePayout?(
+    request: import("@/domain/earn/privatePayout").PayoutRequest,
+  ): Promise<unknown>;
+  listEarnPrivatePayoutOperations?(walletId: string): Promise<unknown>;
+  resumeEarnPrivatePayoutOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  cancelEarnPrivatePayoutOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  readEarnPrivatePayoutSettlement?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  executeEarnWithdrawal?(
+    walletId: string,
+    returnOperationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  listEarnWithdrawalOperations?(walletId: string): Promise<unknown>;
+  resumeEarnWithdrawalOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  cancelEarnWithdrawalOperation?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
+  readEarnWithdrawalSettlement?(
+    walletId: string,
+    operationId: string,
+    revision: number,
+  ): Promise<unknown>;
   lock(): void;
 }

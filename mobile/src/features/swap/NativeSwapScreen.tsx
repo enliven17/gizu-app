@@ -1,3 +1,4 @@
+import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { TextInput, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { PressableScale } from "@/components/atoms/PressableScale";
@@ -11,6 +12,7 @@ import { useNativeSwap } from "./useNativeSwap";
 
 export function NativeSwapScreen() {
   const swap = useNativeSwap();
+  const wallet = useOptionalMainnetWallet();
   const selected = swap.tokens.find((token) => token.address === swap.target);
   const active =
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
@@ -67,7 +69,14 @@ export function NativeSwapScreen() {
       {!active && (
         <>
           <View className="gap-3 rounded-[28px] border border-glassBorder bg-glass px-6 py-6">
-            <Typography variant="micro">You pay · maximum 10 USDC</Typography>
+            <Typography variant="micro">You pay · USDC budget</Typography>
+            {wallet && (
+              <Typography variant="micro">
+                {wallet.snapshot && wallet.snapshot.balanceComplete !== false
+                  ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))} USDC`
+                  : "Checking available USDC…"}
+              </Typography>
+            )}
             <TextInput
               accessibilityLabel="Amount in USDC"
               value={swap.amount}
@@ -76,7 +85,7 @@ export function NativeSwapScreen() {
               keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={colors.fg["20"]}
-              maxLength={12}
+              maxLength={21}
               className="font-sans min-h-14 text-[40px] text-text"
             />
           </View>

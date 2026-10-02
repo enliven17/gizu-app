@@ -19,6 +19,9 @@ export type MainnetWalletSession = Omit<
 };
 export type WalletSession = TestnetWalletSession | MainnetWalletSession;
 export type AppSession = DemoSession | WalletSession;
+export function isWalletSession(session: AppSession | null): session is WalletSession {
+  return session?.kind === "mainnet" || session?.kind === "testnet";
+}
 export interface AccessService {
   method?: AccessMethod;
   cancel?(): void;

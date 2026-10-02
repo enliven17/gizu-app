@@ -14,6 +14,7 @@ import android.view.Window
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -25,8 +26,13 @@ import java.util.UUID
 import kotlin.coroutines.resume
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
+import org.json.JSONObject
+import uniffi.gizu_stored_signer_core.EarnReadAuthentication
+import uniffi.gizu_stored_signer_core.authenticateEarnRead
 import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
 import uniffi.gizu_stored_signer_core.deriveAccountAddresses
+import uniffi.gizu_stored_signer_core.deriveEarnAddresses
+import uniffi.gizu_stored_signer_core.deriveEarnConfidentialAddress
 
 /** Wallet access requires a verified native backup; exact transfer signing stays native. */
 class GizuStoredSignerModule : Module() {
@@ -42,6 +48,9 @@ class GizuStoredSignerModule : Module() {
   private var dialog: Dialog? = null
   private var awaitingProvider = false
   private var foreground = true
+  private var balanceReadWallet: String? = null
+  private var balanceReadGeneration: String? = null
+  private var balanceReadUntil = 0L
 
   private fun eligible(activity: Activity?) =
     activity != null &&
@@ -56,6 +65,21 @@ class GizuStoredSignerModule : Module() {
   }
 
   private suspend fun confirm(activity: Activity, create: Boolean) =
+    confirm(
+      activity,
+      if (create) "Create Gizu wallet" else "Open Gizu wallet",
+      if (create)
+        "Create a passkey and a new wallet stored encrypted on this phone. A verified backup is required before this wallet can be used."
+      else
+        "Confirm your passkey to open this wallet and refresh its public and confidential balances. Balance providers receive the account being checked. This does not authorize transfers.",
+    )
+
+  private suspend fun confirm(
+    activity: Activity,
+    title: String,
+    message: String,
+    fullReview: Boolean = false,
+  ) =
     suspendCancellableCoroutine<Unit> { continuation ->
       val alert = Dialog(activity)
       alert.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -66,11 +90,9 @@ class GizuStoredSignerModule : Module() {
       alert.setContentView(
         confirmationView(
           activity,
-          title = if (create) "Create Gizu wallet" else "Open Gizu wallet",
-          message =
-            if (create)
-              "Create a passkey and a new wallet stored encrypted on this phone. A verified backup is required before this wallet can be used."
-            else "Confirm your passkey to check this wallet. This does not authorize transfers.",
+          title = title,
+          message = message,
+          fullReview = fullReview,
           onContinue = {
             if (continuation.isActive) continuation.resume(Unit)
             alert.dismiss()
@@ -98,6 +120,7 @@ class GizuStoredSignerModule : Module() {
     activity: Activity,
     title: String,
     message: String,
+    fullReview: Boolean,
     onContinue: () -> Unit,
     onCancel: () -> Unit,
   ): View {
@@ -109,7 +132,17 @@ class GizuStoredSignerModule : Module() {
         setPadding(dp(24), dp(24), dp(24), dp(20))
         filterTouchesWhenObscured = true
         addView(NativeStyle.title(activity, title, 22f))
-        addView(NativeStyle.body(activity, message), NativeStyle.fullWidth(activity, 10))
+        if (fullReview)
+          addView(
+            ScrollView(activity).apply {
+              filterTouchesWhenObscured = true
+              addView(NativeStyle.body(activity, message))
+            },
+            LinearLayout.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, dp(300)).apply {
+              topMargin = dp(10)
+            },
+          )
+        else addView(NativeStyle.body(activity, message), NativeStyle.fullWidth(activity, 10))
         addView(
           NativeStyle.button(activity, "Continue", primary = true).apply {
             setOnClickListener { onContinue() }
@@ -154,6 +187,9 @@ class GizuStoredSignerModule : Module() {
         currentCoroutineContext().ensureActive()
         requireForeground(activity)
         promise.resolve(result)
+      } catch (error: EarnGatewayFailure) {
+        WalletDiagnostics.failed(WalletStage.CEREMONY, error)
+        promise.reject(error.code, error.message ?: "Earn provider request is unavailable.", null)
       } catch (error: Exception) {
         WalletDiagnostics.failed(WalletStage.CEREMONY, error)
         val code = WalletErrors.code(error)
@@ -201,6 +237,11 @@ class GizuStoredSignerModule : Module() {
           "backup" to eligible(appContext.currentActivity),
           "transfers" to eligible(appContext.currentActivity),
           "swaps" to eligible(appContext.currentActivity),
+          "earnWallets" to eligible(appContext.currentActivity),
+          "earnVaultExecution" to eligible(appContext.currentActivity),
+          "earnSponsoredExecution" to eligible(appContext.currentActivity),
+          "earnPrivatePayoutExecution" to eligible(appContext.currentActivity),
+          "earnEthereumLiquidityExecution" to eligible(appContext.currentActivity),
         )
       )
     }
@@ -224,6 +265,9 @@ class GizuStoredSignerModule : Module() {
           withContext(Dispatchers.IO) {
             store.load().use {
               check(it.id == identity.first)
+              balanceReadWallet = it.id
+              balanceReadGeneration = it.journalId
+              balanceReadUntil = System.currentTimeMillis() + 120000
               project(it)
             }
           }
@@ -239,6 +283,994 @@ class GizuStoredSignerModule : Module() {
         )
         withProviderUi(activity) { BackupHost.open(activity, false) }
         withContext(Dispatchers.IO) { publicState(store) }
+      }
+    }
+    AsyncFunction("getEarnIntent") { walletId: String, promise: Promise ->
+      runCeremony(promise) { _, store ->
+        withContext(Dispatchers.IO) {
+          store.load().use { record ->
+            check(record.id == walletId && record.verified)
+            earnPublic(record)
+          }
+        }
+      }
+    }
+    AsyncFunction("listEarnIntents") { walletId: String, promise: Promise ->
+      runCeremony(promise) { _, store ->
+        store.load().use { record ->
+          check(record.id == walletId && record.verified)
+          val rows = org.json.JSONArray(record.earnCycles)
+          if (rows.length() == 0)
+            if (record.earnChain == 0) emptyList<Map<String, Any>>() else listOf(earnPublic(record))
+          else
+            (0 until rows.length()).map { i ->
+              recordForCycle(record, rows.getJSONObject(i)).use { earnPublic(it) }
+            }
+        }
+      }
+    }
+    AsyncFunction("selectEarnIntent") { walletId: String, intentId: String, promise: Promise ->
+      runCeremony(promise) { _, store ->
+        val index =
+          store.load().use { record ->
+            check(record.id == walletId && record.verified)
+            val rows = org.json.JSONArray(record.earnCycles)
+            (0 until rows.length())
+              .map(rows::getJSONObject)
+              .single { it.getString("intentId") == intentId }
+              .getInt("cycleIndex")
+          }
+        store.selectEarnCycle(index)
+        store.load().use { earnPublic(it) }
+      }
+    }
+    AsyncFunction("prepareNewEarnIntent") { walletId: String, profile: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val chain =
+          when (profile) {
+            "ethereum-usdc" -> 1
+            "robinhood-usdg" -> 4663
+            else -> error("Unsupported earn profile")
+          }
+        val credential =
+          store.load().use { record ->
+            check(record.id == walletId && record.verified && !record.earnRecoveryRequired)
+            record.credential
+          }
+        confirm(
+          activity,
+          "Prepare a new investment",
+          "Create a fresh holding wallet, investment wallet and confidential account. Previous investments remain available for withdrawal and recovery. No funds move.",
+        )
+        withProviderUi(activity) {
+          PasskeyGate(activity).authorize(credential, walletId, "earn-new-cycle:$profile")
+        }
+        currentCoroutineContext().ensureActive()
+        store.load().use { store.allocateEarnCycle(it, chain) }
+        store.load().use { earnPublic(it) }
+      }
+    }
+    AsyncFunction("planPublicFunding") { walletId: String, budgetAtoms: String, promise: Promise ->
+      runCeremony(promise, timeoutMs = 180_000L) { activity, store ->
+        store.load().use { record ->
+          check(record.id == walletId && record.verified && !record.earnRecoveryRequired)
+          NativeFundingPlanner(activity.applicationContext, record).plan(budgetAtoms)
+        }
+      }
+    }
+    AsyncFunction("prepareEarnSourceQuoteForAccount") {
+      walletId: String,
+      sourceIndex: Int,
+      amountAtoms: String,
+      operationId: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val identity =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            Triple(
+              record.earnChain,
+              publicAccountAddress(record, sourceIndex),
+              cycleConfidential(record),
+            )
+          }
+        val quotes = store.load().use { earnQuoteJournal(activity, it) }
+        NativeEarnQuoteGateway(quotes = quotes)
+          .create(
+            identity.first,
+            operationId,
+            revision,
+            identity.second,
+            identity.third,
+            amountAtoms,
+            false,
+          )
+      }
+    }
+    AsyncFunction("prepareEarnIntent") { walletId: String, profile: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val chain =
+          when (profile) {
+            "ethereum-usdc" -> 1
+            "robinhood-usdg" -> 4663
+            else -> error("Unsupported earn profile")
+          }
+        val identity =
+          withContext(Dispatchers.IO) {
+            store.load().use {
+              check(it.id == walletId && it.verified)
+              check(it.earnChain == 0 || it.earnChain == chain || it.earnRecoveryRequired)
+              Triple(it.credential, it.journalId, it.earnRecoveryRequired)
+            }
+          }
+        val network = if (chain == 1) "Ethereum mainnet USDC" else "Robinhood mainnet USDG"
+        confirm(
+          activity,
+          if (identity.third) "Recover earn wallets" else "Prepare two earn wallets",
+          "Source: eligible funded Monad mainnet USDC accounts. Destination: $network. Wallet 1 holds 10%; wallet 2 invests 90% after fees. Both are covered by your verified backup. This creates no transfer or investment. " +
+            if (identity.third) "Recovered wallets require activity reconciliation before funding."
+            else "Confirm your passkey to prepare this intent.",
+        )
+        withProviderUi(activity) {
+          PasskeyGate(activity).authorize(identity.first, walletId, "earn-wallets:v1:$profile")
+        }
+        currentCoroutineContext().ensureActive()
+        withContext(Dispatchers.IO) {
+          store.load().use {
+            check(it.id == walletId && it.journalId == identity.second && it.verified)
+            check(deriveEarnAddresses(it.entropy, chain.toULong()).size == 2)
+            currentCoroutineContext().ensureActive()
+            store.bindEarnChain(it, chain)
+            store.load().use { committed -> earnPublic(committed) }
+          }
+        }
+      }
+    }
+    AsyncFunction("readEarnBalance") { walletId: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val identity =
+          withContext(Dispatchers.IO) {
+            store.load().use { record ->
+              check(record.id == walletId && record.verified && record.earnChain in listOf(1, 4663))
+              Triple(record.credential, record.journalId, record.earnChain)
+            }
+          }
+        confirm(
+          activity,
+          "Check confidential USDC",
+          "Authenticate a read-only balance check for your prepared earn account. Gizu and the confidential provider receive this account identity. This does not transfer funds or confirm settlement for any operation.",
+        )
+        withProviderUi(activity) {
+          PasskeyGate(activity)
+            .authorize(identity.first, walletId, "earn-read:v1:${identity.third}")
+        }
+        val api = ConfidentialBalance()
+        val salt = api.salt()
+        currentCoroutineContext().ensureActive()
+        val random = ByteArray(7).also { SecureRandom().nextBytes(it) }
+        val started = System.currentTimeMillis()
+        val signed =
+          withContext(Dispatchers.IO) {
+            store.load().use { record ->
+              check(
+                record.id == walletId &&
+                  record.journalId == identity.second &&
+                  record.earnChain == identity.third &&
+                  record.verified
+              )
+              cycleConfidential(record) to
+                uniffi.gizu_stored_signer_core.authenticateEarnCycleRead(
+                  record.entropy,
+                  record.earnChain.toULong(),
+                  record.earnCycleIndex.toUInt(),
+                  salt,
+                  random,
+                  started.toULong(),
+                  System.currentTimeMillis().toULong(),
+                )
+            }
+          }
+        val result = api.read(signed.second, signed.first)
+        currentCoroutineContext().ensureActive()
+        withContext(Dispatchers.IO) {
+          store.load().use {
+            check(
+              it.id == walletId && it.journalId == identity.second && it.earnChain == identity.third
+            )
+            val cache = io.gizu.storedwallet.portfolio.NativeOwnedConfidentialPortfolio(activity)
+            cache.snapshot(it)
+            cache.recordValidated(
+              io.gizu.storedwallet.portfolio.NativeConfidentialTarget(
+                it.id,
+                it.journalId,
+                signed.first.lowercase(),
+                "earn",
+                it.earnChain,
+                it.earnCycleIndex,
+              ),
+              result,
+            )
+          }
+        }
+        result
+      }
+    }
+    AsyncFunction("prepareEarnSourceQuote") {
+      walletId: String,
+      amountAtoms: String,
+      operationId: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val quotes =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnQuoteJournal(activity, record)
+          }
+        val identity =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            Triple(
+              record.earnChain,
+              deriveAccountAddresses(record.entropy)[0],
+              cycleConfidential(record),
+            )
+          }
+        val quote =
+          NativeEarnQuoteGateway(quotes = quotes)
+            .create(
+              identity.first,
+              operationId,
+              revision,
+              identity.second,
+              identity.third,
+              amountAtoms,
+              false,
+            )
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          check(record.journalId == quotes.generation)
+        }
+        quote
+      }
+    }
+    AsyncFunction("prepareEarnReturnQuote") {
+      walletId: String,
+      amountAtoms: String,
+      operationId: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val quotes =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnQuoteJournal(activity, record)
+          }
+        val identity =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            check(record.earnChain == 4663)
+            cycleAddresses(record)[1] to cycleConfidential(record)
+          }
+        val quote =
+          NativeEarnQuoteGateway(quotes = quotes)
+            .create(4663, operationId, revision, identity.first, identity.second, amountAtoms, true)
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          check(record.journalId == quotes.generation)
+        }
+        quote
+      }
+    }
+    AsyncFunction("registerEarnFundingPlans") {
+      walletId: String,
+      requests: List<Map<String, Any?>>,
+      promise: Promise ->
+      runCeremony(promise, timeoutMs = 180_000L) { activity, store ->
+        check(requests.size in 1..128)
+        val journal =
+          store.load().use {
+            requireSponsoredWallet(it, walletId)
+            earnSponsoredJournal(activity, it)
+          }
+        val ledger = store.load().use { fundingReservations(activity, it) }
+        val batchIds =
+          requests
+            .map { r ->
+              check(r["walletId"] == walletId)
+              val p = JSONObject(r["proposal"] as? Map<*, *> ?: error("Missing proposal"))
+              check(
+                p.getString("kind") == "sourceFunding" &&
+                  p.getInt("chainId") == 143 &&
+                  p.getInt("fundingBatchSize") == requests.size
+              )
+              p.getString("fundingBatchId")
+            }
+            .distinct()
+        check(batchIds.size == 1)
+        val ids = mutableSetOf<String>()
+        val rows =
+          EarnSponsoredEngine(
+              store,
+              journal,
+              EarnSponsoredChainRpc(143),
+              EarnSponsoredBundlerRpc(143),
+              reservations = ledger,
+            )
+            .use { engine ->
+              requests.map { r ->
+                engine.create(r).also { check(ids.add(it.getString("operationId"))) }
+              }
+            }
+        val batch = ledger.batch(batchIds.single())
+        val legs = batch.getJSONArray("legs")
+        check(
+          legs.length() == rows.size &&
+            (0 until legs.length())
+              .map { legs.getJSONObject(it).getString("operationId") }
+              .toSet() == ids
+        )
+        ledger.commitBatch(batchIds.single())
+        rows.map { journal.public(it) }
+      }
+    }
+    AsyncFunction("executeEarnFundingBatch") { walletId: String, batchId: String, promise: Promise
+      ->
+      runCeremony(promise, timeoutMs = 300_000L) { activity, store ->
+        approveEarnFundingBatch(activity, store, walletId, batchId)
+      }
+    }
+    AsyncFunction("executeEarnSponsored") { request: Map<String, Any?>, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val walletId = request["walletId"] as? String ?: error("Missing wallet")
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnSponsoredJournal(activity, record)
+          }
+        val chain =
+          ((request["proposal"] as? Map<*, *>)?.get("chainId") as? Number)?.toInt()
+            ?: error("Missing chain")
+        EarnSponsoredEngine(
+            store,
+            journal,
+            EarnSponsoredChainRpc(chain),
+            EarnSponsoredBundlerRpc(chain),
+            reservations = store.load().use { fundingReservations(activity, it) },
+          )
+          .use { engine ->
+            val operation = engine.create(request)
+            approveEarnSponsored(
+              activity,
+              store,
+              engine,
+              operation.getString("operationId"),
+              operation.getInt("revision"),
+            )
+          }
+      }
+    }
+    AsyncFunction("listEarnSponsoredOperations") { walletId: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnSponsoredJournal(activity, record)
+          }
+        val active = store.load().use { record -> currentCycleRows(record, journal.all()) }
+        val pending =
+          active
+            .filter { it.getString("status") !in terminalSteps }
+            .map { it.getString("operationId") }
+            .toSet()
+        for (chain in
+          active
+            .map { it.getJSONObject("proposal").getInt("chainId") }
+            .distinct()) reconcileEarnSponsoredOperations(
+          journal,
+          EarnSponsoredChainRpc(chain),
+          EarnSponsoredBundlerRpc(chain),
+          chainFilter = chain,
+          operationIds = pending,
+        )
+        store.load().use { record ->
+          val ledger = fundingReservations(activity, record)
+          journal
+            .all()
+            .filter {
+              it.getString("status") in setOf("finalized", "reverted") && it.has("transactionHash")
+            }
+            .forEach { ledger.complete(it.getString("operationId")) }
+        }
+        store.load().use { record ->
+          currentCycleRows(record, journal.all()).map { journal.public(it) }
+        }
+      }
+    }
+    AsyncFunction("resumeEarnSponsoredOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnSponsoredJournal(activity, record)
+          }
+        val chain = journal.get(id).getJSONObject("proposal").getInt("chainId")
+        EarnSponsoredEngine(
+            store,
+            journal,
+            EarnSponsoredChainRpc(chain),
+            EarnSponsoredBundlerRpc(chain),
+            reservations = store.load().use { fundingReservations(activity, it) },
+          )
+          .use { engine -> approveEarnSponsored(activity, store, engine, id, revision) }
+      }
+    }
+    AsyncFunction("cancelEarnSponsoredOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnSponsoredJournal(activity, record)
+          }
+        val operation = journal.get(id)
+        val p = operation.getJSONObject("proposal")
+        store.load().use { record ->
+          requireActiveEarnCycle(record, p)
+          fundingReservations(activity, record).assertCancellationAllowed(id)
+        }
+        if (p.has("fundingBatchId"))
+          check(
+            journal.all().none { row ->
+              row.getJSONObject("proposal").optString("fundingBatchId") ==
+                p.getString("fundingBatchId") && row.sponsoredSpendSaved()
+            }
+          ) {
+            "Resume the remaining funding source; this investment has started"
+          }
+        val cancelled = journal.cancel(id, revision)
+        store.load().use { fundingReservations(activity, it).cancelUnsigned(id) }
+        journal.public(cancelled)
+      }
+    }
+    AsyncFunction("readEarnSponsoredSettlement") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnSponsoredJournal(activity, record)
+          }
+        check(journal.get(id).getInt("revision") == revision)
+        val chain = journal.get(id).getJSONObject("proposal").getInt("chainId")
+        reconcileEarnSponsoredOperations(
+          journal,
+          EarnSponsoredChainRpc(chain),
+          EarnSponsoredBundlerRpc(chain),
+          chainFilter = chain,
+          operationIds = setOf(id),
+        )
+        val operation = journal.get(id)
+        val expected = sponsoredSettlementExpected(operation)
+        val identity =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            check(record.journalId == journal.generation)
+            requireActiveEarnCycle(record, operation.getJSONObject("proposal"))
+            record.credential to record.earnChain
+          }
+        confirm(
+          activity,
+          "Confirm confidential funding settlement",
+          "Authenticate the private history for this exact funded route. An aggregate balance or public deposit status does not establish credit.\nOperation $id\nOrigin transaction ${expected.getString("transactionHash")}\nDeposit ${expected.getString("depositAddress")}\nMinimum private credit ${expected.getString("minimumCreditAtoms")} base units",
+          fullReview = true,
+        )
+        withProviderUi(activity) {
+          PasskeyGate(activity)
+            .authorize(
+              identity.first,
+              walletId,
+              "earn-settlement:v1:$id:${operation.getInt("revision")}:${operation.getString("userOperationHash")}",
+            )
+        }
+        val salt = ConfidentialBalance().salt()
+        val random = ByteArray(7).also { SecureRandom().nextBytes(it) }
+        val started = System.currentTimeMillis()
+        val auth =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            check(record.journalId == journal.generation && record.earnChain == identity.second)
+            check(cycleConfidential(record).equals(expected.getString("confidentialAccount"), true))
+            cycleReadAuth(
+              record,
+              salt,
+              random,
+              started.toULong(),
+              System.currentTimeMillis().toULong(),
+            )
+          }
+        val proof = readNativeSponsoredSettlement(auth, expected)
+        currentCoroutineContext().ensureActive()
+        requireForeground(activity)
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          check(record.journalId == journal.generation && record.earnChain == identity.second)
+        }
+        val committed =
+          journal.update(id, operation.getInt("revision")) { it.put("settlement", proof) }
+        store.load().use { record -> fundingReservations(activity, record).complete(id) }
+        journal.public(committed)
+      }
+    }
+    AsyncFunction("executeEarnWithdrawal") {
+      walletId: String,
+      returnOperationId: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        withdrawalEngine(activity, store, walletId).use { engine ->
+          val op =
+            engine.create(
+              mapOf(
+                "walletId" to walletId,
+                "returnOperationId" to returnOperationId,
+                "revision" to revision,
+              )
+            )
+          approveEarnWithdrawal(
+            activity,
+            store,
+            engine,
+            op.getString("operationId"),
+            op.getInt("revision"),
+          )
+        }
+      }
+    }
+    AsyncFunction("listEarnWithdrawalOperations") { walletId: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          val journal = earnWithdrawalJournal(activity, record)
+          currentCycleRows(record, journal.all()).map { journal.public(it) }
+        }
+      }
+    }
+    AsyncFunction("resumeEarnWithdrawalOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        withdrawalEngine(activity, store, walletId).use {
+          approveEarnWithdrawal(activity, store, it, id, revision)
+        }
+      }
+    }
+    AsyncFunction("cancelEarnWithdrawalOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          val journal = earnWithdrawalJournal(activity, record)
+          requireActiveEarnCycle(record, journal.get(id).getJSONObject("proposal"))
+          journal.public(journal.cancelUnsigned(id, revision))
+        }
+      }
+    }
+    AsyncFunction("readEarnWithdrawalSettlement") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        withdrawalEngine(activity, store, walletId).use { engine ->
+          engine.journal.public(engine.reconcile(id, revision))
+        }
+      }
+    }
+    AsyncFunction("executeEarnPrivatePayout") { request: Map<String, Any?>, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val walletId = request["walletId"] as? String ?: error("Missing wallet")
+        payoutEngine(activity, store, walletId).use { engine ->
+          val op = engine.create(request)
+          approveEarnPayout(
+            activity,
+            store,
+            engine,
+            op.getString("operationId"),
+            op.getInt("revision"),
+          )
+        }
+      }
+    }
+    AsyncFunction("listEarnPrivatePayoutOperations") { walletId: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnPayoutJournal(activity, record)
+          }
+        store.load().use { record ->
+          currentCycleRows(record, journal.all()).map { journal.public(it) }
+        }
+      }
+    }
+    AsyncFunction("resumeEarnPrivatePayoutOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        payoutEngine(activity, store, walletId).use { engine ->
+          var op = engine.journal.get(id)
+          check(op.getInt("revision") == revision)
+          if (op.has("signedData")) op = engine.reconcile(id, revision)
+          if (
+            !op.has("signedData") &&
+              !op.optBoolean("signingAuthorizationPending", false) &&
+              op.getString("status") in setOf("planned", "cancelled") ||
+              op.getString("status") == "submissionUnknown" &&
+                op.getJSONObject("proposal").getLong("deadlineMs") > System.currentTimeMillis()
+          )
+            approveEarnPayout(activity, store, engine, id, op.getInt("revision"))
+          else engine.journal.public(op)
+        }
+      }
+    }
+    AsyncFunction("cancelEarnPrivatePayoutOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            earnPayoutJournal(activity, record)
+          }
+        journal.public(journal.cancelUnsigned(id, revision))
+      }
+    }
+    AsyncFunction("readEarnPrivatePayoutSettlement") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        payoutEngine(activity, store, walletId).use { engine ->
+          engine.journal.public(engine.reconcile(id, revision))
+        }
+      }
+    }
+    AsyncFunction("prepareEarnFusionQuote") { request: Map<String, Any?>, promise: Promise ->
+      runCeremony(promise) { _, store ->
+        check(
+          request.keys ==
+            setOf(
+              "walletId",
+              "operationId",
+              "revision",
+              "inputAtoms",
+              "resolverGasPriceWei",
+              "minimumEthWei",
+              "maximumResolverOverheadWei",
+              "fundingMode",
+            )
+        )
+        val walletId = request["walletId"] as? String ?: error("Missing wallet")
+        val identity =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            Triple(record.journalId, cycleAddresses(record)[1], cycleConfidential(record))
+          }
+        val body = JSONObject(request)
+        body.remove("walletId")
+        val mode = body.getString("fundingMode")
+        check(mode in setOf("permit", "allowance"))
+        body.remove("fundingMode")
+        body
+          .put("owner", identity.second)
+          .put("confidentialAccount", identity.third)
+          .put("executionRequested", false)
+        val gateway = NativeFusionGateway()
+        val quote = gateway.quote(body)
+        check(
+          quote.binding.operationId == body.getString("operationId") &&
+            quote.binding.revision == body.getLong("revision").toULong() &&
+            quote.binding.owner.equals(identity.second, true) &&
+            quote.binding.confidentialAccount.equals(identity.third, true)
+        )
+        check(
+          quote.binding.inputAtoms == body.getString("inputAtoms") &&
+            quote.binding.minimumEthWei.toBigInteger() >=
+              body.getString("minimumEthWei").toBigInteger()
+        )
+        store.load().use { record ->
+          requireEarnExecutionWallet(record, walletId)
+          check(record.journalId == identity.first)
+        }
+        gateway.public(quote)
+      }
+    }
+    AsyncFunction("prepareEarnEthereumReturnQuote") {
+      walletId: String,
+      amountAtoms: String,
+      operationId: String,
+      revision: Int,
+      returnAsset: String,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val quotes =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            earnQuoteJournal(activity, record)
+          }
+        val identity =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            Triple(record.journalId, cycleAddresses(record)[1], cycleConfidential(record))
+          }
+        val quote =
+          NativeEarnQuoteGateway(quotes = quotes)
+            .create(
+              1,
+              operationId,
+              revision,
+              identity.second,
+              identity.third,
+              amountAtoms,
+              true,
+              returnAsset,
+            )
+        store.load().use { record ->
+          requireEarnExecutionWallet(record, walletId)
+          check(record.journalId == identity.first)
+        }
+        quote
+      }
+    }
+    AsyncFunction("executeEarnEthereumLiquidity") { request: Map<String, Any?>, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val walletId = request["walletId"] as? String ?: error("Missing wallet")
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(
+              !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+                it.earnBlocked()
+              }
+            )
+            earnLiquidityJournal(activity, record)
+          }
+        EarnLiquidityEngine(store, journal, EthereumEarnRpc()).use { engine ->
+          val operation = engine.create(request)
+          approveEarnLiquidity(
+            activity,
+            store,
+            engine,
+            operation.getString("operationId"),
+            operation.getInt("revision"),
+          )
+        }
+      }
+    }
+    AsyncFunction("listEarnEthereumLiquidityOperations") { walletId: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            earnLiquidityJournal(activity, record)
+          }
+        reconcileEarnLiquidityOperations(journal, EthereumEarnRpc(), NativeFusionGateway())
+        store.load().use { record ->
+          currentCycleRows(record, journal.all()).map { journal.public(it) }
+        }
+      }
+    }
+    AsyncFunction("resumeEarnEthereumLiquidityOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(
+              !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+                it.earnBlocked()
+              }
+            )
+            earnLiquidityJournal(activity, record)
+          }
+        EarnLiquidityEngine(store, journal, EthereumEarnRpc()).use { engine ->
+          approveEarnLiquidity(activity, store, engine, id, revision)
+        }
+      }
+    }
+    AsyncFunction("cancelEarnEthereumLiquidityOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            earnLiquidityJournal(activity, record)
+          }
+        journal.public(journal.cancel(id, revision))
+      }
+    }
+    AsyncFunction("cancelPendingEarnEthereumLiquidityOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(
+              !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+                it.earnBlocked()
+              }
+            )
+            earnLiquidityJournal(activity, record)
+          }
+        EarnLiquidityCancellationEngine(store, journal, EthereumEarnRpc()).use { engine ->
+          approveEarnLiquidityCancellation(activity, store, engine, id, revision)
+        }
+      }
+    }
+    AsyncFunction("readEarnEthereumLiquiditySettlement") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            earnLiquidityJournal(activity, record)
+          }
+        check(journal.get(id).getInt("revision") == revision)
+        reconcileEarnLiquidityOperations(journal, EthereumEarnRpc(), NativeFusionGateway())
+        val operation = journal.get(id)
+        val expected = sponsoredSettlementExpected(operation)
+        val credential =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(record.journalId == journal.generation)
+            record.credential
+          }
+        confirm(
+          activity,
+          "Review returned asset settlement",
+          "Authenticate the private history for this exact return.\nOperation $id\nOrigin transaction ${expected.getString("transactionHash")}\nDeposit ${expected.getString("depositAddress")}\nMinimum private credit ${expected.getString("minimumCreditAtoms")} atoms",
+          fullReview = true,
+        )
+        withProviderUi(activity) {
+          PasskeyGate(activity)
+            .authorize(
+              credential,
+              walletId,
+              "earn-liquidity-settlement:v1:$id:${operation.getInt("revision")}:${operation.getString("transactionHash")}",
+            )
+        }
+        val salt = ConfidentialBalance().salt()
+        val random = ByteArray(7).also { SecureRandom().nextBytes(it) }
+        val started = System.currentTimeMillis()
+        val auth =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(record.journalId == journal.generation)
+            cycleReadAuth(
+              record,
+              salt,
+              random,
+              started.toULong(),
+              System.currentTimeMillis().toULong(),
+            )
+          }
+        val proof = readNativeSponsoredSettlement(auth, expected)
+        currentCoroutineContext().ensureActive()
+        requireForeground(activity)
+        store.load().use { record ->
+          requireEarnExecutionWallet(record, walletId)
+          check(record.journalId == journal.generation)
+        }
+        journal.public(
+          journal.update(id, operation.getInt("revision")) { it.put("settlement", proof) }
+        )
+      }
+    }
+    AsyncFunction("executeEarnVault") { request: Map<String, Any?>, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val walletId = request["walletId"] as? String ?: error("Missing wallet")
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(
+              !currentCycleRows(record, earnLiquidityJournal(activity, record).all()).any {
+                it.liquidityBlocked()
+              }
+            )
+            earnVaultJournal(activity, record)
+          }
+        EarnVaultEngine(store, journal, EthereumEarnRpc()).use { engine ->
+          val operation = engine.create(request)
+          approveEarnVault(
+            activity,
+            store,
+            engine,
+            operation.getString("operationId"),
+            operation.getInt("revision"),
+          )
+        }
+      }
+    }
+    AsyncFunction("listEarnVaultOperations") { walletId: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            earnVaultJournal(activity, record)
+          }
+        reconcileEarnVaultOperations(journal, EthereumEarnRpc())
+        store.load().use { record ->
+          currentCycleRows(record, journal.all()).map { journal.public(it) }
+        }
+      }
+    }
+    AsyncFunction("resumeEarnVaultOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            check(
+              !currentCycleRows(record, earnLiquidityJournal(activity, record).all()).any {
+                it.liquidityBlocked()
+              }
+            )
+            earnVaultJournal(activity, record)
+          }
+        EarnVaultEngine(store, journal, EthereumEarnRpc()).use { engine ->
+          approveEarnVault(activity, store, engine, id, revision)
+        }
+      }
+    }
+    AsyncFunction("cancelEarnVaultOperation") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val journal =
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, walletId)
+            earnVaultJournal(activity, record)
+          }
+        journal.public(journal.update(id, revision) { it.put("cancelled", true) })
       }
     }
     AsyncFunction("restoreWallet") { promise: Promise ->
@@ -351,7 +1383,65 @@ class GizuStoredSignerModule : Module() {
                 op.close()
               }
             }
-            io.gizu.storedwallet.swap.MainnetPortfolio().read(record, saved.portfolio.history())
+            val snapshot =
+              io.gizu.storedwallet.swap
+                .MainnetPortfolio(activity.applicationContext)
+                .read(record, saved.portfolio.history())
+            val private = io.gizu.storedwallet.portfolio.NativeOwnedConfidentialPortfolio(activity)
+            if (
+              balanceReadWallet == record.id &&
+                balanceReadGeneration == record.journalId &&
+                balanceReadUntil > System.currentTimeMillis()
+            ) {
+              try {
+                val targets = private.nextTargets(record)
+                if (targets.isNotEmpty()) {
+                  val api = ConfidentialBalance()
+                  val salt = api.salt()
+                  for (target in targets) {
+                    currentCoroutineContext().ensureActive()
+                    check(balanceReadUntil > System.currentTimeMillis())
+                    val started = System.currentTimeMillis()
+                    val random = ByteArray(7).also { SecureRandom().nextBytes(it) }
+                    val auth =
+                      if (target.kind == "swap")
+                        uniffi.gizu_stored_signer_core.authenticateSwapRead(
+                          record.entropy,
+                          salt,
+                          random,
+                          started.toULong(),
+                          System.currentTimeMillis().toULong(),
+                        )
+                      else
+                        uniffi.gizu_stored_signer_core.authenticateEarnCycleRead(
+                          record.entropy,
+                          target.profileChainId.toULong(),
+                          target.cycleIndex.toUInt(),
+                          salt,
+                          random,
+                          started.toULong(),
+                          System.currentTimeMillis().toULong(),
+                        )
+                    try {
+                      private.recordValidated(target, api.read(auth, target.address))
+                    } catch (cancelled: CancellationException) {
+                      throw cancelled
+                    } catch (_: Exception) {
+                      /* Preserve visibly stale prior observations. */
+                    }
+                  }
+                }
+              } catch (cancelled: CancellationException) {
+                throw cancelled
+              } catch (_: Exception) {
+                /* Provider outage cannot fabricate a zero or hide public balances. */
+              }
+            }
+            val confidential = private.snapshot(record)
+            val assets =
+              (snapshot["ownedAssets"] as? List<*> ?: emptyList<Any>()) +
+                (confidential["ownedAssets"] as List<*>)
+            snapshot + confidential + mapOf("ownedAssets" to assets)
           }
         }
       }
@@ -431,17 +1521,644 @@ class GizuStoredSignerModule : Module() {
         }
       }
     }
-    Function("lock") { scope.launch { task?.cancel() } }
+    Function("lock") {
+      balanceReadUntil = 0
+      scope.launch { task?.cancel() }
+    }
     OnActivityEntersForeground { foreground = true }
     OnActivityEntersBackground {
       foreground = false
-      if (!awaitingProvider) task?.cancel()
+      if (!awaitingProvider) {
+        balanceReadUntil = 0
+        task?.cancel()
+      }
     }
     OnDestroy {
       task?.cancel()
       dialog?.dismiss()
       scope.cancel()
     }
+  }
+
+  private suspend fun approveEarnFundingBatch(
+    activity: Activity,
+    store: WalletStore,
+    walletId: String,
+    batchId: String,
+  ): List<Map<String, Any>> {
+    val journal =
+      store.load().use { record ->
+        requireSponsoredWallet(record, walletId)
+        earnSponsoredJournal(activity, record)
+      }
+    val ledger = store.load().use { record -> fundingReservations(activity, record) }
+    val batch = ledger.batch(batchId)
+    check(batch.getString("feature") == "earn" && batch.optBoolean("registrationComplete"))
+    val legs = batch.getJSONArray("legs")
+    val ids = (0 until legs.length()).map { legs.getJSONObject(it).getString("operationId") }
+    check(ids.distinct().size == ids.size)
+    reconcileEarnSponsoredOperations(
+      journal,
+      EarnSponsoredChainRpc(143),
+      EarnSponsoredBundlerRpc(143),
+      chainFilter = 143,
+      operationIds = ids.toSet(),
+    )
+    val engines = mutableListOf<Pair<EarnSponsoredEngine, SponsoredReview>>()
+    var grant: EarnFundingBatchApproval? = null
+    try {
+      for (id in ids) {
+        val row = journal.get(id)
+        if (row.getString("status") in terminalSteps) {
+          ledger.complete(id)
+          continue
+        }
+        if (row.has("signedUserOperation") && row.getString("status") != "signed") continue
+        check(!row.optBoolean("cancelled")) { "This funding batch was discarded" }
+        val engine =
+          EarnSponsoredEngine(
+            store,
+            journal,
+            EarnSponsoredChainRpc(143),
+            EarnSponsoredBundlerRpc(143),
+            reservations = ledger,
+          )
+        try {
+          engines.add(engine to engine.prepare(id, row.getInt("revision")))
+        } catch (error: Exception) {
+          engine.close()
+          throw error
+        }
+      }
+      if (engines.isEmpty()) return ids.map { journal.public(journal.get(it)) }
+      val rows = ids.map(journal::get)
+      val credential =
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          check(record.journalId == journal.generation)
+          grant =
+            EarnFundingBatchApproval.createManifest(
+              rows,
+              walletId,
+              record.journalId,
+              record.earnCycleIndex,
+              batchId,
+              record.roleRegistry,
+              ledger.batch(batchId),
+            )
+          record.credential
+        }
+      val total =
+        rows.fold(java.math.BigInteger.ZERO) { sum, row ->
+          sum + row.getJSONObject("proposal").getString("budgetAtoms").toBigInteger()
+        }
+      val terms =
+        rows.joinToString("\n\n") { row ->
+          val p = row.getJSONObject("proposal")
+          "Source ${p.optInt("sourceAccountIndex",0)} · ${p.getString("expectedFrom")}\nTransfer ${java.math.BigDecimal(p.getString("amountAtoms").toBigInteger(),6).toPlainString()} USDC\nMaximum gas charge ${java.math.BigDecimal(p.getString("maximumTokenFeeAtoms").toBigInteger(),6).toPlainString()} USDC · retained reserve 0.01 USDC\nPrivate recipient ${p.getString("confidentialAccount")}\nRoute ${p.getString("quoteId")}"
+        }
+      confirm(
+        activity,
+        "Review all USDC funding sources",
+        "Total budget ${java.math.BigDecimal(total,6).toPlainString()} USDC, including each source's gas cap and reserve.\n\n$terms\n\nOne passkey approves only these funding sources, their displayed amount and fee limits, and any required persistent EIP-7702 delegations. Each transaction is journaled separately. Withdrawal requires its own approval. Changed terms stop this batch.\n\n" +
+          engines.joinToString("\n\n") { it.second.text },
+        fullReview = true,
+      )
+      val approval = checkNotNull(grant)
+      withProviderUi(activity) {
+        PasskeyGate(activity)
+          .authorize(credential, walletId, "earn-funding-batch:v1:$batchId:${approval.digest}")
+      }
+      currentCoroutineContext().ensureActive()
+      requireForeground(activity)
+      approval.approveAfterPasskey(System.currentTimeMillis())
+      for ((engine, firstReview) in engines) {
+        var review = firstReview
+        for (pass in 0..1) {
+          val authorize = {
+            requireForeground(activity)
+            store.load().use { record ->
+              approval.assertAuthorized(record, journal.get(review.id), System.currentTimeMillis())
+              ledger.assertActive(review.id)
+            }
+          }
+          authorize()
+          engine.execute(review, authorize)
+          if (review.kind == "delegation") {
+            val row = journal.get(review.id)
+            review = engine.prepare(review.id, row.getInt("revision"))
+            authorize()
+          } else break
+        }
+      }
+      return ids.map { journal.public(journal.get(it)) }
+    } catch (failure: Exception) {
+      if (failure is CancellationException) throw failure
+      if (ids.any { journal.get(it).sponsoredSpendSaved() })
+        return ids.map { journal.public(journal.get(it)) }
+      throw failure
+    } finally {
+      grant?.invalidate()
+      engines.forEach { it.first.close() }
+    }
+  }
+
+  private fun withdrawalEngine(
+    activity: Activity,
+    store: WalletStore,
+    walletId: String,
+  ): EarnWithdrawalEngine {
+    val journal =
+      store.load().use { record ->
+        requireSponsoredWallet(record, walletId)
+        earnWithdrawalJournal(activity, record)
+      }
+    return EarnWithdrawalEngine(
+      store,
+      journal,
+      EarnSponsoredChainRpc(143),
+      sourceReader = { id, requestedRevision ->
+        store.load().use { record ->
+          requireSponsoredWallet(record, walletId)
+          check(record.journalId == journal.generation)
+          if (record.earnChain == 4663) {
+            val source = earnSponsoredJournal(activity, record)
+            val row = source.get(id)
+            check(
+              row.getInt("revision") == requestedRevision &&
+                row.getJSONObject("proposal").getString("kind") == "hoodTokenReturn"
+            )
+            requireActiveEarnCycle(record, row.getJSONObject("proposal"))
+            reconcileEarnSponsoredOperations(
+              source,
+              EarnSponsoredChainRpc(4663),
+              EarnSponsoredBundlerRpc(4663),
+              chainFilter = 4663,
+              operationIds = setOf(id),
+            )
+            source.get(id)
+          } else {
+            val source = earnLiquidityJournal(activity, record)
+            val row = source.get(id)
+            check(
+              row.getInt("revision") == requestedRevision &&
+                row.getJSONObject("proposal").getString("kind") in setOf("returnUsdc", "returnEth")
+            )
+            requireActiveEarnCycle(record, row.getJSONObject("proposal"))
+            reconcileEarnLiquidityOperations(source, EthereumEarnRpc(), NativeFusionGateway())
+            source.get(id)
+          }
+        }
+      },
+      readAuth = { payoutReadAuth(activity, store, journal.walletId, journal.generation) },
+    )
+  }
+
+  private suspend fun approveEarnWithdrawal(
+    activity: Activity,
+    store: WalletStore,
+    engine: EarnWithdrawalEngine,
+    id: String,
+    revision: Int,
+  ): Map<String, Any> {
+    val review = engine.prepare(id, revision)
+    val credential =
+      store.load().use { record ->
+        requireSponsoredWallet(record, engine.journal.walletId)
+        check(record.journalId == engine.journal.generation)
+        requireActiveEarnCycle(record, engine.journal.get(id).getJSONObject("proposal"))
+        record.credential
+      }
+    confirm(
+      activity,
+      if (review.retry) "Review saved withdrawal retry"
+      else "Review withdrawal to your new receiving address",
+      review.text,
+      fullReview = true,
+    )
+    withProviderUi(activity) {
+      PasskeyGate(activity)
+        .authorize(
+          credential,
+          engine.journal.walletId,
+          "earn-withdrawal:v1:$id:${review.revision}:${review.hash}",
+        )
+    }
+    currentCoroutineContext().ensureActive()
+    try {
+      engine.execute(review) {
+        requireForeground(activity)
+        store.load().use { record ->
+          requireSponsoredWallet(record, engine.journal.walletId)
+          check(record.journalId == engine.journal.generation)
+          requireActiveEarnCycle(record, engine.journal.get(id).getJSONObject("proposal"))
+        }
+      }
+    } catch (failure: Exception) {
+      if (failure is CancellationException || !engine.journal.get(id).has("signedData"))
+        throw failure
+    }
+    return engine.journal.public(engine.journal.get(id))
+  }
+
+  private fun payoutEngine(
+    activity: Activity,
+    store: WalletStore,
+    walletId: String,
+  ): EarnPayoutEngine {
+    val journal =
+      store.load().use { record ->
+        requireSponsoredWallet(record, walletId)
+        earnPayoutJournal(activity, record)
+      }
+    val profile =
+      store.load().use { record ->
+        requireSponsoredWallet(record, walletId)
+        check(record.journalId == journal.generation)
+        record.earnChain
+      }
+    return EarnPayoutEngine(
+      store,
+      journal,
+      if (profile == 1) EthereumEarnRpc() else EarnSponsoredChainRpc(4663),
+      sourceReader = { id, requestedRevision ->
+        val source =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            check(record.journalId == journal.generation)
+            earnSponsoredJournal(activity, record)
+          }
+        check(source.get(id).getInt("revision") == requestedRevision)
+        check(source.get(id).getJSONObject("proposal").getString("kind") == "sourceFunding")
+        reconcileEarnSponsoredOperations(
+          source,
+          EarnSponsoredChainRpc(143),
+          EarnSponsoredBundlerRpc(143),
+          chainFilter = 143,
+          operationIds = setOf(id),
+        )
+        currentCoroutineContext().ensureActive()
+        requireForeground(activity)
+        source.get(id)
+      },
+      sourceBatchReader = { id ->
+        val source =
+          store.load().use { record ->
+            requireSponsoredWallet(record, walletId)
+            check(record.journalId == journal.generation)
+            earnSponsoredJournal(activity, record)
+          }
+        val p = source.get(id).getJSONObject("proposal")
+        if (!p.has("fundingBatchId")) listOf(source.get(id))
+        else {
+          val batch =
+            store.load().use { record ->
+              check(record.journalId == journal.generation)
+              val batch = fundingReservations(activity, record).batch(p.getString("fundingBatchId"))
+              check(
+                batch.getString("feature") == "earn" &&
+                  batch.getInt("cycleIndex") == record.earnCycleIndex
+              )
+              batch
+            }
+          check(batch.optBoolean("registrationComplete"))
+          val legs = batch.getJSONArray("legs")
+          val ids =
+            (0 until legs.length()).map { legs.getJSONObject(it).getString("operationId") }.toSet()
+          check(legs.length() == ids.size && ids.size == p.getInt("fundingBatchSize"))
+          reconcileEarnSponsoredOperations(
+            source,
+            EarnSponsoredChainRpc(143),
+            EarnSponsoredBundlerRpc(143),
+            chainFilter = 143,
+            operationIds = ids,
+          )
+          ids.map(source::get)
+        }
+      },
+      readAuth = { payoutReadAuth(activity, store, journal) },
+    )
+  }
+
+  private suspend fun payoutReadAuth(
+    activity: Activity,
+    store: WalletStore,
+    journal: EarnPayoutJournal,
+  ): EarnReadAuthentication = payoutReadAuth(activity, store, journal.walletId, journal.generation)
+
+  private suspend fun payoutReadAuth(
+    activity: Activity,
+    store: WalletStore,
+    walletId: String,
+    generation: String,
+  ): EarnReadAuthentication {
+    val identity =
+      store.load().use { record ->
+        requireSponsoredWallet(record, walletId)
+        check(record.journalId == generation)
+        record.credential to record.earnChain
+      }
+    val random = ByteArray(7).also { SecureRandom().nextBytes(it) }
+    val started = System.currentTimeMillis()
+    confirm(
+      activity,
+      "Review private payout history authentication",
+      "Authenticate read-only confidential history to prepare or reconcile this funding allocation. This empty-intents authentication does not authorize an asset transfer.",
+      fullReview = true,
+    )
+    withProviderUi(activity) {
+      PasskeyGate(activity)
+        .authorize(
+          identity.first,
+          walletId,
+          "earn-payout-read:v1:${generation}:$started:${random.joinToString("") { "%02x".format(it) }}",
+        )
+    }
+    currentCoroutineContext().ensureActive()
+    requireForeground(activity)
+    val salt = ConfidentialBalance().salt()
+    return store.load().use { record ->
+      requireSponsoredWallet(record, walletId)
+      check(record.journalId == generation && record.earnChain == identity.second)
+      cycleReadAuth(record, salt, random, started.toULong(), System.currentTimeMillis().toULong())
+    }
+  }
+
+  private suspend fun approveEarnPayout(
+    activity: Activity,
+    store: WalletStore,
+    engine: EarnPayoutEngine,
+    id: String,
+    revision: Int,
+  ): Map<String, Any> {
+    val review = engine.prepare(id, revision)
+    val credential =
+      store.load().use { record ->
+        requireSponsoredWallet(record, engine.journal.walletId)
+        check(record.journalId == engine.journal.generation)
+        record.credential
+      }
+    val leg = engine.journal.get(id).getString("leg")
+    confirm(
+      activity,
+      if (review.retry) "Review exact saved payout retry" else "Review private $leg allocation",
+      review.text,
+      fullReview = true,
+    )
+    withProviderUi(activity) {
+      PasskeyGate(activity)
+        .authorize(
+          credential,
+          engine.journal.walletId,
+          "earn-payout:v1:$id:$leg:${review.revision}:${review.hash}",
+        )
+    }
+    currentCoroutineContext().ensureActive()
+    try {
+      engine.execute(review) {
+        requireForeground(activity)
+        store.load().use { record ->
+          requireSponsoredWallet(record, engine.journal.walletId)
+          check(record.journalId == engine.journal.generation)
+        }
+      }
+    } catch (failure: Exception) {
+      if (failure is CancellationException || !engine.journal.get(id).has("signedData"))
+        throw failure
+      // The exact signature is already durable; only the public locked child leaves native.
+    }
+    return engine.journal.public(engine.journal.get(id))
+  }
+
+  private suspend fun approveEarnLiquidityCancellation(
+    activity: Activity,
+    store: WalletStore,
+    engine: EarnLiquidityCancellationEngine,
+    id: String,
+    revision: Int,
+  ): Map<String, Any> {
+    val review =
+      engine.prepare(id, revision) ?: return engine.journal.public(engine.journal.get(id))
+    val credential =
+      store.load().use { record ->
+        requireEarnExecutionWallet(record, engine.journal.walletId)
+        check(
+          record.journalId == engine.journal.generation &&
+            !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+              it.earnBlocked()
+            }
+        )
+        record.credential
+      }
+    confirm(
+      activity,
+      if (review.retry) "Review saved nonce cancellation retry"
+      else "Review same-nonce cancellation",
+      review.text,
+      fullReview = true,
+    )
+    withProviderUi(activity) {
+      PasskeyGate(activity)
+        .authorize(
+          credential,
+          engine.journal.walletId,
+          "earn-liquidity-cancel:v1:$id:${review.revision}:${review.retry}:${review.hash}",
+        )
+    }
+    currentCoroutineContext().ensureActive()
+    try {
+      engine.execute(review) {
+        requireForeground(activity)
+        store.load().use { record ->
+          requireEarnExecutionWallet(record, engine.journal.walletId)
+          check(
+            record.journalId == engine.journal.generation &&
+              !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+                it.earnBlocked()
+              }
+          )
+        }
+      }
+    } catch (failure: Exception) {
+      if (
+        failure is CancellationException ||
+          engine.journal.get(id).liquidityCancellationAttempts().isEmpty()
+      )
+        throw failure
+      // Preserve every signed attempt and return its public locked state when submission is
+      // uncertain.
+    }
+    return engine.journal.public(engine.journal.get(id))
+  }
+
+  private suspend fun approveEarnLiquidity(
+    activity: Activity,
+    store: WalletStore,
+    engine: EarnLiquidityEngine,
+    id: String,
+    revision: Int,
+  ): Map<String, Any> {
+    var current = revision
+    repeat(2) {
+      val review = engine.prepare(id, current)
+      val credential =
+        store.load().use { record ->
+          requireEarnExecutionWallet(record, engine.journal.walletId)
+          check(
+            record.journalId == engine.journal.generation &&
+              !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+                it.earnBlocked()
+              }
+          )
+          record.credential
+        }
+      confirm(
+        activity,
+        if (review.kind == "fusionUsdcPermit") "Review exact USDC permit"
+        else "Review Ethereum liquidity operation",
+        review.text,
+        fullReview = true,
+      )
+      withProviderUi(activity) {
+        PasskeyGate(activity)
+          .authorize(
+            credential,
+            engine.journal.walletId,
+            "earn-liquidity:v1:$id:${review.revision}:${review.kind}:${review.hash}",
+          )
+      }
+      currentCoroutineContext().ensureActive()
+      try {
+        engine.execute(review) {
+          requireForeground(activity)
+          store.load().use { record ->
+            requireEarnExecutionWallet(record, engine.journal.walletId)
+            check(
+              record.journalId == engine.journal.generation &&
+                !currentCycleRows(record, earnVaultJournal(activity, record).all()).any {
+                  it.earnBlocked()
+                }
+            )
+          }
+        }
+      } catch (failure: Exception) {
+        val saved = engine.journal.get(id)
+        if (failure is CancellationException || !saved.has("raw") && !saved.has("signedOrder"))
+          throw failure
+        return engine.journal.public(saved)
+      }
+      current = engine.journal.get(id).getInt("revision")
+      if (review.kind != "fusionUsdcPermit") return engine.journal.public(engine.journal.get(id))
+    }
+    return engine.journal.public(engine.journal.get(id))
+  }
+
+  private suspend fun approveEarnSponsored(
+    activity: Activity,
+    store: WalletStore,
+    engine: EarnSponsoredEngine,
+    id: String,
+    revision: Int,
+  ): Map<String, Any> {
+    var current = revision
+    repeat(2) {
+      val review = engine.prepare(id, current)
+      val credential =
+        store.load().use { record ->
+          requireSponsoredWallet(record, engine.journal.walletId)
+          check(record.journalId == engine.journal.generation)
+          record.credential
+        }
+      confirm(
+        activity,
+        if (review.kind == "delegation") "Review persistent wallet delegation"
+        else "Review sponsored earn operation",
+        review.text,
+        fullReview = true,
+      )
+      withProviderUi(activity) {
+        PasskeyGate(activity)
+          .authorize(
+            credential,
+            engine.journal.walletId,
+            "earn-sponsored:v1:$id:${review.revision}:${review.kind}:${review.hash}",
+          )
+      }
+      currentCoroutineContext().ensureActive()
+      try {
+        engine.execute(review) {
+          requireForeground(activity)
+          store.load().use { record ->
+            requireSponsoredWallet(record, engine.journal.walletId)
+            check(record.journalId == engine.journal.generation)
+          }
+        }
+      } catch (failure: Exception) {
+        if (failure is CancellationException || !engine.journal.get(id).has("signedUserOperation"))
+          throw failure
+        return engine.journal.public(engine.journal.get(id))
+      }
+      current = engine.journal.get(id).getInt("revision")
+      if (review.kind != "delegation") return engine.journal.public(engine.journal.get(id))
+    }
+    return engine.journal.public(engine.journal.get(id))
+  }
+
+  private suspend fun approveEarnVault(
+    activity: Activity,
+    store: WalletStore,
+    engine: EarnVaultEngine,
+    id: String,
+    revision: Int,
+  ): Map<String, Any> {
+    val review = engine.prepare(id, revision)
+    val identity =
+      store.load().use { record ->
+        requireEarnExecutionWallet(record, engine.journal.walletId)
+        check(record.journalId == engine.journal.generation)
+        record.credential
+      }
+    confirm(
+      activity,
+      if (engine.journal.get(id).getJSONObject("proposal").getString("kind") == "vaultDeposit")
+        "Review vault investment"
+      else "Review full vault withdrawal",
+      review.text,
+      fullReview = true,
+    )
+    withProviderUi(activity) {
+      PasskeyGate(activity)
+        .authorize(
+          identity,
+          engine.journal.walletId,
+          "earn-vault:v1:$id:${review.revision}:${review.hash}",
+        )
+    }
+    currentCoroutineContext().ensureActive()
+    try {
+      engine.execute(review) {
+        requireForeground(activity)
+        store.load().use { record ->
+          requireEarnExecutionWallet(record, engine.journal.walletId)
+          check(
+            record.journalId == engine.journal.generation &&
+              !currentCycleRows(record, earnLiquidityJournal(activity, record).all()).any {
+                it.liquidityBlocked()
+              }
+          )
+        }
+      }
+    } catch (failure: Exception) {
+      if (
+        failure is CancellationException ||
+          !engine.journal.get(id).steps().any {
+            it.has("raw") && it.getString("status") !in terminalSteps
+          }
+      )
+        throw failure
+      // A signed transaction with uncertain network outcome returns its public locked state.
+    }
+    return engine.journal.public(engine.journal.get(id))
   }
 
   private suspend fun createWallet(activity: Activity, store: WalletStore): Map<String, Any> {
@@ -470,6 +2187,37 @@ class GizuStoredSignerModule : Module() {
   private fun publicState(store: WalletStore): Map<String, Any> {
     val state = store.state()
     return if (state["status"] == "ready") store.load().use { project(it) } else state
+  }
+
+  private fun earnPublic(record: WalletRecord): Map<String, Any> {
+    check(record.verified)
+    if (record.earnChain == 0)
+      return mapOf("status" to if (record.earnRecoveryRequired) "recoveryRequired" else "absent")
+    val profile = if (record.earnChain == 1) "ethereum-usdc" else "robinhood-usdg"
+    val addresses = cycleAddresses(record)
+    check(addresses.size == 2 && addresses[0] != addresses[1])
+    return mapOf(
+      "status" to if (record.earnRecoveryRequired) "recoveryRequired" else "prepared",
+      "intentId" to
+        if (record.earnCycleIndex == 0) "earn-v1:${record.id.lowercase()}:$profile"
+        else "earn-v2:${record.id.lowercase()}:$profile:${record.earnCycleIndex}",
+      "cycleIndex" to record.earnCycleIndex,
+      "version" to if (record.earnCycleIndex == 0) "gizu-earn-v1" else "gizu-earn-v2",
+      "walletId" to record.id,
+      "profileId" to profile,
+      "sourceAddress" to deriveAccountAddresses(record.entropy)[0],
+      "sourceChainId" to 143,
+      "confidentialAddress" to cycleConfidential(record),
+      "backupCovered" to true,
+      "destinations" to
+        addresses.mapIndexed { index, address ->
+          mapOf(
+            "role" to if (index == 0) "hold" else "invest",
+            "address" to address,
+            "chainId" to record.earnChain,
+          )
+        },
+    )
   }
 
   private fun project(record: WalletRecord): Map<String, Any> =

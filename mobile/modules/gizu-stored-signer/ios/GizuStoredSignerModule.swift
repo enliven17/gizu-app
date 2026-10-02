@@ -84,6 +84,11 @@ public final class GizuStoredSignerModule: Module {
       [
         "contractVersion": 1, "available": Self.supported, "walletStorage": Self.supported,
         "backup": Self.supported, "transfers": Self.supported, "swaps": Self.supported,
+        "earnWallets": Self.supported,
+        "earnVaultExecution": false,
+        "earnSponsoredExecution": false,
+        "earnPrivatePayoutExecution": false,
+        "earnEthereumLiquidityExecution": false,
       ]
     }
 
@@ -106,8 +111,95 @@ public final class GizuStoredSignerModule: Module {
       self.run(promise, operation: "restoreWallet") { try await $0.restore() }
     }
 
+    // Keep the contract named on both platforms. iOS cannot sign vault operations until
+    // pinned chain state, durable raw-byte recovery and receipt semantics have parity.
+    AsyncFunction("prepareEarnSourceQuote") { (_: String, _: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("prepareEarnReturnQuote") { (_: String, _: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("executeEarnSponsored") { (_: [String: Any], promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("listEarnSponsoredOperations") { (_: String, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("resumeEarnSponsoredOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("cancelEarnSponsoredOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("readEarnSponsoredSettlement") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native sponsored earn execution is unavailable on iOS in this build.")
+    }
+
+    AsyncFunction("executeEarnPrivatePayout") { (_: [String: Any], promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native private payout execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("listEarnPrivatePayoutOperations") { (_: String, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native private payout execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("resumeEarnPrivatePayoutOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native private payout execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("cancelEarnPrivatePayoutOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native private payout execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("readEarnPrivatePayoutSettlement") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native private payout execution is unavailable on iOS in this build.")
+    }
+
+    AsyncFunction("prepareEarnFusionQuote") { (_: [String: Any], promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+    AsyncFunction("prepareEarnEthereumReturnQuote") { (_: String, _: String, _: String, _: Int, _: String, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+    AsyncFunction("executeEarnEthereumLiquidity") { (_: [String: Any], promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+    AsyncFunction("listEarnEthereumLiquidityOperations") { (_: String, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+    AsyncFunction("resumeEarnEthereumLiquidityOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+    AsyncFunction("cancelEarnEthereumLiquidityOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+    AsyncFunction("cancelPendingEarnEthereumLiquidityOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity cancellation is unavailable on iOS in this build.")
+    }
+    AsyncFunction("readEarnEthereumLiquiditySettlement") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
+    }
+
+    AsyncFunction("executeEarnVault") { (_: [String: Any], promise: Promise) in
+      promise.reject("UNAVAILABLE", "Ethereum vault execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("listEarnVaultOperations") { (_: String, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Ethereum vault journal is unavailable on iOS in this build.")
+    }
+    AsyncFunction("resumeEarnVaultOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Ethereum vault execution is unavailable on iOS in this build.")
+    }
+    AsyncFunction("cancelEarnVaultOperation") { (_: String, _: String, _: Int, promise: Promise) in
+      promise.reject("UNAVAILABLE", "Ethereum vault journal is unavailable on iOS in this build.")
+    }
+
     AsyncFunction("executeOperation") { (proposal: [String: Any], promise: Promise) in
       self.run(promise, operation: "executeOperation") { try await $0.transfer(proposal) }
+    }
+    AsyncFunction("getEarnIntent") { (walletId: String, promise: Promise) in
+      self.run(promise, operation: "getEarnIntent") { try $0.earnIntent(walletId: walletId) }
+    }
+    AsyncFunction("readEarnBalance") { (walletId: String, promise: Promise) in
+      self.run(promise, operation: "readEarnBalance") { try await $0.readEarnBalance(walletId:walletId) }
+    }
+    AsyncFunction("prepareEarnIntent") { (walletId: String, profile: String, promise: Promise) in
+      self.run(promise, operation: "prepareEarnIntent") { try await $0.prepareEarnIntent(walletId: walletId, profile: profile) }
     }
 
     AsyncFunction("listOperations") { (promise: Promise) in

@@ -14,7 +14,8 @@ The replacement is named `GizuStoredSigner`; its versioned public contract is
 storage, passkey create/open, verified backup/restore and exact transfers in
 `modules/gizu-stored-signer`.
 Only backup-verified wallets enter app sessions. Other platforms are unsupported;
-normal startup remains native-only. Withdraw and Activity use the replacement operation journal.
+normal startup remains native-only. The isolated testnet transfer diagnostic uses the replacement operation journal.
+Normal Home reads Monad mainnet USDC; that view does not grant mainnet transfer authority.
 
 The contract provides wallet states (absent, backupRequired, ready, recoveryRequired),
 native create/open/backup/restore ceremonies and operation execute/status/resume/
@@ -105,7 +106,8 @@ PRF never cross Expo; owned buffers are cleared before document selection. Provi
 and managed-runtime copies cannot be guaranteed to be erased. Two fresh passkey
 checks are expected for save and reopen verification.
 
-Android local binary storage version 3 adds a journal-generation UUID. Version-2 records
+Android local binary storage version 4 retains the version-3 journal-generation UUID
+and adds the selected Earn chain and a restore reconciliation gate. Version-2 records
 retain readiness and use their wallet UUID as journal generation; version-1 records
 load as backup-required without changing entropy. Restore requires the encrypted
 file and its original passkey, validates authenticated metadata and derivation,
@@ -353,3 +355,57 @@ Read on 2026-09-24; revalidate version-specific APIs before implementation.
   `/api/v1/crates/{name}/{version}/dependencies`; observed bip32 0.6.0 → k256 ^0.14.
 - [Monad testnet information](https://docs.monad.xyz/developer-essentials/testnet)
 - [Monad gas pricing](https://docs.monad.xyz/developer-essentials/gas-pricing)
+
+## Confidential Earn v1 boundary
+
+The main application source is legacy account 0, viewed as Monad mainnet Circle USDC.
+The existing MON transfer policy remains chain 10143 only. The new Earn entry point
+is [documented separately](CONFIDENTIAL_EARN.md); no mainnet spend method is enabled.
+
+After explicit intent and native review/passkey approval, `prepareEarnIntent` binds one
+supported destination profile and persists it atomically. Destination roles are derived
+at `m/44'/60'/143'/destinationChain'/role`: role 0 holds; role 1 invests. Chains 1 and 4663
+use distinct branches, separate from legacy accounts. Retries/readback recover the same pair.
+The original verified 32-byte entropy backup covers these branches. Additional independent
+cycles require a versioned allocator and recovery discovery before reuse is allowed.
+
+Role 2 is an internal confidential identity, not a third public destination wallet.
+`readEarnBalance` performs native review/passkey authorization, fetches the fixed public
+Intents salt, and asks the Rust core to construct and sign an empty ERC-191 read-authentication
+payload. The core accepts no arbitrary message or spending intents. Signed authentication
+is sent directly from native code to the fixed Gizu backend; signatures, entropy and provider
+session credentials never cross Expo. The public result is an authenticated aggregate
+Monad-USDC balance with `operationScoped: false`, never settlement authority.
+
+Restore exposes candidate addresses but keeps `earnRecoveryRequired` set. Changing candidates
+while gated is read-only; neither a balance check nor zero local history clears this flag.
+Wallet ID, journal generation and profile are rechecked across authorization/network calls.
+Full funding and return completion require separately authenticated operation-scoped evidence.
+
+### Android USB backend test build
+
+Native Earn normally uses the fixed HTTPS Render backend. An explicit Gradle
+`-PgizuEarnBackend=usb` opt-in selects only
+`http://127.0.0.1:3000/v1/earn/native` in **debug** builds. The aggregate private-balance
+read uses the same backend with the pinned `/v1/earn/private-balance` path. Debug builds
+without the property keep Render; release builds always keep Render HTTPS even if the
+USB property is passed. Other property values fail the build. There is no URL parameter,
+Expo setter or change to chain RPCs, native policy, review or passkey authorization.
+
+For a connected Android device, run the ignored local backend configuration on port
+3000, reverse both backend and Metro ports, and use the same loopback base for JavaScript:
+
+```sh
+adb reverse tcp:3000 tcp:3000
+adb reverse tcp:8081 tcp:8081
+# From mobile/android, with the configured JDK 17 and Android SDK:
+./gradlew :gizu-stored-signer:testDebugUnitTest :app:assembleDebug -PgizuEarnBackend=usb
+# From mobile (in a separate terminal):
+EXPO_PUBLIC_API_URL=http://127.0.0.1:3000 npm run start -- --localhost
+```
+
+Install the resulting debug APK using the normal local device workflow. Rebuild without
+`-PgizuEarnBackend=usb` to return native requests to Render, and set JavaScript's
+`EXPO_PUBLIC_API_URL` to the same hosted HTTPS base. Backend provider credentials stay
+in the ignored backend environment file; never put them in Expo public configuration.
+The USB option is a local transport choice and does not make preview or signing automatic.

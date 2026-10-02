@@ -9,6 +9,21 @@ const apiEnvSchema = z.object({
   ONEINCH_API_KEY: z.string().min(1),
   AURORA_API_KEY: z.string().min(1),
   PIMLICO_API_KEY: z.string().min(1),
+  ETHEREUM_RPC_URL: z
+    .url()
+    .refine((value) => value.startsWith("https://"))
+    .optional(),
+  ROBINHOOD_RPC_URL: z
+    .url()
+    .refine((value) => value.startsWith("https://"))
+    .optional(),
+  EARN_GATEWAY_RECOVERY_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i)
+    .optional(),
+  EARN_AURORA_HISTORY_QUALIFIED: z.enum(["true", "false"]).optional(),
+  EARN_ANVIL_PATH: z.string().min(1).optional(),
+  EARN_AURORA_FEE_QUALIFICATION_JSON: z.string().min(1).max(16384).optional(),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

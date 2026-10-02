@@ -4,6 +4,8 @@
 
 # Confidential routing / earn handover — 29 September 2026
 
+**App implementation handover — 30 September:** use [APP-INTEGRATION-HANDOVER.md](APP-INTEGRATION-HANDOVER.md) for current fee policy, product disclosure, exact completed-cycle accounting, privacy and production requirements. Start the next implementation with [APP-INTEGRATION-TASK.md](APP-INTEGRATION-TASK.md). The remaining sections here retain the research chronology.
+
 **Latest recovery/configuration update:** [RECOVERY.md](RECOVERY.md) records the user-authorized liquid-asset recovery to Monad: 2.928620 USDC received, zero liquid ETH/USDC left in wallet 2, old vault shares unchanged. The two recovery funding transactions were sent on mainnet; no new earn test was funded.
 
 **Current two-route implementation:** [TWO-ROUTES.md](TWO-ROUTES.md) supersedes the historical destination design below for new tests. Both new profiles use 10/90 confidential payouts, the same configured destination addresses on both chains, and wallet-2-only deposits. A saved Monad balance snapshot allocates 70% to Ethereum and 30% to Robinhood, including source gas. Historical 20/80 transaction records below are unchanged. Ethereum uses Fusion/native ETH; Robinhood uses USDG with Pimlico. The latest Robinhood local cycle left 0.025111 USDG, zero ETH and zero shares. The acceptance criterion now applies after the full return to Aurora, not immediately after deposit. Public sponsorship/inclusion and actual Aurora settlement remain unproved by the mocked local cycle. No mainnet transaction was sent.

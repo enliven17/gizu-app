@@ -386,7 +386,7 @@ mod tests {
         assert!(!ok(source(), 1_196_276, 1_200_000, &fresh_chain()));
         assert!(!ok(deposit(), 1_196_275, 1_200_000, &fresh_chain()));
         assert!(!ok(deposit(), 1_196_276, 1_199_000, &fresh_chain()));
-        assert!(!ok(deposit(), 1_196_276, 10_000_001, &fresh_chain()));
+        assert!(ok(deposit(), 1_196_276, 10_000_001, &fresh_chain()));
         let unknown = FundingChain {
             code: vec![0xef, 0x01, 0x00, 1, 2, 3],
             ..fresh_chain()

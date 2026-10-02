@@ -34,7 +34,15 @@ internal class NativeRpcTransport(
       .callTimeout(30, TimeUnit.SECONDS)
       .build(),
 ) {
-  suspend fun post(payload: String): String = execute("POST", endpoint, payload).second
+  suspend fun post(payload: String): String {
+    val (status, body) = execute("POST", endpoint, payload)
+    if (status !in 200..299) {
+      if (endpoint.startsWith("$EARN_NATIVE_BACKEND/"))
+        safeEarnGatewayFailure(body)?.let { throw it }
+      throw RpcFailure(RpcFailureCode.HTTP)
+    }
+    return body
+  }
 
   suspend fun execute(method: String, url: String, body: String?): Pair<Int, String> =
     suspendCancellableCoroutine { continuation ->
@@ -107,4 +115,38 @@ internal class NativeRpcTransport(
         url.length <= 300
     }
   }
+}
+
+internal class EarnGatewayFailure(val code: String, message: String) : Exception(message)
+
+internal fun safeEarnGatewayFailure(body: String): EarnGatewayFailure? {
+  if (body.toByteArray().size > 4096) return null
+  val code =
+    try {
+      org.json.JSONObject(body).getString("code")
+    } catch (_: Exception) {
+      return null
+    }
+  val message =
+    when (code) {
+      "EARN_AURORA_FEE_UNQUALIFIED" ->
+        "Provider fee collectors and referral require qualification. No funds moved."
+      "EARN_SETTLEMENT_UNQUALIFIED" ->
+        "Operation-specific settlement access requires qualification. No funds moved."
+      "EARN_RECOVERY_UNAVAILABLE",
+      "EARN_PAYOUT_RECOVERY_UNCONFIGURED" ->
+        "Durable Earn recovery is unavailable. No new operation was signed."
+      "EARN_NATIVE_QUOTE_UNAVAILABLE" -> "A fresh executable Earn quote could not be verified."
+      "EARN_QUOTE_UNKNOWN_OR_EXPIRED" -> "Earn quote expired. Review fresh terms before signing."
+      "EARN_QUOTE_BINDING_CHANGED",
+      "EARN_PAYOUT_BINDING_CHANGED" ->
+        "Earn quote terms changed. Review the saved operation before retrying."
+      "EARN_QUOTE_RECOVERY_REJECTED",
+      "EARN_PAYOUT_RECOVERY_REJECTED" ->
+        "Saved Earn recovery could not be verified. Reconcile before retrying."
+      "EARN_SETTLEMENT_UNAVAILABLE" ->
+        "Operation-specific confidential credit is unavailable. Reconcile before proceeding."
+      else -> return null
+    }
+  return EarnGatewayFailure(code, message)
 }

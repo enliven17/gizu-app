@@ -14,6 +14,27 @@ import { OneInchTokenCatalog } from "./adapters/oneinch/token-catalog.ts";
 import { PimlicoMonadFunding } from "./adapters/pimlico/monad-funding.ts";
 import { registerSwapRoutes } from "./http/routes/swap.routes.ts";
 import { registerTokenRoutes } from "./http/routes/tokens.routes.ts";
+import { ConfidentialBalance } from "./adapters/aurora/confidential-balance.ts";
+import { EarnPreflight } from "./adapters/evm/earn-preflight.ts";
+import { registerEarnRoutes } from "./http/routes/earn.routes.ts";
+import { registerEarnPlanningRoutes } from "./http/routes/earn-planning.routes.ts";
+import { EthereumDepositPlanner } from "./adapters/earn/ethereum-deposit-planner.ts";
+import { MonadFundingPlanner } from "./adapters/pimlico/source-funding.ts";
+import { EthereumWithdrawalPlanner } from "./adapters/earn/ethereum-withdrawal-planner.ts";
+import { RobinhoodDepositPlanner } from "./adapters/earn/robinhood-deposit-planner.ts";
+import { ConfidentialSettlement } from "./adapters/aurora/settlement.ts";
+import { registerEarnSettlementRoutes } from "./http/routes/earn-settlement.routes.ts";
+import { NativeEarnGateway,parseAuroraFeeQualification } from "./adapters/earn/native-gateway.ts";
+import { registerEarnNativeRoutes } from "./http/routes/earn-native.routes.ts";
+import { FusionNativeGateway } from "./adapters/earn/fusion-native.ts";
+import { registerEarnFusionRoutes } from "./http/routes/earn-fusion.routes.ts";
+import { PrivatePayoutGateway } from "./adapters/earn/private-payout.ts";
+import {RobinhoodWithdrawalPlanner,RobinhoodReturnPlanner} from "./adapters/earn/robinhood-exit-planner.ts";
+import { EthereumReturnPlanner } from "./adapters/earn/ethereum-return-planner.ts";
+import { registerEarnReturnRoutes } from "./http/routes/earn-return.routes.ts";
+import { EarnExitSnapshot } from "./adapters/earn/exit-snapshot.ts";
+import { registerEarnExitRoutes } from "./http/routes/earn-exit.routes.ts";
+import { registerEarnPayoutRoutes } from "./http/routes/earn-payout.routes.ts";
 import { HttpMerklOpportunities } from "./adapters/merkl/http-merkl-opportunities.ts";
 import { PgCache } from "./adapters/postgres/pg-cache.ts";
 import { PgDatabaseProbe } from "./adapters/postgres/pg-database-probe.ts";
@@ -65,6 +86,17 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
     funding: new PimlicoMonadFunding(secret.PIMLICO_API_KEY),
     fusion: new OneInchFusion(secret.ONEINCH_API_KEY),
   });
+  registerEarnRoutes(app, new EarnPreflight(), new ConfidentialBalance(secret.AURORA_API_KEY));
+  const ethereumPlannerConfig={rpcUrl:secret.ETHEREUM_RPC_URL??"https://ethereum-rpc.publicnode.com",oneInchApiKey:secret.ONEINCH_API_KEY,anvilPath:secret.EARN_ANVIL_PATH};
+  registerEarnSettlementRoutes(app,new ConfidentialSettlement(secret.AURORA_API_KEY));
+  const nativeGateway=new NativeEarnGateway({auroraHistoryQualified:secret.EARN_AURORA_HISTORY_QUALIFIED==="true",recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,pimlicoApiKey:secret.PIMLICO_API_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined});
+  const hoodConfig={rpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com",pimlicoApiKey:secret.PIMLICO_API_KEY,anvilPath:secret.EARN_ANVIL_PATH,auroraApiKey:secret.AURORA_API_KEY};
+  registerEarnPlanningRoutes(app,new EthereumDepositPlanner(ethereumPlannerConfig),new MonadFundingPlanner(secret.PIMLICO_API_KEY),new EthereumWithdrawalPlanner(ethereumPlannerConfig),new RobinhoodDepositPlanner(hoodConfig),new RobinhoodWithdrawalPlanner(hoodConfig),new RobinhoodReturnPlanner(hoodConfig,nativeGateway));
+  registerEarnNativeRoutes(app,nativeGateway);
+  registerEarnReturnRoutes(app,new EthereumReturnPlanner(ethereumPlannerConfig,{quote:r=>nativeGateway.returnQuote(r)}));
+  registerEarnFusionRoutes(app,new FusionNativeGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,apiKey:secret.ONEINCH_API_KEY,rpcUrl:ethereumPlannerConfig.rpcUrl}));
+  registerEarnExitRoutes(app, new EarnExitSnapshot({ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL,auroraApiKey:secret.AURORA_API_KEY}));
+  registerEarnPayoutRoutes(app,new PrivatePayoutGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined,ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com"}));
   const opportunities = new HttpMerklOpportunities(
     secret.MERKL_API_URL,
     secret.MERKL_API_KEY,

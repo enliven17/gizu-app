@@ -1,4 +1,5 @@
 import { AppError, errorMessage } from "@/domain/errors";
+import { AppState } from "react-native";
 import {
   createContext,
   useCallback,
@@ -38,10 +39,59 @@ export function validateMainnetPortfolio(
     return sum + atoms(account.balanceAtoms);
   }, 0n);
   if (total !== atoms(value.totalAtoms)) throw new AppError("invalid-response");
+  const assets = [...(value.ownedAssets ?? []), ...(value.positions ?? [])];
+  if (assets.length > 4096) throw new AppError("invalid-response");
+  for (const asset of assets) {
+    if (
+      !asset.assetId ||
+      typeof asset.symbol !== "string" ||
+      !asset.symbol ||
+      asset.symbol.length > 32 ||
+      !Number.isSafeInteger(asset.chainId) ||
+      asset.chainId <= 0 ||
+      (asset.decimals !== null &&
+        (!Number.isInteger(asset.decimals) || asset.decimals < 0 || asset.decimals > 36)) ||
+      typeof asset.complete !== "boolean" ||
+      typeof asset.stale !== "boolean" ||
+      typeof asset.valuationUnavailable !== "boolean" ||
+      !Number.isFinite(asset.checkedAt) ||
+      asset.checkedAt < 0
+    )
+      throw new AppError("invalid-response");
+    atoms(asset.observedAtoms);
+    if (asset.balanceAtoms !== null) atoms(asset.balanceAtoms);
+    if (asset.valueUsdcAtoms !== null) atoms(asset.valueUsdcAtoms);
+    if (asset.complete && asset.balanceAtoms === null) throw new AppError("invalid-response");
+    if (
+      "shareDecimals" in asset &&
+      asset.shareDecimals !== undefined &&
+      asset.shareDecimals !== null &&
+      (!Number.isInteger(asset.shareDecimals) ||
+        (asset.shareDecimals as number) < 0 ||
+        (asset.shareDecimals as number) > 36)
+    )
+      throw new AppError("invalid-response");
+    if (
+      "conversionEstimated" in asset &&
+      asset.conversionEstimated !== undefined &&
+      typeof asset.conversionEstimated !== "boolean"
+    )
+      throw new AppError("invalid-response");
+    if ("shareAtoms" in asset && asset.shareAtoms !== null) atoms(asset.shareAtoms as string);
+    if ("underlyingAtoms" in asset && asset.underlyingAtoms !== null)
+      atoms(asset.underlyingAtoms as string);
+    if (
+      "observedUnderlyingAtoms" in asset &&
+      asset.observedUnderlyingAtoms !== undefined &&
+      asset.observedUnderlyingAtoms !== null
+    )
+      atoms(asset.observedUnderlyingAtoms as string);
+  }
   return value;
 }
 
-function useMainnetState(session: MainnetWalletSession) {
+export type MainnetPortfolioService = { getMainnetPortfolio(): Promise<MainnetPortfolioSnapshot> };
+function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfolioService) {
   const [snapshot, setSnapshot] = useState<MainnetPortfolioSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -59,7 +109,7 @@ function useMainnetState(session: MainnetWalletSession) {
     setLoading(true);
     setError("");
     try {
-      const signer = getStoredSwapSigner();
+      const signer = service ?? getStoredSwapSigner();
       if (!signer)
         throw new AppError("unavailable", "Native mainnet portfolio is unavailable in this build.");
       const result = validateMainnetPortfolio(await signer.getMainnetPortfolio(), session.walletId);
@@ -72,19 +122,33 @@ function useMainnetState(session: MainnetWalletSession) {
       busy.current = false;
       if (alive.current) setLoading(false);
     }
-  }, [session.walletId, session.address]);
+  }, [session.walletId, session.address, service]);
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      if (alive.current) return refresh();
+    });
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") void refresh();
+    });
+    return () => subscription.remove();
+  }, [refresh]);
   return { session, snapshot, loading, error, refresh };
 }
 const Context = createContext<ReturnType<typeof useMainnetState> | null>(null);
 export function MainnetWalletProvider({
   session,
   children,
-}: PropsWithChildren<{ session: MainnetWalletSession }>) {
-  const value = useMainnetState(session);
+  service,
+}: PropsWithChildren<{ session: MainnetWalletSession; service?: MainnetPortfolioService }>) {
+  const value = useMainnetState(session, service);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useMainnetWallet() {
   const value = useContext(Context);
   if (!value) throw new Error("Mainnet wallet provider required");
   return value;
+}
+
+export function useOptionalMainnetWallet() {
+  return useContext(Context);
 }

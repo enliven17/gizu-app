@@ -7,7 +7,8 @@ import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
 export const swapGateway =
   process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://127.0.0.1:3000" : "");
 
-export const MAX_SOURCE_ATOMS = 10_000_000n;
+/** Native Swap represents each explicitly chosen budget as unsigned 64-bit USDC atoms. */
+export const MAX_SOURCE_ATOMS = (1n << 64n) - 1n;
 
 /**
  * Temporary: offers "finish unfinished buys" for recipient wallets an earlier operation left
@@ -25,6 +26,7 @@ export type ListedToken = {
 };
 
 export function sourceAtoms(amount: string): string | null {
+  if (amount.length > 21) return null;
   const value = parseSwapAmount(amount);
   if (value === null || value < 1n || value > MAX_SOURCE_ATOMS) return null;
   return value.toString();

@@ -45,6 +45,104 @@ class WalletStoreTest {
     )
 
   @Test
+  fun freshCyclesKeepPreviousProfileAndWithdrawalRecipients() {
+    val file = File()
+    val store = WalletStore(file, Keys())
+    wallet().use {
+      store.create(it)
+      store.markVerified(it)
+    }
+    store.load().use { store.bindEarnChain(it, 4663) }
+    store.load().use { store.allocateEarnCycle(it, 1) }
+    store.load().use {
+      assertEquals(1, it.earnCycleIndex)
+      assertEquals(1, it.earnChain)
+      assertEquals(2, org.json.JSONArray(it.earnCycles).length())
+      store.reserveEarnWithdrawal(it)
+    }
+    val first =
+      store.load().use {
+        org.json.JSONArray(it.earnCycles).getJSONObject(1).getInt("withdrawalIndex")
+      }
+    store.load().use { store.reserveEarnWithdrawal(it) }
+    store.load().use {
+      assertEquals(
+        first,
+        org.json.JSONArray(it.earnCycles).getJSONObject(1).getInt("withdrawalIndex"),
+      )
+      store.allocateEarnCycle(it, 4663)
+    }
+    store.load().use {
+      assertEquals(2, it.earnCycleIndex)
+      store.reserveEarnWithdrawal(it)
+    }
+    store.load().use {
+      assertNotEquals(
+        first,
+        org.json.JSONArray(it.earnCycles).getJSONObject(2).getInt("withdrawalIndex"),
+      )
+    }
+    store.selectEarnCycle(0)
+    store.load().use {
+      assertEquals(4663, it.earnChain)
+      assertEquals(0, it.earnCycleIndex)
+    }
+  }
+
+  @Test
+  fun earnBindingIsDurableImmutableAndCoveredByExistingEntropy() {
+    val file = File()
+    val keys = Keys()
+    val store = WalletStore(file, keys)
+    wallet().use {
+      store.create(it)
+      store.markVerified(it)
+    }
+    store.load().use { store.bindEarnChain(it, 1) }
+    val reopened = WalletStore(file, keys)
+    reopened.load().use {
+      assertEquals(1, it.earnChain)
+      assertFalse(it.earnRecoveryRequired)
+      assertArrayEquals(ByteArray(32) { n -> n.toByte() }, it.entropy)
+      reopened.bindEarnChain(it, 1)
+      assertThrows(IllegalStateException::class.java) { reopened.bindEarnChain(it, 4663) }
+    }
+    keys.key = null
+    wallet().use { reopened.restore(it) }
+    reopened.load().use {
+      assertTrue(it.earnRecoveryRequired)
+      assertEquals(0, it.earnChain)
+      reopened.bindEarnChain(it, 1)
+    }
+    reopened.load().use {
+      assertTrue(it.earnRecoveryRequired)
+      assertEquals(1, it.earnChain)
+      reopened.bindEarnChain(it, 4663)
+    }
+    reopened.load().use {
+      assertTrue(it.earnRecoveryRequired)
+      assertEquals(4663, it.earnChain)
+    }
+  }
+
+  @Test
+  fun earnBindingRequiresVerifiedWalletAndCommittedStorage() {
+    val file = File()
+    val store = WalletStore(file, Keys())
+    wallet().use { store.create(it) }
+    store.load().use {
+      assertThrows(IllegalStateException::class.java) { store.bindEarnChain(it, 1) }
+    }
+    wallet().use { store.markVerified(it) }
+    store.load().use {
+      assertThrows(IllegalArgumentException::class.java) { store.bindEarnChain(it, 143) }
+      file.fail = true
+      assertThrows(IllegalStateException::class.java) { store.bindEarnChain(it, 1) }
+    }
+    store.load().use { assertEquals(0, it.earnChain) }
+  }
+
+  @Test
   fun roundTripRestartAndPublicStateNeverExposeEntropy() {
     val file = File()
     val keys = Keys()

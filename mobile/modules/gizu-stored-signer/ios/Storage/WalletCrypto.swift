@@ -96,9 +96,15 @@ internal final class WalletRecord {
   var verified: Bool
   let journalId: String
   let roleRegistry: String
+  let earnChain: Int
+  let earnRecoveryRequired: Bool
+  let earnCycleIndex: Int
+  let earnCycles: String
   init(
     id: String, credential: StoredCredential, entropy: Data, verified: Bool = false,
-    journalId: String? = nil, roleRegistry: String = #"{"version":1,"nextRecipient":3}"#
+    journalId: String? = nil, roleRegistry: String = #"{"version":1,"nextRecipient":3}"#,
+    earnChain: Int = 0, earnRecoveryRequired: Bool = false,
+    earnCycleIndex: Int = 0, earnCycles: String = "[]"
   ) throws {
     try require(UUID(uuidString: id) != nil && entropy.count == 32)
     try credential.validate()
@@ -109,6 +115,15 @@ internal final class WalletRecord {
     self.verified = verified
     self.journalId = journalId ?? id
     self.roleRegistry = roleRegistry
+    try require([0, 1, 4663].contains(earnChain) && (0...715_827_881).contains(earnCycleIndex))
+    try require(earnCycles.utf8.count <= WalletLimits.walletRecordBytes)
+    guard let cyclesData = earnCycles.data(using: .utf8),
+      (try JSONSerialization.jsonObject(with: cyclesData)) is [[String: Any]]
+    else { throw WalletFailure.invalid }
+    self.earnChain = earnChain
+    self.earnRecoveryRequired = earnRecoveryRequired
+    self.earnCycleIndex = earnCycleIndex
+    self.earnCycles = earnCycles
     try require(UUID(uuidString: self.journalId) != nil)
   }
 

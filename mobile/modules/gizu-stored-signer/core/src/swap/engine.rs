@@ -145,6 +145,8 @@ enum Step {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Plan {
     kind: String,
+    #[serde(default = "legacy_source_index")]
+    source_index: u32,
     target: Address,
     #[serde(default)]
     amount_atoms: Option<String>,
@@ -154,6 +156,10 @@ struct Plan {
     /// Recovery only: recipient indices below this (the registry's next index) are scanned.
     #[serde(default)]
     scan_to: Option<u32>,
+}
+
+fn legacy_source_index() -> u32 {
+    FUNDING_ACCOUNT
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -800,7 +806,7 @@ impl Engine {
             &chain,
             now / 1000,
         )?;
-        let key = self.key(FUNDING_ACCOUNT)?;
+        let key = self.key(self.m.plan.source_index)?;
         if evm::key_address(&key) != self.m.source {
             return Err(SignerError::CryptoFailed);
         }
@@ -1003,6 +1009,10 @@ impl Engine {
                         None => U256::from(MAX_SOURCE_ATOMS),
                     };
                     self.m.data.source_balance = balance;
+                    if self.m.plan.amount_atoms.is_some() && requested > balance {
+                        self.m.paused = Some("INSUFFICIENT_SOURCE_BALANCE".into());
+                        return Ok(());
+                    }
                     self.m.data.budget = balance.min(requested).min(U256::from(MAX_SOURCE_ATOMS));
                     if self.m.data.budget.is_zero() {
                         self.m.paused = Some("AWAITING_DEPOSIT".into());
@@ -2010,6 +2020,10 @@ impl SwapOperation {
             return Err(SignerError::InvalidInput);
         }
         let plan: Plan = serde_json::from_str(&plan).map_err(|_| SignerError::InvalidInput)?;
+        crate::roles::validate_public_source_index(plan.source_index)?;
+        if plan.recipient_indices.contains(&plan.source_index) {
+            return Err(SignerError::InvalidInput);
+        }
         let [a, b, c] = plan.recipient_indices;
         let sell = plan.kind == "confidentialSell";
         let payout = plan.kind == "confidentialPayout";
@@ -2075,12 +2089,12 @@ impl SwapOperation {
                 keccak256(format!(
                     "{}:{}:{:?}:{}",
                     now_ms,
-                    at(FUNDING_ACCOUNT)?,
+                    at(plan.source_index)?,
                     plan.recipient_indices,
                     plan.kind
                 ))
             ),
-            source: at(FUNDING_ACCOUNT)?,
+            source: at(plan.source_index)?,
             confidential: at(CONFIDENTIAL_ACCOUNT)?,
             recipients: [at(a)?, at(b)?, at(c)?],
             holders: holder_addrs,
@@ -2188,7 +2202,7 @@ impl SwapOperation {
                 .all(|(i, a)| derive_key(&seed, *i).is_ok_and(|k| evm::key_address(&k) == a)),
             None => e.m.holders.iter().all(|a| a.is_zero()),
         };
-        let same = evm::key_address(&derive_key(&seed, FUNDING_ACCOUNT)?) == e.m.source
+        let same = evm::key_address(&derive_key(&seed, e.m.plan.source_index)?) == e.m.source
             && evm::key_address(&derive_key(&seed, CONFIDENTIAL_ACCOUNT)?) == e.m.confidential
             && e.m
                 .plan

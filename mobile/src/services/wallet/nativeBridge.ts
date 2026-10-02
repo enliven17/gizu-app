@@ -41,6 +41,11 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
       backup: result.backup === true,
       transfers: result.transfers === true,
       swaps: result.swaps === true,
+      earnWallets: result.earnWallets === true,
+      earnVaultExecution: result.earnVaultExecution === true,
+      earnSponsoredExecution: result.earnSponsoredExecution === true,
+      earnEthereumLiquidityExecution: result.earnEthereumLiquidityExecution === true,
+      earnPrivatePayoutExecution: result.earnPrivatePayoutExecution === true,
     };
   } catch {
     return unavailable;
@@ -58,7 +63,16 @@ export class WalletUnavailableError extends AppError {
 }
 async function checked(
   native: StoredSignerContract,
-  capability: "walletStorage" | "backup" | "transfers" | "swaps",
+  capability:
+    | "walletStorage"
+    | "backup"
+    | "transfers"
+    | "swaps"
+    | "earnWallets"
+    | "earnVaultExecution"
+    | "earnSponsoredExecution"
+    | "earnEthereumLiquidityExecution"
+    | "earnPrivatePayoutExecution",
 ) {
   const generation = authorizationGeneration;
   const value = await callWallet(() => native.getCapabilities());
@@ -235,6 +249,340 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
       return callWallet(() => native.cancelSwap(gateway));
     },
     lock: () => {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+
+export function getStoredEarnPayoutSigner() {
+  const native = nativeModule();
+  if (
+    !native?.executeEarnPrivatePayout ||
+    !native.listEarnPrivatePayoutOperations ||
+    !native.resumeEarnPrivatePayoutOperation ||
+    !native.cancelEarnPrivatePayoutOperation ||
+    !native.readEarnPrivatePayoutSettlement
+  )
+    return null;
+  const execute = native.executeEarnPrivatePayout.bind(native),
+    list = native.listEarnPrivatePayoutOperations.bind(native),
+    resume = native.resumeEarnPrivatePayoutOperation.bind(native),
+    cancel = native.cancelEarnPrivatePayoutOperation.bind(native),
+    settlement = native.readEarnPrivatePayoutSettlement.bind(native);
+  return {
+    async executeEarnPrivatePayout(request: Parameters<typeof execute>[0]) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return execute(request);
+    },
+    async listEarnPrivatePayoutOperations(walletId: string) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return readNative(() => list(walletId));
+    },
+    async resumeEarnPrivatePayoutOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return resume(walletId, id, revision);
+    },
+    async cancelEarnPrivatePayoutOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return cancel(walletId, id, revision);
+    },
+    async readEarnPrivatePayoutSettlement(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return settlement(walletId, id, revision);
+    },
+    lock() {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+export function getStoredEarnLiquiditySigner() {
+  const native = nativeModule();
+  if (
+    !native?.prepareEarnFusionQuote ||
+    !native.executeEarnEthereumLiquidity ||
+    !native.listEarnEthereumLiquidityOperations ||
+    !native.resumeEarnEthereumLiquidityOperation ||
+    !native.cancelEarnEthereumLiquidityOperation ||
+    !native.cancelPendingEarnEthereumLiquidityOperation ||
+    !native.readEarnEthereumLiquiditySettlement
+  )
+    return null;
+  const quote = native.prepareEarnFusionQuote.bind(native),
+    execute = native.executeEarnEthereumLiquidity.bind(native),
+    list = native.listEarnEthereumLiquidityOperations.bind(native),
+    resume = native.resumeEarnEthereumLiquidityOperation.bind(native),
+    cancel = native.cancelEarnEthereumLiquidityOperation.bind(native),
+    cancelPending = native.cancelPendingEarnEthereumLiquidityOperation.bind(native),
+    settlement = native.readEarnEthereumLiquiditySettlement.bind(native);
+  return {
+    async prepareEarnFusionQuote(request: Parameters<typeof quote>[0]) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return quote(request);
+    },
+    async executeEarnEthereumLiquidity(request: Parameters<typeof execute>[0]) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return execute(request);
+    },
+    async listEarnEthereumLiquidityOperations(walletId: string) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return readNative(() => list(walletId));
+    },
+    async resumeEarnEthereumLiquidityOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return resume(walletId, id, revision);
+    },
+    async cancelEarnEthereumLiquidityOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return cancel(walletId, id, revision);
+    },
+    async cancelPendingEarnEthereumLiquidityOperation(
+      walletId: string,
+      id: string,
+      revision: number,
+    ) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return cancelPending(walletId, id, revision);
+    },
+    async readEarnEthereumLiquiditySettlement(walletId: string, id: string, revision: number) {
+      await checked(native, "earnEthereumLiquidityExecution");
+      return settlement(walletId, id, revision);
+    },
+    lock() {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+export function getStoredEarnVaultSigner() {
+  const native = nativeModule();
+  if (
+    !native?.executeEarnVault ||
+    !native.listEarnVaultOperations ||
+    !native.resumeEarnVaultOperation ||
+    !native.cancelEarnVaultOperation
+  )
+    return null;
+  const execute = native.executeEarnVault.bind(native),
+    list = native.listEarnVaultOperations.bind(native),
+    resume = native.resumeEarnVaultOperation.bind(native),
+    cancel = native.cancelEarnVaultOperation.bind(native);
+  return {
+    async executeEarnVault(proposal: import("@/domain/earn/vaultExecution").VaultProposal) {
+      await checked(native, "earnVaultExecution");
+      return execute(proposal);
+    },
+    async listEarnVaultOperations(walletId: string) {
+      await checked(native, "earnVaultExecution");
+      return readNative(() => list(walletId));
+    },
+    async resumeEarnVaultOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnVaultExecution");
+      return resume(walletId, id, revision);
+    },
+    async cancelEarnVaultOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnVaultExecution");
+      return cancel(walletId, id, revision);
+    },
+    lock() {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+export function getStoredEarnSigner() {
+  const native = nativeModule();
+  if (!native?.getEarnIntent || !native.prepareEarnIntent) return null;
+  const get = native.getEarnIntent.bind(native);
+  const prepare = native.prepareEarnIntent.bind(native);
+  return {
+    ...(native.listEarnIntents
+      ? {
+          async listEarnIntents(walletId: string) {
+            await checked(native, "earnWallets");
+            return readNative(() => native.listEarnIntents!(walletId));
+          },
+        }
+      : {}),
+    ...(native.prepareNewEarnIntent
+      ? {
+          async prepareNewEarnIntent(walletId: string, profile: string) {
+            await checked(native, "earnWallets");
+            return native.prepareNewEarnIntent!(walletId, profile);
+          },
+        }
+      : {}),
+    ...(native.selectEarnIntent
+      ? {
+          async selectEarnIntent(walletId: string, intentId: string) {
+            await checked(native, "earnWallets");
+            return native.selectEarnIntent!(walletId, intentId);
+          },
+        }
+      : {}),
+    async getEarnIntent(walletId: string) {
+      await checked(native, "earnWallets");
+      return readNative(() => get(walletId));
+    },
+    async prepareEarnIntent(walletId: string, profile: string) {
+      await checked(native, "earnWallets");
+      return prepare(walletId, profile);
+    },
+    lock() {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+export function getStoredEarnBalanceSigner() {
+  const native = nativeModule();
+  if (!native?.readEarnBalance) return null;
+  const read = native.readEarnBalance.bind(native);
+  return {
+    async readEarnBalance(walletId: string) {
+      await checked(native, "earnWallets");
+      return read(walletId);
+    },
+    lock() {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+
+export function getStoredEarnSponsoredSigner() {
+  const native = nativeModule();
+  if (
+    !native?.prepareEarnSourceQuote ||
+    !native.executeEarnSponsored ||
+    !native.listEarnSponsoredOperations ||
+    !native.resumeEarnSponsoredOperation ||
+    !native.cancelEarnSponsoredOperation ||
+    !native.readEarnSponsoredSettlement
+  )
+    return null;
+  const quote = native.prepareEarnSourceQuote.bind(native),
+    execute = native.executeEarnSponsored.bind(native),
+    list = native.listEarnSponsoredOperations.bind(native),
+    resume = native.resumeEarnSponsoredOperation.bind(native),
+    cancel = native.cancelEarnSponsoredOperation.bind(native),
+    settlement = native.readEarnSponsoredSettlement.bind(native);
+  return {
+    ...(native.executeEarnFundingBatch
+      ? {
+          async executeEarnFundingBatch(walletId: string, fundingBatchId: string) {
+            await checked(native, "earnSponsoredExecution");
+            return native.executeEarnFundingBatch!(walletId, fundingBatchId);
+          },
+        }
+      : {}),
+    ...(native.registerEarnFundingPlans
+      ? {
+          async registerEarnFundingPlans(
+            walletId: string,
+            requests: import("@/domain/earn/sourceFunding").SponsoredRequest[],
+          ) {
+            await checked(native, "earnSponsoredExecution");
+            return native.registerEarnFundingPlans!(walletId, requests);
+          },
+        }
+      : {}),
+    ...(native.planPublicFunding
+      ? {
+          async planPublicFunding(walletId: string, budgetAtoms: string) {
+            await checked(native, "earnSponsoredExecution");
+            return native.planPublicFunding!(walletId, budgetAtoms);
+          },
+        }
+      : {}),
+    ...(native.prepareEarnSourceQuoteForAccount
+      ? {
+          async prepareEarnSourceQuoteForAccount(
+            walletId: string,
+            sourceIndex: number,
+            amountAtoms: string,
+            operationId: string,
+            revision: number,
+          ) {
+            await checked(native, "earnSponsoredExecution");
+            return native.prepareEarnSourceQuoteForAccount!(
+              walletId,
+              sourceIndex,
+              amountAtoms,
+              operationId,
+              revision,
+            );
+          },
+        }
+      : {}),
+    async prepareEarnSourceQuote(walletId: string, amount: string, id: string, revision: number) {
+      await checked(native, "earnSponsoredExecution");
+      return quote(walletId, amount, id, revision);
+    },
+    async executeEarnSponsored(
+      request:
+        | import("@/domain/earn/sourceFunding").SponsoredRequest
+        | import("@/domain/earn/robinhoodExecution").RobinhoodRequest,
+    ) {
+      await checked(native, "earnSponsoredExecution");
+      return execute(request);
+    },
+    async listEarnSponsoredOperations(walletId: string) {
+      await checked(native, "earnSponsoredExecution");
+      return readNative(() => list(walletId));
+    },
+    async resumeEarnSponsoredOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnSponsoredExecution");
+      return resume(walletId, id, revision);
+    },
+    async cancelEarnSponsoredOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnSponsoredExecution");
+      return cancel(walletId, id, revision);
+    },
+    async readEarnSponsoredSettlement(walletId: string, id: string, revision: number) {
+      await checked(native, "earnSponsoredExecution");
+      return settlement(walletId, id, revision);
+    },
+    lock() {
+      authorizationGeneration++;
+      native.lock();
+    },
+  };
+}
+
+export function getStoredEarnWithdrawalSigner() {
+  const native = nativeModule();
+  if (
+    !native?.executeEarnWithdrawal ||
+    !native.listEarnWithdrawalOperations ||
+    !native.resumeEarnWithdrawalOperation ||
+    !native.cancelEarnWithdrawalOperation ||
+    !native.readEarnWithdrawalSettlement
+  )
+    return null;
+  return {
+    async executeEarnWithdrawal(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return native.executeEarnWithdrawal!(walletId, id, revision);
+    },
+    async listEarnWithdrawalOperations(walletId: string) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return readNative(() => native.listEarnWithdrawalOperations!(walletId));
+    },
+    async resumeEarnWithdrawalOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return native.resumeEarnWithdrawalOperation!(walletId, id, revision);
+    },
+    async cancelEarnWithdrawalOperation(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return native.cancelEarnWithdrawalOperation!(walletId, id, revision);
+    },
+    async readEarnWithdrawalSettlement(walletId: string, id: string, revision: number) {
+      await checked(native, "earnPrivatePayoutExecution");
+      return native.readEarnWithdrawalSettlement!(walletId, id, revision);
+    },
+    lock() {
       authorizationGeneration++;
       native.lock();
     },

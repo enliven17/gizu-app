@@ -1,0 +1,522 @@
+{
+  "scope": "Unsigned, unfunded live research/app/provider comparison; no spending signature or transaction submission.",
+  "quotes": {
+    "observedAt": "2026-10-01T09:02:24.379Z",
+    "sameResearchAndBackendKey": true,
+    "spendingSigned": false,
+    "submitted": false,
+    "requests": [
+      {
+        "name": "research-ethereum-source-exact-saved-request",
+        "request": {
+          "dry": false,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "7640235",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 251,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-robinhood-source-exact-saved-request",
+        "request": {
+          "dry": false,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3267261",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 152,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-source-3-usdc",
+        "request": {
+          "dry": false,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 128,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-source-3-usdc-dry",
+        "request": {
+          "dry": true,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 135,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-source-3-usdc-zero-slippage",
+        "request": {
+          "dry": false,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 0,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 137,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-source-3-usdc-deadline",
+        "request": {
+          "dry": false,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": true,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 160,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-source-3-usdc-simple",
+        "request": {
+          "dry": false,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": true
+        },
+        "httpStatus": 500,
+        "ms": 135,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "app-source-preview-shape",
+        "request": {
+          "dry": true,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 0,
+          "confidentiality": "advanced",
+          "explicitDeadline": true,
+          "explicitDepositMode": true
+        },
+        "httpStatus": 500,
+        "ms": 135,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-source-basic-control",
+        "request": {
+          "dry": true,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "CONFIDENTIAL_INTENTS",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "basic",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 129,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-ethereum-payout",
+        "request": {
+          "dry": true,
+          "depositType": "CONFIDENTIAL_INTENTS",
+          "recipientType": "DESTINATION_CHAIN",
+          "amount": "2700000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 165,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "research-robinhood-payout",
+        "request": {
+          "dry": true,
+          "depositType": "CONFIDENTIAL_INTENTS",
+          "recipientType": "DESTINATION_CHAIN",
+          "amount": "2700000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 245,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "public-monad-ethereum-control",
+        "request": {
+          "dry": true,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "DESTINATION_CHAIN",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "public",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 149,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      },
+      {
+        "name": "advanced-monad-ethereum-direct-control",
+        "request": {
+          "dry": true,
+          "depositType": "ORIGIN_CHAIN",
+          "recipientType": "DESTINATION_CHAIN",
+          "amount": "3000000",
+          "slippageTolerance": 100,
+          "confidentiality": "advanced",
+          "explicitDeadline": false,
+          "explicitDepositMode": false
+        },
+        "httpStatus": 500,
+        "ms": 136,
+        "errorMessage": "1Click returned HTTP 521",
+        "trace": {
+          "requestId": null,
+          "cfRay": null,
+          "correlationId": null
+        },
+        "researchValidation": null,
+        "hasQuote": false,
+        "hasProviderSignature": false,
+        "hasDepositAddress": false,
+        "amountIn": null,
+        "amountOut": null,
+        "minAmountOut": null,
+        "appFees": null,
+        "referral": null
+      }
+    ],
+    "registry": {
+      "httpStatus": 500,
+      "assets": []
+    }
+  },
+  "upstream": {
+    "observedAt": "2026-10-01T09:05:16.311Z",
+    "results": [
+      {
+        "name": "aurora-incidents",
+        "httpStatus": 200,
+        "date": "Thu, 01 Oct 2026 09:05:16 GMT",
+        "server": "Vercel",
+        "cfRay": null,
+        "contentType": "application/json; charset=utf-8",
+        "errorMessage": null,
+        "providerStatus": "incidents",
+        "bodyStatusCode": null,
+        "tokenCount": null,
+        "incidentCount": 13,
+        "incidents": [
+          {
+            "scopeType": "bridge",
+            "scopeValue": "hot",
+            "direction": "*",
+            "publicDescription": null
+          }
+        ],
+        "htmlTitle": null,
+        "cloudflareOriginDown": false,
+        "selectedAssets": null
+      },
+      {
+        "name": "aurora-known-funded-route-status",
+        "httpStatus": 500,
+        "date": "Thu, 01 Oct 2026 09:05:16 GMT",
+        "server": "Vercel",
+        "cfRay": null,
+        "contentType": "application/json; charset=utf-8",
+        "errorMessage": "Something went wrong",
+        "providerStatus": null,
+        "bodyStatusCode": 500,
+        "tokenCount": null,
+        "incidentCount": null,
+        "incidents": null,
+        "htmlTitle": null,
+        "cloudflareOriginDown": false,
+        "selectedAssets": null
+      },
+      {
+        "name": "aurora-invalid-key-control",
+        "httpStatus": 500,
+        "date": "Thu, 01 Oct 2026 09:05:16 GMT",
+        "server": "Vercel",
+        "cfRay": null,
+        "contentType": "application/json; charset=utf-8",
+        "errorMessage": "Tokens endpoint returned status 521",
+        "providerStatus": null,
+        "bodyStatusCode": 500,
+        "tokenCount": null,
+        "incidentCount": null,
+        "incidents": null,
+        "htmlTitle": null,
+        "cloudflareOriginDown": false,
+        "selectedAssets": null
+      },
+      {
+        "name": "direct-1click-public-token-registry",
+        "httpStatus": 521,
+        "date": "Thu, 01 Oct 2026 09:05:16 GMT",
+        "server": "cloudflare",
+        "cfRay": "a43a4dfc9f6fd5a3-AMS",
+        "contentType": "text/html; charset=UTF-8",
+        "errorMessage": null,
+        "providerStatus": null,
+        "bodyStatusCode": null,
+        "tokenCount": null,
+        "incidentCount": null,
+        "incidents": null,
+        "htmlTitle": "chaindefuser.com | 521: Web server is down",
+        "cloudflareOriginDown": true,
+        "selectedAssets": null
+      },
+      {
+        "name": "direct-1click-public-dry-quote",
+        "httpStatus": 521,
+        "date": "Thu, 01 Oct 2026 09:05:16 GMT",
+        "server": "cloudflare",
+        "cfRay": "a43a4dfc9dfca006-AMS",
+        "contentType": "text/html; charset=UTF-8",
+        "errorMessage": null,
+        "providerStatus": null,
+        "bodyStatusCode": null,
+        "tokenCount": null,
+        "incidentCount": null,
+        "incidents": null,
+        "htmlTitle": "chaindefuser.com | 521: Web server is down",
+        "cloudflareOriginDown": true,
+        "selectedAssets": null
+      }
+    ],
+    "spendingSigned": false,
+    "submitted": false
+  },
+  "authentication": {
+    "observedAt": "2026-10-01T09:05:55.379Z",
+    "authentication": {
+      "httpStatus": 500,
+      "bodyStatusCode": 500,
+      "message": "Something went wrong"
+    },
+    "authenticationIntentsEmpty": true,
+    "spendingSigned": false,
+    "submitted": false,
+    "historyNotRetested": true
+  },
+  "interpretation": {
+    "currentQuoteFailure": "Research and app quote shapes fail at Aurora -> 1Click. Direct 1Click public registry and quote return Cloudflare HTTP 521.",
+    "hotIncident": "Aurora incident endpoint lists bridge hot in both directions; source Monad USDC is the HOT omni asset. Relationship to earlier HTTP 400 is plausible but not established by provider logs.",
+    "history": "Current authentication HTTP 500 prevents history retest; previous invite-only result is not superseded by proof of access.",
+    "feeQualification": "No fresh quote or ownership/beneficiary qualification obtained; existing Earn spending gates remain in place."
+  }
+}

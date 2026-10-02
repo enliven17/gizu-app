@@ -19,6 +19,15 @@ function TestnetNativeActivity() {
       void refresh();
     }, [refresh]),
   );
+  if (!wallet.transfersAvailable) {
+    return (
+      <Screen>
+        <BackAction fallback="Home" />
+        <Typography variant="heading">Activity</Typography>
+        <Typography>Monad mainnet USDC activity is not indexed in this build yet.</Typography>
+      </Screen>
+    );
+  }
   return (
     <Screen>
       <BackAction fallback="Home" />
