@@ -205,9 +205,7 @@ test("disconnected native access stays on access screen without creating a demo 
   await openAccess();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   expect(
-    await screen.findByText(
-      /Wallet access is (temporarily unavailable|unavailable on this platform)/,
-    ),
+    await screen.findByText(/Wallet access (is temporarily unavailable|requires Android)/),
   ).toBeVisible();
   expect(screen.queryByRole("header", { name: "Your portfolio" })).toBeNull();
   expect(screen.queryByLabelText("Settings tab")).toBeNull();

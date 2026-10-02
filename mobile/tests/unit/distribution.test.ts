@@ -3,6 +3,23 @@ import { resolve } from "node:path";
 import { identity } from "@/config/passkeys";
 import { distributionConfig } from "@/config/distribution";
 
+test("the production Android association authorizes every configured signing certificate", () => {
+  const association = JSON.parse(
+    readFileSync(
+      resolve(__dirname, "../../../frontend/public/.well-known/assetlinks.json"),
+      "utf8",
+    ),
+  );
+  const statement = association.find(
+    (entry: { target: { package_name: string } }) =>
+      entry.target.package_name === identity.androidPackage,
+  );
+  expect(statement.relation).toContain("delegate_permission/common.get_login_creds");
+  expect(statement.target.sha256_cert_fingerprints).toEqual(
+    expect.arrayContaining(identity.androidSha256Fingerprints),
+  );
+});
+
 test.each(["production", "preview", "testflight"])(
   "%s enables release configuration on both platforms",
   (profile) => {

@@ -327,6 +327,22 @@ From `mobile/`, increment `ios.buildNumber` before a new upload, then build loca
 EXPO_NO_DOTENV=1 npx eas-cli build --platform ios --profile production --local --output ./gizu.ipa
 ```
 
+For Android, increment `android.versionCode` before each subsequent Play upload
+and keep the registered upload keystore. The first bundle uses version code 1.
+From `mobile/`, with JDK 17, Android SDK/NDK and Rust prerequisites installed:
+
+```sh
+EXPO_NO_DOTENV=1 npx eas-cli build --platform android --profile production --local --output ./gizu.aab
+```
+
+The pre-install hook generates the stored signer's Rust library and bindings in
+the EAS build workspace on both platforms. Android release profiles target
+`arm64-v8a`, the architecture currently supported by the native signer, and link
+its Rust library with 16 KB page alignment. Upload the signed AAB to Gizu's Play
+Console internal testing track (`io.gizu.android`). Play may sign installed apps
+with a different certificate from the upload key; authorize the Play app-signing
+SHA-256 in `gizu.io/.well-known/assetlinks.json` before testing passkeys.
+
 The profile explicitly sets the Render API URL and native passkey mode. Local,
 IP and insecure HTTP endpoints are rejected for release builds. The iOS
 pre-install hook builds Rust bindings before CocoaPods. Upload the signed IPA

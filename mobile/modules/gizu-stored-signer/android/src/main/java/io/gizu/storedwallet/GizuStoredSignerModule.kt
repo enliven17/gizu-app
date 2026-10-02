@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.Dialog
 import android.app.KeyguardManager
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
@@ -28,11 +27,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 import uniffi.gizu_stored_signer_core.EarnReadAuthentication
-import uniffi.gizu_stored_signer_core.authenticateEarnRead
 import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
 import uniffi.gizu_stored_signer_core.deriveAccountAddresses
 import uniffi.gizu_stored_signer_core.deriveEarnAddresses
-import uniffi.gizu_stored_signer_core.deriveEarnConfidentialAddress
 
 /** Wallet access requires a verified native backup; exact transfer signing stays native. */
 class GizuStoredSignerModule : Module() {
@@ -53,9 +50,7 @@ class GizuStoredSignerModule : Module() {
   private var balanceReadUntil = 0L
 
   private fun eligible(activity: Activity?) =
-    activity != null &&
-      Build.VERSION.SDK_INT >= 28 &&
-      (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    WalletBuildPolicy.isAvailable(Build.VERSION.SDK_INT, activity != null)
 
   private fun requireForeground(activity: Activity) {
     check(foreground && !activity.isFinishing && !activity.isDestroyed && activity.hasWindowFocus())
@@ -171,7 +166,11 @@ class GizuStoredSignerModule : Module() {
     scope.launch {
       val activity = appContext.currentActivity
       if (!eligible(activity)) {
-        promise.reject("UNAVAILABLE", "Android development wallet unavailable.", null)
+        promise.reject(
+          "UNAVAILABLE",
+          "Wallet access requires Android 9+ and an active Gizu screen.",
+          null,
+        )
         return@launch
       }
       if (wait) ceremony.lock()

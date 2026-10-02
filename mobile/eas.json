@@ -34,6 +34,7 @@
       "autoIncrement": false,
       "env": {
         "GIZU_BUILD_VARIANT": "production",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
         "EXPO_PUBLIC_PASSKEY_MODE": "native",
         "EXPO_PUBLIC_API_URL": "https://gizu-backend.onrender.com"
       },

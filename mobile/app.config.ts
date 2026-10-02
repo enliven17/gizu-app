@@ -30,7 +30,7 @@ const config: ExpoConfig = {
     },
     associatedDomains: [`webcredentials:${identity.rpId}`],
   },
-  android: { package: identity.androidPackage },
+  android: { package: identity.androidPackage, versionCode: 2 },
   plugins: [
     [
       "expo-splash-screen",

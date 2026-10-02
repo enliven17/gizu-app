@@ -1,4 +1,5 @@
 import { createNativeWalletAccess } from "@/development/legacySigner/access";
+import { WalletUnavailableError } from "@/services/wallet/nativeBridge";
 import { formatMon } from "@/domain/wallet/amounts";
 import { monadBalanceService } from "@/services/wallet/balance";
 const address = "0x" + "1".repeat(40);
@@ -25,7 +26,7 @@ test("native results are explicitly allowlisted and invalid chains/accounts fail
     accountId: address,
   });
   await expect(createNativeWalletAccess(() => null).request("Passkey")).rejects.toThrow(
-    "unavailable",
+    WalletUnavailableError,
   );
 });
 test("formats integer wei exactly", () => {

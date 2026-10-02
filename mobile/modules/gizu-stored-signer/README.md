@@ -2,7 +2,7 @@
 
 Phases 2–4 implement a separate local Expo module, `GizuStoredSigner`, under native
 package `io.gizu.storedwallet`. The retained `gizu-signer` module is unchanged and
-excluded from app linking. This module supports Android development builds and iOS 18+ development and release builds; physical iOS acceptance remains pending.
+excluded from app linking. This module supports Android 9+ development and release builds and iOS 18+ development and release builds; physical iOS acceptance remains pending.
 
 ## Implemented boundary
 

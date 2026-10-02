@@ -12,8 +12,8 @@ function supportedPlatform() {
   );
 }
 function nativeModule(): StoredSignerContract | null {
-  // iOS Release eligibility is reported by the signed native binary, not a JS flag.
-  return (__DEV__ || Platform.OS === "ios") && supportedPlatform()
+  // Both platforms report feature eligibility from the native binary in every build.
+  return supportedPlatform()
     ? requireOptionalNativeModule<StoredSignerContract>("GizuStoredSigner")
     : null;
 }
@@ -54,7 +54,7 @@ export class WalletUnavailableError extends Error {
     super(
       supportedPlatform()
         ? "Wallet access is temporarily unavailable in this build or its native capabilities are not ready."
-        : "Wallet access is unavailable on this platform. Use Android 9+ or iOS 18+ in a development build.",
+        : "Wallet access requires Android 9+ or iOS 18+ and the installed Gizu app.",
     );
   }
 }

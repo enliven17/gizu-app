@@ -88,3 +88,15 @@ Production EAS certificate reported for `io.gizu.android` on October 2, 2026:
 
 This fingerprint is included in the source association. Deployment and verification
 against the distributed APK remain required; Play app signing may use a different key.
+
+Google Play's app-signing certificate confirmed on October 2, 2026:
+
+```text
+BC:ED:A5:C7:67:08:14:5A:EC:06:D5:BC:E0:C0:5B:DB:5C:C1:6E:1E:04:6A:AC:04:45:B1:29:A3:23:3F:F0:A6
+```
+
+This certificate is separate from the EAS upload key. The production association
+includes both; deploy the frontend association for Play-installed passkeys.
+Android wallet availability requires Android 9+ and an active native screen in
+both Debug and Release. Passkey authorization, backup verification, foreground
+checks and transaction approval remain enforced natively.

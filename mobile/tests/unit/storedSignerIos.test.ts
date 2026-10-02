@@ -78,28 +78,53 @@ test("locking while capabilities load prevents a late native ceremony", async ()
   expect(native.createWallet).not.toHaveBeenCalled();
 });
 
-test("iOS Release uses native capabilities while Android Release stays disabled", async () => {
-  const development = __DEV__;
-  Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: false });
-  try {
-    jest.mocked(requireOptionalNativeModule).mockReturnValue({
-      getCapabilities: jest.fn().mockResolvedValue({
-        contractVersion: 1,
-        available: true,
-        walletStorage: true,
-        backup: true,
-        transfers: true,
-      }),
-    });
-    expect((await getSignerCapabilities()).available).toBe(true);
-    jest.mocked(requireOptionalNativeModule).mockReturnValue({
-      getCapabilities: jest.fn().mockResolvedValue({ contractVersion: 1, available: false }),
-    });
-    expect((await getSignerCapabilities()).available).toBe(false);
-    Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
-    Object.defineProperty(Platform, "Version", { configurable: true, value: 35 });
-    expect(getStoredSigner()).toBeNull();
-  } finally {
-    Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: development });
-  }
-});
+test.each([
+  ["ios", "18.5"],
+  ["android", 35],
+])(
+  "%s Release opens the wallet through native authorization and respects capabilities",
+  async (os, version) => {
+    const development = __DEV__;
+    Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: false });
+    Object.defineProperty(Platform, "OS", { configurable: true, value: os });
+    Object.defineProperty(Platform, "Version", { configurable: true, value: version });
+    const capabilities = {
+      contractVersion: 1,
+      available: true,
+      walletStorage: true,
+      backup: true,
+      transfers: false,
+    };
+    const native = {
+      getCapabilities: jest.fn().mockResolvedValue(capabilities),
+      openWallet: jest.fn().mockResolvedValue({ status: "ready", walletId: "wallet" }),
+      executeOperation: jest.fn(),
+    };
+    try {
+      jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
+      expect((await getSignerCapabilities()).available).toBe(true);
+      await expect(getStoredSigner()!.openWallet()).resolves.toEqual({
+        status: "ready",
+        walletId: "wallet",
+      });
+      expect(native.openWallet).toHaveBeenCalledTimes(1);
+      await expect(
+        getStoredTransferSigner()!.executeOperation({
+          walletId: "wallet",
+          chainId: 10143,
+          transfers: [],
+        }),
+      ).rejects.toThrow(/capabilities/);
+      expect(native.executeOperation).not.toHaveBeenCalled();
+      native.getCapabilities.mockResolvedValue({ ...capabilities, available: false });
+      expect((await getSignerCapabilities()).available).toBe(false);
+      await expect(getStoredSigner()!.openWallet()).rejects.toThrow(/capabilities/);
+      expect(native.openWallet).toHaveBeenCalledTimes(1);
+      jest.mocked(requireOptionalNativeModule).mockReturnValue(null);
+      expect(getStoredSigner()).toBeNull();
+      expect((await getSignerCapabilities()).available).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, "__DEV__", { configurable: true, value: development });
+    }
+  },
+);

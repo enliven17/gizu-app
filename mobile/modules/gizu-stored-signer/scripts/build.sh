@@ -41,7 +41,10 @@ cargo build --locked --features cli
 mkdir -p "$ROOT/generated"
 target/debug/uniffi-bindgen generate --library "$HOST_LIBRARY" --language kotlin --language swift --out-dir "$ROOT/generated" --no-format
 if [ "$MODE" = android ] || [ "$MODE" = all ]; then
-  cargo build --locked --release --lib --target aarch64-linux-android
+  # NDK r27 defaults to 4 KB; Play requires 16 KB-compatible native libraries.
+  cargo rustc --locked --release --lib --target aarch64-linux-android -- \
+    -C link-arg=-Wl,-z,max-page-size=16384 \
+    -C link-arg=-Wl,-z,common-page-size=16384
   mkdir -p "$ROOT/android/src/main/jniLibs/arm64-v8a"
   cp target/aarch64-linux-android/release/libgizu_stored_signer_core.so "$ROOT/android/src/main/jniLibs/arm64-v8a/"
 fi
