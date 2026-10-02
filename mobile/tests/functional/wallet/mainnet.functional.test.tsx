@@ -3,6 +3,7 @@ import { AppRoot } from "@/application/AppRoot";
 import * as nativeBridge from "@/services/wallet/nativeBridge";
 import type { MainnetPortfolioSnapshot } from "@/domain/wallet/storedSigner";
 import { validateMainnetPortfolio } from "@/features/wallet/MainnetWalletProvider";
+import portfolioFixtures from "../../../modules/gizu-stored-signer/ios/Tests/Fixtures/public-portfolio.json";
 
 const funding = "0x" + "1".repeat(40);
 const returned = "0x" + "2".repeat(40);
@@ -63,6 +64,13 @@ async function open() {
   return { read, transfers };
 }
 afterEach(() => jest.restoreAllMocks());
+
+test("shared Rust, Swift and Kotlin fixtures satisfy the Home contract", () => {
+  for (const fixture of portfolioFixtures.cases) {
+    const value = { ...fixture.expected, history: [] } as MainnetPortfolioSnapshot;
+    expect(validateMainnetPortfolio(value, "portfolio-fixture")).toBe(value);
+  }
+});
 
 test("mainnet Home includes receiving USDC, Deposit uses funding address, Withdraw never signs", async () => {
   const { transfers } = await open();

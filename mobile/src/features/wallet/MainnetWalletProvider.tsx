@@ -96,16 +96,21 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const alive = useRef(true);
+  const generation = useRef(0);
   const busy = useRef(false);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      busy.current = false;
+      generation.current += 1;
     };
   }, []);
   const refresh = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
+    const requestGeneration = generation.current;
+    const current = () => alive.current && generation.current === requestGeneration;
     setLoading(true);
     setError("");
     try {
@@ -114,13 +119,15 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
       const result = validateMainnetPortfolio(await signer.getMainnetPortfolio(), session.walletId);
       if (result.fundingAddress.toLowerCase() !== session.address.toLowerCase())
         throw new Error("Funding account mismatch");
-      if (alive.current) setSnapshot(result);
+      if (current()) setSnapshot(result);
     } catch (cause) {
-      if (alive.current)
+      if (current())
         setError(cause instanceof Error ? cause.message : "Mainnet balance unavailable. Retry.");
     } finally {
-      busy.current = false;
-      if (alive.current) setLoading(false);
+      if (current()) {
+        busy.current = false;
+        setLoading(false);
+      }
     }
   }, [session.walletId, session.address, service]);
   useEffect(() => {
@@ -136,6 +143,23 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
 }
 const Context = createContext<ReturnType<typeof useMainnetState> | null>(null);
 export function MainnetWalletProvider({
+  session,
+  children,
+  service,
+}: PropsWithChildren<{ session: MainnetWalletSession; service?: MainnetPortfolioService }>) {
+  // Changing wallets discards both the previous snapshot and its request ownership.
+  return (
+    <SessionPortfolioProvider
+      key={`${session.walletId}:${session.address.toLowerCase()}`}
+      session={session}
+      service={service}
+    >
+      {children}
+    </SessionPortfolioProvider>
+  );
+}
+
+function SessionPortfolioProvider({
   session,
   children,
   service,

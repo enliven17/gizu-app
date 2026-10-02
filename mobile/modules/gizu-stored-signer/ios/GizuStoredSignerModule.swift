@@ -240,6 +240,11 @@ public final class GizuStoredSignerModule: Module {
     AsyncFunction("getSwapDeposit") { (promise: Promise) in
       self.run(promise, operation: "getSwapDeposit") { try $0.swapDeposit() }
     }
+    AsyncFunction("getMainnetPortfolio") { (promise: Promise) in
+      self.run(promise, operation: "getMainnetPortfolio") { scope in
+        try await MainnetPortfolio(rpc: NativeMainnetPortfolioRPC()).read(store: scope.store)
+      }
+    }
     AsyncFunction("startSwap") {
       (target: String, amountAtoms: String, gateway: String, promise: Promise) in
       self.run(promise, operation: "startSwap", timeout: 900_000_000_000) {

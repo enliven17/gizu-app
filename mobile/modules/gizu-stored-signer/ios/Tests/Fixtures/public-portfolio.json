@@ -1,0 +1,274 @@
+{
+  "entropyHex": "0000000000000000000000000000000000000000000000000000000000000000",
+  "registry": "{\"version\":1,\"nextRecipient\":6}",
+  "accounts": [
+    {
+      "accountIndex": 0,
+      "address": "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb"
+    },
+    {
+      "accountIndex": 1,
+      "address": "0xf785bD075874b8423D3583728a981399f31e95aA"
+    },
+    {
+      "accountIndex": 3,
+      "address": "0xDF7F9c4b9B9b9580B265DCD892173e9bD90e067F"
+    },
+    {
+      "accountIndex": 4,
+      "address": "0xC1080BB846F3B862d04e72EAd4B92A4D47233D98"
+    },
+    {
+      "accountIndex": 5,
+      "address": "0xEf253B9Bb0eeBd09e16E77AB3482153570332472"
+    }
+  ],
+  "cases": [
+    {
+      "name": "zero",
+      "balances": ["0", "0", "0", "0", "0"],
+      "complete": true,
+      "stale": false,
+      "syncPending": false,
+      "expected": {
+        "walletId": "portfolio-fixture",
+        "chainId": 143,
+        "asset": "USDC",
+        "decimals": 6,
+        "fundingAddress": "0xf785bD075874b8423D3583728a981399f31e95aA",
+        "fundingAtoms": "0",
+        "returnAtoms": "0",
+        "totalAtoms": "0",
+        "checkedAt": 1790000000000,
+        "block": "0x123",
+        "balanceComplete": true,
+        "stale": false,
+        "syncPending": false,
+        "accounts": [
+          {
+            "accountIndex": 0,
+            "address": "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "balanceAtoms": "0",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 1,
+            "address": "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "balanceAtoms": "0",
+            "role": "funding"
+          }
+        ]
+      }
+    },
+    {
+      "name": "funding",
+      "balances": ["0", "500000", "0", "0", "0"],
+      "complete": true,
+      "stale": false,
+      "syncPending": false,
+      "expected": {
+        "walletId": "portfolio-fixture",
+        "chainId": 143,
+        "asset": "USDC",
+        "decimals": 6,
+        "fundingAddress": "0xf785bD075874b8423D3583728a981399f31e95aA",
+        "fundingAtoms": "500000",
+        "returnAtoms": "0",
+        "totalAtoms": "500000",
+        "checkedAt": 1790000000000,
+        "block": "0x123",
+        "balanceComplete": true,
+        "stale": false,
+        "syncPending": false,
+        "accounts": [
+          {
+            "accountIndex": 0,
+            "address": "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "balanceAtoms": "0",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 1,
+            "address": "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "balanceAtoms": "500000",
+            "role": "funding"
+          }
+        ]
+      }
+    },
+    {
+      "name": "receiving",
+      "balances": ["0", "0", "1500000", "0", "250000"],
+      "complete": true,
+      "stale": false,
+      "syncPending": false,
+      "expected": {
+        "walletId": "portfolio-fixture",
+        "chainId": 143,
+        "asset": "USDC",
+        "decimals": 6,
+        "fundingAddress": "0xf785bD075874b8423D3583728a981399f31e95aA",
+        "fundingAtoms": "0",
+        "returnAtoms": "1750000",
+        "totalAtoms": "1750000",
+        "checkedAt": 1790000000000,
+        "block": "0x123",
+        "balanceComplete": true,
+        "stale": false,
+        "syncPending": false,
+        "accounts": [
+          {
+            "accountIndex": 0,
+            "address": "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "balanceAtoms": "0",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 1,
+            "address": "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "balanceAtoms": "0",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 3,
+            "address": "0xDF7F9c4b9B9b9580B265DCD892173e9bD90e067F",
+            "balanceAtoms": "1500000",
+            "role": "receiving"
+          },
+          {
+            "accountIndex": 5,
+            "address": "0xEf253B9Bb0eeBd09e16E77AB3482153570332472",
+            "balanceAtoms": "250000",
+            "role": "receiving"
+          }
+        ]
+      }
+    },
+    {
+      "name": "large-and-account-zero",
+      "balances": ["200000", "9007199254740993", "3500000", "0", "42"],
+      "complete": true,
+      "stale": false,
+      "syncPending": false,
+      "expected": {
+        "walletId": "portfolio-fixture",
+        "chainId": 143,
+        "asset": "USDC",
+        "decimals": 6,
+        "fundingAddress": "0xf785bD075874b8423D3583728a981399f31e95aA",
+        "fundingAtoms": "9007199254740993",
+        "returnAtoms": "3700042",
+        "totalAtoms": "9007199258441035",
+        "checkedAt": 1790000000000,
+        "block": "0x123",
+        "balanceComplete": true,
+        "stale": false,
+        "syncPending": false,
+        "accounts": [
+          {
+            "accountIndex": 0,
+            "address": "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "balanceAtoms": "200000",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 1,
+            "address": "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "balanceAtoms": "9007199254740993",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 3,
+            "address": "0xDF7F9c4b9B9b9580B265DCD892173e9bD90e067F",
+            "balanceAtoms": "3500000",
+            "role": "receiving"
+          },
+          {
+            "accountIndex": 5,
+            "address": "0xEf253B9Bb0eeBd09e16E77AB3482153570332472",
+            "balanceAtoms": "42",
+            "role": "receiving"
+          }
+        ]
+      }
+    },
+    {
+      "name": "partial",
+      "balances": [null, "500000", null, "0", "42"],
+      "complete": false,
+      "stale": true,
+      "syncPending": true,
+      "expected": {
+        "walletId": "portfolio-fixture",
+        "chainId": 143,
+        "asset": "USDC",
+        "decimals": 6,
+        "fundingAddress": "0xf785bD075874b8423D3583728a981399f31e95aA",
+        "fundingAtoms": "500000",
+        "returnAtoms": "42",
+        "totalAtoms": "500042",
+        "checkedAt": 1790000000000,
+        "block": "0x123",
+        "balanceComplete": false,
+        "stale": true,
+        "syncPending": true,
+        "accounts": [
+          {
+            "accountIndex": 1,
+            "address": "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "balanceAtoms": "500000",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 5,
+            "address": "0xEf253B9Bb0eeBd09e16E77AB3482153570332472",
+            "balanceAtoms": "42",
+            "role": "receiving"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stale",
+      "balances": ["0", "500000", "42", "0", "0"],
+      "complete": true,
+      "stale": true,
+      "syncPending": false,
+      "expected": {
+        "walletId": "portfolio-fixture",
+        "chainId": 143,
+        "asset": "USDC",
+        "decimals": 6,
+        "fundingAddress": "0xf785bD075874b8423D3583728a981399f31e95aA",
+        "fundingAtoms": "500000",
+        "returnAtoms": "42",
+        "totalAtoms": "500042",
+        "checkedAt": 1790000000000,
+        "block": "0x123",
+        "balanceComplete": true,
+        "stale": true,
+        "syncPending": false,
+        "accounts": [
+          {
+            "accountIndex": 0,
+            "address": "0xF278cF59F82eDcf871d630F28EcC8056f25C1cdb",
+            "balanceAtoms": "0",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 1,
+            "address": "0xf785bD075874b8423D3583728a981399f31e95aA",
+            "balanceAtoms": "500000",
+            "role": "funding"
+          },
+          {
+            "accountIndex": 3,
+            "address": "0xDF7F9c4b9B9b9580B265DCD892173e9bD90e067F",
+            "balanceAtoms": "42",
+            "role": "receiving"
+          }
+        ]
+      }
+    }
+  ]
+}

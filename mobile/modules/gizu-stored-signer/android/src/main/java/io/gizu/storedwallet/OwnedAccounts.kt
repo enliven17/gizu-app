@@ -13,9 +13,7 @@ internal fun publicAccountAddress(record: WalletRecord, index: Int): String {
 }
 
 internal fun publicAccountIndices(record: WalletRecord): List<Int> {
-  val end = JSONObject(record.roleRegistry).getInt("nextRecipient")
-  check(end <= 8192)
-  return listOf(0, 1) + (3 until end).toList()
+  return portfolioAccountIndices(record.roleRegistry).map { it.toInt() }
 }
 
 internal fun cycleAddresses(record: WalletRecord) =

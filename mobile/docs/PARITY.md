@@ -33,9 +33,12 @@ Normal stored-wallet onboarding now creates a `mainnet` session for the existing
 swap funding account (index 1, Monad chain 143). It does not create a new wallet,
 move funds, change derivation, or expand the native testnet transfer policy.
 
-- Android Home reads mainnet USDC (6 decimals) from the funding account and every
-  locally allocated recipient account at one block, validates chain identity, and
-  shows the combined total with separate funding/receiving amounts and addresses.
+- Android and iOS Home use shared Rust rules for Monad USDC (6 decimals), covering
+  accounts 0, 1 and allocated public recipients. Account 1 is the funding amount;
+  all other included balances contribute to the remainder. Confidential account 2
+  is excluded. Both show the same totals and breakdown. Android retains its
+  incremental encrypted cache and incomplete/stale indicators; iOS requires a
+  complete read at one finalized block and retains the previous UI snapshot on failure.
   Returned USDC is not automatically consolidated or spendable from the funding account.
 - Deposit and Account show the mainnet USDC funding address. Activity shows local
   archived buy/sell summaries, including completed sales' USDC proceeds. It does not
@@ -46,10 +49,11 @@ move funds, change derivation, or expand the native testnet transfer policy.
   `npm run debug:testnet` explicitly opens the retained Account 0 testnet harness;
   the debug entry is rejected outside development. Old native testnet RPC and
   transfer policies remain intact for that harness.
-- iOS uses mainnet-facing navigation, but its native mainnet portfolio reader and
-  independent holdings store still need implementation. It reports unavailable,
-  never a testnet balance relabelled as mainnet or a fabricated zero. This change
-  is not an iOS/TestFlight readiness claim.
+- iOS registers `getMainnetPortfolio` for public Monad USDC. Its independent
+  holdings store, Earn portfolio extensions and persistent buy/sell history remain
+  unsupported. It returns an empty history, without fabricating transactions or
+  balances. Physical-iPhone acceptance is still pending; see
+  [GIZU-1 verification](GIZU-1_IOS_MONAD_PORTFOLIO.md).
 
 ## Confidential-swap branch: Android holdings
 

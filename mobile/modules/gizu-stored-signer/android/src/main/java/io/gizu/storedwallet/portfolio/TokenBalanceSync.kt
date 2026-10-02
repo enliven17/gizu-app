@@ -30,7 +30,13 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
             .toString()
         )
       )
-    check(response.get("id").toString() == "1" && !response.has("error") && response.has("result"))
+    check(
+      response.get("id") is Number &&
+        response.get("id").toString() == "1" &&
+        response.optString("jsonrpc") == "2.0" &&
+        !response.has("error") &&
+        !response.isNull("result")
+    )
     return response.get("result")
   }
 
@@ -56,11 +62,12 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
         val id = rawId.toString().toIntOrNull()
         check(
           rawId is Number &&
+            row.optString("jsonrpc") == "2.0" &&
             id != null &&
             id in 1..chunk.size &&
             !results.containsKey(id) &&
             !row.has("error") &&
-            row.has("result")
+            !row.isNull("result")
         )
         results[id] = row.get("result")
       }
@@ -90,6 +97,7 @@ internal class TokenBalanceSync(
   private val chainId: Long,
   private val token: String,
   private val rpc: PortfolioRpc,
+  private val decodeBalance: (String) -> String = { quantity(it).toString() },
 ) {
   private val aad = "gizu-token-snapshot:v1:$walletId:$chainId:${token.lowercase()}".toByteArray()
 
@@ -342,7 +350,7 @@ internal class TokenBalanceSync(
         val results = rpc.calls(requests)
         check(results.size == chunk.size)
         for ((index, address) in chunk.withIndex()) {
-          stored.put(address, quantity(results[index].toString()).toString())
+          stored.put(address, decodeBalance(results[index] as String))
           pending.remove(address)
         }
       }

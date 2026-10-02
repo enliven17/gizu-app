@@ -3,7 +3,9 @@ package io.gizu.storedwallet.swap
 import android.content.Context
 import io.gizu.storedwallet.*
 import io.gizu.storedwallet.portfolio.*
-import java.math.BigInteger
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import uniffi.gizu_stored_signer_core.*
 
 /**
  * One device-owned snapshot shared by Swap and Earn; refreshes never upload an account catalogue.
@@ -15,7 +17,17 @@ internal class MainnetPortfolio(private val context: Context) {
     includeOwned: Boolean = true,
   ): Map<String, Any?> {
     val indices = publicAccountIndices(record)
-    val addresses = indices.map { publicAccountAddress(record, it) }
+    val accounts =
+      indices.indices.toList().chunked(64).flatMap { chunk ->
+        currentCoroutineContext().ensureActive()
+        derivePortfolioAccounts(
+          record.entropy,
+          record.roleRegistry,
+          chunk.first().toUInt(),
+          chunk.size.toUInt(),
+        )
+      }
+    val addresses = accounts.map { it.address }
     val sync =
       TokenBalanceSync(
         AndroidWalletFile(context, "gizu-public-balances-${record.journalId}.enc", 4 * 1024 * 1024),
@@ -24,39 +36,25 @@ internal class MainnetPortfolio(private val context: Context) {
         143,
         USDC,
         NativePortfolioRpc("https://rpc.monad.xyz"),
+        ::decodePortfolioBalance,
       )
     val snapshot = sync.read(addresses, System.currentTimeMillis())
-    val balances = addresses.map { snapshot.balances[it.lowercase()]?.toBigInteger() }
-    val total = balances.filterNotNull().fold(BigInteger.ZERO, BigInteger::add)
-    val funding = balances[1] ?: BigInteger.ZERO
-    return mapOf(
-      "walletId" to record.id,
-      "chainId" to 143,
-      "asset" to "USDC",
-      "decimals" to 6,
-      "fundingAddress" to addresses[1],
-      "fundingAtoms" to funding.toString(),
-      "returnAtoms" to total.subtract(funding).toString(),
-      "totalAtoms" to total.toString(),
-      "checkedAt" to snapshot.checkedAt,
-      "block" to snapshot.block,
-      "stale" to snapshot.stale,
-      "balanceComplete" to snapshot.complete,
-      "syncPending" to snapshot.syncPending,
-      "accounts" to
-        indices.mapIndexedNotNull { i, index ->
-          val held = balances[i] ?: return@mapIndexedNotNull null
-          if (i > 1 && held.signum() == 0) null
-          else
-            mapOf(
-              "address" to addresses[i],
-              "accountIndex" to index,
-              "role" to if (i <= 1) "funding" else "receiving",
-              "balanceAtoms" to held.toString(),
-            )
-        },
-      "history" to history,
-    ) + if (includeOwned) NativeOwnedPortfolio(context).read(record) else emptyMap()
+    val public =
+      buildPublicPortfolio(
+        record.id,
+        record.roleRegistry,
+        accounts.map { PortfolioObservation(it, snapshot.balances[it.address.lowercase()]) },
+        PortfolioReadState(
+          snapshot.checkedAt.toULong(),
+          snapshot.block,
+          snapshot.complete,
+          snapshot.stale,
+          snapshot.syncPending,
+        ),
+      )
+    return public.toPublicMap() +
+      mapOf("history" to history) +
+      if (includeOwned) NativeOwnedPortfolio(context).read(record) else emptyMap()
   }
 
   companion object {
