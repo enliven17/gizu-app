@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
   private let stack = UIStackView()
   private var approval: CheckedContinuation<Void, Error>?
   private var document: CheckedContinuation<URL, Error>?
-  var networkLabel = "GIZU · MONAD TESTNET"
+  var networkLabel = "GIZU · WALLET"
   var onCancel: (() -> Void)?
   private let ink = UIColor(red: 5 / 255, green: 7 / 255, blue: 6 / 255, alpha: 1)
   private let accent = UIColor(red: 49 / 255, green: 196 / 255, blue: 126 / 255, alpha: 1)

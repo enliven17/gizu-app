@@ -15,6 +15,7 @@ import UIKit
     let engine = StoredTransferEngine(store: store, journal: journal)
     self.engine = engine
     let screen = try await presentWalletUI()
+    screen.networkLabel = "GIZU · MONAD TESTNET"
     screen.show(
       "Preparing exact transfers…", "Checking fees and transaction status. Nothing has been signed."
     )

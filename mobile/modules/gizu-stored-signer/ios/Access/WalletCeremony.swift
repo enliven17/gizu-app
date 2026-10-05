@@ -120,8 +120,9 @@ import UIKit
   }
 
   private func makePasskeyProvider() async throws -> StoredPasskeyGate {
-    let screen = try await presentWalletUI()
-    guard let window = screen.view.window else { throw WalletFailure.unavailable }
+    try checkAuthorization()
+    // Login uses the app window directly; reviewed operations retain their native screen.
+    guard let window = (ui ?? presenter).view.window else { throw WalletFailure.unavailable }
     let value = StoredPasskeyGate(window: window, diagnostics: diagnostics)
     gate = value
     return value
@@ -189,9 +190,6 @@ import UIKit
     let id = record.id
     let credential = record.credential
     record.close()
-    let screen = try await presentWalletUI()
-    try await screen.confirm(
-      "Open wallet", "Confirm your passkey to open this wallet. This does not authorize transfers.")
     _ = try await authorize(credential, walletId: id, purpose: "open:v1")
     try checkAuthorization()
     return try publicState()
