@@ -336,3 +336,20 @@ test("Home offers confidential vaults instead of an empty holdings section", asy
   await userEvent.press(screen.getByRole("button", { name: "See all vaults" }));
   expect(await screen.findByLabelText("vaults list")).toBeVisible();
 });
+
+test("Activity has a simple empty state and pull-to-refresh with retry on failure", async () => {
+  const { portfolio } = setup();
+  await open();
+  await userEvent.press(await screen.findByRole("button", { name: "View activity" }));
+  expect(await screen.findByText("No activity yet")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Refresh mainnet balances" })).toBeNull();
+  portfolio.getMainnetPortfolio.mockRejectedValueOnce(new Error("secret-sentinel"));
+  fireEvent(screen.UNSAFE_getAllByType(RefreshControl).at(-1)!, "refresh");
+  expect(
+    await screen.findByText("Couldn’t refresh activity. Showing saved activity."),
+  ).toBeVisible();
+  expect(screen.queryByText("No activity yet")).toBeNull();
+  expect(screen.queryByText(/secret-sentinel/)).toBeNull();
+  await userEvent.press(screen.getByRole("button", { name: "Retry activity" }));
+  expect(await screen.findByText("No activity yet")).toBeVisible();
+});

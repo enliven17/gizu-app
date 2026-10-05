@@ -325,17 +325,39 @@ export function MainnetTransaction({
 export function MainnetActivity() {
   const wallet = usePortfolio();
   return (
-    <Screen>
+    <Screen refreshing={wallet.loading} onRefresh={() => void wallet.refresh()}>
       <BackAction fallback="Home" />
-      <Typography variant="heading">Activity</Typography>
-      <Typography variant="caption">
-        Mainnet swaps recorded on this device. Incoming deposits and older overwritten operations
-        are not a complete transaction history.
+      <Typography variant="heading" accessibilityRole="header">
+        Activity
       </Typography>
-      <Typography variant="micro">Open Swap to resume a running or paused operation.</Typography>
-      <BalanceStatus />
-      {wallet.snapshot?.history.length === 0 ? (
-        <Typography>No completed or cancelled swaps recorded yet.</Typography>
+      <Typography variant="micro">
+        Completed and cancelled swaps on this device. Deposits aren’t included.
+      </Typography>
+      {wallet.loading && !wallet.snapshot ? (
+        <Typography variant="micro" accessibilityLiveRegion="polite">
+          Loading activity…
+        </Typography>
+      ) : null}
+      {wallet.error ? (
+        <ErrorNotice
+          kind="balance"
+          message={
+            wallet.snapshot
+              ? "Couldn’t refresh activity. Showing saved activity."
+              : "Couldn’t load activity."
+          }
+          actionLabel="Retry activity"
+          busy={wallet.loading}
+          onAction={() => void wallet.refresh()}
+        />
+      ) : wallet.snapshot?.stale ? (
+        <Typography variant="micro">Showing saved activity.</Typography>
+      ) : null}
+      {!wallet.error && !wallet.loading && wallet.snapshot?.history.length === 0 ? (
+        <View className="items-center gap-2 py-12">
+          <Typography variant="rowTitle">No activity yet</Typography>
+          <Typography variant="caption">Your finished swaps will appear here.</Typography>
+        </View>
       ) : null}
       {wallet.snapshot?.history.map((item) => (
         <Surface key={item.operationId}>
