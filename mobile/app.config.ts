@@ -14,7 +14,7 @@ const config: ExpoConfig = {
   extra: {
     eas: { projectId: "6f1c36fc-416b-46ec-a3fd-0d5302cbbdce" },
   },
-  version: "0.2.1",
+  version: "0.4.0",
   icon: "./assets/icon.png",
   scheme: "gizu",
   userInterfaceStyle: "dark",
@@ -22,7 +22,7 @@ const config: ExpoConfig = {
     bundleIdentifier: identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "8",
+    buildNumber: "9",
     infoPlist: {
       GizuWalletEnabled: release,
       // Standard cryptography only; France is excluded from distribution (see README).
@@ -30,7 +30,7 @@ const config: ExpoConfig = {
     },
     associatedDomains: [`webcredentials:${identity.rpId}`],
   },
-  android: { package: identity.androidPackage, versionCode: 2 },
+  android: { package: identity.androidPackage, versionCode: 3 },
   plugins: [
     [
       "expo-splash-screen",
