@@ -1,9 +1,9 @@
 # Gizu product capabilities and parity
 
-Updated 2026-09-30. Existing frontend-inspired mobile design is retained;
+Updated 2026-10-05. Existing frontend-inspired mobile design is retained;
 service availability differs by mode. Future work belongs in [PLAN](../PLAN.md).
 
-The native-mode entries describe the Android app using the stored-wallet signer.
+The native-mode entries describe the stored-wallet signer; platform differences are noted below.
 Platform acceptance and remaining migration work are tracked in
 [the migration plan](SIGNER_MIGRATION.md). Historical fixture journeys remain in tests and the isolated UI playground;
 simulated passkey startup has been removed.
@@ -49,13 +49,12 @@ move funds, change derivation, or expand the native testnet transfer policy.
   `npm run debug:testnet` explicitly opens the retained Account 0 testnet harness;
   the debug entry is rejected outside development. Old native testnet RPC and
   transfer policies remain intact for that harness.
-- iOS registers `getMainnetPortfolio` for public Monad USDC. Its independent
-  holdings store, Earn portfolio extensions and persistent buy/sell history remain
-  unsupported. It returns an empty history, without fabricating transactions or
-  balances. Physical-iPhone acceptance is still pending; see
+- iOS registers `getMainnetPortfolio` for public Monad USDC and returns locally
+  recorded completed/cancelled swap history. Earn portfolio extensions remain
+  Android-only. Physical-iPhone acceptance is still pending; see
   [GIZU-1 verification](GIZU-1_IOS_MONAD_PORTFOLIO.md).
 
-## Confidential-swap branch: Android holdings
+## Confidential-swap holdings: Android and iOS
 
 Home includes **Token holdings** for Robinhood mainnet tokens, separate from the
 Monad mainnet USDC total. This branch's Swap tab uses the native confidential-swap
@@ -75,9 +74,25 @@ journey; the read-only Swap row above describes the earlier catalog baseline.
   checks balances in Rust, allocates new return accounts, and requires native review
   and passkey approval. An unfinished operation must be resumed through Swap first.
   Multiple groups are sold one at a time; no automatic sale is started by refresh.
-- iOS holdings support is not yet implemented; this section is Android-only.
+- Both platforms use Rust for account selection, exact token totals and sell-batch
+  ownership. iOS persists tracked tokens and public history independently of the
+  active operation and backfills the remaining legacy operation on first read.
   The portfolio file is local, outside the wallet backup format; the original
   account registry and token selection are needed to rediscover balances after restore.
+
+- iOS now exposes selected-holding sales, explicit recovery and private-balance
+  payout through the existing Home and Swap screens. Recovery resumes unfinished
+  work instead of replacing it; a new recovery scans at most the last 60 allocated
+  accounts, matching Rust's existing limit. It is not full chain-wide discovery.
+- iOS keeps the native dialog open during bridge polling. Closing/backgrounding
+  cancels local work and drops signing authority; it cannot undo a submitted step.
+  Status reads never retry; explicit Resume clears a pause and obtains native
+  review/passkey authorization when the core requests it. Swap ceremonies last at
+  most 15 minutes; ordinary wallet ceremonies retain their two-minute limit.
+- Shared fixture tests and native simulator tests cover these implementations.
+  Real iPhone passkeys, funded sell/recovery and background/resume still need
+  device acceptance. Android's multi-source buy funding and Earn execution are
+  outside this parity change.
 
 ## Data and state boundaries
 

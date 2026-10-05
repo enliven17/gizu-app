@@ -54,10 +54,18 @@ export function SwapHoldingsSection() {
                 remains.
               </Typography>
             ) : null}
+            {!holding.batches.length ? (
+              <Typography variant="micro">
+                Balance found, but no complete receiving-wallet group is available to sell.
+              </Typography>
+            ) : null}
             <Button
               label={`Sell ${holding.symbol} back to Monad USDC`}
-              disabled={holdings.busy || !!holdings.error}
-              onPress={() => void holdings.sell(holding.batches[0]!.id)}
+              disabled={holdings.busy || !!holdings.error || !holding.batches.length}
+              onPress={() => {
+                const batch = holding.batches[0];
+                if (batch) void holdings.sell(batch.id);
+              }}
             />
           </View>
         </Surface>

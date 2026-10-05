@@ -63,7 +63,8 @@ at most four concurrent batches of 40 calls, a 15-second request timeout,
 20-second resource timeout and the enclosing 120-second ceremony deadline.
 Any missing/invalid observation fails the refresh; no partial result is labeled
 complete. The previous Home snapshot remains visible with an error. Reading does
-not invoke passkeys, grant signing authority or change wallet files.
+not invoke passkeys or grant signing authority. It may backfill public swap summaries
+from the encrypted active journal; it does not change wallet keys or account allocation.
 
 The JavaScript bridge serializes portfolio, holdings, funding-address and saved
 swap-status reads through one queue. Opening Swap during a balance refresh waits
@@ -77,9 +78,50 @@ safe integer range, zero balances and Android partial/stale observations. Run
 `stored-signer:build` before Android unit tests: the latter load the host Rust
 library via JNA as well as compiling Android's generated bindings.
 
-The iOS portfolio currently has no persistent transaction history or additional
-owned-asset observations. The testnet transfer transport/policy remains separate.
+The iOS portfolio includes persistent public swap summaries. Robinhood token
+holdings use a separate read contract; Earn asset extensions remain Android-only.
+The testnet transfer transport/policy remains separate.
 See [GIZU-1](GIZU-1_IOS_MONAD_PORTFOLIO.md) for verification and device acceptance.
+
+## Shared swap holdings and iOS recovery
+
+`core/src/swap_holdings.rs` owns allocated recipient selection, Earn-withdrawal
+exclusions, exact ABI balance validation, checked uint256 totals and three-account
+sell-batch selection. Swift/Kotlin perform RPC transport; neither accepts a set of
+holder addresses chosen by JavaScript. IDs bind a tracked lowercase contract to
+an allocated batch. `ios/Tests/Fixtures/swap-holdings.json` runs through all three
+languages, including amounts above JavaScript's safe-integer range.
+
+The iOS `SwapHoldings` reader pins Robinhood chain 4663 reads to one latest block
+number and rechecks its hash before returning (the network prunes older state).
+Invalid metadata, missing balances, chain mismatch and reorgs fail the entire
+refresh; errors never become zero holdings. A selected token becomes tracked only
+after a successful read. Reads do not create or advance a swap.
+
+`SwapPortfolioStore` stores tracked contracts and completed/cancelled public
+summaries independently of the active encrypted swap journal. Its existing
+non-synchronizing wallet key, wallet ID and journal-generation ID bind the file;
+atomic writes include read-back verification. Corruption or missing keys fail
+closed. Active state is persisted first so an interrupted summary write can be
+backfilled. No raw signed payloads or secrets enter the public summary. Restore
+starts a new local journal generation; token discovery requires the restored
+account registry and selecting the token again. Overwritten legacy history
+cannot be reconstructed from balances.
+
+Selected-holding selling reserves fresh return accounts before starting the core
+operation and cannot overwrite unfinished work. Explicit Resume calls core retry;
+status reads only restore public state. Recovery preserves an incomplete operation
+and otherwise uses the shared recovery plan's last-60-allocated-account limit.
+Private-balance payout uses `confidentialPayout`, not a new source deposit.
+
+Native review and passkeys remain mandatory at the core's review/unlock gates.
+iOS swap ceremonies have a bounded 15-minute lifecycle, matching the displayed
+swap approval; wallet/backup ceremonies retain two minutes. Backgrounding, lock
+and Cancel invalidate the ceremony. Polling remains in the native dialog until
+review, unlock, pause or completion; cancellation checks prevent a late network
+response from advancing the operation. Closing cannot reverse a submitted step.
+Simulator tests are not proof of funded execution or physical-iPhone passkeys;
+those remain acceptance gates, including background/resume and restore discovery.
 
 ## iOS storage and authorization
 
@@ -103,7 +145,8 @@ Native full-screen review uses the existing visual language and keeps Cancel ava
 through preparation. Exact-transfer limits, encrypted signed-before-broadcast journaling,
 read-only reconciliation and explicitly authorized identical-byte retries match Android.
 Capability adapters query native capabilities before entering each operation; module
-presence alone is insufficient. Release builds remain unavailable. Simulator checks
+presence alone is insufficient. Release availability requires the signed
+`GizuWalletEnabled` build flag. Simulator checks
 are separate from pending physical-device/provider and independent security acceptance.
 
 ## Verified backup and recovery

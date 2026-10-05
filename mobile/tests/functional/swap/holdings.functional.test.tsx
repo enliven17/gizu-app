@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { SwapHoldingsSection } from "@/features/swap/SwapHoldingsSection";
 import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
 import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
+import holdingsFixture from "../../../modules/gizu-stored-signer/ios/Tests/Fixtures/swap-holdings.json";
 import { deferred } from "../../support/renderApp";
 
 jest.mock("@/services/wallet/nativeBridge", () => ({ getStoredSwapSigner: jest.fn() }));
@@ -103,4 +104,24 @@ test("earlier purchase discovery only reads balances and never creates a swap", 
   } finally {
     global.fetch = original;
   }
+});
+
+test("shared native holdings retain exact precision and sell the selected allocated batch", async () => {
+  read.mockResolvedValue({ ...snapshot, holdings: [holdingsFixture.expected] });
+  open();
+  expect(await screen.findByText("0.009007199254741003 GOOGL")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Sell GOOGL back to Monad USDC" }));
+  await act(async () => {});
+  expect(sell).toHaveBeenCalledWith(`${holdingsFixture.token}:3`, expect.any(String));
+});
+
+test("a balance without a complete allocated batch remains visible but cannot sell", async () => {
+  read.mockResolvedValue({ ...snapshot, holdings: [{ ...snapshot.holdings[0], batches: [] }] });
+  open();
+  expect(await screen.findByText("1.2345 GOOGL")).toBeVisible();
+  const button = screen.getByRole("button", { name: "Sell GOOGL back to Monad USDC" });
+  expect(button).toBeDisabled();
+  fireEvent.press(button);
+  expect(sell).not.toHaveBeenCalled();
+  expect(screen.getByText(/no complete receiving-wallet group/)).toBeVisible();
 });
