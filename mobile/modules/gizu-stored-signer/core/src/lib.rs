@@ -1,5 +1,7 @@
 //! Native-private entropy derivation and transaction policy. Never export secrets to JS.
 mod earn_fees;
+mod earn_values;
+pub use earn_values::*;
 mod portfolio;
 mod swap_holdings;
 pub use swap_holdings::*;
