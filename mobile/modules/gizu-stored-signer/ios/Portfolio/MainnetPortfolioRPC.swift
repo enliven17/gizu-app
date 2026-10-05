@@ -10,12 +10,13 @@ internal protocol MainnetPortfolioRPC {
   func calls(_ requests: [PortfolioRequest]) async throws -> [Any]
 }
 
-/// Dedicated read-only transport. Never shares or changes the testnet signing endpoint.
+/// Fixed-chain native transport. Never shares or changes the testnet signing endpoint.
 internal final class NativeMainnetPortfolioRPC: NSObject, MainnetPortfolioRPC,
   URLSessionTaskDelegate
 {
   enum Network: String {
     case monad = "https://rpc.monad.xyz"
+    case ethereum = "https://ethereum-rpc.publicnode.com"
     case robinhood = "https://rpc.mainnet.chain.robinhood.com"
   }
   private let network: Network
@@ -75,8 +76,11 @@ internal final class NativeMainnetPortfolioRPC: NSObject, MainnetPortfolioRPC,
         number.doubleValue == Double(number.intValue),
         (1...requests.count).contains(number.intValue), results[number.intValue] == nil,
         row["jsonrpc"] as? String == "2.0", row["error"] == nil,
-        let result = row["result"], !(result is NSNull)
+        let result = row["result"]
       else { throw WalletFailure.invalid }
+      if result is NSNull {
+        try require(["eth_getTransactionReceipt", "eth_getTransactionByHash"].contains(requests[number.intValue - 1].method))
+      }
       results[number.intValue] = result
     }
     return try (1...requests.count).map {
