@@ -177,7 +177,7 @@ export interface StoredSignerContract {
   /** Temporary: finish Fusion buys for allocated recipients still holding USDG. */
   startRecovery(target: string, gateway: string): Promise<StoredSwapView>;
   resumeSwap(gateway: string): Promise<StoredSwapView>;
-  getSwapStatus(gateway: string): Promise<StoredSwapView>;
+  getSwapStatus(gateway: string): Promise<StoredSwapView | { phase: "NONE" }>;
   cancelSwap(gateway: string): Promise<StoredSwapView>;
   /** Native intent review, authorization and immutable public wallet pair. No signing. */
   prepareEarnIntent?(walletId: string, profile: string): Promise<unknown>;

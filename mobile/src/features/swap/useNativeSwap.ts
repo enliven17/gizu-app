@@ -30,7 +30,8 @@ export function useNativeSwap() {
     const deposit = await native.getSwapDeposit();
     setFundingAddress(deposit.fundingAddress);
     try {
-      setStatus(parseSwapView(await native.getSwapStatus(swapGateway)));
+      const saved = await native.getSwapStatus(swapGateway);
+      setStatus(saved.phase === "NONE" ? null : parseSwapView(saved));
     } catch {
       diagnostic("status", "failed");
       setError("Saved swap status unavailable. Refresh before starting another operation.");

@@ -1502,8 +1502,9 @@ class GizuStoredSignerModule : Module() {
       runCeremony(promise) { activity, store ->
         withContext(Dispatchers.IO) {
           store.load().use { record ->
-            SwapEngine(store, SwapStore(activity.applicationContext, record), gateway).use { engine
-              ->
+            val saved = SwapStore(activity.applicationContext, record)
+            if (saved.load() == null) return@use mapOf("phase" to "NONE")
+            SwapEngine(store, saved, gateway).use { engine ->
               engine.restore()
               engine.view()
             }

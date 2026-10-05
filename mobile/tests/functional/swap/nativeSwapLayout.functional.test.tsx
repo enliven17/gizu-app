@@ -70,8 +70,32 @@ test("selects a searched token and reviews the exact amount without exposing tec
   expect(screen.getByRole("button", { name: "Cancel swap" })).toBeVisible();
 });
 
+test("a fresh wallet with no saved swap shows no status warning", async () => {
+  readStatus.mockResolvedValue({ phase: "NONE" });
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  await screen.findByText("COIN");
+  await waitFor(() => expect(readStatus).toHaveBeenCalled());
+  expect(screen.queryByText(/Saved swap status unavailable/)).toBeNull();
+  expect(screen.queryByText("Swap in progress")).toBeNull();
+  expect(screen.getByRole("button", { name: "Review swap" })).toBeVisible();
+});
+
+test("a failed status read still shows the warning", async () => {
+  readStatus.mockRejectedValue(new Error("storage failure"));
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  expect(await screen.findByText(/Saved swap status unavailable/)).toBeVisible();
+});
+
 test("pull-to-refresh reloads saved swap status without a refresh button", async () => {
-  readStatus.mockResolvedValue(status);
+  readStatus.mockResolvedValue({ phase: "NONE" });
   render(
     <SafeAreaProvider>
       <NativeSwapScreen />

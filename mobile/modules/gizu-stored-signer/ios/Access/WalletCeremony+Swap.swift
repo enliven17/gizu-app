@@ -48,8 +48,9 @@ import Foundation
   func swapStatus(gateway: String) throws -> [String: Any] {
     let record = try store.load()
     defer { record.close() }
-    let engine = try StoredSwapEngine(
-      storage: store, saved: StoredSwapFile(store: store, record: record), gateway: gateway)
+    let saved = try StoredSwapFile(store: store, record: record)
+    if try saved.load() == nil { return ["phase": "NONE"] }
+    let engine = StoredSwapEngine(storage: store, saved: saved, gateway: gateway)
     defer { engine.close() }
     try engine.restore()
     return try engine.view()
