@@ -1,6 +1,6 @@
 import { mainnetPortfolio } from "../../support/mainnetWallet";
-import { act, render, screen, userEvent } from "@testing-library/react-native";
-import { Linking } from "react-native";
+import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
+import { Linking, RefreshControl } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
 import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import { defaultPreferences } from "@/domain/preferences";
@@ -102,11 +102,11 @@ test("failed native portfolio refresh preserves the prior balance until a fresh 
   await open();
   await screen.findByLabelText("19.990574 USDC");
   portfolio.getMainnetPortfolio.mockRejectedValueOnce(new Error("Offline"));
-  await userEvent.press(screen.getByRole("button", { name: "Refresh mainnet balances" }));
+  fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
   expect(await screen.findByText(/Previously loaded balances may be stale/)).toBeVisible();
   expect(screen.getByLabelText("19.990574 USDC")).toBeVisible();
   portfolio.getMainnetPortfolio.mockResolvedValue(mainnetPortfolio(walletId, address, "0"));
-  await userEvent.press(screen.getByRole("button", { name: "Refresh mainnet balances" }));
+  fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
   expect(await screen.findByLabelText("0 USDC")).toBeVisible();
 });
 

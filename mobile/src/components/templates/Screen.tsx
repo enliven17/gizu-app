@@ -1,12 +1,19 @@
 import { useState, type PropsWithChildren } from "react";
-import { ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { ScreenFrame, useScreenBottomPadding } from "./ScreenFrame";
 import { ScrollLockContext } from "./ScrollLock";
+import colors from "@/theme/colors.json";
 
 export function Screen({
   children,
   scrollable = true,
-}: PropsWithChildren<{ scrollable?: boolean }>) {
+  refreshing = false,
+  onRefresh,
+}: PropsWithChildren<{
+  scrollable?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+}>) {
   const bottomPadding = useScreenBottomPadding();
   const [scrollLocked, setScrollLocked] = useState(false);
   return (
@@ -14,6 +21,17 @@ export function Screen({
       {scrollable ? (
         <ScrollView
           scrollEnabled={!scrollLocked}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                accessibilityLabel="Refresh content"
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.neon.DEFAULT}
+                colors={[colors.neon.DEFAULT]}
+              />
+            ) : undefined
+          }
           contentContainerClassName="grow gap-4 px-5 py-4"
           contentContainerStyle={
             bottomPadding === undefined ? undefined : { paddingBottom: bottomPadding }

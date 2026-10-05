@@ -31,7 +31,7 @@ function usePortfolio() {
   );
   return wallet;
 }
-function BalanceStatus() {
+function BalanceStatus({ showRefresh = true }: { showRefresh?: boolean }) {
   const wallet = useMainnetWallet();
   return (
     <>
@@ -51,12 +51,14 @@ function BalanceStatus() {
           }
         />
       ) : null}
-      <Button
-        label="Refresh mainnet balances"
-        variant="quiet"
-        disabled={wallet.loading}
-        onPress={() => void wallet.refresh()}
-      />
+      {showRefresh && (
+        <Button
+          label="Refresh mainnet balances"
+          variant="quiet"
+          disabled={wallet.loading}
+          onPress={() => void wallet.refresh()}
+        />
+      )}
     </>
   );
 }
@@ -185,12 +187,11 @@ export function MainnetPortfolioScreen({
   const wallet = usePortfolio();
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   return (
-    <Screen>
+    <Screen refreshing={wallet.loading} onRefresh={() => void wallet.refresh()}>
       <Typography variant="pageTitle" accessibilityRole="header">
         Your portfolio
       </Typography>
-      <Typography variant="caption">Monad mainnet · USDC</Typography>
-      <BalanceStatus />
+      <BalanceStatus showRefresh={false} />
       {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
         <Surface>
           <View className="gap-3 p-5">
