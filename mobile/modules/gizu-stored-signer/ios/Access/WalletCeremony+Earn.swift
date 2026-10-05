@@ -49,7 +49,7 @@ extension WalletCeremony {
     let network = chain == 1 ? "Ethereum mainnet USDC" : "Robinhood mainnet USDG"
     let screen = try await presentWalletUI()
     try await screen.confirm(recovery ? "Recover earn wallets" : "Prepare two earn wallets",
-      "Source: Monad mainnet USDC account 0. Destination: \(network). Wallet 1 holds 10%; wallet 2 invests 90% after fees. Both are covered by your verified backup. This iOS build can prepare or recover these wallets. Funding and investment execution are unavailable. This creates no transfer or investment. " +
+      "Source: Monad mainnet USDC account 0. Destination: \(network). Wallet 1 holds 10%; wallet 2 invests 90% after fees. Both are covered by your verified backup. This iOS build can prepare or recover these wallets. Source funding is unavailable on iOS. Ethereum vault execution requires an already funded investment wallet; other execution paths remain unavailable. This creates no transfer or investment. " +
       (recovery ? "Recovered wallets require activity reconciliation before funding." : "Confirm your passkey to prepare this intent."))
     _ = try await authorize(credential, walletId: walletId, purpose: "earn-wallets:v1:\(profile)")
     try checkAuthorization()
