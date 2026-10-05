@@ -1,6 +1,7 @@
 import Foundation
 
 internal final class StoredSwapFile {
+  let portfolio: SwapPortfolioStore
   let walletId: String
   private let files: WalletFiles
   private let keys: WalletKeyStore
@@ -8,6 +9,7 @@ internal final class StoredSwapFile {
   private let aad: Data
 
   init(store: WalletStorage, record: WalletRecord) {
+    portfolio = SwapPortfolioStore(store: store, record: record)
     walletId = record.id
     files = store.files
     keys = store.keys

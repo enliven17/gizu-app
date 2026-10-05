@@ -10,13 +10,18 @@ internal struct MainnetPortfolio {
     let record = try store.load()
     let walletId = record.id
     let registry = record.roleRegistry
+    let saved = StoredSwapFile(store: store, record: record)
     let accounts: [PortfolioAccount]
     do {
       defer { record.close() }
       try require(record.verified)
       accounts = try await Self.accounts(entropy: record.entropy, registry: registry)
     }
-    return try await read(walletId: walletId, registry: registry, accounts: accounts).publicValue
+    try saved.portfolio.rememberActive(saved, gateway: "https://gizu-backend.onrender.com")
+    var value = try await read(walletId: walletId, registry: registry, accounts: accounts)
+      .publicValue
+    value["history"] = try saved.portfolio.history()
+    return value
   }
 
   static func accounts(entropy: Data, registry: String) async throws -> [PortfolioAccount] {
@@ -120,7 +125,7 @@ extension PublicPortfolioSnapshot {
           "balanceAtoms": $0.balanceAtoms,
         ] as [String: Any]
       },
-      "history": [],  // No supported persistent portfolio-history source on iOS yet.
+      "history": [],  // Wallet-scoped summaries are attached by read(store:).
     ]
   }
 }

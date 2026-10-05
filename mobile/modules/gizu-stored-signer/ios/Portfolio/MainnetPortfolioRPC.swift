@@ -14,8 +14,16 @@ internal protocol MainnetPortfolioRPC {
 internal final class NativeMainnetPortfolioRPC: NSObject, MainnetPortfolioRPC,
   URLSessionTaskDelegate
 {
+  enum Network: String {
+    case monad = "https://rpc.monad.xyz"
+    case robinhood = "https://rpc.mainnet.chain.robinhood.com"
+  }
+  private let network: Network
   private let post: ((Data) async throws -> Data)?
-  init(post: ((Data) async throws -> Data)? = nil) { self.post = post }
+  init(network: Network = .monad, post: ((Data) async throws -> Data)? = nil) {
+    self.network = network
+    self.post = post
+  }
 
   func urlSession(
     _ session: URLSession, task: URLSessionTask,
@@ -24,7 +32,7 @@ internal final class NativeMainnetPortfolioRPC: NSObject, MainnetPortfolioRPC,
   ) { completionHandler(nil) }
 
   private func send(_ body: Data) async throws -> Data {
-    var request = URLRequest(url: URL(string: "https://rpc.monad.xyz")!)
+    var request = URLRequest(url: URL(string: network.rawValue)!)
     request.httpMethod = "POST"
     request.timeoutInterval = 15
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
