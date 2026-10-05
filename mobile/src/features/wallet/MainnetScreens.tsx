@@ -1,6 +1,8 @@
 import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
 import { useCallback, useState } from "react";
-import { Platform, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
+import colors from "@/theme/colors.json";
 import { useFocusEffect } from "@react-navigation/native";
 import type {
   NativeStackScreenProps,
@@ -11,6 +13,7 @@ import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BackAction } from "@/navigation/BackAction";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
+import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { Button } from "@/components/atoms/Button";
 import { Surface } from "@/components/molecules/Surface";
 import { Notice } from "@/components/molecules/Notice";
@@ -62,6 +65,29 @@ function BalanceStatus({ showRefresh = true }: { showRefresh?: boolean }) {
     </>
   );
 }
+function WalletDetails() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View className="gap-3">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Wallet details"
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded((value) => !value)}
+        className="min-h-11 flex-row items-center justify-between gap-3"
+      >
+        <Typography variant="caption">Wallet details</Typography>
+        {expanded ? (
+          <ChevronUp size={18} color={colors.text} />
+        ) : (
+          <ChevronDown size={18} color={colors.text} />
+        )}
+      </Pressable>
+      {expanded && <ReceivingAccounts />}
+    </View>
+  );
+}
+
 function ReceivingAccounts() {
   const { snapshot } = useMainnetWallet();
   const [message, setMessage] = useState("");
@@ -185,34 +211,56 @@ export function MainnetPortfolioScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParamList, "Home">) {
   const wallet = usePortfolio();
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <Screen refreshing={wallet.loading} onRefresh={() => void wallet.refresh()}>
-      <Typography variant="pageTitle" accessibilityRole="header">
-        Your portfolio
-      </Typography>
+      <View className="flex-row items-center gap-3">
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <GizuLogo width={28} height={38} />
+        </View>
+        <Typography variant="pageTitle" accessibilityRole="header" className="flex-1">
+          Your portfolio
+        </Typography>
+      </View>
       <BalanceStatus showRefresh={false} />
       {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
         <Surface>
           <View className="gap-3 p-5">
-            <Typography variant="micro">
-              Total USDC across funding and receiving accounts
-            </Typography>
+            <Typography variant="micro">USDC balance</Typography>
             <Typography
               variant="title"
               accessibilityLabel={`${holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC`}
             >
               {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC
             </Typography>
-            <Typography>
-              Swap funding: {holdingAmount(wallet.snapshot.fundingAtoms, 6)} USDC
-            </Typography>
-            <Typography>
-              Receiving wallets: {holdingAmount(wallet.snapshot.returnAtoms, 6)} USDC
-            </Typography>
-            <Typography variant="micro">
-              Last checked {new Date(wallet.snapshot.checkedAt).toLocaleTimeString()}
-            </Typography>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Balance details"
+              accessibilityState={{ expanded: detailsExpanded }}
+              onPress={() => setDetailsExpanded((expanded) => !expanded)}
+              className="min-h-11 flex-row items-center justify-between gap-3"
+            >
+              <Typography variant="caption">Balance details</Typography>
+              {detailsExpanded ? (
+                <ChevronUp size={18} color={colors.text} />
+              ) : (
+                <ChevronDown size={18} color={colors.text} />
+              )}
+            </Pressable>
+            {detailsExpanded && (
+              <View className="gap-3">
+                <Typography>
+                  Swap funding: {holdingAmount(wallet.snapshot.fundingAtoms, 6)} USDC
+                </Typography>
+                <Typography>
+                  Receiving wallets: {holdingAmount(wallet.snapshot.returnAtoms, 6)} USDC
+                </Typography>
+                <Typography variant="micro">
+                  Last checked {new Date(wallet.snapshot.checkedAt).toLocaleTimeString()}
+                </Typography>
+              </View>
+            )}
           </View>
         </Surface>
       ) : null}
@@ -223,7 +271,7 @@ export function MainnetPortfolioScreen({
         onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
         onActivity={() => root.navigate("Activity")}
       />
-      <ReceivingAccounts />
+      <WalletDetails />
       {Platform.OS === "android" ? (
         <SwapHoldingsSection />
       ) : (
@@ -263,7 +311,7 @@ export function MainnetTransaction({
       {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
         <Typography>Total: {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC</Typography>
       ) : null}
-      <ReceivingAccounts />
+      <WalletDetails />
     </Screen>
   );
 }

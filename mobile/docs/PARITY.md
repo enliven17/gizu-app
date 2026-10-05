@@ -40,6 +40,7 @@ move funds, change derivation, or expand the native testnet transfer policy.
   incremental encrypted cache and incomplete/stale indicators; iOS requires a
   complete read at one finalized block and retains the previous UI snapshot on failure.
   Returned USDC is not automatically consolidated or spendable from the funding account.
+- Home shows one USDC total, with separate collapsed Balance details and Wallet details.
 - The Home Confidential earn shortcut is temporarily hidden; the Earn route is retained.
 - Deposit and Account show the mainnet USDC funding address. Activity shows local
   archived buy/sell summaries, including completed sales' USDC proceeds. It does not

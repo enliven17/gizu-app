@@ -74,14 +74,29 @@ test("shared Rust, Swift and Kotlin fixtures satisfy the Home contract", () => {
 
 test("mainnet Home includes receiving USDC, Deposit uses funding address, Withdraw never signs", async () => {
   const { transfers } = await open();
+  expect(screen.getByLabelText("3 USDC")).toBeVisible();
+  expect(screen.queryByText("Swap funding: 0.5 USDC")).toBeNull();
+  expect(screen.queryByText("USDC accounts")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Balance details", expanded: false }));
   expect(screen.getByText("Swap funding: 0.5 USDC")).toBeVisible();
   expect(screen.getByText("Receiving wallets: 2.5 USDC")).toBeVisible();
+  expect(screen.queryByText("USDC accounts")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Balance details", expanded: true }));
+  expect(screen.queryByText("Swap funding: 0.5 USDC")).toBeNull();
+  expect(screen.getByLabelText("3 USDC")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Wallet details", expanded: false }));
+  expect(screen.getByText("USDC accounts")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Copy funding address" })).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Wallet details", expanded: true }));
+  expect(screen.queryByText("USDC accounts")).toBeNull();
   expect(screen.queryByText(/testnet MON/)).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "Deposit" }));
   expect(
     await screen.findByText("Send USDC on Monad mainnet to your swap funding address."),
   ).toBeVisible();
   expect(screen.getByLabelText(`Account address: ${funding}`)).toBeVisible();
+  expect(screen.queryByText("USDC accounts")).toBeNull();
+  expect(screen.getByRole("button", { name: "Wallet details", expanded: false })).toBeVisible();
   fireEvent.press(screen.getByRole("button", { name: "Back" }));
   fireEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
   expect(await screen.findByText(/Direct mainnet withdrawals are not available/)).toBeVisible();
