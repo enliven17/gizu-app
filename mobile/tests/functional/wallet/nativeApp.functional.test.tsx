@@ -63,8 +63,8 @@ test("native access opens existing Home and Account with live units and no fixtu
   expect(screen.getByRole("header", { name: "Your portfolio" })).toBeVisible();
   expect(screen.queryByRole("header", { name: "Your wallet" })).toBeNull();
   expect(screen.queryByText(/Available USDC/)).toBeNull();
-  expect(screen.getByRole("button", { name: "Deposit" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Withdraw" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Receive" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "View activity" })).toBeEnabled();
   await userEvent.press(screen.getByLabelText("Vaults tab"));
   expect(await screen.findByLabelText("Search opportunities")).toBeVisible();
@@ -162,15 +162,15 @@ const record = {
 test("deposit copies the real address without signing and withdrawal validates before native approval", async () => {
   const { transfers, clipboard, bridge } = setup();
   await open();
-  await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
-  expect(await screen.findByRole("header", { name: "Deposit" })).toBeVisible();
+  await userEvent.press(await screen.findByRole("button", { name: "Receive" }));
+  expect(await screen.findByRole("header", { name: "Receive" })).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Copy account address" }));
   expect(clipboard.copy).toHaveBeenCalledWith(address);
   expect(transfers.send).not.toHaveBeenCalled();
   expect(bridge.openWallet).toHaveBeenCalledTimes(1);
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  await userEvent.press(screen.getByRole("button", { name: "Withdraw" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Review withdrawal" }));
+  await userEvent.press(screen.getByRole("button", { name: "Send" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Review send" }));
   expect(
     await screen.findByText("Enter a full recipient address and an amount above 0 up to 0.1 MON."),
   ).toBeVisible();
@@ -179,16 +179,16 @@ test("deposit copies the real address without signing and withdrawal validates b
   fireEvent.changeText(screen.getByLabelText("Amount in MON"), "0.001");
   const pending = deferred<WalletHistory>();
   transfers.send.mockReturnValueOnce(pending.promise);
-  await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
-  expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
+  await userEvent.press(screen.getByRole("button", { name: "Review send" }));
+  expect(screen.getByRole("button", { name: "Review send" })).toBeDisabled();
   expect(screen.getByText("Waiting for passkey")).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
+  await userEvent.press(screen.getByRole("button", { name: "Review send" }));
   expect(transfers.send).toHaveBeenCalledTimes(1);
   expect(transfers.send).toHaveBeenCalledWith(address, recipient, "0.001");
   await act(async () => pending.resolve({ entries: [record], blocked: true }));
   expect(await screen.findByText("Pending")).toBeVisible();
   expect(screen.queryByText("Waiting for passkey")).toBeNull();
-  expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Review send" })).toBeDisabled();
   transfers.history.mockResolvedValue({
     entries: [{ ...record, status: "finalized" }],
     blocked: false,
@@ -205,26 +205,26 @@ test("deposit copies the real address without signing and withdrawal validates b
 test("cancelled or uncertain native requests require reconciliation before retry", async () => {
   const { transfers } = setup();
   await open();
-  await userEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Send" }));
   fireEvent.changeText(await screen.findByLabelText("Recipient address"), recipient);
   transfers.send.mockRejectedValueOnce(new Error("cancelled"));
-  await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
+  await userEvent.press(screen.getByRole("button", { name: "Review send" }));
   expect(await screen.findByText(/Transfer stopped or cancelled/)).toBeVisible();
-  expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Review send" })).toBeDisabled();
   transfers.history.mockResolvedValueOnce({
     entries: [{ ...record, status: "unknown" }],
     blocked: true,
   });
   await userEvent.press(screen.getByRole("button", { name: "Check status" }));
   expect(await screen.findByText("Unknown — refresh status")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Review send" })).toBeDisabled();
   transfers.history.mockResolvedValueOnce({
     entries: [{ ...record, status: "reverted" }],
     blocked: false,
   });
   await userEvent.press(screen.getByRole("button", { name: "Check status" }));
   expect(await screen.findByText("Failed on-chain")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Review send" })).toBeEnabled();
   expect(transfers.send).toHaveBeenCalledTimes(1);
 });
 
@@ -250,11 +250,11 @@ test("activity loads older journal records on entry without inventing missing de
 test("closing withdrawal preserves the operation and Activity observes its result", async () => {
   const { transfers } = setup();
   await open();
-  await userEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Send" }));
   fireEvent.changeText(await screen.findByLabelText("Recipient address"), recipient);
   const pending = deferred<WalletHistory>();
   transfers.send.mockReturnValueOnce(pending.promise);
-  await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
+  await userEvent.press(screen.getByRole("button", { name: "Review send" }));
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await userEvent.press(screen.getByRole("button", { name: "View activity" }));
   await act(async () => pending.resolve({ entries: [record], blocked: true }));

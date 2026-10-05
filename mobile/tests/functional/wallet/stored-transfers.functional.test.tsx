@@ -116,9 +116,9 @@ async function activity() {
 test("existing Withdraw submits a bound proposal and renders finalized history", async () => {
   const { native } = setup();
   await open();
-  await userEvent.press(screen.getByRole("button", { name: "Withdraw" }));
+  await userEvent.press(screen.getByRole("button", { name: "Send" }));
   fireEvent.changeText(await screen.findByLabelText("Recipient address"), to);
-  await userEvent.press(await screen.findByRole("button", { name: "Review withdrawal" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Review send" }));
   expect(await screen.findByText("Finalized")).toBeVisible();
   expect(native.executeOperation).toHaveBeenCalledTimes(1);
   expect(native.executeOperation).toHaveBeenCalledWith({
@@ -200,9 +200,9 @@ test("cancellation failure requires refresh and prevents another operation", asy
 test("normal wallet composition uses the stored signer without a transfer-service override", async () => {
   const { native } = setup([], true);
   await open();
-  await userEvent.press(screen.getByRole("button", { name: "Withdraw" }));
+  await userEvent.press(screen.getByRole("button", { name: "Send" }));
   fireEvent.changeText(await screen.findByLabelText("Recipient address"), to);
-  await userEvent.press(screen.getByRole("button", { name: "Review withdrawal" }));
+  await userEvent.press(screen.getByRole("button", { name: "Review send" }));
   expect(await screen.findByText("Finalized")).toBeVisible();
   expect(native.executeOperation).toHaveBeenCalledWith(expect.objectContaining({ walletId }));
 });

@@ -33,7 +33,7 @@ function TransferButton({
   );
 }
 
-/** Frontend Home quick actions: glass Deposit / Withdraw and a glass-soft activity tile. */
+/** Frontend Home quick actions: glass Receive / Send and a glass-soft activity tile. */
 export function PortfolioActions({
   onDeposit,
   onWithdraw,
@@ -45,8 +45,8 @@ export function PortfolioActions({
 }) {
   return (
     <View className="flex-row gap-3">
-      <TransferButton icon={ArrowDownLeft} label="Deposit" onPress={onDeposit} />
-      <TransferButton icon={ArrowUpRight} label="Withdraw" onPress={onWithdraw} />
+      <TransferButton icon={ArrowDownLeft} label="Receive" onPress={onDeposit} />
+      <TransferButton icon={ArrowUpRight} label="Send" onPress={onWithdraw} />
       {/* Frontend: `glass-soft flex w-14 items-center justify-center rounded-2xl text-white/50`. */}
       <PressableScale
         accessibilityRole="button"

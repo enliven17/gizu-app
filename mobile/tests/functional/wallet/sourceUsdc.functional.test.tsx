@@ -83,8 +83,8 @@ test("mainnet deposit keeps the explicit USDC receiving address", async () => {
   const { clipboard } = setup();
   await open();
   await screen.findByLabelText("19.990574 USDC");
-  await userEvent.press(screen.getByRole("button", { name: "Deposit" }));
-  expect(await screen.findByText("Monad mainnet · USDC")).toBeVisible();
+  await userEvent.press(screen.getByRole("button", { name: "Receive" }));
+  expect(await screen.findByRole("header", { name: "Receive" })).toBeVisible();
   expect(
     screen.getByText("Swap funding address · Receive USDC on Monad mainnet only."),
   ).toBeVisible();
@@ -95,8 +95,8 @@ test("mainnet deposit keeps the explicit USDC receiving address", async () => {
 test("USDC withdrawal never calls the testnet transfer signer", async () => {
   const { transfers } = setup();
   await open();
-  await userEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
-  expect(await screen.findByText(/Direct mainnet withdrawals are not available yet/)).toBeVisible();
+  await userEvent.press(await screen.findByRole("button", { name: "Send" }));
+  expect(await screen.findByText(/Sending USDC directly is not available yet/)).toBeVisible();
   expect(transfers.send).not.toHaveBeenCalled();
   expect(transfers.history).not.toHaveBeenCalled();
 });

@@ -95,8 +95,7 @@ function ReceivingAccounts() {
     <View className="gap-3">
       <Typography variant="section">USDC accounts</Typography>
       <Typography variant="micro">
-        Returned proceeds stay in separate receiving wallets. They are included in your total, but
-        are not automatically moved into the swap funding account.
+        All these wallets count toward your USDC balance. Funds stay in their respective wallets.
       </Typography>
       {snapshot?.accounts.map((account) => (
         <Surface key={account.address}>
@@ -293,19 +292,14 @@ export function MainnetTransaction({
   return (
     <Screen>
       <BackAction fallback="Home" />
-      <Typography variant="title">{deposit ? "Deposit" : "Withdraw"}</Typography>
-      <Typography variant="caption">Monad mainnet · USDC</Typography>
+      <Typography variant="title">{deposit ? "Receive" : "Send"}</Typography>
       {deposit ? (
         <>
-          <Typography>Send USDC on Monad mainnet to your swap funding address.</Typography>
           <AccountAddress />
-          <Typography variant="micro">
-            Incoming deposits are reflected after refreshing balances. This does not deposit into a
-            vault.
-          </Typography>
+          <Typography variant="micro">Refresh your balance after funds arrive.</Typography>
         </>
       ) : (
-        <Notice message="Direct mainnet withdrawals are not available yet. Returned USDC remains in your receiving wallets. Selling tokens through Swap is a separate approved operation." />
+        <Notice message="Sending USDC directly is not available yet. Your funds remain in your wallets." />
       )}
       <BalanceStatus />
       {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (

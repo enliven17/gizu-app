@@ -16,7 +16,7 @@ async function enter(service = createMockTransactionService()) {
 async function open(kind: OperationKind) {
   if (kind === "deposit" || kind === "withdraw")
     await userEvent.press(
-      screen.getByRole("button", { name: kind === "deposit" ? "Deposit" : "Withdraw" }),
+      screen.getByRole("button", { name: kind === "deposit" ? "Receive" : "Send" }),
     );
   else {
     await userEvent.press(screen.getByRole("button", { name: "Open VTX holding" }));
@@ -195,7 +195,7 @@ test("balance loading failure recovers from an available transaction entry point
   renderApp(undefined, undefined, undefined, service);
   await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Receive" }));
   await userEvent.press(await screen.findByRole("button", { name: "Reload balances" }));
   expect(await screen.findByLabelText("Amount in USDC")).toBeVisible();
 });
@@ -248,7 +248,7 @@ test("closing a pending operation retains it and blocks another order", async ()
   await confirm("deposit");
   await screen.findByRole("header", { name: "Confirmation pending" });
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
+  await userEvent.press(await screen.findByRole("button", { name: "Send" }));
   expect(await screen.findByRole("header", { name: "Confirmation pending" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Review withdrawal" })).toBeNull();
 });

@@ -36,18 +36,14 @@ function TestnetNativeTransaction({
       <Screen>
         <BackAction fallback="Home" />
         <Typography variant="title">
-          {kind === "deposit"
-            ? "Deposit"
-            : kind === "withdraw"
-              ? "Withdraw"
-              : "Investment unavailable"}
+          {kind === "deposit" ? "Receive" : kind === "withdraw" ? "Send" : "Investment unavailable"}
         </Typography>
         <Typography variant="caption">{wallet.asset.network} · Account 0</Typography>
         {kind === "deposit" ? (
           <>
             <Typography>
               {wallet.asset.symbol === "USDC"
-                ? "Deposit USDC to your source wallet. Investing requires a separate review and approval."
+                ? "Receive USDC at your wallet address."
                 : "Receive testnet MON at your wallet address. This does not invest in a vault."}
             </Typography>
             <Surface>
@@ -72,7 +68,7 @@ function TestnetNativeTransaction({
             </Typography>
           </>
         ) : kind === "withdraw" && !wallet.transfersAvailable ? (
-          <Typography>USDC withdrawals are not available in this build yet.</Typography>
+          <Typography>Sending USDC is not available in this build yet.</Typography>
         ) : kind === "withdraw" ? (
           <>
             <Surface>
@@ -83,7 +79,7 @@ function TestnetNativeTransaction({
                     <ArrowUpRight size={22} color={colors.accent} accessible={false} />
                   </View>
                 </View>
-                <Typography variant="caption">Amount to withdraw</Typography>
+                <Typography variant="caption">Amount to send</Typography>
                 <View className="flex-row items-center gap-3">
                   <TextInput
                     accessibilityLabel="Amount in MON"
@@ -151,7 +147,7 @@ function TestnetNativeTransaction({
               </View>
             </View>
             <Button
-              label="Review withdrawal"
+              label="Review send"
               loading={c.busy}
               disabled={c.busy || !c.ready || c.history.blocked}
               onPress={() => {

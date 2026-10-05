@@ -15,8 +15,8 @@ simulated passkey startup has been removed.
 | Home                            | Actual Monad mainnet USDC balance, error/retry, address actions                | Fixture portfolio and charts                 |
 | Vaults                          | Read-only mainnet catalog, TVL charts and details; no signing                  | Search/filter, details, charts and sharing   |
 | Swap                            | Read-only live token catalog in development and TestFlight                     | Read-only token catalog                      |
-| Deposit                         | Receiving address/network/copy; no signing                                     | Simulated transfer journey                   |
-| Withdraw                        | Mainnet USDC transfer execution unavailable                                    | Simulated review/signing/result              |
+| Receive                         | Receiving address/network/copy; no signing                                     | Simulated transfer journey                   |
+| Send                            | Mainnet USDC transfer execution unavailable                                    | Simulated review/signing/result              |
 | Activity                        | Mainnet USDC indexing unavailable                                              | Fixture activity                             |
 | Confidential Earn               | Native intent/read flows; Android execution; iOS Ethereum vault execution only | Adapter and real-screen fixtures             |
 | Account                         | Real address/copy, local preferences, disconnect                               | Fixture profile and secondary pages          |
@@ -41,11 +41,12 @@ move funds, change derivation, or expand the native testnet transfer policy.
   complete read at one finalized block and retains the previous UI snapshot on failure.
   Returned USDC is not automatically consolidated or spendable from the funding account.
 - Home shows one USDC total, with separate collapsed Balance details and Wallet details.
-- The Home Confidential earn shortcut is temporarily hidden; the Earn route is retained.
-- Deposit and Account show the mainnet USDC funding address. Activity shows local
+  Wallet actions use Receive/Send; investment flows keep Deposit/Withdraw. The Home
+  Confidential earn shortcut is temporarily hidden; the Earn route is retained.
+- Receive and Account show the mainnet USDC funding address. Activity shows local
   archived buy/sell summaries, including completed sales' USDC proceeds. It does not
   claim complete incoming history or reconstruct overwritten historical records.
-- Direct mainnet Withdraw has no amount, review or signing controls. It explains
+- Direct mainnet Send has no amount, review or signing controls. It explains
   the unsupported operation and shows the current accounts instead.
 - Normal app composition never mounts the testnet balance/transfer provider.
   `npm run debug:testnet` explicitly opens the retained Account 0 testnet harness;
@@ -147,7 +148,7 @@ focused on reusable approaches. They supplement the journey statuses above.
   while pending, ignore late results on dismissal and clear answers on reopening.
   Completion is user-dismissed. Its mock creates no real waitlist entry or session.
 - Exchange keeps its route/deep link and Swap tab label. Development and TestFlight use `GET /v1/tokens` for read-only discovery: Ethereum (1), Monad (143), Robinhood (4663); Robinhood/RWA defaults, All/RWA filters, 300 ms search debounce and infinite scrolling in 20-item batches. Network changes preserve search/category and reset the list. Two-column cards show token symbol/name, issuer, classification and 1inch listing, with contract addresses hidden; listing is not confirmation of Fusion availability. Quotes, balances, simulations, orders and signing are absent. Wallet network and signer capabilities remain unchanged. Missing configuration, backend 404/503 and malformed responses show unavailable/retry without fixture fallback. The public backend has not yet exposed the endpoint; service-mocked checks do not establish live readiness. Demo buy/sell remains available from vault details; native buy/sell is unavailable.
-  Deposit/withdraw remains available from Home, with explicit review, signing,
+  Receive/Send remains available from Home, with explicit review, signing,
   submission, pending/unknown and result states.
   Notifications/account actions are implemented in M5; use a distinct sell tone without
   making successful sales look like failures. See `TRADING.md` for current rules.

@@ -90,18 +90,18 @@ test("mainnet Home includes receiving USDC, Deposit uses funding address, Withdr
   fireEvent.press(screen.getByRole("button", { name: "Wallet details", expanded: true }));
   expect(screen.queryByText("USDC accounts")).toBeNull();
   expect(screen.queryByText(/testnet MON/)).toBeNull();
-  fireEvent.press(screen.getByRole("button", { name: "Deposit" }));
+  fireEvent.press(screen.getByRole("button", { name: "Receive" }));
   expect(
-    await screen.findByText("Send USDC on Monad mainnet to your swap funding address."),
+    await screen.findByText("Swap funding address · Receive USDC on Monad mainnet only."),
   ).toBeVisible();
   expect(screen.getByLabelText(`Account address: ${funding}`)).toBeVisible();
   expect(screen.queryByText("USDC accounts")).toBeNull();
   expect(screen.getByRole("button", { name: "Wallet details", expanded: false })).toBeVisible();
   fireEvent.press(screen.getByRole("button", { name: "Back" }));
-  fireEvent.press(await screen.findByRole("button", { name: "Withdraw" }));
-  expect(await screen.findByText(/Direct mainnet withdrawals are not available/)).toBeVisible();
+  fireEvent.press(await screen.findByRole("button", { name: "Send" }));
+  expect(await screen.findByText(/Sending USDC directly is not available/)).toBeVisible();
   expect(screen.queryByLabelText("Amount in MON")).toBeNull();
-  expect(screen.queryByRole("button", { name: /Review withdrawal/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Review send/ })).toBeNull();
   expect(transfers).not.toHaveBeenCalled();
 });
 
