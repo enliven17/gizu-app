@@ -43,7 +43,7 @@ move funds, change derivation, or expand the native testnet transfer policy.
 - Home shows one USDC total, with separate collapsed Balance details and Wallet details.
   Wallet actions use Receive/Send; investment flows keep Deposit/Withdraw. The Home
   Confidential earn shortcut is temporarily hidden; the Earn route is retained.
-- Receive and Account show the mainnet USDC funding address. Activity shows local
+- Receive shows the mainnet USDC funding address; Settings omits the funding account card. Activity shows local
   archived buy/sell summaries, including completed sales' USDC proceeds. It does not
   claim complete incoming history or reconstruct overwritten historical records.
 - Direct mainnet Send has no amount, review or signing controls. It explains

@@ -74,25 +74,23 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
         <Typography variant="pageTitle">Account</Typography>
       </FadeIn>
       <FadeIn delay={sectionDelay(1)} className="mt-2 gap-4">
-        <Surface>
-          <View className="pt-5">
-            <AccountAddress
-              leading={<AccountInitials initials={native ? undefined : profile.initials} />}
-              heading={
-                <>
-                  <Typography variant="rowTitle" className="!text-[16px]">
-                    {session?.kind === "mainnet"
-                      ? "Swap funding account"
-                      : native
-                        ? "Account 0"
-                        : profile.name}
-                  </Typography>
-                  <Typography variant="micro">Access method: {method}</Typography>
-                </>
-              }
-            />
-          </View>
-        </Surface>
+        {session?.kind !== "mainnet" && (
+          <Surface>
+            <View className="pt-5">
+              <AccountAddress
+                leading={<AccountInitials initials={native ? undefined : profile.initials} />}
+                heading={
+                  <>
+                    <Typography variant="rowTitle" className="!text-[16px]">
+                      {native ? "Account 0" : profile.name}
+                    </Typography>
+                    <Typography variant="micro">Access method: {method}</Typography>
+                  </>
+                }
+              />
+            </View>
+          </Surface>
+        )}
         <PreferenceFeedback />
       </FadeIn>
       {groups.map((group, index) => (
