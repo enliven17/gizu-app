@@ -216,7 +216,7 @@ export function MainnetPortfolioScreen({
           </View>
         </Surface>
       ) : null}
-      <Button label="Confidential earn" variant="secondary" onPress={() => root.navigate("Earn")} />
+      {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
       <OwnedBalances />
       <PortfolioActions
         onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}

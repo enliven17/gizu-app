@@ -1,3 +1,4 @@
+import { openEarnLink } from "../../support/earnNavigation";
 import { mainnetPortfolio } from "../../support/mainnetWallet";
 import { act, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
@@ -28,7 +29,10 @@ const intent = {
     import("@/domain/earn/types").EarnDestination,
   ],
 };
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest.spyOn(Linking, "addEventListener");
+});
 afterEach(() => jest.restoreAllMocks());
 function setup(catalog?: OpportunityDetail) {
   const ready = {
@@ -137,7 +141,7 @@ test("checks the selected vault using only wallet 2 and keeps spending disabled"
 async function open() {
   await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
 }
 test("wallets are created only after explicit intent and retained on reopening", async () => {
   const { earn } = setup();
@@ -151,7 +155,7 @@ test("wallets are created only after explicit intent and retained on reopening",
   expect(screen.getByText(/withdrawal and return need a separate user request/)).toBeVisible();
   expect(screen.getByRole("button", { name: "Review investment" })).toBeDisabled();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
   expect(await screen.findByText(intent.destinations[0].address)).toBeVisible();
   expect(earn.prepare).toHaveBeenCalledTimes(1);
 });
@@ -234,7 +238,7 @@ test("leaving the screen cancels private authentication and ignores late results
   await act(async () =>
     result.resolve({ confidentialAddress: intent.confidentialAddress, available: "9999999" }),
   );
-  await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
   expect(screen.queryByText(/Authenticated private balance:/)).toBeNull();
 });
 

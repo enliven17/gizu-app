@@ -1,3 +1,4 @@
+import { openEarnLink } from "../../support/earnNavigation";
 import { mainnetPortfolio } from "../../support/mainnetWallet";
 import { AbortController as NativeAbortController } from "abort-controller";
 import { createEarnSourceFundingService } from "@/services/earn/sourceFunding";
@@ -78,7 +79,10 @@ function operation(status: VaultOperation["status"] = "invested"): VaultOperatio
     ],
   };
 }
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest.spyOn(Linking, "addEventListener");
+});
 afterEach(() => jest.restoreAllMocks());
 function setup(
   saved: VaultOperation[] = [],
@@ -138,7 +142,7 @@ function setup(
 async function open() {
   await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
 }
 test("Earn stops invested; withdrawal is planned and signed only after separate user actions", async () => {
   const vault = setup();

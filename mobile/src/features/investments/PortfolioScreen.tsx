@@ -244,13 +244,7 @@ function NativePortfolio({ navigation }: Props) {
       </FadeIn>
       {Platform.OS === "android" ? <SwapHoldingsSection /> : null}
       <FadeIn delay={sectionDelay(4)} className="mt-5">
-        {wallet.asset.symbol === "USDC" && (
-          <Button
-            label="Confidential earn"
-            variant="secondary"
-            onPress={() => root.navigate("Earn")}
-          />
-        )}
+        {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
         <VaultPreview
           onSeeAll={() => navigation.navigate("Vaults")}
           onOpen={(id) => root.navigate("OpportunityDetail", { id })}

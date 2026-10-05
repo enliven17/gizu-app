@@ -1,3 +1,4 @@
+import { openEarnLink } from "../../support/earnNavigation";
 import { mainnetPortfolio } from "../../support/mainnetWallet";
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking, RefreshControl } from "react-native";
@@ -13,7 +14,10 @@ const state = {
   walletId,
   accounts: [{ accountIndex: 0, address, chainId: 10143 }],
 };
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest.spyOn(Linking, "addEventListener");
+});
 afterEach(() => jest.restoreAllMocks());
 
 function setup() {
@@ -68,7 +72,7 @@ test("mainnet Home and Earn share the native portfolio without another source RP
   const { portfolio, balance, transfers } = setup();
   await open();
   expect(await screen.findByLabelText("19.990574 USDC")).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
   expect(await screen.findByText("Source balance: 19.990574 USDC")).toBeVisible();
   expect(portfolio.getMainnetPortfolio).toHaveBeenCalled();
   expect(balance.getBalance).not.toHaveBeenCalled();
@@ -138,7 +142,7 @@ test("an incomplete native cache displays checking balances and cannot expose ze
   await open();
   expect(await screen.findByText("Checking Monad mainnet balances…")).toBeVisible();
   expect(screen.queryByLabelText("0 USDC")).toBeNull();
-  await userEvent.press(screen.getByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
   expect(await screen.findByText("Checking source balance…")).toBeVisible();
 });
 

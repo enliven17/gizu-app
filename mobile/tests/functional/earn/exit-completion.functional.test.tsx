@@ -1,3 +1,4 @@
+import { openEarnLink } from "../../support/earnNavigation";
 import { mainnetPortfolio } from "../../support/mainnetWallet";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
@@ -43,7 +44,10 @@ function plan(kind: RobinhoodKind) {
     now,
   );
 }
-beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
+beforeEach(() => {
+  jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
+  jest.spyOn(Linking, "addEventListener");
+});
 afterEach(() => jest.restoreAllMocks());
 function setup(saved: SponsoredOperation[] = [], available = true) {
   const ready = {
@@ -113,7 +117,7 @@ function setup(saved: SponsoredOperation[] = [], available = true) {
 async function open() {
   await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
-  await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
+  await openEarnLink();
 }
 test("real AppRoot explicit exit check uses injected refreshed native return journal and clears completion after reorg", async () => {
   const service = setup([operation("hoodRedeemAll", "withdrawn"), returnRow()]);
