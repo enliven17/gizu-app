@@ -15,7 +15,9 @@ import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { Button } from "@/components/atoms/Button";
+import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
+import { ErrorNotice } from "@/components/molecules/ErrorNotice";
 import { Notice } from "@/components/molecules/Notice";
 import { AccountAddress } from "@/features/account/AccountAddress";
 import { clipboardService } from "@/services/clipboard";
@@ -47,14 +49,16 @@ function BalanceStatus({ showRefresh = true }: { showRefresh?: boolean }) {
         <Typography variant="micro">Previously cached balances are being checked.</Typography>
       )}
       {wallet.error ? (
-        <Notice
-          error
-          message={
-            wallet.error + (wallet.snapshot ? " Previously loaded balances may be stale." : "")
-          }
+        <ErrorNotice
+          kind="balance"
+          message="Couldn’t refresh your balance."
+          stale={!!wallet.snapshot}
+          actionLabel="Retry balance"
+          busy={wallet.loading}
+          onAction={() => void wallet.refresh()}
         />
       ) : null}
-      {showRefresh && (
+      {showRefresh && !wallet.error && (
         <Button
           label="Refresh mainnet balances"
           variant="quiet"
@@ -153,31 +157,38 @@ function OwnedBalanceRow({
   return (
     <Surface>
       <View className="gap-2 p-5">
-        <Typography variant="rowTitle">
-          {position ? "Vault position" : "Token balance"} · {asset.symbol}
-        </Typography>
-        <Typography variant="micro">Chain {asset.chainId}</Typography>
+        <Typography variant="rowTitle">{asset.symbol}</Typography>
+        {position && <Typography variant="micro">Vault position</Typography>}
         <Typography>
           {asset.complete && amount !== null && asset.decimals !== null
             ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
             : `Checking ${asset.symbol} balance…`}
         </Typography>
-        {!asset.complete &&
-          typeof observedAmount === "string" &&
-          observedAmount !== "0" &&
-          asset.decimals !== null && (
-            <Typography variant="micro">
-              Previously observed: {holdingAmount(observedAmount, asset.decimals)} {asset.symbol}
-            </Typography>
-          )}
-        {asset.valueUsdcAtoms !== null ? (
+        {asset.valueUsdcAtoms !== null && (
           <Typography>Value: {holdingAmount(asset.valueUsdcAtoms, 6)} USDC</Typography>
-        ) : (
-          <Typography variant="micro">
-            {asset.valuationUnavailable ? "USDC value unavailable." : "Checking USDC value…"}
-          </Typography>
         )}
         {asset.stale && <Typography variant="micro">Cached amount awaiting refresh.</Typography>}
+        <HoldingDetails
+          accessibilityLabel={`${asset.symbol} ${position ? "position" : "holding"} details`}
+        >
+          <Typography variant="micro">Chain {asset.chainId}</Typography>
+          <Typography variant="micro" selectable>
+            {asset.token}
+          </Typography>
+          {!asset.complete &&
+            typeof observedAmount === "string" &&
+            observedAmount !== "0" &&
+            asset.decimals !== null && (
+              <Typography variant="micro">
+                Previously observed: {holdingAmount(observedAmount, asset.decimals)} {asset.symbol}
+              </Typography>
+            )}
+          {asset.valueUsdcAtoms === null && (
+            <Typography variant="micro">
+              {asset.valuationUnavailable ? "USDC value unavailable." : "Checking USDC value…"}
+            </Typography>
+          )}
+        </HoldingDetails>
       </View>
     </Surface>
   );
@@ -272,7 +283,7 @@ export function MainnetPortfolioScreen({
       />
       <WalletDetails />
       {Platform.OS === "android" ? (
-        <SwapHoldingsSection />
+        <SwapHoldingsSection onReviewSale={() => navigation.navigate("Exchange")} />
       ) : (
         <Typography variant="micro">Token holdings are not yet available on iOS.</Typography>
       )}

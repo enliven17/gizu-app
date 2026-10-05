@@ -7,7 +7,10 @@ import { loadSwapTokens, swapGateway, swapSigner, type ListedToken } from "./con
 export function useSwapHoldings() {
   const [snapshot, setSnapshot] = useState<SwapHoldingsSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<"" | "holdings">("");
+  const [saleFailed, setSaleFailed] = useState(false);
+  const [catalogError, setCatalogError] = useState(false);
+  const readTarget = useRef("");
   const [notice, setNotice] = useState("");
   const [tokens, setTokens] = useState<ListedToken[]>([]);
   const [search, setSearch] = useState("");
@@ -22,6 +25,7 @@ export function useSwapHoldings() {
 
   const refresh = useCallback(async (target = "") => {
     if (running.current) return;
+    readTarget.current = target;
     running.current = true;
     setBusy(true);
     setError("");
@@ -36,9 +40,8 @@ export function useSwapHoldings() {
               : "No balance for this token in your locally allocated wallets.",
           );
       }
-    } catch (cause) {
-      if (alive.current)
-        setError(cause instanceof Error ? cause.message : "Holdings unavailable. Retry.");
+    } catch {
+      if (alive.current) setError("holdings");
     } finally {
       running.current = false;
       if (alive.current) setBusy(false);
@@ -52,11 +55,18 @@ export function useSwapHoldings() {
   );
 
   const findTokens = async () => {
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    setCatalogError(false);
     try {
       const result = await loadSwapTokens();
       if (alive.current) setTokens(result);
     } catch {
-      if (alive.current) setError("Token catalog unavailable. Retry finding tokens.");
+      if (alive.current) setCatalogError(true);
+    } finally {
+      running.current = false;
+      if (alive.current) setBusy(false);
     }
   };
 
@@ -65,19 +75,18 @@ export function useSwapHoldings() {
     running.current = true;
     setBusy(true);
     setError("");
+    setSaleFailed(false);
+    setNotice("");
     try {
       const status = await swapSigner().sellSwapHolding(id, swapGateway);
       if (alive.current)
         setNotice(
           status.phase === "COMPLETE"
             ? "Sale completed. Proceeds returned to the new Monad wallets shown in Swap."
-            : `Sale ${status.phase.toLowerCase()}. Open Swap to review or resume it.`,
+            : "Sale is not complete. Open Swap to review or resume it.",
         );
-    } catch (cause) {
-      if (alive.current)
-        setNotice(
-          cause instanceof Error ? cause.message : "Sale stopped. Check Swap before retrying.",
-        );
+    } catch {
+      if (alive.current) setSaleFailed(true);
     } finally {
       running.current = false;
       if (alive.current) {
@@ -87,5 +96,19 @@ export function useSwapHoldings() {
     }
   };
 
-  return { snapshot, busy, error, notice, refresh, sell, findTokens, tokens, search, setSearch };
+  return {
+    snapshot,
+    busy,
+    error,
+    saleFailed,
+    catalogError,
+    retryRead: () => refresh(readTarget.current),
+    notice,
+    refresh,
+    sell,
+    findTokens,
+    tokens,
+    search,
+    setSearch,
+  };
 }

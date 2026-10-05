@@ -90,7 +90,7 @@ test("detail failure can be retried and a failed history still shows a flat char
   service.detail.mockRejectedValueOnce(new Error("offline"));
   service.tvlRecords.mockRejectedValue(new Error("offline"));
   setup(service);
-  expect(await screen.findByRole("alert")).toHaveTextContent("Vault unavailable. Please retry.");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Couldn’t load this vault.");
   expect(screen.queryByLabelText("Mainnet vault 1")).toBeNull();
   await userEvent.press(screen.getByRole("button", { name: "Retry vault" }));
   expect(await screen.findByLabelText("Mainnet vault 1")).toBeVisible();

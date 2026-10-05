@@ -242,7 +242,9 @@ function NativePortfolio({ navigation }: Props) {
           onActivity={() => root.navigate("Activity")}
         />
       </FadeIn>
-      {Platform.OS === "android" ? <SwapHoldingsSection /> : null}
+      {Platform.OS === "android" ? (
+        <SwapHoldingsSection onReviewSale={() => navigation.navigate("Exchange")} />
+      ) : null}
       <FadeIn delay={sectionDelay(4)} className="mt-5">
         {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
         <VaultPreview

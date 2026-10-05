@@ -105,12 +105,16 @@ test("failed native portfolio refresh preserves the prior balance until a fresh 
   const { portfolio } = setup();
   await open();
   await screen.findByLabelText("19.990574 USDC");
-  portfolio.getMainnetPortfolio.mockRejectedValueOnce(new Error("Offline"));
+  portfolio.getMainnetPortfolio.mockRejectedValueOnce(new Error("secret-sentinel provider error"));
   fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
   expect(await screen.findByText(/Previously loaded balances may be stale/)).toBeVisible();
+  expect(screen.queryByText(/secret-sentinel/)).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Error details", expanded: false }));
+  expect(screen.getByText("Code: PORTFOLIO_READ_FAILED")).toBeVisible();
+  expect(screen.queryByText(/secret-sentinel/)).toBeNull();
   expect(screen.getByLabelText("19.990574 USDC")).toBeVisible();
   portfolio.getMainnetPortfolio.mockResolvedValue(mainnetPortfolio(walletId, address, "0"));
-  fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
+  fireEvent.press(screen.getByRole("button", { name: "Retry balance" }));
   expect(await screen.findByLabelText("0 USDC")).toBeVisible();
 });
 
@@ -199,9 +203,11 @@ test("owned token amounts and vault underlying values remain distinct when marke
   });
   await open();
   expect(await screen.findByText("0.5 WETH")).toBeVisible();
-  expect(screen.getByText("Vault position · USDC")).toBeVisible();
+  expect(screen.getByText("Vault position")).toBeVisible();
   expect(screen.getByText("Estimated underlying: 2 USDC")).toBeVisible();
   expect(screen.getByText("Value: 2 USDC")).toBeVisible();
+  expect(screen.queryByText("USDC value unavailable.")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "WETH holding details", expanded: false }));
   expect(screen.getByText("USDC value unavailable.")).toBeVisible();
   expect(screen.getByText("Checking NEW balance…")).toBeVisible();
   expect(
@@ -248,7 +254,10 @@ test("partial vault observations use underlying units and never relabel shares a
     ownedBalanceComplete: false,
   });
   await open();
-  expect(await screen.findByText("Previously observed: 2 USDC")).toBeVisible();
+  fireEvent.press(
+    await screen.findByRole("button", { name: "USDC position details", expanded: false }),
+  );
+  expect(screen.getByText("Previously observed: 2 USDC")).toBeVisible();
   expect(screen.getByText("Checking USDC balance…")).toBeVisible();
   expect(screen.getByText("Checking USDG balance…")).toBeVisible();
   expect(screen.queryByText(/Previously observed: .*USDG/)).toBeNull();

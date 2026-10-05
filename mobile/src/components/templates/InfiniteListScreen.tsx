@@ -1,3 +1,4 @@
+import { ErrorNotice } from "@/components/molecules/ErrorNotice";
 import { useEffect, useMemo, useRef, type ReactElement } from "react";
 import { FlatList, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
@@ -72,28 +73,27 @@ export function InfiniteListScreen<T>({
         ListFooterComponent={
           <View className="gap-3 py-3">
             {list.error && (
-              <>
-                <Typography accessibilityRole="alert">
-                  {list.error === "initial"
+              <ErrorNotice
+                kind={list.error}
+                message={
+                  list.error === "initial"
                     ? unavailableMessage
                     : list.error === "stalled"
                       ? "The catalog changed. Refresh to continue."
                       : list.error === "refresh"
                         ? "Could not refresh. Your previous results are still shown."
-                        : "Could not load more. Your previous results are still shown."}
-                </Typography>
-                <Button
-                  label={
-                    list.error === "initial"
-                      ? `Retry ${noun}`
-                      : list.error === "more"
-                        ? "Retry loading more"
-                        : "Retry refresh"
-                  }
-                  variant="secondary"
-                  onPress={list.retry}
-                />
-              </>
+                        : "Could not load more. Your previous results are still shown."
+                }
+                actionLabel={
+                  list.error === "initial"
+                    ? `Retry ${noun}`
+                    : list.error === "more"
+                      ? "Retry loading more"
+                      : "Retry refresh"
+                }
+                onAction={list.retry}
+                busy={list.loading || list.loadingMore || list.refreshing}
+              />
             )}
             {list.loadingMore && (
               <Typography accessibilityLiveRegion="polite">Loading more…</Typography>

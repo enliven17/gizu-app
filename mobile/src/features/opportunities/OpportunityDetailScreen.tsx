@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Button } from "@/components/atoms/Button";
+import { ErrorNotice } from "@/components/molecules/ErrorNotice";
 import { FadeIn } from "@/components/molecules/FadeIn";
 import { Screen } from "@/components/templates/Screen";
 import { BackAction } from "@/navigation/BackAction";
@@ -35,10 +36,12 @@ export function OpportunityDetailScreen({
         <CatalogStatus accessibilityLiveRegion="polite">Loading vault…</CatalogStatus>
       )}
       {load.kind === "failed" && (
-        <View className="gap-3">
-          <CatalogStatus accessibilityRole="alert">Vault unavailable. Please retry.</CatalogStatus>
-          <Button label="Retry vault" variant="secondary" onPress={retry} />
-        </View>
+        <ErrorNotice
+          kind="vault"
+          message="Couldn’t load this vault."
+          actionLabel="Retry vault"
+          onAction={retry}
+        />
       )}
       {load.kind === "ready" && (
         <>

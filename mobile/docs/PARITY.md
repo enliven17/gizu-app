@@ -63,6 +63,13 @@ Home includes **Token holdings** for Robinhood mainnet tokens, separate from the
 Monad mainnet USDC total. This branch's Swap tab uses the native confidential-swap
 journey; the read-only Swap row above describes the earlier catalog baseline.
 
+- Wallet, holdings and catalog errors use plain-language messages with read-only retry
+  actions and expandable fixed diagnostic codes. Raw provider errors are not rendered.
+  Sale failures direct users to Swap for status review rather than resubmitting a sale.
+- Holding cards show the token symbol, amount and verified value when available.
+  Expand Holding details for network/contract information and existing sale actions.
+  Holdings tools contains refresh and earlier-purchase discovery, even with no holdings.
+  Missing valuations are never treated as zero; stale and incomplete states remain visible.
 - Native storage keeps tracked token contracts and completed/cancelled public
   operation summaries in a separate encrypted, wallet-scoped portfolio file.
   Replacing the active swap does not replace these records.

@@ -2,7 +2,9 @@ import { View } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { SearchInput } from "@/components/atoms/SearchInput";
 import { Typography } from "@/components/atoms/Typography";
+import { ErrorNotice } from "@/components/molecules/ErrorNotice";
 import { Notice } from "@/components/molecules/Notice";
+import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
 import { useSwapHoldings } from "./useSwapHoldings";
 
@@ -13,7 +15,7 @@ export function holdingAmount(atoms: string, decimals: number): string {
   return digits.slice(0, -decimals) + (fraction ? `.${fraction}` : "");
 }
 
-export function SwapHoldingsSection() {
+export function SwapHoldingsSection({ onReviewSale }: { onReviewSale?: () => void }) {
   const holdings = useSwapHoldings();
   const query = holdings.search.trim().toLowerCase();
   const matches = query
@@ -24,22 +26,39 @@ export function SwapHoldingsSection() {
   return (
     <View className="gap-3">
       <Typography variant="section">Token holdings</Typography>
-      <Typography variant="micro">
-        Robinhood · mainnet. Balances across your allocated receiving wallets.
-      </Typography>
       {holdings.busy ? (
         <Typography accessibilityLiveRegion="polite" variant="micro">
           Checking holdings or waiting for native approval…
         </Typography>
       ) : null}
-      {holdings.error ? (
-        <Notice
-          message={
-            holdings.error + (holdings.snapshot ? " Previously loaded balances may be stale." : "")
-          }
-          error
+      {holdings.error && (
+        <ErrorNotice
+          kind="holdings"
+          message="Couldn’t refresh your holdings."
+          stale={!!holdings.snapshot}
+          actionLabel="Retry holdings"
+          busy={holdings.busy}
+          onAction={() => void holdings.retryRead()}
         />
-      ) : null}
+      )}
+      {holdings.catalogError && (
+        <ErrorNotice
+          kind="tokenSearch"
+          message="Couldn’t load the token search."
+          actionLabel="Retry token search"
+          busy={holdings.busy}
+          onAction={() => void holdings.findTokens()}
+        />
+      )}
+      {holdings.saleFailed && (
+        <ErrorNotice
+          kind="sale"
+          message="Couldn’t finish the sale. Check its status in Swap before trying again."
+          actionLabel="Review swap"
+          onAction={onReviewSale}
+          busy={holdings.busy}
+        />
+      )}
       {holdings.notice ? <Notice message={holdings.notice} /> : null}
       {holdings.snapshot?.holdings.map((holding) => (
         <Surface key={holding.token}>
@@ -48,71 +67,91 @@ export function SwapHoldingsSection() {
             <Typography variant="body">
               {holdingAmount(holding.balanceAtoms, holding.decimals)} {holding.symbol}
             </Typography>
-            {holding.batches.length > 1 ? (
-              <Typography variant="micro">
-                Each sale handles up to three receiving wallets. Refresh after selling to see what
-                remains.
+            <HoldingDetails accessibilityLabel={`${holding.symbol} holding details`}>
+              <Typography variant="micro">Robinhood mainnet</Typography>
+              <Typography variant="micro" selectable>
+                {holding.token}
               </Typography>
-            ) : null}
-            {!holding.batches.length ? (
-              <Typography variant="micro">
-                Balance found, but no complete receiving-wallet group is available to sell.
-              </Typography>
-            ) : null}
-            <Button
-              label={`Sell ${holding.symbol} back to Monad USDC`}
-              disabled={holdings.busy || !!holdings.error || !holding.batches.length}
-              onPress={() => {
-                const batch = holding.batches[0];
-                if (batch) void holdings.sell(batch.id);
-              }}
-            />
+              <Typography variant="micro">A verified USDC value is not available.</Typography>
+              {holding.batches.length > 1 ? (
+                <Typography variant="micro">
+                  Each sale handles up to three receiving wallets. Refresh after selling to see what
+                  remains.
+                </Typography>
+              ) : null}
+              {!holding.batches.length ? (
+                <Typography variant="micro">
+                  Balance found, but no complete receiving-wallet group is available to sell.
+                </Typography>
+              ) : null}
+              <Button
+                label={`Sell ${holding.symbol} back to Monad USDC`}
+                disabled={
+                  holdings.busy ||
+                  !!holdings.error ||
+                  holdings.saleFailed ||
+                  !holding.batches.length
+                }
+                onPress={() => {
+                  const batch = holding.batches[0];
+                  if (batch) void holdings.sell(batch.id);
+                }}
+              />
+              <Button
+                label={`Check ${holding.symbol} balance`}
+                variant="quiet"
+                disabled={holdings.busy}
+                onPress={() => void holdings.refresh(holding.token)}
+              />
+            </HoldingDetails>
           </View>
         </Surface>
       ))}
       {holdings.snapshot && !holdings.snapshot.holdings.length ? (
         <Typography variant="micro">
-          No balances found for tracked tokens. Recover an earlier purchase below.
+          No balances found for tracked tokens. Use Holdings tools to find an earlier purchase.
         </Typography>
       ) : null}
-      {holdings.snapshot ? (
-        <Typography variant="micro">
-          Last checked {new Date(holdings.snapshot.checkedAt).toLocaleTimeString()}
-        </Typography>
-      ) : null}
-      <Button
-        label="Refresh token holdings"
-        variant="secondary"
-        disabled={holdings.busy}
-        onPress={() => void holdings.refresh()}
-      />
-      <Button
-        label="Find an earlier purchase"
-        variant="quiet"
-        disabled={holdings.busy}
-        onPress={() => void holdings.findTokens()}
-      />
-      {holdings.tokens.length > 0 ? (
-        <>
+      <HoldingDetails label="Holdings tools" accessibilityLabel="Holdings tools">
+        {holdings.snapshot ? (
           <Typography variant="micro">
-            Choose the token you bought. This only checks balances; it does not start a swap.
+            Last checked {new Date(holdings.snapshot.checkedAt).toLocaleTimeString()}
           </Typography>
-          <SearchInput
-            label="Find purchased token"
-            value={holdings.search}
-            onChangeText={holdings.setSearch}
-          />
-          {matches.map((token) => (
-            <Button
-              key={token.address}
-              variant="secondary"
-              label={`Check ${token.symbol} holdings`}
-              disabled={holdings.busy}
-              onPress={() => void holdings.refresh(token.address)}
+        ) : null}
+        <Button
+          label="Refresh token holdings"
+          variant="secondary"
+          disabled={holdings.busy}
+          onPress={() => void holdings.refresh()}
+        />
+        <Button
+          label="Find an earlier purchase"
+          variant="quiet"
+          disabled={holdings.busy}
+          onPress={() => void holdings.findTokens()}
+        />
+        {holdings.tokens.length > 0 ? (
+          <>
+            <Typography variant="micro">
+              Choose the token you bought. This only checks balances; it does not start a swap.
+            </Typography>
+            <SearchInput
+              label="Find purchased token"
+              value={holdings.search}
+              onChangeText={holdings.setSearch}
             />
-          ))}
-        </>
-      ) : null}
+            {matches.map((token) => (
+              <Button
+                key={token.address}
+                variant="secondary"
+                label={`Check ${token.symbol} holdings`}
+                disabled={holdings.busy}
+                onPress={() => void holdings.refresh(token.address)}
+              />
+            ))}
+          </>
+        ) : null}
+      </HoldingDetails>
     </View>
   );
 }
