@@ -24,6 +24,20 @@ After native intent authorization, each investment cycle derives a fresh holding
 
 The initial destination namespaces are `m/44'/60'/143'/destinationChain'/role`, with role 0 holding and role 1 investing. The separate confidential identity is role 2. Cycle zero keeps that historical derivation. New cycles use a monotonically allocated native cycle index. Each requested exit allocates a new public receiving address, saved before execution and reused on retries; it never returns to the original funding account. The encrypted catalogue and backup retain cycle/receiver relationships. Restore never clears the spending gate merely because local history is missing.
 
+## iOS parity rollout
+
+The first stage implements **Ethereum vault deposits and full redemptions** through the existing Earn screens and public contract. `earnVaultExecution` is available on supported iOS builds; source sponsorship, private payouts, Ethereum Fusion liquidity and Robinhood execution remain unavailable. This is not yet an end-to-end iOS Earn journey. The investment wallet must already have sufficient Ethereum USDC and ETH; the app does not bypass unavailable funding capabilities.
+
+- `ios/Earn/EarnVaultEngine.swift` delegates exact proposals, review hashes and signing to the same Rust `earn_execution.rs` policy used by Android. The approved amount, owner, contracts, nonce, fees and deadline remain bound.
+- `EarnVaultRPC.swift` reads chain 1 at a canonical block hash, rejects stale or reorganized snapshots and keeps all amount arithmetic in shared Rust U256 helpers.
+- `EarnVaultJournal.swift` encrypts wallet-generation records and commits signed bytes before broadcast. A failed submission remains locked and recoverable. Status reads never broadcast; explicit resume requires a fresh native review/passkey assertion and retries saved bytes exactly.
+- `EarnVaultReconciler.swift` validates transaction fields, finalized canonical receipts, expected allowance/deposit/redemption events, shares and actual gas costs. A reorganization restores the pending lock. Approval and investment/redemption are separate authorizations; there is no automatic second transaction. After approval finalizes, both platforms give the unsigned router continuation a fresh five-minute deadline and native review. The operation identity, amount and finalized approval stay bound; gas limits and fee caps remain unchanged and are revalidated against fresh state. Signed router retries use their saved signing deadline and never refresh or alter signed bytes.
+- Cancellation stops new signing but retains unresolved transactions. Restore keeps the existing recovery gate and starts a separate journal generation; it cannot infer that a missing journal means no past spend.
+
+Remaining stages: source sponsorship and shared source reservations; private credit/payouts and cycle recovery; Ethereum liquidity/return/cancellation; Robinhood execution and Earn portfolio extensions. Before enabling another writer for the same Ethereum investment account, integrate its pending journal into a shared nonce lock. Independent per-engine locks are insufficient.
+
+Verification for this stage: 51 Swift simulator tests, 148 Rust tests with strict Clippy, Android Debug/Release unit tests, 629 JavaScript tests across 76 suites with coverage, TypeScript, lint, formatting and iOS registration checks passed. The arm64 simulator app compiled successfully. Native tests exercise real Rust signing with injected RPC/storage failures; JavaScript tests mock the native boundary. Physical-iPhone passkeys and funded Ethereum execution remain untested. No mainnet transactions were sent.
+
 ## Runtime and deployment
 
 The hosted native API is `https://gizu-backend.onrender.com`; JavaScript uses `EXPO_PUBLIC_API_URL`. JavaScript updates load through Metro in the development app; native API changes require rebuilding and installing the APK. Local backend changes do not alter Render until deployed.
@@ -50,7 +64,7 @@ Exit completion requires wallet 2's zero shares, explicit WETH reconciliation, a
 
 ## Verification record
 
-Use the npm scripts in `mobile/package.json` and `backend/package.json`; full checks must be rerun after integration changes. Isolated Ethereum and Robinhood fork checks have demonstrated exact SDK deposit/full-redemption calls and separately simulated returns. Reserve estimation uses disposable child forks and leaves the parent fork invested. This does not establish live resolver admission, paymaster sponsorship, Android passkey/device acceptance or iOS acceptance. This Mac has Command Line Tools, without Xcode or an iOS simulator; Swift parsing is not an iOS build.
+Use the npm scripts in `mobile/package.json` and `backend/package.json`; full checks must be rerun after integration changes. Isolated Ethereum and Robinhood fork checks have demonstrated exact SDK deposit/full-redemption calls and separately simulated returns. Reserve estimation uses disposable child forks and leaves the parent fork invested. This does not establish live resolver admission, paymaster sponsorship, Android passkey/device acceptance or iOS acceptance. Those earlier fork checks did not include an iOS build; the iOS parity rollout above records subsequent simulator verification.
 
 No mainnet Earn operation has been sent during this integration. The user separately authorized the research-to-app funding transfer recorded below.
 
@@ -60,7 +74,7 @@ Reopen Confidential earn and use the saved-progress controls before authorizing 
 
 Each investment has an immutable destination pair/profile. Previous cycles remain selectable for withdrawal and recovery, and a new investment allocates a fresh cycle. Restore without native history remains gated; missing journal data is not evidence that an old operation never spent. Automatic sibling-wallet top-ups, generic replacement transactions and WETH unwrap signing remain unsupported.
 
-Android execution has native and screen-level test coverage. iOS advertises these execution capabilities as unavailable; Swift syntax checks do not establish an iOS implementation or device acceptance. Mainnet resolver admission, live paymaster acceptance, passkey ceremonies and the complete deployed phone journey require separately reported provider/device checks. No vault funds moved during implementation; the separately authorized app test funding is recorded below.
+Android execution has native and screen-level test coverage. iOS enables only the Ethereum vault execution capability described above. The remaining execution capabilities stay unavailable; simulator checks do not establish device acceptance. Mainnet resolver admission, live paymaster acceptance, passkey ceremonies and the complete deployed phone journey require separately reported provider/device checks. No vault funds moved during implementation; the separately authorized app test funding is recorded below.
 
 ## Final review and verification
 

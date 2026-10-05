@@ -5,6 +5,7 @@ import {
   getStoredSigner,
   getStoredTransferSigner,
   getStoredSwapSigner,
+  getStoredEarnVaultSigner,
 } from "@/services/wallet/nativeBridge";
 
 jest.mock("expo", () => ({ requireOptionalNativeModule: jest.fn() }));
@@ -191,4 +192,37 @@ test("iOS exposes holdings and explicit sell/recovery actions through native cap
   await expect(signer.startRecovery(target, gateway)).rejects.toThrow(/capabilities/);
   expect(native.sellSwapHolding).toHaveBeenCalledTimes(1);
   expect(native.startRecovery).toHaveBeenCalledTimes(1);
+});
+
+test("iOS vault execution is independently capability-gated and status reads never execute", async () => {
+  const native = {
+    getCapabilities: jest
+      .fn()
+      .mockResolvedValue({ contractVersion: 1, available: true, earnVaultExecution: true }),
+    executeEarnVault: jest.fn(),
+    listEarnVaultOperations: jest.fn().mockResolvedValue([]),
+    resumeEarnVaultOperation: jest.fn().mockResolvedValue({ status: "pending" }),
+    cancelEarnVaultOperation: jest.fn().mockResolvedValue({ status: "cancelled" }),
+  };
+  jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
+  const capabilities = await getSignerCapabilities();
+  expect(capabilities.earnVaultExecution).toBe(true);
+  expect(capabilities.earnSponsoredExecution).toBe(false);
+  const signer = getStoredEarnVaultSigner()!;
+  await expect(signer.listEarnVaultOperations("wallet")).resolves.toEqual([]);
+  expect(native.executeEarnVault).not.toHaveBeenCalled();
+  expect(native.resumeEarnVaultOperation).not.toHaveBeenCalled();
+  await signer.resumeEarnVaultOperation("wallet", "operation", 3);
+  expect(native.resumeEarnVaultOperation).toHaveBeenCalledWith("wallet", "operation", 3);
+  await signer.cancelEarnVaultOperation("wallet", "operation", 4);
+  expect(native.cancelEarnVaultOperation).toHaveBeenCalledWith("wallet", "operation", 4);
+  native.getCapabilities.mockResolvedValue({
+    contractVersion: 1,
+    available: true,
+    earnVaultExecution: false,
+  });
+  await expect(signer.resumeEarnVaultOperation("wallet", "operation", 5)).rejects.toThrow(
+    /capabilities/,
+  );
+  expect(native.resumeEarnVaultOperation).toHaveBeenCalledTimes(1);
 });

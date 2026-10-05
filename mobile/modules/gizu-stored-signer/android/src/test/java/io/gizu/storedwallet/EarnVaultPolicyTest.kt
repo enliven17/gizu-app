@@ -54,6 +54,7 @@ class EarnVaultPolicyTest {
       org.json
         .JSONObject()
         .put("kind", "vaultDeposit")
+        .put("deadline", 1000)
         .put("amountAtoms", "1000000")
         .put("nonce", 4)
         .put("revision", 7)
@@ -76,7 +77,10 @@ class EarnVaultPolicyTest {
             )
             .put(org.json.JSONObject().put("status", "planned").put("to", ETH_EARN_ROUTER)),
         )
-    val continuation = earnContinuationProposal(op, 5uL)
+    val continuation = earnContinuationProposal(op, 5uL, 2000)
+    assertEquals(2300L, continuation.getLong("deadline"))
+    assertEquals(1000L, original.getLong("deadline"))
+    assertEquals("0x02a", op.steps()[0].getString("raw"))
     assertEquals("vaultDeposit", continuation.getString("kind"))
     assertEquals("1000000", continuation.getString("amountAtoms"))
     assertEquals(5L, continuation.getLong("nonce"))

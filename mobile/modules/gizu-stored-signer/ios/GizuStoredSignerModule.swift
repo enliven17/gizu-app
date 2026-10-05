@@ -87,7 +87,7 @@ public final class GizuStoredSignerModule: Module {
         "contractVersion": 1, "available": Self.supported, "walletStorage": Self.supported,
         "backup": Self.supported, "transfers": Self.supported, "swaps": Self.supported,
         "earnWallets": Self.supported,
-        "earnVaultExecution": false,
+        "earnVaultExecution": Self.supported,
         "earnSponsoredExecution": false,
         "earnPrivatePayoutExecution": false,
         "earnEthereumLiquidityExecution": false,
@@ -178,17 +178,26 @@ public final class GizuStoredSignerModule: Module {
       promise.reject("UNAVAILABLE", "Native Ethereum liquidity is unavailable on iOS in this build.")
     }
 
-    AsyncFunction("executeEarnVault") { (_: [String: Any], promise: Promise) in
-      promise.reject("UNAVAILABLE", "Ethereum vault execution is unavailable on iOS in this build.")
+    AsyncFunction("executeEarnVault") { (request: [String: Any], promise: Promise) in
+      self.run(promise, operation: "executeEarnVault") { scope in
+        guard let walletId = request["walletId"] as? String else { throw WalletFailure.invalid }
+        return try await scope.earnVault(request, walletId: walletId)
+      }
     }
-    AsyncFunction("listEarnVaultOperations") { (_: String, promise: Promise) in
-      promise.reject("UNAVAILABLE", "Ethereum vault journal is unavailable on iOS in this build.")
+    AsyncFunction("listEarnVaultOperations") { (walletId: String, promise: Promise) in
+      self.run(promise, operation: "listEarnVaultOperations") {
+        try await $0.listEarnVaultOperations(walletId: walletId)
+      }
     }
-    AsyncFunction("resumeEarnVaultOperation") { (_: String, _: String, _: Int, promise: Promise) in
-      promise.reject("UNAVAILABLE", "Ethereum vault execution is unavailable on iOS in this build.")
+    AsyncFunction("resumeEarnVaultOperation") { (walletId: String, id: String, revision: Int, promise: Promise) in
+      self.run(promise, operation: "resumeEarnVaultOperation") {
+        try await $0.earnVault(nil, walletId: walletId, id: id, revision: revision)
+      }
     }
-    AsyncFunction("cancelEarnVaultOperation") { (_: String, _: String, _: Int, promise: Promise) in
-      promise.reject("UNAVAILABLE", "Ethereum vault journal is unavailable on iOS in this build.")
+    AsyncFunction("cancelEarnVaultOperation") { (walletId: String, id: String, revision: Int, promise: Promise) in
+      self.run(promise, operation: "cancelEarnVaultOperation") {
+        try $0.cancelEarnVaultOperation(walletId: walletId, id: id, revision: revision)
+      }
     }
 
     AsyncFunction("executeOperation") { (proposal: [String: Any], promise: Promise) in

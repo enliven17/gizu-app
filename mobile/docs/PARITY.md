@@ -8,19 +8,19 @@ Platform acceptance and remaining migration work are tracked in
 [the migration plan](SIGNER_MIGRATION.md). Historical fixture journeys remain in tests and the isolated UI playground;
 simulated passkey startup has been removed.
 
-| Journey                         | Normal native mode                                                                      | Test/preview fixtures                        |
-| ------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Welcome/access                  | Native passkey create/open; Account 0 viewing session                                   | Simulated passkey access                     |
-| Request access                  | Development mock; no real waitlist submission                                           | Same mock                                    |
-| Home                            | Actual Monad mainnet USDC balance, error/retry, address actions                         | Fixture portfolio and charts                 |
-| Vaults                          | Read-only mainnet catalog, TVL charts and details; no signing                           | Search/filter, details, charts and sharing   |
-| Swap                            | Read-only live token catalog in development and TestFlight                              | Read-only token catalog                      |
-| Deposit                         | Receiving address/network/copy; no signing                                              | Simulated transfer journey                   |
-| Withdraw                        | Mainnet USDC transfer execution unavailable                                             | Simulated review/signing/result              |
-| Activity                        | Mainnet USDC indexing unavailable                                                       | Fixture activity                             |
-| Confidential Earn               | Native intent wallet pair, read-only readiness/private balance/routing; execution gated | Adapter and real-screen fixtures             |
-| Account                         | Real address/copy, local preferences, disconnect                                        | Fixture profile and secondary pages          |
-| Notifications/support/documents | Unsupported service actions guarded                                                     | Local fixture interactions, no real delivery |
+| Journey                         | Normal native mode                                                             | Test/preview fixtures                        |
+| ------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------- |
+| Welcome/access                  | Native passkey create/open; Account 0 viewing session                          | Simulated passkey access                     |
+| Request access                  | Development mock; no real waitlist submission                                  | Same mock                                    |
+| Home                            | Actual Monad mainnet USDC balance, error/retry, address actions                | Fixture portfolio and charts                 |
+| Vaults                          | Read-only mainnet catalog, TVL charts and details; no signing                  | Search/filter, details, charts and sharing   |
+| Swap                            | Read-only live token catalog in development and TestFlight                     | Read-only token catalog                      |
+| Deposit                         | Receiving address/network/copy; no signing                                     | Simulated transfer journey                   |
+| Withdraw                        | Mainnet USDC transfer execution unavailable                                    | Simulated review/signing/result              |
+| Activity                        | Mainnet USDC indexing unavailable                                              | Fixture activity                             |
+| Confidential Earn               | Native intent/read flows; Android execution; iOS Ethereum vault execution only | Adapter and real-screen fixtures             |
+| Account                         | Real address/copy, local preferences, disconnect                               | Fixture profile and secondary pages          |
+| Notifications/support/documents | Unsupported service actions guarded                                            | Local fixture interactions, no real delivery |
 
 Native sessions mount no mock financial providers. Unsupported balances/positions
 are not zero-valued fictional holdings. No standalone wallet product UI is added.
@@ -204,3 +204,7 @@ operation-specific retries. Vaults retain eight-item requests and responsive
 columns; Swap retains two columns and 20-item requests. Filters reset results,
 while append/refresh failures preserve already loaded cards. Home previews and
 wallet behavior are unchanged.
+
+### Earn native parity
+
+The first iOS execution stage supports Ethereum vault deposits/full redemptions in the existing Earn flow, using the Android Rust policy. Native journals preserve uncertain transactions, exact-byte explicit retry, canonical settlement and cancellation locks. Source sponsorship, private payouts, Ethereum liquidity and Robinhood execution remain iOS follow-ups; this does not enable the complete iOS funding journey. See [the staged rollout](CONFIDENTIAL_EARN.md#ios-parity-rollout). Simulator/native tests and mocked bridge tests are separate from pending physical-iPhone and funded acceptance.

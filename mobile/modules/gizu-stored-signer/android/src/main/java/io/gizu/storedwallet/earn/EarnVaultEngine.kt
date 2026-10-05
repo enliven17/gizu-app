@@ -59,8 +59,12 @@ internal fun canonicalEarnVaultProposal(
   return p
 }
 
-/** Reprepare only the immutable remaining action after a finalized allowance transaction. */
-internal fun earnContinuationProposal(op: JSONObject, freshNonce: ULong): JSONObject {
+/** Refresh only the unsigned router deadline after finalized approval and require new review. */
+internal fun earnContinuationProposal(
+  op: JSONObject,
+  freshNonce: ULong,
+  now: Long = System.currentTimeMillis() / 1000,
+): JSONObject {
   val p = JSONObject(op.getJSONObject("proposal").toString())
   val signed = op.steps().filter { it.has("raw") }
   check(signed.all { it.getString("status") == "finalized" })
@@ -69,7 +73,10 @@ internal fun earnContinuationProposal(op: JSONObject, freshNonce: ULong): JSONOb
     check(freshNonce == p.getLong("nonce").toULong() + 1uL)
     val gas = p.getJSONArray("gasLimits")
     check(gas.length() == 2)
-    p.put("gasLimits", JSONArray().put(gas.getLong(1))).put("nonce", freshNonce.toLong())
+    check(now >= 0 && now <= Long.MAX_VALUE - 300)
+    p.put("gasLimits", JSONArray().put(gas.getLong(1)))
+      .put("nonce", freshNonce.toLong())
+      .put("deadline", now + 300)
   }
   p.put("revision", op.getInt("revision"))
   return p
@@ -339,7 +346,9 @@ internal fun requireEarnRetryEconomics(
 ) {
   val proposal = op.getJSONObject("proposal")
   if (step.getString("to").equals(ETH_EARN_ROUTER, true))
-    check(proposal.getLong("deadline") > now) { "Saved router deadline expired" }
+    check((op.optJSONObject("signingProposal") ?: proposal).getLong("deadline") > now) {
+      "Saved router deadline expired"
+    }
   val remaining = op.steps().filter { it.getString("status") !in terminalSteps }
   for (call in remaining) check(
     state.baseFeeWei.toBigInteger() + call.getString("priorityFeePerGasWei").toBigInteger() <=

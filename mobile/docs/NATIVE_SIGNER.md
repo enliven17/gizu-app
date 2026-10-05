@@ -421,7 +421,7 @@ Read on 2026-09-24; revalidate version-specific APIs before implementation.
 
 The main application source is legacy account 0, viewed as Monad mainnet Circle USDC.
 The existing MON transfer policy remains chain 10143 only. The new Earn entry point
-is [documented separately](CONFIDENTIAL_EARN.md); no mainnet spend method is enabled.
+is [documented separately](CONFIDENTIAL_EARN.md). Android supports the guarded Earn execution paths. iOS supports Ethereum vault execution; other Earn execution capabilities remain disabled.
 
 After explicit intent and native review/passkey approval, `prepareEarnIntent` binds one
 supported destination profile and persists it atomically. Destination roles are derived
@@ -442,6 +442,10 @@ Restore exposes candidate addresses but keeps `earnRecoveryRequired` set. Changi
 while gated is read-only; neither a balance check nor zero local history clears this flag.
 Wallet ID, journal generation and profile are rechecked across authorization/network calls.
 Full funding and return completion require separately authenticated operation-scoped evidence.
+
+### iOS Ethereum vault execution
+
+The existing `executeEarnVault`, `listEarnVaultOperations`, `resumeEarnVaultOperation` and `cancelEarnVaultOperation` methods now use Swift native orchestration and the shared Rust transaction policy. Review/passkey authorization lasts two minutes and is invalidated by cancellation, lock, expiry and backgrounding. Entropy and signed bytes stay native. The per-wallet-generation encrypted journal commits before broadcast, checks revisions and prevents concurrent operations for one owner. Refresh reconciles without sending; resume requires explicit fresh approval. Unsupported funding, payouts and liquidity flags remain false. See the [rollout and remaining gates](CONFIDENTIAL_EARN.md#ios-parity-rollout).
 
 ### Android USB backend test build
 
