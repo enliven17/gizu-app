@@ -93,7 +93,6 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
             />
           </View>
         </Surface>
-        {native && session.walletId && <WalletBackupAction />}
         <PreferenceFeedback />
       </FadeIn>
       {groups.map((group, index) => (
@@ -110,7 +109,12 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
           ))}
         </SettingsGroup>
       ))}
-      <FadeIn delay={sectionDelay(groups.length + 2)} className="mt-5">
+      {native && session.walletId && (
+        <FadeIn delay={sectionDelay(groups.length + 2)} className="mt-5">
+          <WalletBackupAction />
+        </FadeIn>
+      )}
+      <FadeIn delay={sectionDelay(groups.length + 3)} className="mt-5">
         <Button
           variant="destructive"
           label="Disconnect"

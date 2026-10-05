@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
+import colors from "@/theme/colors.json";
 import { Button } from "@/components/atoms/Button";
 import { Typography } from "@/components/atoms/Typography";
 import { BackupResult, BackupSteps } from "@/components/molecules/BackupSteps";
@@ -20,6 +22,7 @@ export function WalletBackupAction() {
   const attempt = useRef(0);
   const running = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>("idle");
   useEffect(
     () => () => {
@@ -50,22 +53,38 @@ export function WalletBackupAction() {
   return (
     <Surface>
       <View className="gap-5 p-5">
-        <View className="gap-2">
-          <Typography variant="section">Wallet backup</Typography>
-          <Typography variant="caption">
-            Recovery needs both the encrypted file and your original passkey.
-          </Typography>
-        </View>
-        <BackupSteps steps={steps} completed={outcome === "verified"} />
-        {outcome !== "idle" && (
-          <BackupResult message={messages[outcome]} failed={outcome === "incomplete"} />
-        )}
-        <Button
-          label="Save and verify wallet backup"
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Wallet backup"
+          accessibilityState={{ expanded, disabled: busy }}
           disabled={busy}
-          loading={busy}
-          onPress={() => void backup()}
-        />
+          onPress={() => setExpanded((value) => !value)}
+          className="min-h-11 flex-row items-center justify-between gap-3"
+        >
+          <Typography variant="section">Wallet backup</Typography>
+          {expanded ? (
+            <ChevronUp size={18} color={colors.text} />
+          ) : (
+            <ChevronDown size={18} color={colors.text} />
+          )}
+        </Pressable>
+        {expanded && (
+          <View className="gap-5">
+            <Typography variant="caption">
+              Recovery needs both the encrypted file and your original passkey.
+            </Typography>
+            <BackupSteps steps={steps} completed={outcome === "verified"} />
+            {outcome !== "idle" && (
+              <BackupResult message={messages[outcome]} failed={outcome === "incomplete"} />
+            )}
+            <Button
+              label="Save and verify wallet backup"
+              disabled={busy}
+              loading={busy}
+              onPress={() => void backup()}
+            />
+          </View>
+        )}
       </View>
     </Surface>
   );

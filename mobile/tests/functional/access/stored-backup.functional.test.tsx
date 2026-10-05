@@ -57,6 +57,10 @@ test("onboarding waits for verified backup then opens existing Home", async () =
   expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
   await userEvent.press(screen.getByLabelText("Settings tab"));
+  expect(screen.queryByRole("button", { name: "Save and verify wallet backup" })).toBeNull();
+  await userEvent.press(
+    await screen.findByRole("button", { name: "Wallet backup", expanded: false }),
+  );
   expect(
     await screen.findByRole("button", { name: "Save and verify wallet backup" }),
   ).toBeVisible();
@@ -104,6 +108,10 @@ test("Account can reverify backup and recover from cancellation without disconne
   await proceed();
   expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
   await userEvent.press(screen.getByLabelText("Settings tab"));
+  expect(screen.queryByRole("button", { name: "Save and verify wallet backup" })).toBeNull();
+  await userEvent.press(
+    await screen.findByRole("button", { name: "Wallet backup", expanded: false }),
+  );
   native.backupWallet.mockRejectedValueOnce(new Error("cancelled"));
   await userEvent.press(
     await screen.findByRole("button", { name: "Save and verify wallet backup" }),
@@ -113,6 +121,8 @@ test("Account can reverify backup and recover from cancellation without disconne
   await userEvent.press(screen.getByRole("button", { name: "Save and verify wallet backup" }));
   expect(await screen.findByText(/Backup saved and verified/)).toBeVisible();
   expect(native.createWallet).toHaveBeenCalledTimes(1);
+  await userEvent.press(screen.getByRole("button", { name: "Wallet backup", expanded: true }));
+  expect(screen.queryByRole("button", { name: "Save and verify wallet backup" })).toBeNull();
 });
 
 test.each([
