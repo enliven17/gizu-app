@@ -1,6 +1,6 @@
 import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
 import { useCallback, useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import colors from "@/theme/colors.json";
 import { useFocusEffect } from "@react-navigation/native";
@@ -238,26 +238,28 @@ export function MainnetPortfolioScreen({
         <Surface>
           <View className="gap-3 p-5">
             <Typography variant="micro">USDC balance</Typography>
-            <Typography
-              variant="title"
-              accessibilityLabel={`${holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC`}
-            >
-              {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC
-            </Typography>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Balance details"
-              accessibilityState={{ expanded: detailsExpanded }}
-              onPress={() => setDetailsExpanded((expanded) => !expanded)}
-              className="min-h-11 flex-row items-center justify-between gap-3"
-            >
-              <Typography variant="caption">Balance details</Typography>
-              {detailsExpanded ? (
-                <ChevronUp size={18} color={colors.text} />
-              ) : (
-                <ChevronDown size={18} color={colors.text} />
-              )}
-            </Pressable>
+            <View className="flex-row items-center gap-3">
+              <Typography
+                variant="title"
+                className="flex-1"
+                accessibilityLabel={`${holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC`}
+              >
+                {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC
+              </Typography>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Balance details"
+                accessibilityState={{ expanded: detailsExpanded }}
+                onPress={() => setDetailsExpanded((expanded) => !expanded)}
+                className="min-h-11 min-w-11 items-center justify-center"
+              >
+                {detailsExpanded ? (
+                  <ChevronUp size={18} color={colors.text} />
+                ) : (
+                  <ChevronDown size={18} color={colors.text} />
+                )}
+              </Pressable>
+            </View>
             {detailsExpanded && (
               <View className="gap-3">
                 <Typography>
@@ -281,15 +283,14 @@ export function MainnetPortfolioScreen({
         onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
         onActivity={() => root.navigate("Activity")}
       />
-      <WalletDetails />
-      {Platform.OS === "android" ? (
-        <SwapHoldingsSection onReviewSale={() => navigation.navigate("Exchange")} />
-      ) : (
-        <Typography variant="micro">Token holdings are not yet available on iOS.</Typography>
-      )}
-      <VaultPreview
-        onSeeAll={() => navigation.navigate("Vaults")}
-        onOpen={(id) => root.navigate("OpportunityDetail", { id })}
+      <SwapHoldingsSection
+        onReviewSale={() => navigation.navigate("Exchange")}
+        emptyContent={
+          <VaultPreview
+            onSeeAll={() => navigation.navigate("Vaults")}
+            onOpen={(id) => root.navigate("OpportunityDetail", { id })}
+          />
+        }
       />
     </Screen>
   );

@@ -1,11 +1,19 @@
 import { openEarnLink } from "../../support/earnNavigation";
 import { mainnetPortfolio } from "../../support/mainnetWallet";
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
-import { Linking, RefreshControl } from "react-native";
+import { Linking, Platform, RefreshControl } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
 import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import { defaultPreferences } from "@/domain/preferences";
 import { deferred } from "../../support/renderApp";
+
+import { requireOptionalNativeModule } from "expo";
+
+jest.mock("expo", () => ({ requireOptionalNativeModule: jest.fn() }));
+const originalOS = Platform.OS;
+const originalVersion = Platform.Version;
+const readHoldings = jest.fn();
+const capabilities = jest.fn();
 
 const address = "0x" + "1".repeat(40);
 const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
@@ -15,10 +23,22 @@ const state = {
   accounts: [{ accountIndex: 0, address, chainId: 10143 }],
 };
 beforeEach(() => {
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "ios" });
+  Object.defineProperty(Platform, "Version", { configurable: true, value: "18.5" });
+  capabilities.mockReset().mockResolvedValue({ contractVersion: 1, available: true, swaps: true });
+  readHoldings.mockReset().mockResolvedValue({ checkedAt: 1, block: "0x123", holdings: [] });
+  jest.mocked(requireOptionalNativeModule).mockReturnValue({
+    getCapabilities: capabilities,
+    getSwapHoldings: readHoldings,
+  });
   jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
   jest.spyOn(Linking, "addEventListener");
 });
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => {
+  jest.restoreAllMocks();
+  Object.defineProperty(Platform, "OS", { configurable: true, value: originalOS });
+  Object.defineProperty(Platform, "Version", { configurable: true, value: originalVersion });
+});
 
 function setup() {
   const native = {
@@ -263,4 +283,56 @@ test("partial vault observations use underlying units and never relabel shares a
   expect(screen.queryByText(/Previously observed: .*USDG/)).toBeNull();
   expect(screen.queryByText(/1,?000,?000,?000,?000 (USDC|USDG)/)).toBeNull();
   expect(screen.getByLabelText("19.990574 USDC")).toBeVisible();
+});
+
+test.each(["ios", "android"])(
+  "%s Home loads token holdings through the native capability check",
+  async (os) => {
+    Object.defineProperty(Platform, "OS", { configurable: true, value: os });
+    Object.defineProperty(Platform, "Version", {
+      configurable: true,
+      value: os === "ios" ? "18.5" : 35,
+    });
+    readHoldings.mockResolvedValue({
+      checkedAt: 1,
+      block: "0x123",
+      holdings: [
+        {
+          token: "0x" + "ab".repeat(20),
+          chainId: 4663,
+          symbol: "GOOGL",
+          decimals: 6,
+          balanceAtoms: "1234500",
+          batches: [],
+        },
+      ],
+    });
+    setup();
+    await open();
+    expect(await screen.findByText("1.2345 GOOGL")).toBeVisible();
+    expect(screen.queryByText("Confidential vaults")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Wallet details" })).toBeNull();
+    expect(readHoldings).toHaveBeenCalledWith("");
+    expect(capabilities).toHaveBeenCalled();
+    expect(screen.queryByText("Token holdings are not yet available on iOS.")).toBeNull();
+  },
+);
+
+test("Home shows a retryable holdings error when the native build lacks swap capability", async () => {
+  capabilities.mockResolvedValue({ contractVersion: 1, available: true, swaps: false });
+  setup();
+  await open();
+  expect(await screen.findByRole("button", { name: "Retry holdings" })).toBeVisible();
+  expect(readHoldings).not.toHaveBeenCalled();
+  expect(screen.queryByText("Confidential vaults")).toBeNull();
+});
+
+test("Home offers confidential vaults instead of an empty holdings section", async () => {
+  setup();
+  await open();
+  expect(await screen.findByText("Confidential vaults")).toBeVisible();
+  expect(screen.queryByText("Token holdings")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Wallet details" })).toBeNull();
+  await userEvent.press(screen.getByRole("button", { name: "See all vaults" }));
+  expect(await screen.findByLabelText("vaults list")).toBeVisible();
 });

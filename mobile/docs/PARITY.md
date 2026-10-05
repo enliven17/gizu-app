@@ -59,8 +59,13 @@ move funds, change derivation, or expand the native testnet transfer policy.
 
 ## Confidential-swap holdings: Android and iOS
 
-Home includes **Token holdings** for Robinhood mainnet tokens, separate from the
-Monad mainnet USDC total. This branch's Swap tab uses the native confidential-swap
+Home shows **Token holdings** when tracked Robinhood token balances exist; a successful
+empty read shows **Confidential vaults** instead. Loading and failures do not imply an
+empty portfolio. Home no longer shows the Wallet details toggle; account details remain
+available on Receive/Send. Token holdings are separate from the
+Monad mainnet USDC total. Both iOS and Android render the same holdings section;
+the native adapter checks swap capability before reading balances. Unsupported
+builds show a retryable holdings error rather than an iOS-only restriction. This branch's Swap tab uses the native confidential-swap
 journey; the read-only Swap row above describes the earlier catalog baseline.
 
 - Wallet, holdings and catalog errors use plain-language messages with read-only retry

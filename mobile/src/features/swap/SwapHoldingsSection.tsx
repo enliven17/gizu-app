@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { SearchInput } from "@/components/atoms/SearchInput";
@@ -15,7 +16,13 @@ export function holdingAmount(atoms: string, decimals: number): string {
   return digits.slice(0, -decimals) + (fraction ? `.${fraction}` : "");
 }
 
-export function SwapHoldingsSection({ onReviewSale }: { onReviewSale?: () => void }) {
+export function SwapHoldingsSection({
+  onReviewSale,
+  emptyContent,
+}: {
+  onReviewSale?: () => void;
+  emptyContent?: ReactNode;
+}) {
   const holdings = useSwapHoldings();
   const query = holdings.search.trim().toLowerCase();
   const matches = query
@@ -23,9 +30,22 @@ export function SwapHoldingsSection({ onReviewSale }: { onReviewSale?: () => voi
         .filter((token) => `${token.symbol} ${token.name}`.toLowerCase().includes(query))
         .slice(0, 8)
     : [];
+  // Only a successful empty read establishes that discovery should replace holdings.
+  // Keep errors visible and retain existing cards while refreshing.
+  if (
+    emptyContent &&
+    holdings.snapshot &&
+    !holdings.snapshot.holdings.length &&
+    !holdings.error &&
+    !holdings.saleFailed
+  ) {
+    return <>{emptyContent}</>;
+  }
   return (
     <View className="gap-3">
-      <Typography variant="section">Token holdings</Typography>
+      {(!emptyContent || !!holdings.snapshot?.holdings.length) && (
+        <Typography variant="section">Token holdings</Typography>
+      )}
       {holdings.busy ? (
         <Typography accessibilityLiveRegion="polite" variant="micro">
           Checking holdings or waiting for native approval…

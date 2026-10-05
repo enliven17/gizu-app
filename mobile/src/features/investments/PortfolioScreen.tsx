@@ -7,7 +7,7 @@ import { useNotifications } from "@/features/notifications/NotificationProvider"
 import { useTransactions } from "@/features/transactions/TransactionProvider";
 import { OperationLink } from "@/features/transactions/OperationLink";
 import { decimal } from "@/domain/transactions";
-import { Image, Platform, View } from "react-native";
+import { Image, View } from "react-native";
 import monadMark from "../../../assets/logos/monad-white.png";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -242,16 +242,15 @@ function NativePortfolio({ navigation }: Props) {
           onActivity={() => root.navigate("Activity")}
         />
       </FadeIn>
-      {Platform.OS === "android" ? (
-        <SwapHoldingsSection onReviewSale={() => navigation.navigate("Exchange")} />
-      ) : null}
-      <FadeIn delay={sectionDelay(4)} className="mt-5">
-        {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
-        <VaultPreview
-          onSeeAll={() => navigation.navigate("Vaults")}
-          onOpen={(id) => root.navigate("OpportunityDetail", { id })}
-        />
-      </FadeIn>
+      <SwapHoldingsSection
+        onReviewSale={() => navigation.navigate("Exchange")}
+        emptyContent={
+          <VaultPreview
+            onSeeAll={() => navigation.navigate("Vaults")}
+            onOpen={(id) => root.navigate("OpportunityDetail", { id })}
+          />
+        }
+      />
     </Screen>
   );
 }
