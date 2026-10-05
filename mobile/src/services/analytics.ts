@@ -7,7 +7,6 @@ export interface AnalyticsService {
 // Only navigation names are accepted; callers cannot attach properties.
 const screens = new Set([
   "Welcome",
-  "Access",
   "RequestAccess",
   "Home",
   "Vaults",

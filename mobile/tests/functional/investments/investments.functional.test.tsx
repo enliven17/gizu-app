@@ -9,7 +9,7 @@ beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function enter(service?: InvestmentService) {
   renderApp(undefined, service);
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await screen.findByRole("header", { name: "Your portfolio" });
 }
@@ -158,7 +158,7 @@ test("disconnect drops the snapshot and late responses cannot repopulate the nex
   await userEvent.press(screen.getByLabelText("Settings tab"));
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
   await act(async () => pending.resolve(investmentFixture));
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   expect(await screen.findByText("$0.00")).toBeVisible();
   expect(screen.queryByText("$810,838.24")).toBeNull();
@@ -170,9 +170,9 @@ test.each(["vault/helix", "activity"])(
   async (path) => {
     jest.mocked(Linking.getInitialURL).mockResolvedValue(`gizu-dev://${path}`);
     renderApp();
-    expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
     expect(screen.queryByText("$1.8342")).toBeNull();
-    await userEvent.press(screen.getByRole("button", { name: "Get started" }));
+    await screen.findByRole("button", { name: "Continue with passkey" });
     await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
     await userEvent.press(
       await screen.findByRole("button", {

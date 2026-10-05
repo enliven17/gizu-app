@@ -34,7 +34,7 @@ function setup(
   return { bridge, balance, clipboard, view };
 }
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
 }
 test("opens a real-address testnet view, copies, refreshes and disconnects without demo balances", async () => {
@@ -52,7 +52,7 @@ test("opens a real-address testnet view, copies, refreshes and disconnects witho
   await userEvent.press(screen.getByRole("button", { name: "Refresh balance" }));
   expect(await screen.findByText("0 MON")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Disconnect wallet" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByText(address)).toBeNull();
   expect(bridge.lock).toHaveBeenCalled();
 });

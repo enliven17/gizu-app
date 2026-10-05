@@ -78,10 +78,10 @@ test.each(["sync", "async"])(
     await waitFor(() => expect(trackScreen).toHaveBeenLastCalledWith("Exchange"));
   },
 );
-test("real app composition uses injected analytics on initial screen and navigation", async () => {
+test("real app composition tracks welcome with direct login actions", async () => {
   const trackScreen = jest.fn().mockResolvedValue(undefined);
   render(<AppRoot analyticsService={{ trackScreen }} />);
   await waitFor(() => expect(trackScreen).toHaveBeenCalledWith("Welcome"));
-  fireEvent.press(screen.getByRole("button", { name: /get started/i }));
-  await waitFor(() => expect(trackScreen).toHaveBeenCalledWith("Access"));
+  expect(screen.getByRole("button", { name: "Continue with passkey" })).toBeVisible();
+  expect(trackScreen).not.toHaveBeenCalledWith("Access");
 });

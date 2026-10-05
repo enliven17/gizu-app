@@ -105,7 +105,7 @@ function setup(initial: StoredOperation[] = [], useDefaultSigner = false) {
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
   await screen.findByRole("header", { name: "Your portfolio" });
 }

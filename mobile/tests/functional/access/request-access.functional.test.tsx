@@ -47,7 +47,7 @@ test("validates required answers and submits the selected payload once", async (
   await act(async () => pending.resolve());
   expect(await screen.findByRole("header", { name: "Request complete" })).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Done" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByLabelText("Home tab")).toBeNull();
 });
 test("retains answers after failure and retries with an other-platform answer", async () => {
@@ -78,7 +78,7 @@ test.each(["resolve", "reject"] as const)(
     await fill();
     await userEvent.press(screen.getByRole("button", { name: "Request access" }));
     await userEvent.press(screen.getByRole("button", { name: "Close request access" }));
-    await screen.findByRole("button", { name: "Get started" });
+    await screen.findByRole("button", { name: "Continue with passkey" });
     await act(async () =>
       outcome === "resolve" ? pending.resolve() : pending.reject(new Error("late")),
     );

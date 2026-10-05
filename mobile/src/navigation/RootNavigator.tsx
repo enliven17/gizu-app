@@ -9,7 +9,6 @@ import { OpportunityDetailScreen } from "@/features/opportunities/OpportunityDet
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useSession } from "@/application/SessionProvider";
 import { WelcomeScreen } from "@/features/access/WelcomeScreen";
-import { AccessScreen } from "@/features/access/AccessScreen";
 import { MainTabs } from "./MainTabs";
 import { EarnScreen } from "@/features/earn/EarnScreen";
 import type { RootStackParamList } from "./types";
@@ -68,7 +67,6 @@ export function RootNavigator() {
             component={RequestAccessScreen}
             options={{ presentation: "modal", animation: "default" }}
           />
-          <Stack.Screen name="Access" component={AccessScreen} options={{ title: "Demo access" }} />
         </Stack.Group>
       )}
     </Stack.Navigator>

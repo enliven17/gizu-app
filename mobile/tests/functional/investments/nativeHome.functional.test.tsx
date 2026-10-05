@@ -46,7 +46,7 @@ function setup(service: MockOpportunityService) {
   );
 }
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await screen.findByLabelText("1 MON");
 }

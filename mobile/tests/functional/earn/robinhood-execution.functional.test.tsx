@@ -111,7 +111,7 @@ function setup(saved: SponsoredOperation[] = [], available = true) {
   return service;
 }
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
 }

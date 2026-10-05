@@ -145,7 +145,7 @@ test("release-mode navigation opens native Swap and handles an unavailable token
         }}
       />,
     );
-    fireEvent.press(await screen.findByRole("button", { name: "Get started" }));
+    await screen.findByRole("button", { name: "Continue with passkey" });
     fireEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
     fireEvent.press(await screen.findByLabelText("Swap tab"));
     expect(await screen.findByText("Token list unavailable.")).toBeVisible();

@@ -15,24 +15,10 @@ export function useAccessController(): AccessViewModel {
   const { accessService, signIn } = useSession();
   const attempt = useRef(0);
   const inFlight = useRef(false);
-  const [canRestore, setCanRestore] = useState(false);
+  // Recovery stays discoverable; native storage checks decide whether it can proceed.
+  const canRestore = typeof accessService.restore === "function";
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let current = true;
-    if (!pending)
-      accessService
-        .canRestore?.()
-        .then((value) => {
-          if (current) setCanRestore(value);
-        })
-        .catch(() => {
-          if (current) setCanRestore(false);
-        });
-    return () => {
-      current = false;
-    };
-  }, [accessService, pending]);
   useEffect(
     () => () => {
       attempt.current += 1;

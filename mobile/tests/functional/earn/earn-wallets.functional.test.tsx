@@ -135,7 +135,7 @@ test("checks the selected vault using only wallet 2 and keeps spending disabled"
   expect(screen.getByRole("button", { name: "Review investment" })).toBeDisabled();
 });
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(await screen.findByRole("button", { name: "Confidential earn" }));
 }
@@ -278,7 +278,7 @@ test("catalog Deposit uses the exact supported vault and allocates only after ex
     vaultAddress: earnProfiles["ethereum-usdc"].vault,
   };
   const { earn } = setup(vault);
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(await screen.findByRole("button", { name: `View ${vault.name}` }));
   await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
@@ -306,7 +306,7 @@ test("catalog Deposit starts a fresh cycle rather than reusing an existing inves
   const pending = deferred<typeof next>();
   const prepareNew = jest.fn().mockReturnValue(pending.promise);
   Object.assign(earn, { prepareNew });
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(await screen.findByRole("button", { name: `View ${vault.name}` }));
   await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));

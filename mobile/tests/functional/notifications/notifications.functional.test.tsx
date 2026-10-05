@@ -100,7 +100,7 @@ test("pending inbox loading disables mutations, and late results after disconnec
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await openSettings();
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await signInToAccount();
   await act(async () =>
     pending.resolve(notificationFixture.map((item) => ({ ...item, read: true }))),
@@ -117,7 +117,7 @@ test("default inbox read state resets on disconnect", async () => {
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await openSettings();
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await signInToAccount();
   expect(await screen.findByRole("button", { name: "Notifications, 2 unread" })).toBeVisible();
 });

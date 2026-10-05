@@ -157,16 +157,17 @@ focused on reusable approaches. They supplement the journey statuses above.
   frame under reduced motion. The large Gizu symbol artwork is no longer shown.
 - The 46 pt headline enters as in the frontend: “DeFi in” at 150 ms, then “Stealth”
   and “Mode” at 0.85 s + 0.3 s per word (280 ms each, opacity and rise in place of
-  blur), tagline at 1.5 s and the Get started action at 1.7 s. “DeFi” and “Stealth”
+  blur), tagline at 1.5 s and the wallet actions at 1.7 s. “DeFi” and “Stealth”
   use the shared glitch label; “in” and “Mode” are 55% white. The header is read as
   “DeFi in Stealth Mode”. Entrances do not block pressing, glitching stops off-screen,
   in the background or with reduced motion, and text sizes above 130% keep native
   heading wrapping without glitch slices. Negative display tracking applies on iOS only;
   Android mis-measures tracked text and can clip a wrapped word.
-- Get started uses the frontend bubble-up fill (300/32 spring, snaps with reduced
-  motion); Request access is a sentence-case text action with normal tracking.
-- Access follows the frontend Auth layout: glitch heading, a full-width primary
-  passkey button and a 60 ms section stagger (no footnote captions). Request access uses the
+- Welcome directly offers Continue with passkey and Restore wallet from backup
+  whenever the wallet service supports recovery, including when a local wallet exists. Both actions stay at the bottom with safe-area padding.
+  Errors and cancellation remain available, and native verified backup remains required.
+  The separate Access screen is removed; old signed-out access links open Welcome.
+- Request access remains a sentence-case text action for the demo flow. Request access uses the
   frontend sheet look (36 pt top radius, glass fields, range tiles, platform pills) and
   a glass check tile on completion; it keeps its completion copy because the mock
   does not add anyone to a list.

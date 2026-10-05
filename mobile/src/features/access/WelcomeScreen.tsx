@@ -1,12 +1,16 @@
 import { Pressable, View, type TextStyle } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { ArrowRight } from "lucide-react-native";
+import { Fingerprint } from "lucide-react-native";
+import { Button } from "@/components/atoms/Button";
+import { AccessCard } from "@/components/molecules/AccessCard";
+import { Notice } from "@/components/molecules/Notice";
+import { SignStatus } from "@/components/molecules/SignStatus";
+import { useAccessController } from "./useAccessController";
 import { useSession } from "@/application/SessionProvider";
 import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { Typography } from "@/components/atoms/Typography";
 import type { RootStackParamList } from "@/navigation/types";
 import colors from "@/theme/colors.json";
-import { BubbleUpButton } from "./components/BubbleUpButton";
 import { Reveal } from "./components/Reveal";
 import { WelcomeBackdrop } from "./components/WelcomeBackdrop";
 import { WelcomeHeading } from "./components/WelcomeHeading";
@@ -35,6 +39,7 @@ export function WelcomeScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, "Welcome">) {
   const native = useSession().accessService.method === "Passkey";
+  const controller = useAccessController();
   const animate = useWelcomeMotion();
   return (
     <View className="flex-1 bg-ink">
@@ -51,19 +56,27 @@ export function WelcomeScreen({
             <WelcomeHeading animate={animate} />
             <Reveal delay={1500} duration={300} offset={0}>
               <Typography className="mt-6 max-w-[310px]" style={tagline}>
-                {native
-                  ? "Your passkey wallet for mainnet USDC and token swaps."
-                  : "Explore curated confidential vaults and investment strategies."}
+                Explore investments. Protect your privacy. Stay in control.
               </Typography>
             </Reveal>
           </View>
           <View className="mt-10">
-            <Reveal delay={1700} offset={20}>
-              <BubbleUpButton
-                label="Get started"
-                icon={ArrowRight}
-                onPress={() => navigation.navigate("Access")}
+            <Reveal delay={1700} offset={20} className="gap-3">
+              {controller.error && <Notice error message={controller.error} />}
+              <AccessCard
+                icon={Fingerprint}
+                label={controller.pending ? "Opening access" : "Continue with passkey"}
+                loading={controller.pending}
+                onPress={() => void controller.start()}
               />
+              {controller.canRestore && (
+                <Button
+                  label="Restore wallet from backup"
+                  variant="secondary"
+                  disabled={controller.pending}
+                  onPress={() => void controller.restore()}
+                />
+              )}
             </Reveal>
             {!native && (
               <Pressable
@@ -78,6 +91,11 @@ export function WelcomeScreen({
           </View>
         </View>
       </View>
+      {controller.pending && (
+        <SignStatus layout="overlay" orb="access" state="signing" label="Waiting for passkey">
+          <Button label="Cancel access" variant="quiet" onPress={controller.cancel} />
+        </SignStatus>
+      )}
     </View>
   );
 }

@@ -1,7 +1,7 @@
 import { screen, userEvent } from "@testing-library/react-native";
 import { createPreferencesStore } from "@/storage/preferences";
 export async function signInToAccount() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await screen.findByRole("header", { name: "Your portfolio" });
 }

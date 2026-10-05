@@ -9,7 +9,6 @@ export type MainTabParamList = {
 };
 export type RootStackParamList = {
   Welcome: undefined;
-  Access: undefined;
   RequestAccess: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   VaultDetail: { id: string };

@@ -39,7 +39,7 @@ function setup() {
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function access() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
 }
 async function proceed() {
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));

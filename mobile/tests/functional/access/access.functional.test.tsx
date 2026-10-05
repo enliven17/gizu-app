@@ -13,7 +13,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 async function openAccess() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
 }
 async function signIn() {
   await openAccess();
@@ -29,18 +29,17 @@ test("welcome, access, all tabs and disconnect form a complete demo journey", as
   expect(screen.getByText("Access method: Passkey")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Open UI preview" })).toBeNull();
   await userEvent.press(await screen.findByRole("button", { name: "Disconnect" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByLabelText("Settings tab")).toBeNull();
-  await userEvent.press(screen.getByRole("button", { name: "Get started" }));
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
 });
 test("access offers only passkeys and requests the passkey method", async () => {
   const request = jest.fn().mockResolvedValue({ kind: "demo", method: "Demo passkey" });
   renderApp({ request });
   await openAccess();
   expect(screen.queryByRole("button", { name: "Choose wallet" })).toBeNull();
-  expect(screen.getByText("Continue with a passkey to access Gizu.")).toBeVisible();
+  expect(screen.getByRole("header", { name: "DeFi in Stealth Mode" })).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
   expect(request).toHaveBeenCalledTimes(1);
@@ -93,33 +92,33 @@ test.each([
 ])("signed-out deep link %s never exposes tabs", async (path) => {
   jest.mocked(Linking.getInitialURL).mockResolvedValue(`gizu-dev://${path}`);
   renderApp();
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByRole("header", { name: "Your portfolio" })).toBeNull();
   expect(screen.queryByLabelText("Settings tab")).toBeNull();
 });
 
-test("an access deep link still has a safe way back to welcome", async () => {
+test("an old access deep link opens welcome directly", async () => {
   jest.mocked(Linking.getInitialURL).mockResolvedValue("gizu-dev://access");
   renderApp();
-  await userEvent.press(await screen.findByRole("button", { name: "Back" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
 });
 
-test("leaving access invalidates pending work even when the service rejects later", async () => {
+test("cancelling access ignores a later service rejection", async () => {
   const pending = deferred<DemoSession>();
   renderApp({ request: () => pending.promise });
   await openAccess();
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  await userEvent.press(screen.getByRole("button", { name: "Cancel access" }));
   await act(async () => pending.reject(new Error("late failure")));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
 test("runtime links are gated before access and work only inside a demo session", async () => {
   const subscribe = jest.spyOn(Linking, "addEventListener");
   renderApp();
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   async function send(url: string) {
     const listener = subscribe.mock.calls.filter(([type]) => type === "url").at(-1)?.[1];
     if (!listener) throw new Error("URL subscription missing");
@@ -131,7 +130,7 @@ test("runtime links are gated before access and work only inside a demo session"
   await send("gizu-dev://settings");
   expect(await screen.findByRole("header", { name: "Account" })).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await send("gizu-dev://exchange");
   expect(screen.queryByLabelText("Swap tab")).toBeNull();
 });
@@ -163,7 +162,7 @@ test("account actions open secondary pages and the selected capsule tab is acces
     expect(screen.getByRole("header", { name: "Account" })).toBeVisible();
   }
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
 });
 
 test("updated branding, confidential vaults and Swap availability retain navigation", async () => {
@@ -189,11 +188,10 @@ test.each([true, false])(
     jest.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(reduced);
     renderApp();
     expect(await screen.findByRole("header", { name: "DeFi in Stealth Mode" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Get started" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue with passkey" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Request access" })).toBeEnabled();
     await openAccess();
     expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
-    await userEvent.press(screen.getByRole("button", { name: "Back" }));
     expect(await screen.findByRole("header", { name: "DeFi in Stealth Mode" })).toBeVisible();
     await userEvent.press(screen.getByRole("button", { name: "Request access" }));
     expect(await screen.findByLabelText("Email address")).toBeVisible();

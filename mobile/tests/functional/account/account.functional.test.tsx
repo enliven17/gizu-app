@@ -78,7 +78,7 @@ test("alerts and statement frequency persist across app remount and clear on dis
   expect(screen.getByRole("switch")).toBeChecked();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(storage.removeItem).toHaveBeenCalledWith(`gizu:preferences:v1:${profileFixture.id}`);
   await signInToAccount();
   await openSettings();
@@ -143,7 +143,7 @@ test("logout cleanup failure stays signed in with retry and duplicate cleanup is
   });
   expect(storage.removeItem).toHaveBeenCalledTimes(2);
   await act(async () => pending.resolve());
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
 });
 test("disconnect during hydration discards its late result for the next session", async () => {
   const { store } = memoryPreferences();
@@ -154,7 +154,7 @@ test("disconnect during hydration discards its late result for the next session"
   await openSettings();
   expect(screen.getByText("Loading preferences…")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await signInToAccount();
   await openSettings();
   await open("Statements");

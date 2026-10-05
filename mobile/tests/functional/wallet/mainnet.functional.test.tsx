@@ -58,7 +58,7 @@ async function open() {
       }}
     />,
   );
-  fireEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   fireEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
   await screen.findByText("3 USDC");
   return { read, transfers };

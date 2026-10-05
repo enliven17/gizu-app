@@ -60,7 +60,7 @@ function setup() {
   return { native, balance, portfolio, transfers, clipboard };
 }
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
 }
 
@@ -118,7 +118,7 @@ test("disconnect ignores late native snapshots from the previous session", async
   await screen.findByText("Checking Monad mainnet balances…");
   await userEvent.press(screen.getByLabelText("Settings tab"));
   await userEvent.press(await screen.findByRole("button", { name: "Disconnect" }));
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   portfolio.getMainnetPortfolio.mockResolvedValue(mainnetPortfolio(walletId, address, "0"));
   await open();
   expect(await screen.findByLabelText("0 USDC")).toBeVisible();

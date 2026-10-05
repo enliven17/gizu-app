@@ -52,7 +52,7 @@ function setup() {
   return { bridge, balance, clipboard, store, transfers };
 }
 async function open() {
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
 }
 
@@ -94,7 +94,7 @@ test("native access opens existing Home and Account with live units and no fixtu
   expect(store.save).toHaveBeenCalledWith(address, { ...defaultPreferences, alerts: true });
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
-  expect(await screen.findByRole("button", { name: "Get started" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByLabelText("Home tab")).toBeNull();
   expect(bridge.lock).toHaveBeenCalled();
   expect(store.clear).toHaveBeenCalledWith(address);
@@ -119,7 +119,7 @@ test("disconnect aborts a balance request and late results cannot leak into the 
   expect(await screen.findByText("Loading balance…")).toBeVisible();
   await userEvent.press(screen.getByLabelText("Settings tab"));
   await userEvent.press(await screen.findByRole("button", { name: "Disconnect" }));
-  await screen.findByRole("button", { name: "Get started" });
+  await screen.findByRole("button", { name: "Continue with passkey" });
   expect(balance.getBalance.mock.calls[0][1].aborted).toBe(true);
   bridge.openWallet.mockResolvedValueOnce({
     address: "0x" + "2".repeat(40),

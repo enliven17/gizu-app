@@ -9,7 +9,7 @@ beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
 async function enter(service = createMockTransactionService()) {
   renderApp(undefined, undefined, undefined, service);
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await screen.findByText("Available USDC: 184204");
 }
@@ -193,7 +193,7 @@ test("balance loading failure recovers from an available transaction entry point
   const service = createMockTransactionService({ ...investmentFixture, vaults: [], holdings: [] });
   jest.spyOn(service, "load").mockRejectedValueOnce(new Error("offline"));
   renderApp(undefined, undefined, undefined, service);
-  await userEvent.press(await screen.findByRole("button", { name: "Get started" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await userEvent.press(screen.getByRole("button", { name: "Continue with passkey" }));
   await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
   await userEvent.press(await screen.findByRole("button", { name: "Reload balances" }));
