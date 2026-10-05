@@ -377,6 +377,14 @@ class EarnVaultEngineTest {
     assertThrows(IllegalStateException::class.java) {
       requireEarnRetryEconomics(op, router, funded, 200L)
     }
+    op.put(
+      "signingProposal",
+      JSONObject(op.getJSONObject("proposal").toString()).put("deadline", 500),
+    )
+    requireEarnRetryEconomics(op, router, funded, 200L)
+    assertThrows(IllegalStateException::class.java) {
+      requireEarnRetryEconomics(op, router, funded, 500L)
+    }
   }
 
   @Test

@@ -254,6 +254,55 @@ final class EarnVaultTests: WalletTestCase {
     XCTAssertEqual(try journal.get(op.operationId).steps[0].status, "signed")
     XCTAssertTrue(try journal.get(op.operationId).blocked)
   }
+  func testExpiredPlanCanContinueOnlyAfterFinalizedApprovalWithFreshReview() throws {
+    for kind in ["vaultDeposit", "vaultRedeemAll"] {
+      var input = request()
+      input["kind"] = kind
+      if kind == "vaultRedeemAll" {
+        input["amountAtoms"] = "2000000"
+        input["slippageBps"] = 0
+      }
+      var proposal = try EarnVaultProposal.parse(input, walletId: id, owner: owner)
+      let core = try EarnExecutionOperation(
+        proposal: EarnValues.json(proposal), entropy: Data(repeating: 0, count: 32))
+      defer { core.invalidate() }
+      _ = try core.prepare(revision: proposal.revision, current: state())
+      let calls = try core.preparedCalls()
+      // Model the persisted plan after a finality delay longer than its original lifetime.
+      proposal.deadline = UInt64(Date().timeIntervalSince1970) - 900
+      var op = EarnVaultRecord(operationId: proposal.operationId, walletId: id, proposal: proposal)
+      op.steps = calls.enumerated().map { EarnVaultStep($0.element, index: $0.offset) }
+      op.steps[0].raw = "saved-approval"
+      op.steps[0].status = "pending"
+      XCTAssertThrowsError(try earnContinuationProposal(op, freshNonce: 5))
+      op.steps[0].status = "finalized"
+      let continuation = try earnContinuationProposal(op, freshNonce: 5)
+      XCTAssertGreaterThan(continuation.deadline, UInt64(Date().timeIntervalSince1970))
+      XCTAssertEqual(op.proposal.deadline, proposal.deadline)
+      XCTAssertEqual(op.steps[0].raw, "saved-approval")
+      XCTAssertEqual(continuation.operationId, proposal.operationId)
+      XCTAssertEqual(continuation.amountAtoms, proposal.amountAtoms)
+      XCTAssertThrowsError(try earnContinuationProposal(op, freshNonce: 6))
+      let next = try EarnExecutionOperation(
+        proposal: EarnValues.json(continuation), entropy: Data(repeating: 0, count: 32))
+      defer { next.invalidate() }
+      var current = state()
+      current.nonce = 5
+      current.allowanceAtoms = proposal.amountAtoms
+      _ = try next.prepare(revision: continuation.revision, current: current)
+      XCTAssertEqual(try next.preparedCalls().count, 1)
+      XCTAssertThrowsError(
+        try next.signNext(revision: continuation.revision, current: current),
+        "Fresh approval is mandatory")
+      try next.approve(revision: continuation.revision, reviewHash: next.reviewHash())
+      _ = try next.signNext(revision: continuation.revision, current: current)
+      op.steps[1].raw = "saved-router"
+      op.steps[1].status = "signed"
+      XCTAssertThrowsError(
+        try earnContinuationProposal(op, freshNonce: 5), "Never refresh a signed router call")
+    }
+  }
+
   func testDepositAndRedemptionRequireExactSettlementEvents() throws {
     func log(_ address: String, _ signature: String, _ parties: [String], _ amounts: [String])
       throws -> [String: Any]

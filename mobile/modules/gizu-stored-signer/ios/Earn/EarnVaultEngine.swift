@@ -92,16 +92,8 @@ internal final class EarnVaultEngine {
     let p = op.proposal
     let current = try await state(p.expectedFrom, p.kind, p.amountAtoms)
     try Task.checkCancellation()
-    var proposal = p
+    let proposal = try earnContinuationProposal(op, freshNonce: current.nonce)
     let signed = op.steps.filter { $0.raw != nil }
-    try require(signed.allSatisfy { $0.status == "finalized" })
-    if !signed.isEmpty {
-      try require(signed.count == 1 && signed[0].to.lowercased() != EarnValues.router.lowercased())
-      try require(p.nonce < UInt64.max && current.nonce == p.nonce + 1 && p.gasLimits.count == 2)
-      proposal.gasLimits = [p.gasLimits[1]]
-      proposal.nonce = current.nonce
-    }
-    proposal.revision = UInt64(op.revision)
     let record = try wallet(proposal)
     do {
       defer { record.close() }
@@ -135,7 +127,7 @@ internal final class EarnVaultEngine {
       try earnQuantityValue(
         value: await rpc.text("eth_getTransactionCount", [current.owner, "latest"])) == step.nonce)
     if step.to.lowercased() == EarnValues.router.lowercased() {
-      try require(p.deadline > UInt64(Date().timeIntervalSince1970))
+      try require((op.signingProposal ?? p).deadline > UInt64(Date().timeIntervalSince1970))
     }
     let remaining = op.steps.filter { !$0.terminal }
     for call in remaining {
@@ -203,4 +195,26 @@ internal final class EarnVaultEngine {
     prepared = nil
   }
   deinit { signer?.invalidate() }
+}
+
+/// Refresh only an unsigned router call after finalized approval. Signed payloads are immutable.
+internal func earnContinuationProposal(
+  _ op: EarnVaultRecord, freshNonce: UInt64,
+  now: UInt64 = UInt64(Date().timeIntervalSince1970)
+) throws -> EarnVaultProposal {
+  var proposal = op.proposal
+  let signed = op.steps.filter { $0.raw != nil }
+  try require(signed.allSatisfy { $0.status == "finalized" })
+  if !signed.isEmpty {
+    try require(signed.count == 1 && signed[0].to.lowercased() != EarnValues.router.lowercased())
+    try require(
+      proposal.nonce < UInt64.max && freshNonce == proposal.nonce + 1
+        && proposal.gasLimits.count == 2)
+    try require(now <= UInt64.max - 300)
+    proposal.gasLimits = [proposal.gasLimits[1]]
+    proposal.nonce = freshNonce
+    proposal.deadline = now + 300
+  }
+  proposal.revision = UInt64(op.revision)
+  return proposal
 }

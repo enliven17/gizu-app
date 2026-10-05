@@ -10,7 +10,7 @@ internal struct EarnVaultProposal: Codable {
   let token: String
   let router: String
   let amountAtoms: String
-  let deadline: UInt64
+  var deadline: UInt64
   let slippageBps: UInt32
   var nonce: UInt64
   var gasLimits: [UInt64]
