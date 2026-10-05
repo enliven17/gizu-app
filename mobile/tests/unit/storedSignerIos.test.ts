@@ -158,3 +158,37 @@ test.each([
     }
   },
 );
+
+test("iOS exposes holdings and explicit sell/recovery actions through native capability gates", async () => {
+  const target = "0x" + "11".repeat(20);
+  const gateway = "https://gizu-backend.onrender.com";
+  const native = {
+    getCapabilities: jest
+      .fn()
+      .mockResolvedValue({ contractVersion: 1, available: true, swaps: true }),
+    getSwapHoldings: jest.fn().mockResolvedValue({ holdings: [], block: "0x123", checkedAt: 1 }),
+    sellSwapHolding: jest.fn().mockResolvedValue({ phase: "PAUSED" }),
+    startRecovery: jest.fn().mockResolvedValue({ phase: "PAUSED" }),
+    startPayout: jest.fn().mockResolvedValue({ phase: "PAUSED" }),
+  };
+  jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
+  const signer = getStoredSwapSigner()!;
+  await expect(signer.getSwapHoldings(target)).resolves.toEqual({
+    holdings: [],
+    block: "0x123",
+    checkedAt: 1,
+  });
+  expect(native.sellSwapHolding).not.toHaveBeenCalled();
+  expect(native.startRecovery).not.toHaveBeenCalled();
+  await signer.sellSwapHolding(`${target}:3`, gateway);
+  await signer.startRecovery(target, gateway);
+  await signer.startPayout(target, gateway);
+  expect(native.sellSwapHolding).toHaveBeenCalledWith(`${target}:3`, gateway);
+  expect(native.startRecovery).toHaveBeenCalledWith(target, gateway);
+  expect(native.startPayout).toHaveBeenCalledWith(target, gateway);
+  native.getCapabilities.mockResolvedValue({ contractVersion: 1, available: true, swaps: false });
+  await expect(signer.sellSwapHolding(`${target}:3`, gateway)).rejects.toThrow(/capabilities/);
+  await expect(signer.startRecovery(target, gateway)).rejects.toThrow(/capabilities/);
+  expect(native.sellSwapHolding).toHaveBeenCalledTimes(1);
+  expect(native.startRecovery).toHaveBeenCalledTimes(1);
+});

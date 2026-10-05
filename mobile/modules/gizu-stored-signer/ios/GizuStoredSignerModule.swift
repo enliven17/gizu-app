@@ -46,7 +46,9 @@ public final class GizuStoredSignerModule: Module {
 
         do {
           diagnostics.mark("storage-initialization")
-          let scope = try WalletCeremony(presenter: presenter, diagnostics: diagnostics)
+          let scope = try WalletCeremony(
+            presenter: presenter, diagnostics: diagnostics,
+            window: timeout == 900_000_000_000 ? .swap : .wallet)
           self.ceremony = scope
           scope.cancelTask = { [weak self] in self?.task?.cancel() }
           timeoutTask = Task { @MainActor [weak scope] in
@@ -250,6 +252,27 @@ public final class GizuStoredSignerModule: Module {
       self.run(promise, operation: "startSwap", timeout: 900_000_000_000) {
         try await $0.startSwap(
           target: target, amountAtoms: amountAtoms.isEmpty ? nil : amountAtoms, gateway: gateway)
+      }
+    }
+    AsyncFunction("getSwapHoldings") { (target: String, promise: Promise) in
+      self.run(promise, operation: "getSwapHoldings") { scope in
+        try await SwapHoldings(rpc: NativeMainnetPortfolioRPC(network: .robinhood))
+          .read(store: scope.store, target: target)
+      }
+    }
+    AsyncFunction("sellSwapHolding") { (id: String, gateway: String, promise: Promise) in
+      self.run(promise, operation: "sellSwapHolding", timeout: 900_000_000_000) {
+        try await $0.sellSwapHolding(id: id, gateway: gateway)
+      }
+    }
+    AsyncFunction("startRecovery") { (target: String, gateway: String, promise: Promise) in
+      self.run(promise, operation: "startRecovery", timeout: 900_000_000_000) {
+        try await $0.startRecovery(target: target, gateway: gateway)
+      }
+    }
+    AsyncFunction("startPayout") { (target: String, gateway: String, promise: Promise) in
+      self.run(promise, operation: "startPayout", timeout: 900_000_000_000) {
+        try await $0.startPayout(target: target, gateway: gateway)
       }
     }
     AsyncFunction("startSell") { (gateway: String, promise: Promise) in

@@ -19,12 +19,15 @@ internal final class StoredSwapEngine {
     self.gateway = gateway
   }
 
-  func start(record: WalletRecord, target: String, amountAtoms: String?) throws {
+  func start(record: WalletRecord, target: String, amountAtoms: String?, payout: Bool = false)
+    throws
+  {
     try require(record.verified && record.id == saved.walletId && operation == nil)
     if let existing = try saved.load(), let state = existing["state"] as? String {
       let previous = try SwapOperation.restore(state: state, gateway: gateway)
       let phase = try statusObject(previous.publicStatus())["phase"] as? String
       try require(phase == "CANCELLED" || phase == "COMPLETE")
+      try saved.portfolio.remember(state: state, status: previous.publicStatus())
     }
     try require(target.range(of: "^0x[0-9a-fA-F]{40}$", options: .regularExpression) != nil)
     if let amountAtoms {
@@ -34,81 +37,136 @@ internal final class StoredSwapEngine {
     let reserved = try allocateSwapRecipients(registry: record.roleRegistry)
     try storage.persistRegistry(reserved.registry, expectedId: record.id)
     var plan: [String: Any] = [
-      "kind": "confidentialSwap", "target": target, "recipientIndices": reserved.indices.map { Int($0) },
+      "kind": payout ? "confidentialPayout" : "confidentialSwap", "target": target,
+      "recipientIndices": reserved.indices.map { Int($0) },
     ]
     if let amountAtoms { plan["amountAtoms"] = amountAtoms }
-    fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1).first
+    fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1)
+      .first
     operation = try SwapOperation.start(
       plan: String(data: JSONSerialization.data(withJSONObject: plan), encoding: .utf8)!,
       entropy: record.entropy, gateway: gateway, nowMs: now())
     try persist()
   }
 
-  func startSell(record: WalletRecord) throws {
+  func startSell(record: WalletRecord, holdingId: String? = nil) throws {
     try require(record.verified && record.id == saved.walletId && operation == nil)
-    guard let existing = try saved.load(), let state = existing["state"] as? String else { throw WalletFailure.invalid }
-    let previous = try SwapOperation.restore(state: state, gateway: gateway)
-    let phase = try statusObject(previous.publicStatus())["phase"] as? String
-    guard let data = state.data(using: .utf8),
-      let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let plan = root["plan"] as? [String: Any],
-      let kind = plan["kind"] as? String
-    else { throw WalletFailure.invalid }
-    if phase != "CANCELLED" && phase != "COMPLETE" {
-      try require(kind == "confidentialSell")
-      fundingAddress = existing["fundingAddress"] as? String
-      operation = previous
-      return
+    let existing = try saved.load()
+    if let state = existing?["state"] as? String {
+      let previous = try SwapOperation.restore(state: state, gateway: gateway)
+      let phase = try swapObject(previous.publicStatus())["phase"] as? String
+      // An explicit resume must handle unfinished work; never replace its journal.
+      try require(phase == "COMPLETE" || phase == "CANCELLED")
+      try saved.portfolio.remember(state: state, status: previous.publicStatus())
     }
-    try require(kind == "confidentialSwap" && phase == "COMPLETE")
-    guard let holders = plan["recipientIndices"] as? [Any], let target = plan["target"] as? String else {
-      throw WalletFailure.invalid
+    let target: String
+    let holders: [UInt32]
+    if let holdingId {
+      let selected = try selectSwapHolding(
+        id: holdingId, registry: record.roleRegistry, excluded: SwapHoldings.excluded(record),
+        tracked: saved.portfolio.targets())
+      target = selected.target
+      holders = selected.indices
+    } else {
+      guard let state = existing?["state"] as? String,
+        let plan = try swapObject(state)["plan"] as? [String: Any],
+        let kind = plan["kind"] as? String,
+        ["confidentialSwap", "confidentialPayout"].contains(kind),
+        let token = plan["target"] as? String, let indices = plan["recipientIndices"] as? [UInt32]
+      else { throw WalletFailure.invalid }
+      let previous = try SwapOperation.restore(state: state, gateway: gateway)
+      try require(try swapObject(previous.publicStatus())["phase"] as? String == "COMPLETE")
+      target = token
+      holders = indices
     }
+    let owned = Set(
+      try swapHoldingIndices(registry: record.roleRegistry, excluded: SwapHoldings.excluded(record))
+    )
+    try require(
+      holders.count == 3 && Set(holders).count == 3 && holders.allSatisfy { owned.contains($0) })
     let reserved = try allocateSwapRecipients(registry: record.roleRegistry)
     try storage.persistRegistry(reserved.registry, expectedId: record.id)
     let next: [String: Any] = [
       "kind": "confidentialSell", "target": target, "holderIndices": holders,
-      "recipientIndices": reserved.indices.map { Int($0) },
+      "recipientIndices": reserved.indices,
     ]
-    fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1).first
+    fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1)
+      .first
     operation = try SwapOperation.start(
       plan: String(data: JSONSerialization.data(withJSONObject: next), encoding: .utf8)!,
       entropy: record.entropy, gateway: gateway, nowMs: now())
     try persist()
   }
 
+  func startRecovery(record: WalletRecord, target: String) throws {
+    try require(record.verified && record.id == saved.walletId && operation == nil)
+    try SwapPortfolioStore.validateTarget(target.lowercased())
+    if let root = try saved.load(), let state = root["state"] as? String {
+      let previous = try SwapOperation.restore(state: state, gateway: gateway)
+      let phase = try swapObject(previous.publicStatus())["phase"] as? String
+      // Recovery cannot overwrite an existing incomplete operation.
+      if phase != "COMPLETE" && phase != "CANCELLED" {
+        fundingAddress = root["fundingAddress"] as? String
+        operation = previous
+        try retry()
+        return
+      }
+      try saved.portfolio.remember(state: state, status: previous.publicStatus())
+    }
+    let end = try registryNext(record.roleRegistry)
+    try require(end >= 6 && end <= 8192)
+    let plan: [String: Any] = [
+      "kind": "confidentialRecovery", "target": target,
+      "recipientIndices": [3, 4, 5], "scanTo": end,
+    ]
+    fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1)
+      .first
+    operation = try SwapOperation.start(
+      plan: String(data: JSONSerialization.data(withJSONObject: plan), encoding: .utf8)!,
+      entropy: record.entropy, gateway: gateway, nowMs: now())
+    try persist()
+  }
+
+  func retry() throws {
+    try current().retry()
+    try persist()
+  }
+
   func restore() throws {
     let root = try saved.load()
     fundingAddress = root?["fundingAddress"] as? String
-    guard let state = root?["state"] as? String, fundingAddress != nil else { throw WalletFailure.invalid }
+    guard let state = root?["state"] as? String, fundingAddress != nil else {
+      throw WalletFailure.invalid
+    }
     operation = try SwapOperation.restore(state: state, gateway: gateway)
   }
 
-  func advance() async throws -> StoredSwapUi {
+  func advance(onProgress: @MainActor ([String: Any]) -> Void = { _ in }) async throws
+    -> StoredSwapUi
+  {
     let op = try current()
-    for _ in 0..<48 {
+    while true {
+      try Task.checkCancellation()
+      await onProgress(try view())
+      try Task.checkCancellation()
       switch try op.nextStep(nowMs: now()) {
-      case let .review(text): return .review(text)
+      case .review(let text): return .review(text)
       case .unlock: return .unlock
       case .finished, .paused:
         try persist()
         return .done(try view())
-      case let .wait(millis):
-        if millis > 1_500 {
-          try persist()
-          return .done(try view())
-        }
-        try await Task.sleep(nanoseconds: millis * 1_000_000)
-      case let .request(id, method, url, body):
+      case .wait(let millis):
+        try persist()
+        try await Task.sleep(nanoseconds: min(millis, 30_000) * 1_000_000)
+      case .request(let id, let method, let url, let body):
         try require(StoredSwapHTTP.allowed(url))
         try persist()
         let response = await StoredSwapHTTP.execute(method, url, body)
+        try Task.checkCancellation()
         try op.onResponse(id: id, status: response.0, body: response.1, nowMs: now())
         try persist()
       }
     }
-    try persist()
-    return .done(try view())
   }
 
   func approve() throws {
@@ -132,10 +190,13 @@ internal final class StoredSwapEngine {
     return [
       "operationId": status["operationId"] as Any, "phase": status["phase"] as Any,
       "step": status["step"] as Any, "pausedCode": status["pausedCode"] as Any,
-      "targetSymbol": status["targetSymbol"] as Any, "targetDecimals": status["targetDecimals"] as Any,
+      "targetSymbol": status["targetSymbol"] as Any,
+      "targetDecimals": status["targetDecimals"] as Any,
       "sourceAtoms": status["sourceAtoms"] as Any, "creditedAtoms": status["creditedAtoms"] as Any,
-      "payoutsSubmitted": status["payoutsSubmitted"] as Any, "ordersComplete": status["ordersComplete"] as Any,
-      "receivedTargetAtoms": status["receivedTargetAtoms"] as Any, "direction": status["direction"] as Any,
+      "payoutsSubmitted": status["payoutsSubmitted"] as Any,
+      "ordersComplete": status["ordersComplete"] as Any,
+      "receivedTargetAtoms": status["receivedTargetAtoms"] as Any,
+      "direction": status["direction"] as Any,
       "returnAddresses": returnAddresses(), "fundingAddress": fundingAddress as Any,
     ]
   }
@@ -160,7 +221,10 @@ internal final class StoredSwapEngine {
   private func persist() throws {
     let op = try current()
     guard let fundingAddress else { throw WalletFailure.invalid }
-    try saved.save(operationId: op.operationId(), state: op.exportState(), fundingAddress: fundingAddress)
+    let state = try op.exportState()
+    // Commit recoverable transaction state before its independently rebuildable public summary.
+    try saved.save(operationId: op.operationId(), state: state, fundingAddress: fundingAddress)
+    try saved.portfolio.remember(state: state, status: op.publicStatus())
   }
 
   private func now() -> UInt64 { UInt64(Date().timeIntervalSince1970 * 1000) }
@@ -175,9 +239,11 @@ internal final class StoredSwapEngine {
 
 internal enum StoredSwapHTTP {
   static func allowed(_ url: String) -> Bool {
-    let local = url.hasPrefix("http://127.0.0.1:") || url.hasPrefix("http://localhost:")
+    let local =
+      url.hasPrefix("http://127.0.0.1:") || url.hasPrefix("http://localhost:")
       || url.hasPrefix("http://10.0.2.2:")
-    return (url.hasPrefix("https://") || local) && !url.contains("?") && !url.contains("#") && url.count <= 300
+    return (url.hasPrefix("https://") || local) && !url.contains("?") && !url.contains("#")
+      && url.count <= 300
   }
 
   static func execute(_ method: String, _ url: String, _ body: String?) async -> (UInt16, String) {

@@ -13,7 +13,11 @@ import UIKit
   var operationId: String?
   private var observers: [NSObjectProtocol] = []
   var cancelTask: (() -> Void)?
-  init(presenter: UIViewController, diagnostics: WalletDiagnostics) throws {
+  init(
+    presenter: UIViewController, diagnostics: WalletDiagnostics,
+    window: AuthorizationLifetime.Window = .wallet
+  ) throws {
+    lifetime = AuthorizationLifetime(window: window)
     self.diagnostics = diagnostics
     self.presenter = presenter
     store = WalletStorage(files: try ProtectedFiles())

@@ -205,7 +205,7 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
       return readNative(async () => {
         await checked(native, "swaps");
         if (typeof native.getSwapHoldings !== "function")
-          throw new Error("Token holdings need an updated Android build.");
+          throw new Error("Token holdings need an updated native build.");
         return native.getSwapHoldings(target);
       });
     },
