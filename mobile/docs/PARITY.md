@@ -224,3 +224,11 @@ wallet behavior are unchanged.
 ### Earn native parity
 
 The first iOS execution stage supports Ethereum vault deposits/full redemptions in the existing Earn flow, using the Android Rust policy. Native journals preserve uncertain transactions, exact-byte explicit retry, canonical settlement and cancellation locks. Source sponsorship, private payouts, Ethereum liquidity and Robinhood execution remain iOS follow-ups; this does not enable the complete iOS funding journey. See [the staged rollout](CONFIDENTIAL_EARN.md#ios-parity-rollout). Simulator/native tests and mocked bridge tests are separate from pending physical-iPhone and funded acceptance.
+
+### Simplified native Swap layout
+
+Swap uses a compact USDC amount card and a You receive selector opening a searchable,
+virtualized token list. Review swap sits directly below the selection and stays disabled
+until the existing amount/target validation passes. The funding address remains on
+Receive. Progress uses plain-language headings with expandable Swap details; resume,
+cancel eligibility, recovery, native review and passkey approval are unchanged.

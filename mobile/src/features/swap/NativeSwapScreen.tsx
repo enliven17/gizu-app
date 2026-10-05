@@ -1,7 +1,8 @@
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { TextInput, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
-import { PressableScale } from "@/components/atoms/PressableScale";
+import { HoldingDetails } from "@/components/molecules/HoldingDetails";
+import { SwapTokenPicker } from "./SwapTokenPicker";
 import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
@@ -18,46 +19,54 @@ export function NativeSwapScreen() {
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
   const refunded = swap.status?.phase === "PAUSED" && swap.status.pausedCode === "FUNDING_REFUNDED";
   return (
-    <Screen>
+    <Screen
+      refreshing={swap.busy}
+      onRefresh={() => {
+        if (!swap.busy) void swap.refresh();
+      }}
+    >
       <View className="gap-1">
         <Typography variant="pageTitle">Swap</Typography>
-        <Typography variant="micro">
-          Monad USDC bridges through Aurora to Robinhood USDG on three fresh wallets, then buys the
-          selected token. After a fill you can sell it back; proceeds return through three new Monad
-          wallets.
-        </Typography>
+        <Typography variant="micro">Buy tokens with USDC.</Typography>
       </View>
-      <Surface>
-        <View className="gap-2 px-5 py-5">
-          <Typography variant="section">Funding wallet</Typography>
-          <Typography variant="micro">
-            {swap.fundingAddress || "Open the wallet to see the USDC deposit address."}
-          </Typography>
-        </View>
-      </Surface>
       {swap.status ? (
         <Surface>
           <View className="gap-2 px-5 py-5">
-            <Typography variant="section">{swap.status.phase}</Typography>
-            <Typography variant="micro">
-              {swap.status.direction === "sell" ? "Sell" : "Buy"} ·{" "}
-              {swap.status.targetSymbol || "Target"} · step {swap.status.step || "—"}
-              {swap.status.pausedCode ? ` · ${swap.status.pausedCode}` : ""}
+            <Typography variant="section">
+              {swap.status.phase === "COMPLETE"
+                ? "Swap completed"
+                : swap.status.phase === "CANCELLED"
+                  ? "Swap cancelled"
+                  : swap.status.phase === "PAUSED"
+                    ? "Swap paused"
+                    : "Swap in progress"}
             </Typography>
-            <Typography variant="micro">
-              Payouts {swap.status.payoutsSubmitted} · orders {swap.status.ordersComplete}
+            <Typography variant="caption">
+              {swap.status.direction === "sell" ? "Selling" : "Buying"}{" "}
+              {swap.status.targetSymbol || "tokens"}
             </Typography>
-            {/^[1-9]\d*$/.test(swap.status.creditedAtoms) ? (
+            <HoldingDetails label="Swap details" accessibilityLabel="Swap details">
+              <Typography variant="micro">{swap.status.phase}</Typography>
               <Typography variant="micro">
-                Private balance · {formatSwapAmount(BigInt(swap.status.creditedAtoms))} USDC
+                {swap.status.direction === "sell" ? "Sell" : "Buy"} ·{" "}
+                {swap.status.targetSymbol || "Target"} · step {swap.status.step || "—"}
+                {swap.status.pausedCode ? ` · ${swap.status.pausedCode}` : ""}
               </Typography>
-            ) : null}
-            {swap.status.returnAddresses.length > 0 ? (
               <Typography variant="micro">
-                Return wallets{"\n"}
-                {swap.status.returnAddresses.join("\n")}
+                Payouts {swap.status.payoutsSubmitted} · orders {swap.status.ordersComplete}
               </Typography>
-            ) : null}
+              {/^[1-9]\d*$/.test(swap.status.creditedAtoms) ? (
+                <Typography variant="micro">
+                  Private balance · {formatSwapAmount(BigInt(swap.status.creditedAtoms))} USDC
+                </Typography>
+              ) : null}
+              {swap.status.returnAddresses.length > 0 ? (
+                <Typography variant="micro">
+                  Return wallets{"\n"}
+                  {swap.status.returnAddresses.join("\n")}
+                </Typography>
+              ) : null}
+            </HoldingDetails>
           </View>
         </Surface>
       ) : null}
@@ -69,7 +78,7 @@ export function NativeSwapScreen() {
       {!active && (
         <>
           <View className="gap-3 rounded-[28px] border border-glassBorder bg-glass px-6 py-6">
-            <Typography variant="micro">You pay · USDC budget</Typography>
+            <Typography variant="micro">You pay</Typography>
             {wallet && (
               <Typography variant="micro">
                 {wallet.snapshot && wallet.snapshot.balanceComplete !== false
@@ -89,27 +98,17 @@ export function NativeSwapScreen() {
               className="font-sans min-h-14 text-[40px] text-text"
             />
           </View>
-          <View className="flex-row flex-wrap gap-2">
-            {swap.tokens.map((token) => (
-              <PressableScale
-                key={token.address}
-                accessibilityRole="radio"
-                accessibilityLabel={`${token.symbol} · ${token.name}`}
-                accessibilityState={{ checked: token.address === swap.target, disabled: swap.busy }}
-                disabled={swap.busy}
-                onPress={() => swap.setTarget(token.address)}
-                className={`min-h-11 justify-center rounded-2xl border px-4 ${token.address === swap.target ? "border-neon/25 bg-neon/10" : "border-borderSoft bg-glassSoft"}`}
-              >
-                <Typography
-                  variant="eyebrow"
-                  className={token.address === swap.target ? "!text-neon" : ""}
-                >
-                  {token.symbol}
-                </Typography>
-              </PressableScale>
-            ))}
-          </View>
-          {selected ? <Typography variant="micro">{selected.name}</Typography> : null}
+          <SwapTokenPicker
+            tokens={swap.tokens}
+            target={swap.target}
+            disabled={swap.busy}
+            onSelect={swap.setTarget}
+          />
+          <Button
+            label={swap.busy ? "Working" : "Review swap"}
+            onPress={swap.start}
+            disabled={!swap.canStart}
+          />
         </>
       )}
       {swap.error ? <Notice message={swap.error} error /> : null}
@@ -161,14 +160,8 @@ export function NativeSwapScreen() {
               disabled={swap.busy}
             />
           ) : null}
-          <Button
-            label={swap.busy ? "Working" : "Start swap"}
-            onPress={swap.start}
-            disabled={!swap.canStart}
-          />
         </View>
       )}
-      <Button label="Refresh" variant="quiet" onPress={swap.refresh} disabled={swap.busy} />
     </Screen>
   );
 }

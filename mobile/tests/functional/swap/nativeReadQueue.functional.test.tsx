@@ -77,8 +77,8 @@ test.each([false, true])(
     });
     expect(depositCallsWhileBusy).toBe(0);
     expect(statusCallsWhileBusy).toBe(0);
-    expect(await screen.findByText("PAUSED")).toBeVisible();
-    expect(screen.getByText(fundingAddress)).toBeVisible();
+    expect(await screen.findByText("Swap paused")).toBeVisible();
+    expect(screen.queryByText(fundingAddress)).toBeNull();
     expect(native.getSwapDeposit).toHaveBeenCalledTimes(1);
     expect(native.getSwapStatus).toHaveBeenCalledTimes(1);
   },
