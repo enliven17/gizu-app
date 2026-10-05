@@ -4,9 +4,61 @@ import java.math.BigInteger
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import uniffi.gizu_stored_signer_core.buildSwapHolding
+import uniffi.gizu_stored_signer_core.swapHoldingIndices
 
 class SwapHoldingsTest {
   private val token = "0x" + "ab".repeat(20)
+
+  @Test
+  fun sharedHoldingsFixtureMatchesSwiftAndRust() {
+    val fixture =
+      JSONObject(
+        javaClass.classLoader!!.getResourceAsStream("swap-holdings.json")!!.bufferedReader().use {
+          it.readText()
+        }
+      )
+    val indices = swapHoldingIndices(fixture.getString("registry"), listOf(6u))
+    assertEquals(listOf(3u, 4u, 5u, 7u, 8u, 9u), indices)
+    val amounts = fixture.getJSONArray("balances")
+    val actual =
+      JSONObject(
+        buildSwapHolding(
+          fixture.getString("token"),
+          indices,
+          (0 until amounts.length()).map { amounts.getString(it) },
+          fixture.getString("symbolAbi"),
+          fixture.getString("decimalsAbi"),
+        )
+      )
+    val expected = fixture.getJSONObject("expected")
+    for (key in listOf("token", "symbol", "balanceAtoms")) assertEquals(
+      expected.getString(key),
+      actual.getString(key),
+    )
+    for (key in listOf("chainId", "decimals")) assertEquals(
+      expected.getInt(key),
+      actual.getInt(key),
+    )
+    val expectedBatches = expected.getJSONArray("batches")
+    val actualBatches = actual.getJSONArray("batches")
+    assertEquals(expectedBatches.length(), actualBatches.length())
+    for (i in 0 until expectedBatches.length()) {
+      for (key in listOf("id", "balanceAtoms")) assertEquals(
+        expectedBatches.getJSONObject(i).getString(key),
+        actualBatches.getJSONObject(i).getString(key),
+      )
+    }
+    assertEquals(
+      fixture.getString("token") to listOf(7, 8, 9),
+      SwapHoldings.selection(
+        fixture.getString("token") + ":7",
+        10,
+        listOf(fixture.getString("token")),
+        setOf(6),
+      ),
+    )
+  }
 
   @Test
   fun balancesMatchResponseIdsRatherThanProviderOrder() {

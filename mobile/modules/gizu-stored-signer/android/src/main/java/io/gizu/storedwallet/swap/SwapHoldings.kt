@@ -6,14 +6,18 @@ import io.gizu.storedwallet.earnWithdrawalIndices
 import java.math.BigInteger
 import org.json.JSONArray
 import org.json.JSONObject
+import uniffi.gizu_stored_signer_core.buildSwapHolding
+import uniffi.gizu_stored_signer_core.decodeSwapSymbol
 import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
+import uniffi.gizu_stored_signer_core.selectSwapHolding
+import uniffi.gizu_stored_signer_core.swapHoldingIndices
 
 /** Read-only balances at one block, across all locally allocated recipient accounts. */
 internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTransport(RPC)) {
   suspend fun read(record: WalletRecord, targets: List<String>): Map<String, Any?> {
-    val end = JSONObject(record.roleRegistry).getInt("nextRecipient")
-    require(end >= 3)
-    val indices = (3 until end).filterNot { it in earnWithdrawalIndices(record) }
+    val indices =
+      swapHoldingIndices(record.roleRegistry, earnWithdrawalIndices(record).map { it.toUInt() })
+        .map { it.toInt() }
     val head = request(listOf("eth_chainId" to JSONArray(), "eth_blockNumber" to JSONArray()))
     check(quantity(head[0]) == BigInteger.valueOf(4663))
     val block = head[1]
@@ -30,38 +34,38 @@ internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTrans
               "eth_call" to call(target, "0x313ce567", block),
             )
           )
-        val symbol = decodeSymbol(metadata[0])
-        val decimals = quantity(metadata[1]).intValueExact().also { require(it in 0..36) }
         val balances =
           addresses.chunked(40).flatMap { chunk ->
             request(
-                chunk.map { address ->
-                  "eth_call" to
-                    call(
-                      target,
-                      "0x70a08231" + address.removePrefix("0x").lowercase().padStart(64, '0'),
-                      block,
-                    )
-                }
-              )
-              .map(::quantity)
+              chunk.map { address ->
+                "eth_call" to
+                  call(
+                    target,
+                    "0x70a08231" + address.removePrefix("0x").lowercase().padStart(64, '0'),
+                    block,
+                  )
+              }
+            )
           }
-        val batches =
-          balances.chunked(3).mapIndexedNotNull { index, amounts ->
-            val total = amounts.fold(BigInteger.ZERO, BigInteger::add)
-            if (total.signum() == 0) null
-            else mapOf("id" to "$target:${indices[index * 3]}", "balanceAtoms" to total.toString())
-          }
-        if (batches.isEmpty()) null
-        else
+        val encoded =
+          buildSwapHolding(target, indices.map { it.toUInt() }, balances, metadata[0], metadata[1])
+        if (encoded == "null") null
+        else {
+          val item = JSONObject(encoded)
+          val rows = item.getJSONArray("batches")
           mapOf(
-            "token" to target,
-            "chainId" to 4663,
-            "symbol" to symbol,
-            "decimals" to decimals,
-            "balanceAtoms" to balances.fold(BigInteger.ZERO, BigInteger::add).toString(),
-            "batches" to batches,
+            "token" to item.getString("token"),
+            "chainId" to item.getLong("chainId"),
+            "symbol" to item.getString("symbol"),
+            "decimals" to item.getInt("decimals"),
+            "balanceAtoms" to item.getString("balanceAtoms"),
+            "batches" to
+              (0 until rows.length()).map { i ->
+                val row = rows.getJSONObject(i)
+                mapOf("id" to row.getString("id"), "balanceAtoms" to row.getString("balanceAtoms"))
+              },
           )
+        }
       }
     return mapOf(
       "holdings" to holdings,
@@ -110,15 +114,7 @@ internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTrans
       return BigInteger(value.substring(2), 16)
     }
 
-    internal fun decodeSymbol(value: String): String {
-      require(value.matches(Regex("0x(?:[0-9a-fA-F]{2})+")))
-      val bytes = value.substring(2).chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-      require(bytes.size >= 64)
-      require(BigInteger(1, bytes.copyOfRange(0, 32)) == BigInteger.valueOf(32))
-      val size = BigInteger(1, bytes.copyOfRange(32, 64)).intValueExact()
-      require(size in 1..64 && bytes.size >= 64 + size)
-      return String(bytes, 64, size, Charsets.UTF_8).also { require(it.none(Char::isISOControl)) }
-    }
+    internal fun decodeSymbol(value: String): String = decodeSwapSymbol(value)
 
     /** JS chooses an opaque batch ID; ownership and allocated range are checked natively. */
     internal fun selection(
@@ -127,16 +123,14 @@ internal class SwapHoldings(private val rpc: NativeRpcTransport = NativeRpcTrans
       tracked: List<String>,
       excluded: Set<Int> = emptySet(),
     ): Pair<String, List<Int>> {
-      val parts = id.split(':')
-      require(parts.size == 2 && parts[0] in tracked)
-      val first = parts[1].toInt()
-      val indices =
-        (3 until nextRecipient)
-          .filterNot { it in excluded }
-          .chunked(3)
-          .singleOrNull { it.size == 3 && it.first() == first }
-      require(indices != null)
-      return parts[0] to indices
+      val selected =
+        selectSwapHolding(
+          id,
+          JSONObject().put("version", 1).put("nextRecipient", nextRecipient).toString(),
+          excluded.map { it.toUInt() },
+          tracked,
+        )
+      return selected.target to selected.indices.map { it.toInt() }
     }
   }
 }

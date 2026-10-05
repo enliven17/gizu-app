@@ -1,6 +1,8 @@
 //! Native-private entropy derivation and transaction policy. Never export secrets to JS.
 mod earn_fees;
 mod portfolio;
+mod swap_holdings;
+pub use swap_holdings::*;
 mod source_planner;
 use alloy_primitives::{Address, keccak256};
 use bip32::{DerivationPath, XPrv};
