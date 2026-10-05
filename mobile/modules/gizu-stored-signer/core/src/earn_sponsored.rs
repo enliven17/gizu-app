@@ -174,17 +174,26 @@ struct Authority {
     review_hash: Option<String>,
     approved: bool,
 }
+struct AuthorityConfig<'a> {
+    chain: u64,
+    cycle_index: u32,
+    source_account_index: Option<u32>,
+    operation_id: String,
+    revision: u64,
+    deadline: u64,
+    expected: &'a str,
+}
 impl Authority {
-    fn new(
-        entropy: Vec<u8>,
-        chain: u64,
-        cycle_index: u32,
-        source_account_index: Option<u32>,
-        operation_id: String,
-        revision: u64,
-        deadline: u64,
-        expected: &str,
-    ) -> Result<Self, SignerError> {
+    fn new(entropy: Vec<u8>, config: AuthorityConfig<'_>) -> Result<Self, SignerError> {
+        let AuthorityConfig {
+            chain,
+            cycle_index,
+            source_account_index,
+            operation_id,
+            revision,
+            deadline,
+            expected,
+        } = config;
         let started = Instant::now();
         let clock = now()?;
         if ![143, 4663].contains(&chain)
@@ -346,13 +355,15 @@ impl SponsoredEarnOperation {
         }
         let a = Authority::new(
             entropy,
-            p.chain_id,
-            p.cycle_index,
-            p.source_account_index,
-            p.operation_id.clone(),
-            p.revision,
-            p.deadline,
-            &p.expected_from,
+            AuthorityConfig {
+                chain: p.chain_id,
+                cycle_index: p.cycle_index,
+                source_account_index: p.source_account_index,
+                operation_id: p.operation_id.clone(),
+                revision: p.revision,
+                deadline: p.deadline,
+                expected: &p.expected_from,
+            },
         )?;
         Ok(Arc::new(Self {
             state: Mutex::new(SponsoredInner {
@@ -614,13 +625,15 @@ impl EarnDelegationOperation {
         }
         let a = Authority::new(
             entropy,
-            p.chain_id,
-            p.cycle_index,
-            p.source_account_index,
-            p.operation_id.clone(),
-            p.revision,
-            p.deadline,
-            &p.expected_from,
+            AuthorityConfig {
+                chain: p.chain_id,
+                cycle_index: p.cycle_index,
+                source_account_index: p.source_account_index,
+                operation_id: p.operation_id.clone(),
+                revision: p.revision,
+                deadline: p.deadline,
+                expected: &p.expected_from,
+            },
         )?;
         Ok(Arc::new(Self {
             state: Mutex::new(DelegationInner {

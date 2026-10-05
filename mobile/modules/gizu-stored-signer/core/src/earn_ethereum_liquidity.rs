@@ -120,17 +120,26 @@ struct Authority {
     hash: Option<String>,
     approved: bool,
 }
+struct AuthorityConfig<'a> {
+    id: &'a str,
+    revision: u64,
+    chain: u64,
+    cycle_index: u32,
+    expected: &'a str,
+    c: &'a str,
+    deadline: u64,
+}
 impl Authority {
-    fn new(
-        entropy: Vec<u8>,
-        id: &str,
-        revision: u64,
-        chain: u64,
-        cycle_index: u32,
-        expected: &str,
-        c: &str,
-        deadline: u64,
-    ) -> Result<Self, SignerError> {
+    fn new(entropy: Vec<u8>, config: AuthorityConfig<'_>) -> Result<Self, SignerError> {
+        let AuthorityConfig {
+            id,
+            revision,
+            chain,
+            cycle_index,
+            expected,
+            c,
+            deadline,
+        } = config;
         let clock = now()?;
         let started = Instant::now();
         let entropy = Zeroizing::new(entropy);
@@ -278,13 +287,15 @@ impl EthereumLiquidityCancellationOperation {
         }
         let a = Authority::new(
             entropy,
-            &p.operation_id,
-            p.revision,
-            p.chain_id,
-            p.cycle_index,
-            &p.expected_from,
-            &p.confidential_account,
-            p.deadline,
+            AuthorityConfig {
+                id: &p.operation_id,
+                revision: p.revision,
+                chain: p.chain_id,
+                cycle_index: p.cycle_index,
+                expected: &p.expected_from,
+                c: &p.confidential_account,
+                deadline: p.deadline,
+            },
         )?;
         let raw = bytes(&p.original_raw_transaction, 2048)?;
         nonzero_hash(&p.original_transaction_hash)?;
@@ -534,13 +545,15 @@ impl EthereumLiquidityTransactionOperation {
         }
         let a = Authority::new(
             entropy,
-            &p.operation_id,
-            p.revision,
-            p.chain_id,
-            p.cycle_index,
-            &p.expected_from,
-            &p.confidential_account,
-            p.deadline,
+            AuthorityConfig {
+                id: &p.operation_id,
+                revision: p.revision,
+                chain: p.chain_id,
+                cycle_index: p.cycle_index,
+                expected: &p.expected_from,
+                c: &p.confidential_account,
+                deadline: p.deadline,
+            },
         )?;
         Ok(Arc::new(Self {
             state: Mutex::new(TransactionInner {
@@ -1168,13 +1181,15 @@ impl EthereumFusionPermitOperation {
         dec(&p.maximum_resolver_overhead_wei)?;
         let a = Authority::new(
             entropy,
-            &p.operation_id,
-            p.revision,
-            p.chain_id,
-            p.cycle_index,
-            &p.expected_from,
-            &p.confidential_account,
-            p.deadline,
+            AuthorityConfig {
+                id: &p.operation_id,
+                revision: p.revision,
+                chain: p.chain_id,
+                cycle_index: p.cycle_index,
+                expected: &p.expected_from,
+                c: &p.confidential_account,
+                deadline: p.deadline,
+            },
         )?;
         Ok(Arc::new(Self {
             state: Mutex::new(PermitInner {
@@ -1379,13 +1394,15 @@ impl EthereumFusionOrderOperation {
         bytes(&p.extension, 4096)?;
         let a = Authority::new(
             entropy,
-            &p.operation_id,
-            p.revision,
-            p.chain_id,
-            p.cycle_index,
-            &p.expected_from,
-            &p.confidential_account,
-            p.deadline,
+            AuthorityConfig {
+                id: &p.operation_id,
+                revision: p.revision,
+                chain: p.chain_id,
+                cycle_index: p.cycle_index,
+                expected: &p.expected_from,
+                c: &p.confidential_account,
+                deadline: p.deadline,
+            },
         )?;
         Ok(Arc::new(Self {
             state: Mutex::new(OrderInner {
