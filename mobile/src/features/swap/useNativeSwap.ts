@@ -1,3 +1,4 @@
+import type { CatalogToken } from "@/domain/tokenCatalog";
 import { useCallback, useEffect, useState } from "react";
 import {
   loadSwapTokens,
@@ -68,7 +69,12 @@ export function useNativeSwap() {
       diagnostic(name, "completed");
     } catch (cause) {
       diagnostic(name, "failed");
-      setError(cause instanceof Error ? cause.message : "Swap stopped.");
+      const message = cause instanceof Error ? cause.message : "";
+      setError(
+        message === "HTTP"
+          ? "A balance or swap service could not complete the request. Pull to refresh and check the saved swap status before trying again."
+          : message || "Swap stopped.",
+      );
     } finally {
       setBusy(false);
     }
@@ -79,6 +85,13 @@ export function useNativeSwap() {
     tokens,
     target,
     setTarget,
+    selectToken: (token: CatalogToken) => {
+      if (token.chainId !== 4663 || !token.swapListed || busy) return;
+      setTokens((current) =>
+        current.some((item) => item.address === token.address) ? current : [...current, token],
+      );
+      setTarget(token.address);
+    },
     amount,
     setAmount,
     fundingAddress,

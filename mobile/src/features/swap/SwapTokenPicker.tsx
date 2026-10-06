@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { FlatList, Modal, View } from "react-native";
+import { Modal, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { SearchInput } from "@/components/atoms/SearchInput";
 import { Typography } from "@/components/atoms/Typography";
 import { PressableScale } from "@/components/atoms/PressableScale";
-import { ScreenFrame } from "@/components/templates/ScreenFrame";
+import { InfiniteListScreen } from "@/components/templates/InfiniteListScreen";
+import { Choice } from "@/components/molecules/Choice";
+import { tokenIdentity, tokenNetworks, type CatalogToken } from "@/domain/tokenCatalog";
+import { useTokenCatalog } from "./useTokenCatalog";
 import type { ListedToken } from "./confidentialSwap";
 
 export function SwapTokenPicker({
@@ -16,15 +19,10 @@ export function SwapTokenPicker({
   tokens: ListedToken[];
   target: string;
   disabled: boolean;
-  onSelect: (address: string) => void;
+  onSelect: (token: CatalogToken) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const selected = tokens.find((token) => token.address === target);
-  const query = search.trim().toLowerCase();
-  const matches = tokens.filter((token) =>
-    `${token.symbol} ${token.name}`.toLowerCase().includes(query),
-  );
   return (
     <>
       <PressableScale
@@ -33,7 +31,6 @@ export function SwapTokenPicker({
         accessibilityState={{ disabled, expanded: open }}
         disabled={disabled}
         onPress={() => {
-          setSearch("");
           setOpen(true);
         }}
         className="gap-2 rounded-[28px] border border-glassBorder bg-glass p-6"
@@ -50,46 +47,102 @@ export function SwapTokenPicker({
         {selected && <Typography variant="micro">{selected.name}</Typography>}
       </PressableScale>
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <ScreenFrame>
-          <View className="flex-1 gap-4 px-5 py-4">
-            <View className="flex-row items-center justify-between gap-3">
-              <Typography variant="heading" accessibilityRole="header" className="flex-1">
-                Choose token
-              </Typography>
-              <Button label="Close" variant="quiet" onPress={() => setOpen(false)} />
-            </View>
-            <SearchInput label="Search tokens" value={search} onChangeText={setSearch} />
-            <FlatList
-              data={matches}
-              keyExtractor={(token) => token.address}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              ListEmptyComponent={<Typography variant="caption">No tokens found.</Typography>}
-              renderItem={({ item }) => (
-                <PressableScale
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${item.symbol} · ${item.name}`}
-                  accessibilityState={{ checked: item.address === target, disabled }}
-                  disabled={disabled}
-                  onPress={() => {
-                    onSelect(item.address);
-                    setOpen(false);
-                  }}
-                  className="gap-1 border-b border-borderSoft py-4"
-                >
-                  <Typography
-                    variant="rowTitle"
-                    className={item.address === target ? "!text-neon" : ""}
-                  >
-                    {item.symbol}
-                  </Typography>
-                  <Typography variant="micro">{item.name}</Typography>
-                </PressableScale>
-              )}
-            />
-          </View>
-        </ScreenFrame>
+        {open && (
+          <TokenChoices
+            target={target}
+            disabled={disabled}
+            onClose={() => setOpen(false)}
+            onSelect={(token) => {
+              onSelect(token);
+              setOpen(false);
+            }}
+          />
+        )}
       </Modal>
     </>
+  );
+}
+
+function TokenChoices({
+  target,
+  disabled,
+  onClose,
+  onSelect,
+}: {
+  target: string;
+  disabled: boolean;
+  onClose: () => void;
+  onSelect: (token: CatalogToken) => void;
+}) {
+  const { query, queryKey, list, change } = useTokenCatalog("all");
+  return (
+    <InfiniteListScreen
+      list={list}
+      queryKey={queryKey}
+      getIdentity={tokenIdentity}
+      noun="tokens"
+      unavailableMessage="Token catalog unavailable. Please retry."
+      emptyMessage="No tokens found."
+      header={
+        <>
+          <View className="flex-row items-center justify-between gap-3">
+            <Typography variant="heading" accessibilityRole="header" className="flex-1">
+              Choose token
+            </Typography>
+            <Button label="Close" variant="quiet" onPress={onClose} />
+          </View>
+          <View
+            className="flex-row flex-wrap gap-2"
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Token network"
+          >
+            {tokenNetworks.map(({ chainId, name }) => (
+              <Choice
+                key={chainId}
+                label={name}
+                selected={query.chainId === chainId}
+                onPress={() => change({ chainId })}
+              />
+            ))}
+          </View>
+          <SearchInput
+            label="Search tokens"
+            value={query.search}
+            maxLength={200}
+            onChangeText={(search) => change({ search })}
+          />
+          <Typography variant="micro">
+            Browse all tokens. Swaps currently support Robinhood only; availability is checked
+            during review.
+          </Typography>
+        </>
+      }
+      renderItem={(item) => {
+        const selectable = item.chainId === 4663 && item.swapListed;
+        const checked =
+          item.chainId === 4663 && item.address.toLowerCase() === target.toLowerCase();
+        return (
+          <PressableScale
+            accessibilityRole="radio"
+            accessibilityLabel={`${item.symbol} · ${item.name}`}
+            accessibilityState={{ checked, disabled: disabled || !selectable }}
+            disabled={disabled || !selectable}
+            onPress={() => {
+              if (selectable && !disabled) onSelect(item);
+            }}
+            className="gap-1 border-b border-borderSoft py-4"
+          >
+            <Typography variant="rowTitle" className={checked ? "!text-neon" : ""}>
+              {item.symbol}
+            </Typography>
+            <Typography variant="micro">{item.name}</Typography>
+            <Typography variant="micro">
+              {tokenNetworks.find((network) => network.chainId === item.chainId)?.name}
+              {!selectable ? " · Not available for swaps" : ""}
+            </Typography>
+          </PressableScale>
+        );
+      }}
+    />
   );
 }

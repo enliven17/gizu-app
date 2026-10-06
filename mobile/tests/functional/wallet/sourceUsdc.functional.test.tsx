@@ -353,3 +353,12 @@ test("Activity has a simple empty state and pull-to-refresh with retry on failur
   await userEvent.press(screen.getByRole("button", { name: "Retry activity" }));
   expect(await screen.findByText("No activity yet")).toBeVisible();
 });
+
+test("Swap Max fills the available USDC amount with exact decimal precision", async () => {
+  setup();
+  await open();
+  await screen.findByLabelText("19.990574 USDC");
+  await userEvent.press(screen.getByLabelText("Swap tab"));
+  await userEvent.press(await screen.findByRole("button", { name: "Use maximum USDC amount" }));
+  expect(screen.getByLabelText("Amount in USDC")).toHaveProp("value", "19.990574");
+});

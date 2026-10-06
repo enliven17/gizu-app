@@ -37,6 +37,14 @@ internal class NativeRpcTransport(
   suspend fun post(payload: String): String {
     val (status, body) = execute("POST", endpoint, payload)
     if (status !in 200..299) {
+      val service =
+        when {
+          endpoint.endsWith("/v1/earn/monad/funding-plan") -> "funding-plan"
+          endpoint == "https://rpc.monad.xyz" -> "monad-rpc"
+          endpoint == "https://rpc.mainnet.chain.robinhood.com" -> "robinhood-rpc"
+          else -> "native-service"
+        }
+      android.util.Log.w("GizuRpc", "request failed: service=$service status=$status")
       if (endpoint.startsWith("$EARN_NATIVE_BACKEND/"))
         safeEarnGatewayFailure(body)?.let { throw it }
       throw RpcFailure(RpcFailureCode.HTTP)

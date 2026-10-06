@@ -1,9 +1,12 @@
+import { tokenCatalogService } from "@/services/tokenCatalog";
+import { catalogToken } from "../../support/tokenCatalog";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { RefreshControl } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NativeSwapScreen } from "@/features/swap/NativeSwapScreen";
 import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
 
+jest.mock("@/services/tokenCatalog", () => ({ tokenCatalogService: { list: jest.fn() } }));
 jest.mock("@/services/wallet/nativeBridge", () => ({ getStoredSwapSigner: jest.fn() }));
 const token = "0x" + "a".repeat(40);
 const secondToken = "0x" + "b".repeat(40);
@@ -15,6 +18,22 @@ const status = {
   fundingAddress: "0x" + "1".repeat(40),
 };
 beforeEach(() => {
+  readStatus.mockReset().mockResolvedValue(status);
+  jest.mocked(tokenCatalogService.list).mockImplementation(async (query) => {
+    const tokens = [
+      { ...catalogToken, chainId: query.chainId, address: token, symbol: "COIN", name: "Coinbase" },
+      {
+        ...catalogToken,
+        chainId: query.chainId,
+        address: secondToken,
+        symbol: "GOOGL",
+        name: "Alphabet",
+      },
+    ].filter((item) =>
+      `${item.symbol} ${item.name}`.toLowerCase().includes(query.search.toLowerCase()),
+    );
+    return { list: tokens, total: tokens.length, items: 20, page: query.page };
+  });
   jest.spyOn(globalThis, "fetch").mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -50,10 +69,10 @@ test("selects a searched token and reviews the exact amount without exposing tec
   expect(screen.getByRole("button", { name: "Review swap" })).toBeDisabled();
   fireEvent.press(screen.getByRole("button", { name: "Choose receive token" }));
   fireEvent.changeText(screen.getByLabelText("Search tokens"), "missing");
-  expect(screen.getByText("No tokens found.")).toBeVisible();
+  expect(await screen.findByText("No tokens found.")).toBeVisible();
   fireEvent.changeText(screen.getByLabelText("Search tokens"), "alphabet");
   expect(screen.queryByRole("radio", { name: "COIN · Coinbase" })).toBeNull();
-  fireEvent.press(screen.getByRole("radio", { name: "GOOGL · Alphabet" }));
+  fireEvent.press(await screen.findByRole("radio", { name: "GOOGL · Alphabet" }));
   expect(screen.queryByLabelText("Search tokens")).toBeNull();
   fireEvent.changeText(screen.getByLabelText("Amount in USDC"), "1.25");
   expect(screen.getByRole("button", { name: "Review swap" })).toBeEnabled();
@@ -108,4 +127,43 @@ test("pull-to-refresh reloads saved swap status without a refresh button", async
   fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
   expect(await screen.findByText("Swap paused")).toBeVisible();
   expect(readStatus).toHaveBeenCalledTimes(2);
+});
+
+test("picker browses all three networks but only selects supported Robinhood targets", async () => {
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  await screen.findByText("COIN");
+  fireEvent.press(screen.getByRole("button", { name: "Choose receive token" }));
+  expect(await screen.findByRole("radio", { name: "COIN · Coinbase" })).toBeEnabled();
+  for (const [name, chainId] of [
+    ["Ethereum", 1],
+    ["Monad", 143],
+  ] as const) {
+    fireEvent.press(screen.getByRole("radio", { name }));
+    expect(await screen.findByRole("radio", { name: "COIN · Coinbase" })).toBeDisabled();
+    expect(tokenCatalogService.list).toHaveBeenCalledWith(
+      expect.objectContaining({ chainId, category: "all", page: 0 }),
+      expect.anything(),
+    );
+  }
+  expect(start).not.toHaveBeenCalled();
+});
+
+test("a native HTTP failure shows actionable guidance instead of a bare code", async () => {
+  start.mockRejectedValue(new Error("HTTP"));
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  await screen.findByText("COIN");
+  fireEvent.changeText(screen.getByLabelText("Amount in USDC"), "1");
+  fireEvent.press(screen.getByRole("button", { name: "Review swap" }));
+  expect(
+    await screen.findByText(/A balance or swap service could not complete the request/),
+  ).toBeVisible();
+  expect(screen.queryByText("HTTP")).toBeNull();
 });

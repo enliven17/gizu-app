@@ -1,13 +1,18 @@
 import { createContext, useCallback, useContext, useState } from "react";
-import { tokenIdentity, type TokenCatalogService, type TokenQuery } from "@/domain/tokenCatalog";
+import {
+  tokenIdentity,
+  type TokenCatalogService,
+  type TokenQuery,
+  type TokenCategory,
+} from "@/domain/tokenCatalog";
 import { tokenCatalogService } from "@/services/tokenCatalog";
 import { useInfiniteList } from "@/hooks/useInfiniteList";
 export const TokenCatalogContext = createContext<TokenCatalogService>(tokenCatalogService);
-export function useTokenCatalog() {
+export function useTokenCatalog(initialCategory: TokenCategory = "rwa") {
   const service = useContext(TokenCatalogContext);
   const [query, setQuery] = useState<Omit<TokenQuery, "page">>({
     chainId: 4663,
-    category: "rwa",
+    category: initialCategory,
     search: "",
   });
   const [debounceMs, setDebounceMs] = useState(0);

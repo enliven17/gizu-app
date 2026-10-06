@@ -14,6 +14,10 @@ import { useNativeSwap } from "./useNativeSwap";
 export function NativeSwapScreen() {
   const swap = useNativeSwap();
   const wallet = useOptionalMainnetWallet();
+  const maxAmount =
+    wallet?.snapshot && wallet.snapshot.balanceComplete !== false
+      ? formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))
+      : null;
   const selected = swap.tokens.find((token) => token.address === swap.target);
   const active =
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
@@ -86,23 +90,34 @@ export function NativeSwapScreen() {
                   : "Checking available USDC…"}
               </Typography>
             )}
-            <TextInput
-              accessibilityLabel="Amount in USDC"
-              value={swap.amount}
-              onChangeText={swap.setAmount}
-              editable={!swap.busy}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              placeholderTextColor={colors.fg["20"]}
-              maxLength={21}
-              className="font-sans min-h-14 text-[40px] text-text"
-            />
+            <View className="flex-row items-center gap-3">
+              <TextInput
+                accessibilityLabel="Amount in USDC"
+                value={swap.amount}
+                onChangeText={swap.setAmount}
+                editable={!swap.busy}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={colors.fg["20"]}
+                maxLength={21}
+                className="font-sans min-h-14 flex-1 text-[40px] text-text"
+              />
+              <Button
+                label="Max"
+                accessibilityLabel="Use maximum USDC amount"
+                variant="quiet"
+                disabled={swap.busy || maxAmount === null}
+                onPress={() => {
+                  if (maxAmount !== null) swap.setAmount(maxAmount);
+                }}
+              />
+            </View>
           </View>
           <SwapTokenPicker
             tokens={swap.tokens}
             target={swap.target}
             disabled={swap.busy}
-            onSelect={swap.setTarget}
+            onSelect={swap.selectToken}
           />
           <Button
             label={swap.busy ? "Working" : "Review swap"}
