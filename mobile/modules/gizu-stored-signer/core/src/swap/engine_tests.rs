@@ -66,6 +66,9 @@ struct World {
     intents: usize,
     orders: usize,
     paths: Vec<String>,
+    return_receipts: HashMap<String, Value>,
+    return_submits: usize,
+    return_gas: bool,
 }
 
 impl World {
@@ -95,6 +98,9 @@ impl World {
             intents: 0,
             orders: 0,
             paths: vec![],
+            return_receipts: HashMap::new(),
+            return_submits: 0,
+            return_gas: false,
         }
     }
 
@@ -263,10 +269,55 @@ impl World {
         }
     }
 
-    fn robinhood(&self, method: &str, params: &Value) -> Value {
+    fn robinhood(&mut self, method: &str, params: &Value) -> Value {
         match method {
             "eth_chainId" => json!("0x1237"),
-            "eth_getBalance" => json!("0x0"),
+            "eth_getBalance" => json!(if self.return_gas {
+                "0x38d7ea4c68000"
+            } else {
+                "0x0"
+            }),
+            "eth_getCode" => json!("0x"),
+            "eth_getTransactionCount" => json!("0x0"),
+            "eth_gasPrice" => json!("0x5f5e100"),
+            "eth_estimateGas" => json!("0x186a0"),
+            "eth_sendRawTransaction" => {
+                use alloy_consensus::{SignableTransaction, Signed, TxEip1559};
+                let raw = evm::hex_bytes(params[0].as_str().unwrap()).unwrap();
+                let tx = Signed::<TxEip1559>::eip2718_decode(&mut raw.as_slice()).unwrap();
+                assert_eq!(tx.tx().chain_id, ROBINHOOD_CHAIN_ID);
+                assert_eq!(tx.tx().to, alloy_primitives::TxKind::Call(ROBINHOOD_USDG));
+                assert!(tx.tx().value.is_zero());
+                let sig = tx.signature();
+                let from = evm::recover(
+                    tx.tx().signature_hash(),
+                    &sig.r().to_be_bytes(),
+                    &sig.s().to_be_bytes(),
+                    sig.v() as u8,
+                )
+                .unwrap();
+                let bytes = tx.tx().input.as_ref();
+                assert_eq!(&bytes[..4], &evm::selector("transfer(address,uint256)"));
+                let to = Address::from_slice(&bytes[16..36]);
+                let amount = U256::from_be_slice(&bytes[36..68]);
+                assert_eq!(self.origin_deposit[&from], to.to_checksum(None));
+                assert_eq!(self.usdg[&from], amount);
+                let hash = format!("{:#x}", keccak256(&raw));
+                if !self.return_receipts.contains_key(&hash) {
+                    self.return_submits += 1;
+                    self.usdg.insert(from, U256::ZERO);
+                    self.funded_at.insert(to.to_checksum(None), T0);
+                    self.return_receipts.insert(hash.clone(), json!({
+                        "transactionHash": hash, "from": from.to_checksum(None), "to": ROBINHOOD_USDG.to_checksum(None),
+                        "blockHash": format!("{:#x}", B256::repeat_byte(3)), "status": "0x1", "logs": [{
+                            "address": ROBINHOOD_USDG.to_checksum(None),
+                            "topics": [format!("{:#x}", keccak256("Transfer(address,address,uint256)")), format!("{:#x}", B256::from(evm::word_address(from))), format!("{:#x}", B256::from(evm::word_address(to)))],
+                            "data": word(amount),
+                        }]
+                    }));
+                }
+                json!(hash)
+            }
             "eth_call" => {
                 let data = params[0]["data"].as_str().unwrap();
                 let to = evm::addr(params[0]["to"].as_str().unwrap()).unwrap();
@@ -275,12 +326,16 @@ impl World {
                     out.extend_from_slice(&evm::word_u256(U256::from(32)));
                     out.extend_from_slice(&evm::word_u256(U256::from(4)));
                     let mut text = [0u8; 32];
-                    text[..4].copy_from_slice(b"AMZN");
+                    text[..4].copy_from_slice(if to == ROBINHOOD_USDG {
+                        b"USDG"
+                    } else {
+                        b"AMZN"
+                    });
                     out.extend_from_slice(&text);
                     return json!(hex::encode_prefixed(out));
                 }
                 if data == evm::encode_call("decimals()", &[]) {
-                    return json!(word(U256::from(18)));
+                    return json!(word(U256::from(if to == ROBINHOOD_USDG { 6 } else { 18 })));
                 }
                 let holder = Address::from_slice(&evm::hex_bytes(data).unwrap()[16..36]);
                 let book = if to == ROBINHOOD_USDG {
@@ -292,6 +347,9 @@ impl World {
             }
             "eth_getTransactionReceipt" => {
                 let tx = params[0].as_str().unwrap();
+                if let Some(receipt) = self.return_receipts.get(tx) {
+                    return receipt.clone();
+                }
                 let (_, maker, making, taking, dest, sell) =
                     self.fills.values().find(|(t, ..)| t == tx).unwrap().clone();
                 let topic = keccak256("Transfer(address,address,uint256)");
@@ -1427,4 +1485,234 @@ fn explicit_fifteen_usdc_budget_is_supported_without_a_test_cap() {
     world.f_balance = U256::from(15000000u64);
     let mut now = T0;
     assert!(review(&op, &mut world, &mut now).contains("Used now 14.997000 USDC"));
+}
+
+fn usdg_start(kind: &str) -> Arc<SwapOperation> {
+    let p = if kind == "confidentialSell" {
+        json!({"kind":kind,"target":ROBINHOOD_USDG.to_checksum(None),"recipientIndices":[6,7,8],"holderIndices":[3,4,5]})
+    } else {
+        json!({"kind":kind,"target":ROBINHOOD_USDG.to_checksum(None),"recipientIndices":[3,4,5],"amountAtoms":"2000000"})
+    };
+    SwapOperation::start(p.to_string(), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap()
+}
+
+#[test]
+fn usdg_bridge_completes_only_after_deliveries_without_fusion() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = usdg_start("confidentialSwap");
+    let text = review(&op, &mut world, &mut now);
+    assert!(text.contains("No 1inch purchase"));
+    assert!(text.contains("requires ETH"));
+    assert_eq!((world.user_ops, world.intents, world.orders), (0, 0, 0));
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(status(&op)["bridgeOnly"], true);
+    assert_eq!(status(&op)["ordersComplete"], 0);
+    assert_eq!(status(&op)["deliveriesComplete"], 3);
+    let total = world
+        .w
+        .a
+        .iter()
+        .fold(U256::ZERO, |sum, a| sum + world.usdg[a]);
+    assert_eq!(status(&op)["receivedTargetAtoms"], total.to_string());
+    assert!(!world.paths.iter().any(|p| p.contains("fusion")));
+    assert_eq!((world.user_ops, world.intents), (1, 3));
+}
+
+#[test]
+fn usdg_bridge_resume_after_delivery_does_not_repeat_payouts() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = usdg_start("confidentialSwap");
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    loop {
+        if status(&op)["deliveriesComplete"] == 1 {
+            break;
+        }
+        match op.next_step(now).unwrap() {
+            SwapStep::Request { id, url, body, .. } => {
+                let (code, result) = world.handle(&url, body.as_deref(), now);
+                op.on_response(id, code, result, now).unwrap();
+            }
+            SwapStep::Wait { millis } => now += millis,
+            step => panic!("unexpected {step:?}"),
+        }
+    }
+    let restored = SwapOperation::restore(op.export_state().unwrap(), GATEWAY.into()).unwrap();
+    assert_eq!(drive(&restored, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!((world.user_ops, world.intents, world.orders), (1, 3, 0));
+    assert_eq!(status(&restored)["deliveriesComplete"], 3);
+}
+
+#[test]
+fn usdg_return_requires_gas_then_reviews_exact_transfers_and_each_payout() {
+    let (mut world, mut now) = (World::new(), T0);
+    for a in world.w.a {
+        world.usdg.insert(a, U256::from(1_000_000));
+    }
+    let op = usdg_start("confidentialSell");
+    assert_eq!(
+        drive(&op, &mut world, &mut now),
+        SwapStep::Paused {
+            code: "USDG_RETURN_GAS_REQUIRED_1".into()
+        }
+    );
+    assert_eq!(world.return_submits, 0);
+    assert_eq!(status(&op)["approved"], false);
+    world.return_gas = true;
+    op.retry();
+    assert!(review(&op, &mut world, &mut now).contains("RETURN USDG"));
+    op.approve(now).unwrap();
+    let mut reviews = 0;
+    loop {
+        match drive(&op, &mut world, &mut now) {
+            SwapStep::Review { text } => {
+                assert!(text.contains("Maximum transaction fee") || text.contains("Return leg"));
+                reviews += 1;
+                op.approve(now).unwrap();
+            }
+            SwapStep::Finished => break,
+            step => panic!("unexpected {step:?}"),
+        }
+    }
+    assert_eq!(reviews, 6);
+    assert_eq!(world.return_submits, 3);
+    assert_eq!(world.intents, 3);
+    assert!(!world.paths.iter().any(|p| p.contains("fusion")));
+    assert!(world.usdg.values().all(|a| a.is_zero()));
+    assert_eq!(status(&op)["deliveriesComplete"], 3);
+}
+
+#[test]
+fn usdg_unknown_submit_reconciles_saved_hash_after_restart_without_resending() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.return_gas = true;
+    world.usdg.insert(world.w.a[0], U256::from(1_000_000));
+    let op = usdg_start("confidentialSell");
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    let SwapStep::Request { url, body, .. } = op.next_step(now).unwrap() else {
+        panic!()
+    };
+    assert!(body.as_ref().unwrap().contains("eth_sendRawTransaction"));
+    let saved = op.export_state().unwrap();
+    // The chain accepts it, but the app closes before receiving the acknowledgement.
+    world.handle(&url, body.as_deref(), now);
+    let restored = SwapOperation::restore(saved, GATEWAY.into()).unwrap();
+    assert_eq!(drive(&restored, &mut world, &mut now), SwapStep::Unlock);
+    assert_eq!(world.return_submits, 1);
+    restored.unlock(ENTROPY.to_vec(), now).unwrap();
+    assert!(review(&restored, &mut world, &mut now).contains("Return leg"));
+    restored.approve(now).unwrap();
+    assert_eq!(drive(&restored, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(world.return_submits, 1);
+    assert_eq!(world.intents, 1);
+    assert!(world.paths.iter().all(|p| !p.contains("fusion")));
+}
+
+#[test]
+fn usdg_missing_receipt_requires_explicit_retry_and_reuses_exact_signed_bytes() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.return_gas = true;
+    world.usdg.insert(world.w.a[0], U256::from(1_000_000));
+    let op = usdg_start("confidentialSell");
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    let SwapStep::Request {
+        id, body: original, ..
+    } = op.next_step(now).unwrap()
+    else {
+        panic!()
+    };
+    op.on_response(id, 0, "".into(), now).unwrap();
+    loop {
+        match op.next_step(now).unwrap() {
+            SwapStep::Request { id, body, .. } => {
+                assert!(body.unwrap().contains("eth_getTransactionReceipt"));
+                op.on_response(id, 200, json!([{"id":0,"result":null}]).to_string(), now)
+                    .unwrap();
+            }
+            SwapStep::Wait { millis } => now += millis,
+            SwapStep::Paused { code } => {
+                assert_eq!(code, "USDG_RETURN_PENDING");
+                break;
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+    op.retry();
+    let SwapStep::Request { id, body, .. } = op.next_step(now).unwrap() else {
+        panic!()
+    };
+    assert!(body.unwrap().contains("eth_getTransactionReceipt"));
+    op.on_response(id, 200, json!([{"id":0,"result":null}]).to_string(), now)
+        .unwrap();
+    let SwapStep::Request { body, .. } = op.next_step(now).unwrap() else {
+        panic!()
+    };
+    assert_eq!(body, original);
+    assert_eq!(world.return_submits, 0);
+}
+
+#[test]
+fn usdg_changed_payout_quote_still_requires_fresh_approval() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = usdg_start("confidentialSwap");
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    world.payout_rate_bps = 8000;
+    let text = review(&op, &mut world, &mut now);
+    assert!(text.contains("QUOTE CHANGED"));
+    assert_eq!(world.intents, 0);
+    op.cancel();
+    assert!(matches!(
+        op.next_step(now).unwrap(),
+        SwapStep::Paused { .. } | SwapStep::Finished
+    ));
+    assert_eq!(world.intents, 0);
+}
+
+#[test]
+fn usdg_discovery_records_existing_balances_without_orders_or_transfers() {
+    let (mut world, mut now) = (World::new(), T0);
+    world.usdg.insert(world.w.a[0], U256::from(12345));
+    let p = json!({"kind":"confidentialRecovery","target":ROBINHOOD_USDG.to_checksum(None),"recipientIndices":[3,4,5],"scanTo":6});
+    let op = SwapOperation::start(p.to_string(), ENTROPY.to_vec(), GATEWAY.into(), T0).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(status(&op)["receivedTargetAtoms"], "12345");
+    assert_eq!(
+        (
+            world.user_ops,
+            world.intents,
+            world.orders,
+            world.return_submits
+        ),
+        (0, 0, 0, 0)
+    );
+}
+
+#[test]
+fn usdg_bridge_counts_only_new_delivery_when_a_previous_source_already_paid_wallets() {
+    let (mut world, mut now) = (World::new(), T0);
+    for a in world.w.a {
+        world.usdg.insert(a, U256::from(900_000));
+    }
+    let op = usdg_start("confidentialSwap");
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    assert_eq!(drive(&op, &mut world, &mut now), SwapStep::Finished);
+    let total = world
+        .w
+        .a
+        .iter()
+        .fold(U256::ZERO, |sum, a| sum + world.usdg[a]);
+    assert_eq!(
+        status(&op)["receivedTargetAtoms"],
+        (total - U256::from(2_700_000)).to_string()
+    );
+    assert_eq!(world.orders, 0);
 }

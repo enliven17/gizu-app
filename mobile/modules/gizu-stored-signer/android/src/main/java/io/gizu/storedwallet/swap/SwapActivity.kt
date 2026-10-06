@@ -226,10 +226,19 @@ class SwapActivity : Activity() {
 
   private fun progress(view: Map<String, Any?>) {
     if (stopped) return
-    val title = if (view["approved"] == true) "Swap in progress" else "Preparing the swap"
+    val bridge = view["bridgeOnly"] == true
+    val title =
+      if (view["approved"] == true) {
+        if (bridge) "Bridge in progress" else "Swap in progress"
+      } else {
+        if (bridge) "Preparing the bridge" else "Preparing the swap"
+      }
+    val counts =
+      if (bridge) "Deliveries ${view["deliveriesComplete"]}/3"
+      else "Payouts ${view["payoutsSubmitted"]}/3 · orders ${view["ordersComplete"]}/3"
     show(
       title,
-      "${view["phase"]} · ${view["step"]}\nPayouts ${view["payoutsSubmitted"]}/3 · orders ${view["ordersComplete"]}/3\n\n" +
+      "${view["phase"]} · ${view["step"]}\n${counts}\n\n" +
         "Keep this screen open until it finishes. Leaving pauses the swap: nothing is cancelled and Resume continues from here.",
     )
     root.addView(

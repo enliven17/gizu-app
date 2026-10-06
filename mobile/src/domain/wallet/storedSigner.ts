@@ -70,6 +70,9 @@ export type StoredSwapView = {
   creditedAtoms: string;
   payoutsSubmitted: number;
   ordersComplete: number;
+  bridgeOnly?: boolean;
+  deliveriesComplete?: number;
+  gasFundingAddresses?: string[];
   receivedTargetAtoms: string;
   fundingAddress: string;
   direction: "buy" | "sell";

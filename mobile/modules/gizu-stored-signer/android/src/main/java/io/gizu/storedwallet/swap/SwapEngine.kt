@@ -668,6 +668,13 @@ internal class SwapEngine(
       "creditedAtoms" to status.optString("creditedAtoms"),
       "payoutsSubmitted" to status.optInt("payoutsSubmitted"),
       "ordersComplete" to status.optInt("ordersComplete"),
+      "bridgeOnly" to status.optBoolean("bridgeOnly"),
+      "deliveriesComplete" to status.optInt("deliveriesComplete"),
+      "gasFundingAddresses" to
+        status
+          .optJSONArray("gasFundingAddresses")
+          ?.let { addresses -> (0 until addresses.length()).map { addresses.getString(it) } }
+          .orEmpty(),
       "receivedTargetAtoms" to status.optString("receivedTargetAtoms"),
       "direction" to status.optString("direction", "buy"),
       "approved" to status.optBoolean("approved"),

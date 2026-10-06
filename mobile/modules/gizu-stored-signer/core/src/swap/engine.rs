@@ -5,6 +5,7 @@ use super::evm;
 use super::funding::{self, FundingChain, UnsignedAuthorization, UserOperation};
 use super::fusion::{self, ApprovedOrder, LimitOrder, Permit};
 use super::pins::*;
+use super::usdg_return::{self, ReturnTransfer};
 use crate::SignerError;
 use crate::roles::{
     CONFIDENTIAL_ACCOUNT, FIRST_RECIPIENT, FUNDING_ACCOUNT, RECIPIENTS_PER_SWAP, derive_key,
@@ -92,6 +93,9 @@ enum Step {
     PayoutQuote {
         index: usize,
     },
+    PayoutBaseline {
+        index: usize,
+    },
     PayoutIntent {
         index: usize,
     },
@@ -138,6 +142,19 @@ enum Step {
     SellQuote {
         index: usize,
     },
+    UsdgPrepare {
+        index: usize,
+    },
+    UsdgSign {
+        index: usize,
+    },
+    UsdgSubmit {
+        index: usize,
+    },
+    UsdgReceipt {
+        index: usize,
+        polls: u32,
+    },
     Done,
 }
 
@@ -171,6 +188,8 @@ struct Payout {
     signed: Option<Value>,
     intent_hash: Option<String>,
     delivered: U256,
+    #[serde(default)]
+    before_balance: Option<U256>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -230,6 +249,8 @@ struct Data {
     orders: [Order; 3],
     #[serde(default)]
     leg: usize,
+    #[serde(default)]
+    usdg_returns: [Option<ReturnTransfer>; 3],
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -432,6 +453,9 @@ impl Engine {
     fn recipient_index(&self, i: usize) -> u32 {
         self.m.plan.recipient_indices[i]
     }
+    fn bridge_only(&self) -> bool {
+        self.m.plan.target == ROBINHOOD_USDG
+    }
     fn sell(&self) -> bool {
         self.m.plan.kind == "confidentialSell"
     }
@@ -584,7 +608,7 @@ impl Engine {
                     self.m.data.prepared = None;
                     if self.sell() {
                         let index = self.next_sell_index(0).ok_or(SignerError::InvalidInput)?;
-                        self.go(Step::FusionPreview { index });
+                        self.go(if self.bridge_only() { Step::SellQuote { index } } else { Step::FusionPreview { index } });
                     } else if self.payout_only() {
                         // Read C again so the payouts split the balance held at approval.
                         self.go(Step::AuthSalt);
@@ -669,6 +693,9 @@ impl Engine {
                     self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
                 }
             }
+            Step::PayoutBaseline { index } => self.rpc("robinhood", vec![
+                ("eth_call", Self::eth_call(ROBINHOOD_USDG, call_data("balanceOf(address)", &[self.m.recipients[index]]))),
+            ]),
             Step::PayoutIntent { index } => {
                 if !self.can_sign(now) {
                     return Ok(self.unlock_or_expire(now));
@@ -716,7 +743,7 @@ impl Engine {
                 }
             }
             Step::SellQuote { index } => {
-                let amount = d.orders[index].min_out;
+                let amount = if self.bridge_only() { d.orders[index].amount } else { d.orders[index].min_out };
                 let request = QuoteRequest::sell_in(self.m.confidential, self.holder(index), &d.destination_asset, &d.source_asset, amount);
                 self.m.data.payouts[index].request = Some(request.clone());
                 self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
@@ -769,6 +796,40 @@ impl Engine {
                     return self.next(now);
                 }
                 self.rpc("robinhood", calls)
+            }
+            Step::UsdgPrepare { index } => {
+                let quote = d.orders[index].inbound.as_ref().ok_or(SignerError::InvalidInput)?;
+                let from = self.holder(index);
+                let tx = usdg_return::call(from, evm::addr(&quote.deposit_address)?, d.orders[index].amount);
+                self.rpc("robinhood", vec![
+                    ("eth_chainId", json!([])),
+                    ("eth_getTransactionCount", json!([from.to_checksum(None), "pending"])),
+                    ("eth_getBalance", json!([from.to_checksum(None), "latest"])),
+                    ("eth_gasPrice", json!([])),
+                    ("eth_estimateGas", json!([tx])),
+                    ("eth_call", Self::eth_call(ROBINHOOD_USDG, call_data("balanceOf(address)", &[from]))),
+                    ("eth_getCode", json!([from.to_checksum(None), "latest"])),
+                ])
+            }
+            Step::UsdgSign { index } => {
+                if !self.can_sign(now) { return Ok(self.unlock_or_expire(now)); }
+                let quote = d.orders[index].inbound.as_ref().ok_or(SignerError::InvalidInput)?;
+                if now + QUOTE_MARGIN_MS >= quote.deadline_ms {
+                    self.go(Step::SellQuote { index });
+                    return self.next(now);
+                }
+                let key = self.key(self.signer_index(index))?;
+                self.m.data.usdg_returns[index].as_mut().ok_or(SignerError::InvalidInput)?.sign(&key)?;
+                self.go(Step::UsdgSubmit { index });
+                return self.next(now);
+            }
+            Step::UsdgSubmit { index } => {
+                let transfer = d.usdg_returns[index].as_ref().ok_or(SignerError::InvalidInput)?;
+                self.rpc("robinhood", vec![("eth_sendRawTransaction", json!([transfer.raw.as_ref().ok_or(SignerError::InvalidInput)?]))])
+            }
+            Step::UsdgReceipt { index, .. } => {
+                let transfer = d.usdg_returns[index].as_ref().ok_or(SignerError::InvalidInput)?;
+                self.rpc("robinhood", vec![("eth_getTransactionReceipt", json!([transfer.hash.ok_or(SignerError::InvalidInput)?]))])
             }
             Step::Done => return Ok(SwapStep::Finished),
         };
@@ -845,7 +906,10 @@ impl Engine {
         if let Outcome::Transient = result {
             let submit = matches!(
                 self.m.step,
-                Step::FundingSubmit | Step::PayoutSubmit { .. } | Step::FusionSubmit { .. }
+                Step::FundingSubmit
+                    | Step::PayoutSubmit { .. }
+                    | Step::FusionSubmit { .. }
+                    | Step::UsdgSubmit { .. }
             );
             if submit {
                 // Outcome unknown: look it up, never sign again.
@@ -915,7 +979,7 @@ impl Engine {
                     return Err(SignerError::InvalidInput);
                 }
                 let decimals = rpc_uint(&value, 2)?;
-                if decimals > U256::from(36) || self.m.plan.target == ROBINHOOD_USDG {
+                if decimals > U256::from(36) || (self.bridge_only() && decimals != U256::from(6)) {
                     return Err(SignerError::InvalidInput);
                 }
                 self.m.data.target_symbol = abi_string(&value, 1)?;
@@ -960,15 +1024,28 @@ impl Engine {
                     self.m.data.orders[slot].amount = *usdg;
                     self.m.data.estimates.push((*usdg, *usdg));
                 }
-                self.go(Step::FusionEstimate);
+                if self.bridge_only() {
+                    // Discovery only: keep existing USDG where it is. No conversion or signature.
+                    for o in &mut self.m.data.orders {
+                        o.received_total = o.amount;
+                        o.complete = true;
+                    }
+                    self.go(Step::Done);
+                } else {
+                    self.go(Step::FusionEstimate);
+                }
             }
             (Step::Holdings, None) => {
                 let mut any = false;
                 for i in 0..3 {
                     let amount = rpc_uint(&value, (i * 2) as u64)?;
                     let eth = rpc_quantity(&value, (i * 2 + 1) as u64)?;
-                    if !eth.is_zero() {
+                    if !eth.is_zero() && !self.bridge_only() {
                         self.m.paused = Some(format!("HOLDER_{}_HOLDS_ETH", i + 1));
+                        return Ok(());
+                    }
+                    if self.bridge_only() && !amount.is_zero() && eth.is_zero() {
+                        self.m.paused = Some(format!("USDG_RETURN_GAS_REQUIRED_{}", i + 1));
                         return Ok(());
                     }
                     self.m.data.orders[i].amount = amount;
@@ -979,7 +1056,11 @@ impl Engine {
                     self.m.paused = Some("NO_HOLDINGS".into());
                     return Ok(());
                 }
-                self.go(Step::FusionEstimate);
+                self.go(if self.bridge_only() {
+                    Step::Review
+                } else {
+                    Step::FusionEstimate
+                });
             }
             (Step::SourceChain { execute }, None) => {
                 if rpc_quantity(&value, 0)? != U256::from(MONAD_CHAIN_ID) {
@@ -1131,7 +1212,11 @@ impl Engine {
                 self.m.data.estimates.truncate(index);
                 self.m.data.estimates.push((portion, quote.min_amount_out));
                 self.go(if index == 2 {
-                    Step::FusionEstimate
+                    if self.bridge_only() {
+                        Step::Review
+                    } else {
+                        Step::FusionEstimate
+                    }
                 } else {
                     Step::PayoutEstimate { index: index + 1 }
                 });
@@ -1250,7 +1335,13 @@ impl Engine {
                 }
                 self.m.data.payouts[index].quote = Some(quote.clone());
                 if self.sell() {
-                    self.go(Step::PayoutIntent { index });
+                    if self.bridge_only() {
+                        self.m.reapproval = Some(self.requote_text(&format!(
+                            "Return leg {}: {} private USDC → at least {} Monad USDC to {}. No 1inch order.",
+                            index + 1, usdc(portion), usdc(quote.min_amount_out), self.m.recipients[index].to_checksum(None))));
+                    } else {
+                        self.go(Step::PayoutIntent { index });
+                    }
                     return Ok(());
                 }
                 let (planned_portion, planned_min) = self
@@ -1271,7 +1362,22 @@ impl Engine {
                     )));
                     return Ok(());
                 }
+                self.go(if self.bridge_only() {
+                    Step::PayoutBaseline { index }
+                } else {
+                    Step::PayoutIntent { index }
+                });
+            }
+            (Step::PayoutBaseline { index }, None) => {
+                if !self.bridge_only() || self.sell() || self.m.data.payouts[index].signed.is_some()
+                {
+                    return Err(SignerError::InvalidInput);
+                }
+                self.m.data.payouts[index].before_balance = Some(rpc_uint(&value, 0)?);
                 self.go(Step::PayoutIntent { index });
+            }
+            (Step::PayoutBaseline { .. }, Some(_)) => {
+                self.m.paused = Some("PLANNING_UNAVAILABLE".into())
             }
             (Step::PayoutIntent { index }, None) => {
                 if !self.can_sign(now) {
@@ -1398,7 +1504,17 @@ impl Engine {
                     self.after_order(index);
                     return Ok(());
                 }
-                let usdg = rpc_uint(&value, 0)?;
+                let balance = rpc_uint(&value, 0)?;
+                let usdg = if self.bridge_only() {
+                    let before = self.m.data.payouts[index]
+                        .before_balance
+                        .ok_or(SignerError::InvalidInput)?;
+                    balance
+                        .checked_sub(before)
+                        .ok_or(SignerError::InvalidInput)?
+                } else {
+                    balance
+                };
                 let min = self.m.data.payouts[index]
                     .quote
                     .as_ref()
@@ -1409,8 +1525,16 @@ impl Engine {
                     return Ok(());
                 }
                 self.m.data.payouts[index].delivered = usdg;
+                if self.bridge_only() {
+                    self.m.data.orders[index].received_total = usdg;
+                    self.m.data.orders[index].complete = true;
+                }
                 self.go(if index == 2 {
-                    Step::FusionBalance { index: 0 }
+                    if self.bridge_only() {
+                        Step::Done
+                    } else {
+                        Step::FusionBalance { index: 0 }
+                    }
                 } else {
                     Step::PayoutStatus {
                         index: index + 1,
@@ -1479,13 +1603,22 @@ impl Engine {
                     .clone()
                     .ok_or(SignerError::InvalidInput)?;
                 let quote = aurora::check_quote(&request, &value, now)?;
-                let expected = self.m.data.orders[index].min_out;
-                if quote.amount_in > expected {
+                let expected = if self.bridge_only() {
+                    self.m.data.orders[index].amount
+                } else {
+                    self.m.data.orders[index].min_out
+                };
+                if quote.amount_in > expected || (self.bridge_only() && quote.amount_in != expected)
+                {
                     return Err(SignerError::InvalidInput);
                 }
                 self.m.data.orders[index].inbound = Some(quote.clone());
                 self.m.data.funding_quote = Some(quote);
-                self.go(Step::FusionPermit { index });
+                self.go(if self.bridge_only() {
+                    Step::UsdgPrepare { index }
+                } else {
+                    Step::FusionPermit { index }
+                });
             }
             (Step::FusionPermit { index }, None) => {
                 if !self.can_sign(now) {
@@ -1742,6 +1875,96 @@ impl Engine {
                     self.go(Step::FusionBalance { index });
                 }
             }
+            (Step::UsdgPrepare { index }, None) => {
+                if rpc_quantity(&value, 0)? != U256::from(ROBINHOOD_CHAIN_ID)
+                    || rpc_result(&value, 6)?.as_str() != Some("0x")
+                {
+                    return Err(SignerError::InvalidInput);
+                }
+                let amount = self.m.data.orders[index].amount;
+                if rpc_quantity(&value, 2)?.is_zero() {
+                    self.m.paused = Some(format!("USDG_RETURN_GAS_REQUIRED_{}", index + 1));
+                    return Ok(());
+                }
+                if rpc_uint(&value, 5)? < amount {
+                    self.m.paused = Some("USDG_BALANCE_CHANGED".into());
+                    return Ok(());
+                }
+                let quote = self.m.data.orders[index]
+                    .inbound
+                    .as_ref()
+                    .ok_or(SignerError::InvalidInput)?;
+                let transfer = ReturnTransfer::prepare(
+                    self.holder(index),
+                    evm::addr(&quote.deposit_address)?,
+                    amount,
+                    rpc_quantity(&value, 1)?,
+                    rpc_quantity(&value, 3)?,
+                    rpc_quantity(&value, 4)?,
+                )?;
+                if rpc_quantity(&value, 2)? < transfer.fee() {
+                    self.m.paused = Some(format!("USDG_RETURN_GAS_REQUIRED_{}", index + 1));
+                    return Ok(());
+                }
+                self.m.reapproval = Some(format!(
+                    "RETURN USDG · ROBINHOOD CHAIN 4663\n\nWallet {}\nSend {} USDG to Aurora deposit {}\nAt least {} private USDC; a separate review confirms the final Monad payout.\nMaximum transaction fee {} ETH. This is paid from this wallet's ETH, not USDG.\nNonce {}. No 1inch order. This transfer cannot be undone after submission.",
+                    transfer.from.to_checksum(None),
+                    usdc(amount),
+                    transfer.to.to_checksum(None),
+                    usdc(quote.min_amount_out),
+                    units(transfer.fee(), 18),
+                    transfer.nonce
+                ));
+                self.m.data.usdg_returns[index] = Some(transfer);
+            }
+            (Step::UsdgSubmit { index }, _) => {
+                // A lost response or RPC rejection is uncertain: reconcile the saved hash.
+                self.go(Step::UsdgReceipt { index, polls: 0 });
+                self.wait(now, POLL_MS);
+            }
+            (Step::UsdgReceipt { index, polls }, None) => {
+                let receipt = rpc_result(&value, 0)?;
+                if receipt.is_null() {
+                    let deadline = self.m.data.orders[index]
+                        .inbound
+                        .as_ref()
+                        .ok_or(SignerError::InvalidInput)?
+                        .deadline_ms;
+                    let transfer = self.m.data.usdg_returns[index]
+                        .as_mut()
+                        .ok_or(SignerError::InvalidInput)?;
+                    if std::mem::take(&mut transfer.retry_broadcast)
+                        && now + QUOTE_MARGIN_MS < deadline
+                    {
+                        self.go(Step::UsdgSubmit { index });
+                        return Ok(());
+                    }
+                    // Never create a new transaction/nonce after a possibly submitted transfer.
+                    if polls >= RESUBMIT_AFTER_POLLS {
+                        self.m.paused = Some("USDG_RETURN_PENDING".into());
+                    } else {
+                        self.m.step = Step::UsdgReceipt {
+                            index,
+                            polls: polls + 1,
+                        };
+                    }
+                    self.wait(now, POLL_MS);
+                    return Ok(());
+                }
+                let transfer = self.m.data.usdg_returns[index]
+                    .as_ref()
+                    .ok_or(SignerError::InvalidInput)?;
+                if !transfer.check_receipt(receipt)? {
+                    self.m.paused = Some("USDG_RETURN_REVERTED".into());
+                    return Ok(());
+                }
+                self.m.data.leg = index;
+                self.m.data.funding_quote = self.m.data.orders[index].inbound.clone();
+                self.go(Step::Credit);
+            }
+            (Step::UsdgPrepare { .. } | Step::UsdgReceipt { .. }, Some(_)) => {
+                self.m.paused = Some("USDG_RETURN_UNAVAILABLE".into());
+            }
             (
                 Step::Assets | Step::TargetChain | Step::SourceChain { .. } | Step::Holdings,
                 Some(_),
@@ -1785,7 +2008,11 @@ impl Engine {
     fn after_order(&mut self, index: usize) {
         if self.sell() {
             match self.next_sell_index(index + 1) {
-                Some(next) => self.go(Step::FusionPreview { index: next }),
+                Some(next) => self.go(if self.bridge_only() {
+                    Step::SellQuote { index: next }
+                } else {
+                    Step::FusionPreview { index: next }
+                }),
                 None => self.go(Step::Done),
             }
         } else {
@@ -1809,6 +2036,7 @@ impl Engine {
                 resubmitted: true,
             },
             Step::FusionSubmit { index } => Step::FusionStatus { index },
+            Step::UsdgSubmit { index } => Step::UsdgReceipt { index, polls: 0 },
             other => other,
         };
     }
@@ -1820,6 +2048,9 @@ impl Engine {
     }
 
     fn review(&self) -> String {
+        if self.bridge_only() {
+            return self.review_bridge();
+        }
         if self.sell() {
             return self.review_sell();
         }
@@ -1861,6 +2092,43 @@ impl Engine {
             d.target_symbol,
             usdc(d.rate_amount),
         ));
+        out
+    }
+
+    fn review_bridge(&self) -> String {
+        let d = &self.m.data;
+        let mut out = if self.sell() {
+            "RETURN USDG TO MONAD USDC\nRobinhood USDG → confidential balance → fresh Monad USDC wallets. No token sale.\nEach non-empty holder needs ETH on Robinhood for gas. Each transfer and final payout receives a separate review.\n".to_string()
+        } else {
+            format!(
+                "BRIDGE TO ROBINHOOD USDG\n{} → confidential balance → Robinhood USDG. No 1inch purchase.\nFunding {} USDC; gas at most {} USDC.\n",
+                if self.payout_only() {
+                    "Existing private USDC"
+                } else {
+                    "Monad USDC"
+                },
+                usdc(d.funding_amount),
+                usdc(d.funding_fee)
+            )
+        };
+        for i in 0..3 {
+            if self.sell() {
+                out.push_str(&format!(
+                    "\nHolder {}: {} USDG. Return wallet {}.\n",
+                    self.m.holders[i].to_checksum(None),
+                    usdc(d.orders[i].amount),
+                    self.m.recipients[i].to_checksum(None)
+                ));
+            } else if let Some((portion, min)) = d.estimates.get(i) {
+                out.push_str(&format!(
+                    "\nWallet {}: {} private USDC → at least {} USDG.\n",
+                    self.m.recipients[i].to_checksum(None),
+                    usdc(*portion),
+                    usdc(*min)
+                ));
+            }
+        }
+        out.push_str("\nUSDG is held across three public wallets, shown together in Token holdings. Returning USDG requires ETH in each funded Robinhood wallet; gas is not sponsored. Quotes may change and require another review. Gateway timing can link the transfers. Approval lasts 15 minutes; the operation expires in 24 hours. Submitted transfers cannot be undone.");
         out
     }
 
@@ -1957,10 +2225,15 @@ impl Engine {
                 Step::Credit => "FUNDING",
                 Step::AuthSalt | Step::Authenticate { .. } | Step::Balances => "CREDITED",
                 Step::PayoutQuote { .. }
+                | Step::PayoutBaseline { .. }
                 | Step::PayoutIntent { .. }
                 | Step::PayoutSubmit { .. }
                 | Step::PayoutStatus { .. }
                 | Step::PayoutBalance { .. } => "PAYOUTS",
+                Step::UsdgPrepare { .. }
+                | Step::UsdgSign { .. }
+                | Step::UsdgSubmit { .. }
+                | Step::UsdgReceipt { .. } => "FUNDING",
                 Step::Done => "COMPLETE",
                 _ => "FUSION",
             }
@@ -1975,7 +2248,10 @@ impl Engine {
             "sourceAtoms": d.funding_amount.to_string(),
             "creditedAtoms": d.available.to_string(),
             "payoutsSubmitted": d.payouts.iter().filter(|p| p.signed.is_some()).count(),
-            "ordersComplete": d.orders.iter().filter(|o| o.complete).count(),
+            "bridgeOnly": self.bridge_only(),
+            "deliveriesComplete": d.payouts.iter().filter(|p| !p.delivered.is_zero()).count(),
+            "gasFundingAddresses": if self.bridge_only() && self.sell() { self.m.holders.iter().map(|a| a.to_checksum(None)).collect::<Vec<_>>() } else { vec![] },
+            "ordersComplete": if self.bridge_only() { 0 } else { d.orders.iter().filter(|o| o.complete).count() },
             "receivedTargetAtoms": d.orders.iter().fold(U256::ZERO, |sum, o| sum + o.received_total).to_string(),
             "direction": if self.sell() { "sell" } else { "buy" },
             // After approval funds may be in flight: the UI must pause, never cancel, on leave.
@@ -2171,6 +2447,10 @@ impl SwapOperation {
         if e.m.reapproval.take().is_some() {
             // Continue with exactly the quote that was shown; a later requote is checked again.
             e.m.step = match e.m.step.clone() {
+                Step::UsdgPrepare { index } => Step::UsdgSign { index },
+                Step::PayoutQuote { index } if e.bridge_only() && !e.sell() => {
+                    Step::PayoutBaseline { index }
+                }
                 Step::PayoutQuote { index } => Step::PayoutIntent { index },
                 Step::FusionPreview { index } if e.sell() => Step::SellQuote { index },
                 Step::FusionPreview { index } => Step::FusionPermit { index },
@@ -2224,6 +2504,14 @@ impl SwapOperation {
         if let Ok(mut e) = self.inner.lock()
             && !e.m.cancelled
         {
+            if e.m.paused.as_deref() == Some("USDG_RETURN_PENDING")
+                && let Step::UsdgReceipt { index, .. } = e.m.step
+            {
+                if let Some(transfer) = e.m.data.usdg_returns[index].as_mut() {
+                    transfer.retry_broadcast = true;
+                }
+                e.m.step = Step::UsdgReceipt { index, polls: 0 };
+            }
             e.m.paused = None;
             e.m.failures = 0;
             e.m.wait_until_ms = 0;
@@ -2244,7 +2532,7 @@ impl SwapOperation {
         serde_json::to_string(&e.m).map_err(|_| SignerError::CryptoFailed)
     }
 
-    /// Public phase status for JS: no addresses, hashes or signed data.
+    /// Public phase status for JS, including gas-funding addresses when required; no signed data.
     pub fn public_status(&self) -> String {
         self.inner
             .lock()
