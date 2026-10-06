@@ -59,14 +59,11 @@ class GizuStoredSignerModule : Module() {
     )
   }
 
-  private suspend fun confirm(activity: Activity, create: Boolean) =
+  private suspend fun confirmCreation(activity: Activity) =
     confirm(
       activity,
-      if (create) "Create Gizu wallet" else "Open Gizu wallet",
-      if (create)
-        "Create a passkey and a new wallet stored encrypted on this phone. A verified backup is required before this wallet can be used."
-      else
-        "Confirm your passkey to open this wallet and refresh its public and confidential balances. Balance providers receive the account being checked. This does not authorize transfers.",
+      "Create Gizu wallet",
+      "Create a passkey and a new wallet stored encrypted on this phone. A verified backup is required before this wallet can be used.",
     )
 
   private suspend fun confirm(
@@ -264,7 +261,6 @@ class GizuStoredSignerModule : Module() {
         if (state["status"] == "absent" || state["status"] == "recoveryRequired") state
         else {
           val identity = withContext(Dispatchers.IO) { store.load().use { it.id to it.credential } }
-          confirm(activity, false)
           withProviderUi(activity) {
             PasskeyGate(activity).authorize(identity.second, identity.first)
           }
@@ -2171,7 +2167,7 @@ class GizuStoredSignerModule : Module() {
 
   private suspend fun createWallet(activity: Activity, store: WalletStore): Map<String, Any> {
     check(withContext(Dispatchers.IO) { !store.exists() })
-    confirm(activity, true)
+    confirmCreation(activity)
     val credential = withProviderUi(activity) { PasskeyGate(activity).register() }
     currentCoroutineContext().ensureActive()
     // No entropy is generated or held during the system credential ceremony.
