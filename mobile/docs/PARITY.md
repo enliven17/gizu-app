@@ -232,3 +232,25 @@ virtualized token list. Review swap sits directly below the selection and stays 
 until the existing amount/target validation passes. The funding address remains on
 Receive. Progress uses plain-language headings with expandable Swap details; resume,
 cancel eligibility, recovery, native review and passkey approval are unchanged.
+
+The Swap token picker browses the full backend catalog by Ethereum, Monad or Robinhood
+network, across all categories with debounced server search and paginated infinite
+scrolling. Identity is chain ID plus normalized contract address. Ethereum/Monad and
+unlisted tokens are visible but cannot be selected for execution; the current native
+swap route still targets Robinhood. Catalog listing does not guarantee a quote.
+
+Home's Tokens and vault positions section starts collapsed. Cards, per-asset loading
+messages and valuation details render only after expansion. The shared native portfolio
+request still refreshes these balances alongside USDC; this is a display change, not
+lazy network loading.
+
+Android login opens the system passkey prompt directly, without the extra Open Gizu
+wallet confirmation. Wallet creation, backup, recovery and transaction approvals remain
+unchanged. Native changes require rebuilding the installed development client.
+
+Settings always displays the full Wallet backup section, including instructions, steps
+and Save and verify wallet backup. There is no collapse control.
+
+Returning to Home reuses the current USDC and token-holdings snapshots instead of
+refreshing on tab focus. Initial loading, manual refresh and the shared portfolio's
+app-foreground refresh remain available.
