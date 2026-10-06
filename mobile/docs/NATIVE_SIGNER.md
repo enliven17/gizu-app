@@ -474,3 +474,31 @@ Install the resulting debug APK using the normal local device workflow. Rebuild 
 `EXPO_PUBLIC_API_URL` to the same hosted HTTPS base. Backend provider credentials stay
 in the ignored backend environment file; never put them in Expo public configuration.
 The USB option is a local transport choice and does not make preview or signing automatic.
+
+## USDG-only swap policy
+
+The shared Rust swap engine recognizes USDG by the pinned Robinhood contract and
+requires six decimals. Existing plan kinds and FFI methods are retained. Buys
+skip Fusion, persist a pre-submission USDG balance for each recipient, and finish
+only after Aurora success and the expected balance increase. USDG orders are
+never reported as Fusion fills. Holdings use the existing account-scoped stores.
+
+USDG sells reuse the return-account allocation and Aurora credit/payout states.
+`swap/usdg_return.rs` constructs only zero-value EIP-1559 calls to USDG's
+`transfer(quotedDeposit, exactAmount)` on chain 4663. An exact native review is
+required for each deposit; gas estimates/prices are bounded, and holder ETH must
+cover the reviewed cap. This does not authorize a generic token transfer. Gas
+sponsorship is not implemented. A deposit review that exceeds the quote's safety
+margin is replaced with a fresh quote/review before signing.
+
+Raw bytes and hash are persisted in the encrypted journal before RPC submission.
+Lost acknowledgements transition to receipt lookup, never fresh signing. Receipt
+validation binds the hash, sender, token contract and exact Transfer log; Aurora
+credit and the final Monad balance are checked separately. Missing receipts pause;
+explicit retry reconciles first and can resend the same bytes while the deposit
+quote is valid. Reverted or expired uncertain transfers are not automatically
+replaced. Extra serialized fields default safely for older saved swap states;
+old native binaries cannot resume new USDG-return step variants.
+
+Swift/Kotlin forward public bridge/delivery/gas-wallet status; transaction bytes
+and keys never cross to JavaScript. A native rebuild is required on both platforms.

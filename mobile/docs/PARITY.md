@@ -264,3 +264,30 @@ drops waiting requests while native code owns active system-prompt cancellation.
 Swap/transfer cancellation bypasses the queue and holds new work until cancellation
 and the active call settle. This prevents UI reads from racing user actions for
 the native ceremony lock; it does not add parallel transaction execution.
+
+## USDG bridge-only transfers
+
+Selecting the pinned Robinhood USDG contract ends a buy after three confirmed
+USDG deliveries. It does not request a Fusion quote, permit or order. Review shows
+source funding fees and each destination's minimum USDG amount. Changed quotes
+still require approval. Android's multiple-source funding batches measure each
+new payout against its recipient's prior USDG balance to avoid double-counting.
+
+USDG is tracked by the existing encrypted holdings store on both platforms and
+read from allocated recipient accounts. Home's Holdings tools can check USDG
+without a catalog listing; an absent 1inch listing does not disable this bridge.
+Ethereum/Monad catalog tokens remain browse-only. The legacy “finish unfinished
+buys” action is hidden for USDG; explicit USDG discovery does not trade it.
+
+Return to Monad uses exact USDG transfers into Aurora, then confidential USDC
+payouts to fresh Monad recipients, with no token sale. Each funded Robinhood
+holder requires ETH for gas; no gas sponsorship or automatic ETH funding is
+provided. Missing gas pauses before the initial approval. Each deposit has a
+separate native review binding amount, recipient, nonce, and maximum ETH fee
+(capped at 0.001 ETH per deposit), followed by a review of the final Monad payout.
+An interrupted deposit reconciles the saved hash. Explicit retry may rebroadcast
+identical signed bytes only after a missing receipt and before quote expiry.
+
+Provider quote availability is independent of this feature. The observed Aurora
+Monad route rejection still blocks funded acceptance; passing scripted tests is
+not evidence of a live completed bridge. No funds are transferred by tests.
