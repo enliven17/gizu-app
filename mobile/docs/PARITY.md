@@ -254,3 +254,13 @@ and Save and verify wallet backup. There is no collapse control.
 Returning to Home reuses the current USDC and token-holdings snapshots instead of
 refreshing on tab focus. Initial loading, manual refresh and the shared portfolio's
 app-foreground refresh remain available.
+
+Wallet bridge calls on iOS and Android now share one admission queue. Identical
+in-flight wallet-state, funding-address, portfolio, holdings and swap-status reads
+share a result. Explicit actions run before waiting reads; native signing and
+journal/cache mutations remain serialized. Transactions are never retried by the
+queue. Lock/disconnect invalidates pending work and late results; backgrounding
+drops waiting requests while native code owns active system-prompt cancellation.
+Swap/transfer cancellation bypasses the queue and holds new work until cancellation
+and the active call settle. This prevents UI reads from racing user actions for
+the native ceremony lock; it does not add parallel transaction execution.

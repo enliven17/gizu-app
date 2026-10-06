@@ -1,7 +1,8 @@
 import { requireOptionalNativeModule } from "expo";
 import type { StoredWalletBridge } from "./storedAccess";
 import type { StoredSignerContract, StoredSignerCapabilities } from "@/domain/wallet/storedSigner";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
+import { NativeCallQueue } from "./nativeCallQueue";
 
 let authorizationGeneration = 0;
 
@@ -11,11 +12,49 @@ function supportedPlatform() {
     (Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 18)
   );
 }
+const calls = new NativeCallQueue();
+const wrapped = new WeakMap<StoredSignerContract, StoredSignerContract>();
+let observingLifecycle = false;
+const coalescedReads = new Set([
+  "getWalletState",
+  "getSwapDeposit",
+  "getMainnetPortfolio",
+  "getSwapHoldings",
+  "getSwapStatus",
+]);
 function nativeModule(): StoredSignerContract | null {
-  // Both platforms report feature eligibility from the native binary in every build.
-  return supportedPlatform()
+  const native = supportedPlatform()
     ? requireOptionalNativeModule<StoredSignerContract>("GizuStoredSigner")
     : null;
+  if (!native) return null;
+  if (!observingLifecycle) {
+    observingLifecycle = true;
+    AppState.addEventListener("change", (state) => {
+      if (state !== "active") calls.cancelPending();
+    });
+  }
+  const previous = wrapped.get(native);
+  if (previous) return previous;
+  // Keep native storage and signing locks intact. All adapters share this admission queue.
+  const adapter = new Proxy(native, {
+    get(target, property) {
+      const value = Reflect.get(target, property);
+      if (typeof value !== "function" || typeof property !== "string") return value;
+      if (property === "getCapabilities") return value.bind(target);
+      if (property === "lock") return () => calls.lock(() => value.call(target));
+      return (...args: unknown[]) => {
+        const work = () => value.apply(target, args);
+        if (property === "cancelSwap" || property === "cancelOperation")
+          return calls.interrupt(work);
+        const readKey = coalescedReads.has(property)
+          ? JSON.stringify([property, ...args])
+          : undefined;
+        return calls.run(work, readKey);
+      };
+    },
+  });
+  wrapped.set(native, adapter);
+  return adapter;
 }
 export async function getSignerCapabilities(): Promise<StoredSignerCapabilities> {
   const unavailable: StoredSignerCapabilities = {
@@ -77,17 +116,9 @@ async function checked(
   if (value.contractVersion !== 1 || value.available !== true || value[capability] !== true)
     throw new WalletUnavailableError();
 }
-// Native read ceremonies share one store lock. Queue background and screen reads, never signing.
-let readTail: Promise<unknown> = Promise.resolve();
+// Scheduling occurs at the native boundary so reads also coordinate with user actions.
 function readNative<T>(work: () => Promise<T>): Promise<T> {
-  const generation = authorizationGeneration;
-  const run = () => {
-    if (generation !== authorizationGeneration) throw new Error("Wallet operation cancelled.");
-    return work();
-  };
-  const result = readTail.then(run, run);
-  readTail = result.catch(() => undefined);
-  return result;
+  return work();
 }
 export function getStoredSigner(): StoredWalletBridge | null {
   const native = nativeModule();
