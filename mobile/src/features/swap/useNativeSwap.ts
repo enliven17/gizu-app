@@ -2,6 +2,8 @@ import type { CatalogToken } from "@/domain/tokenCatalog";
 import { useCallback, useEffect, useState } from "react";
 import {
   loadSwapTokens,
+  canReceiveToken,
+  isUsdg,
   parseSwapView,
   sourceAtoms,
   SWAP_RECOVERY_ENABLED,
@@ -86,7 +88,7 @@ export function useNativeSwap() {
     target,
     setTarget,
     selectToken: (token: CatalogToken) => {
-      if (token.chainId !== 4663 || !token.swapListed || busy) return;
+      if (!canReceiveToken(token) || busy) return;
       setTokens((current) =>
         current.some((item) => item.address === token.address) ? current : [...current, token],
       );
@@ -128,6 +130,7 @@ export function useNativeSwap() {
     // Temporary recovery: no active operation to resume, and a token chosen for the leftover USDG.
     canRecover:
       SWAP_RECOVERY_ENABLED &&
+      !isUsdg(target) &&
       (status === null || status.phase === "CANCELLED" || status.phase === "COMPLETE") &&
       /^0x[0-9a-fA-F]{40}$/.test(target) &&
       !busy,

@@ -167,3 +167,71 @@ test("a native HTTP failure shows actionable guidance instead of a bare code", a
   ).toBeVisible();
   expect(screen.queryByText("HTTP")).toBeNull();
 });
+
+test("USDG can be selected without a 1inch listing and starts a bridge with no recovery purchase", async () => {
+  const usdg = "0x5fc5360d0400a0fd4f2af552add042d716f1d168";
+  jest.mocked(tokenCatalogService.list).mockImplementation(async (query) => ({
+    list: [
+      {
+        ...catalogToken,
+        chainId: 4663,
+        address: usdg,
+        symbol: "USDG",
+        name: "Global Dollar",
+        decimals: 6,
+        swapListed: false,
+      },
+    ],
+    total: 1,
+    items: 20,
+    page: query.page,
+  }));
+  start.mockResolvedValue({
+    ...status,
+    phase: "COMPLETE",
+    bridgeOnly: true,
+    targetSymbol: "USDG",
+    deliveriesComplete: 3,
+    ordersComplete: 0,
+    receivedTargetAtoms: "1900000",
+  });
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  await screen.findByText("COIN");
+  fireEvent.press(screen.getByRole("button", { name: "Choose receive token" }));
+  const choice = await screen.findByRole("radio", { name: "USDG · Global Dollar" });
+  expect(choice).toBeEnabled();
+  fireEvent.press(choice);
+  expect(screen.queryByRole("button", { name: /Finish unfinished buys as USDG/ })).toBeNull();
+  expect(screen.getByText(/Returning it requires ETH/)).toBeVisible();
+  fireEvent.changeText(screen.getByLabelText("Amount in USDC"), "2");
+  fireEvent.press(screen.getByRole("button", { name: "Review bridge" }));
+  await waitFor(() => expect(start).toHaveBeenCalledWith(usdg, "2000000", expect.any(String)));
+  expect(await screen.findByText("Bridge completed")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Return to Monad USDC" })).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Swap details" }));
+  expect(screen.getByText("Deliveries 3/3")).toBeVisible();
+  expect(screen.queryByText(/orders 0/)).toBeNull();
+});
+
+test("a return missing gas identifies Robinhood and the receiving wallets", async () => {
+  readStatus.mockResolvedValue({
+    ...status,
+    phase: "PAUSED",
+    bridgeOnly: true,
+    direction: "sell",
+    pausedCode: "USDG_RETURN_GAS_REQUIRED_1",
+    gasFundingAddresses: [status.fundingAddress],
+  });
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  expect(await screen.findByText(/Returning USDG requires ETH for gas on Robinhood/)).toBeVisible();
+  expect(screen.getByText(new RegExp(status.fundingAddress))).toBeVisible();
+  expect(screen.getByRole("button", { name: "Cancel swap" })).toBeVisible();
+});

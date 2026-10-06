@@ -210,3 +210,34 @@ test("token search failure retries the catalog without signing", async () => {
     global.fetch = original;
   }
 });
+
+test("USDG holdings persist across remounts and offer a reviewed return instead of a sale", async () => {
+  const usdg = "0x5fc5360d0400a0fd4f2af552add042d716f1d168";
+  const holding = {
+    ...snapshot.holdings[0],
+    token: usdg,
+    symbol: "USDG",
+    batches: [{ id: `${usdg}:6`, balanceAtoms: "1234500" }],
+  };
+  read.mockResolvedValue({ ...snapshot, holdings: [holding] });
+  const view = open();
+  expect(await screen.findByText("1.2345 USDG")).toBeVisible();
+  view.unmount();
+  open();
+  fireEvent.press(await screen.findByRole("button", { name: "USDG holding details" }));
+  expect(screen.getByText(/Returning USDG requires ETH/)).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Return USDG back to Monad USDC" }));
+  await act(async () => {});
+  expect(sell).toHaveBeenCalledTimes(1);
+  expect(sell).toHaveBeenCalledWith(`${usdg}:6`, expect.any(String));
+});
+
+test("USDG discovery reads the pinned token even without a token catalog listing", async () => {
+  open();
+  await screen.findByText("1.2345 GOOGL");
+  showTools();
+  fireEvent.press(screen.getByRole("button", { name: "Check USDG holdings" }));
+  await act(async () => {});
+  expect(read).toHaveBeenLastCalledWith("0x5fc5360d0400a0fd4f2af552add042d716f1d168");
+  expect(sell).not.toHaveBeenCalled();
+});

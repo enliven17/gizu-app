@@ -8,7 +8,7 @@ import { InfiniteListScreen } from "@/components/templates/InfiniteListScreen";
 import { Choice } from "@/components/molecules/Choice";
 import { tokenIdentity, tokenNetworks, type CatalogToken } from "@/domain/tokenCatalog";
 import { useTokenCatalog } from "./useTokenCatalog";
-import type { ListedToken } from "./confidentialSwap";
+import { canReceiveToken, isUsdg, type ListedToken } from "./confidentialSwap";
 
 export function SwapTokenPicker({
   tokens,
@@ -118,7 +118,7 @@ function TokenChoices({
         </>
       }
       renderItem={(item) => {
-        const selectable = item.chainId === 4663 && item.swapListed;
+        const selectable = canReceiveToken(item);
         const checked =
           item.chainId === 4663 && item.address.toLowerCase() === target.toLowerCase();
         return (
@@ -138,7 +138,11 @@ function TokenChoices({
             <Typography variant="micro">{item.name}</Typography>
             <Typography variant="micro">
               {tokenNetworks.find((network) => network.chainId === item.chainId)?.name}
-              {!selectable ? " · Not available for swaps" : ""}
+              {!selectable
+                ? " · Not available for swaps"
+                : isUsdg(item.address)
+                  ? " · Bridge only"
+                  : ""}
             </Typography>
           </PressableScale>
         );

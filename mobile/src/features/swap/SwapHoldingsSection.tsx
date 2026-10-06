@@ -1,3 +1,4 @@
+import { isUsdg, ROBINHOOD_USDG } from "./confidentialSwap";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Button } from "@/components/atoms/Button";
@@ -104,8 +105,14 @@ export function SwapHoldingsSection({
                   Balance found, but no complete receiving-wallet group is available to sell.
                 </Typography>
               ) : null}
+              {isUsdg(holding.token) ? (
+                <Typography variant="micro">
+                  Returning USDG requires ETH for gas in each funded Robinhood wallet. Native review
+                  shows the exact transfers and fees.
+                </Typography>
+              ) : null}
               <Button
-                label={`Sell ${holding.symbol} back to Monad USDC`}
+                label={`${isUsdg(holding.token) ? "Return" : "Sell"} ${holding.symbol} back to Monad USDC`}
                 disabled={
                   holdings.busy ||
                   !!holdings.error ||
@@ -143,6 +150,12 @@ export function SwapHoldingsSection({
           variant="secondary"
           disabled={holdings.busy}
           onPress={() => void holdings.refresh()}
+        />
+        <Button
+          label="Check USDG holdings"
+          variant="quiet"
+          disabled={holdings.busy}
+          onPress={() => void holdings.refresh(ROBINHOOD_USDG)}
         />
         <Button
           label="Find an earlier purchase"

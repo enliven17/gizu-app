@@ -13,6 +13,11 @@ export const MAX_SOURCE_ATOMS = (1n << 64n) - 1n;
  * holding USDG. Remove once operations keep their own leg history and cannot be replaced
  * while a leg is unfinished.
  */
+export const ROBINHOOD_USDG = "0x5fc5360d0400a0fd4f2af552add042d716f1d168";
+export const isUsdg = (address: string) => address.toLowerCase() === ROBINHOOD_USDG;
+export const canReceiveToken = (token: { chainId: number; address: string; swapListed: boolean }) =>
+  token.chainId === 4663 && (isUsdg(token.address) || token.swapListed);
+
 export const SWAP_RECOVERY_ENABLED = true;
 
 export type ListedToken = {
@@ -49,6 +54,11 @@ export function parseSwapView(value: unknown): StoredSwapView {
     sourceAtoms: typeof view.sourceAtoms === "string" ? view.sourceAtoms : "",
     creditedAtoms: typeof view.creditedAtoms === "string" ? view.creditedAtoms : "",
     payoutsSubmitted: typeof view.payoutsSubmitted === "number" ? view.payoutsSubmitted : 0,
+    bridgeOnly: view.bridgeOnly === true,
+    deliveriesComplete: typeof view.deliveriesComplete === "number" ? view.deliveriesComplete : 0,
+    gasFundingAddresses: Array.isArray(view.gasFundingAddresses)
+      ? view.gasFundingAddresses.filter((item): item is string => typeof item === "string")
+      : [],
     ordersComplete: typeof view.ordersComplete === "number" ? view.ordersComplete : 0,
     receivedTargetAtoms:
       typeof view.receivedTargetAtoms === "string" ? view.receivedTargetAtoms : "",

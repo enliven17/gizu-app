@@ -9,6 +9,7 @@ import { Surface } from "@/components/molecules/Surface";
 import { Screen } from "@/components/templates/Screen";
 import { formatSwapAmount } from "@/domain/swap";
 import colors from "@/theme/colors.json";
+import { isUsdg } from "./confidentialSwap";
 import { useNativeSwap } from "./useNativeSwap";
 
 export function NativeSwapScreen() {
@@ -19,6 +20,9 @@ export function NativeSwapScreen() {
       ? formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))
       : null;
   const selected = swap.tokens.find((token) => token.address === swap.target);
+  const bridge = isUsdg(swap.target);
+  const statusBridge = swap.status?.bridgeOnly === true;
+  const operationLabel = statusBridge ? "Bridge" : "Swap";
   const active =
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
   const refunded = swap.status?.phase === "PAUSED" && swap.status.pausedCode === "FUNDING_REFUNDED";
@@ -38,26 +42,34 @@ export function NativeSwapScreen() {
           <View className="gap-2 px-5 py-5">
             <Typography variant="section">
               {swap.status.phase === "COMPLETE"
-                ? "Swap completed"
+                ? `${operationLabel} completed`
                 : swap.status.phase === "CANCELLED"
-                  ? "Swap cancelled"
+                  ? `${operationLabel} cancelled`
                   : swap.status.phase === "PAUSED"
-                    ? "Swap paused"
-                    : "Swap in progress"}
+                    ? `${operationLabel} paused`
+                    : `${operationLabel} in progress`}
             </Typography>
             <Typography variant="caption">
-              {swap.status.direction === "sell" ? "Selling" : "Buying"}{" "}
+              {statusBridge
+                ? swap.status.direction === "sell"
+                  ? "Returning"
+                  : "Receiving"
+                : swap.status.direction === "sell"
+                  ? "Selling"
+                  : "Buying"}{" "}
               {swap.status.targetSymbol || "tokens"}
             </Typography>
             <HoldingDetails label="Swap details" accessibilityLabel="Swap details">
               <Typography variant="micro">{swap.status.phase}</Typography>
               <Typography variant="micro">
-                {swap.status.direction === "sell" ? "Sell" : "Buy"} ·{" "}
+                {statusBridge ? "Bridge" : swap.status.direction === "sell" ? "Sell" : "Buy"} ·{" "}
                 {swap.status.targetSymbol || "Target"} · step {swap.status.step || "—"}
                 {swap.status.pausedCode ? ` · ${swap.status.pausedCode}` : ""}
               </Typography>
               <Typography variant="micro">
-                Payouts {swap.status.payoutsSubmitted} · orders {swap.status.ordersComplete}
+                {statusBridge
+                  ? `Deliveries ${swap.status.deliveriesComplete ?? 0}/3`
+                  : `Payouts ${swap.status.payoutsSubmitted} · orders ${swap.status.ordersComplete}`}
               </Typography>
               {/^[1-9]\d*$/.test(swap.status.creditedAtoms) ? (
                 <Typography variant="micro">
@@ -73,6 +85,13 @@ export function NativeSwapScreen() {
             </HoldingDetails>
           </View>
         </Surface>
+      ) : null}
+      {swap.status?.pausedCode?.startsWith("USDG_RETURN_GAS_REQUIRED_") ? (
+        <Notice
+          message={`Returning USDG requires ETH for gas on Robinhood. Receiving wallet ${swap.status.pausedCode.split("_").at(-1)} needs gas. Resume after funding it on Robinhood.
+${swap.status.gasFundingAddresses?.join("\n") ?? ""}`}
+          error
+        />
       ) : null}
       {swap.canSell ? (
         <Typography variant="micro">
@@ -119,8 +138,14 @@ export function NativeSwapScreen() {
             disabled={swap.busy}
             onSelect={swap.selectToken}
           />
+          {bridge ? (
+            <Typography variant="micro">
+              Receive USDG on Robinhood across three wallets, with no token purchase. Returning it
+              requires ETH for gas in each wallet.
+            </Typography>
+          ) : null}
           <Button
-            label={swap.busy ? "Working" : "Review swap"}
+            label={swap.busy ? "Working" : bridge ? "Review bridge" : "Review swap"}
             onPress={swap.start}
             disabled={!swap.canStart}
           />
@@ -162,7 +187,9 @@ export function NativeSwapScreen() {
           {swap.canPayout ? (
             <Button
               label={
-                swap.busy ? "Working" : `Buy ${selected?.symbol ?? "token"} with private balance`
+                swap.busy
+                  ? "Working"
+                  : `${bridge ? "Bridge to" : "Buy"} ${selected?.symbol ?? "token"} with private balance`
               }
               onPress={swap.payout}
               disabled={swap.busy}
@@ -170,7 +197,13 @@ export function NativeSwapScreen() {
           ) : null}
           {swap.canSell ? (
             <Button
-              label={swap.busy ? "Working" : "Sell back to Monad USDC"}
+              label={
+                swap.busy
+                  ? "Working"
+                  : statusBridge
+                    ? "Return to Monad USDC"
+                    : "Sell back to Monad USDC"
+              }
               onPress={swap.sell}
               disabled={swap.busy}
             />
