@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useFocusEffect } from "@react-navigation/native";
 import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
 import { loadSwapTokens, swapGateway, swapSigner, type ListedToken } from "./confidentialSwap";
 
@@ -48,11 +47,15 @@ export function useSwapHoldings() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void refresh();
-    }, [refresh]),
-  );
+  useEffect(() => {
+    let mounted = true;
+    queueMicrotask(() => {
+      if (mounted) void refresh();
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [refresh]);
 
   const findTokens = async () => {
     if (running.current) return;

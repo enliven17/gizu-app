@@ -197,8 +197,10 @@ function OwnedBalances() {
   const { snapshot } = useMainnetWallet();
   if (!snapshot?.ownedAssets && !snapshot?.positions) return null;
   return (
-    <View className="gap-3">
-      <Typography variant="section">Tokens and vault positions</Typography>
+    <HoldingDetails
+      label="Tokens and vault positions"
+      accessibilityLabel="Tokens and vault positions"
+    >
       {snapshot.ownedBalanceComplete === false && (
         <Typography variant="micro">Checking owned token balances and positions…</Typography>
       )}
@@ -213,14 +215,14 @@ function OwnedBalances() {
       {snapshot.positions?.map((asset) => (
         <OwnedBalanceRow key={asset.assetId} asset={asset} position />
       ))}
-    </View>
+    </HoldingDetails>
   );
 }
 
 export function MainnetPortfolioScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParamList, "Home">) {
-  const wallet = usePortfolio();
+  const wallet = useMainnetWallet();
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
   return (
@@ -277,12 +279,12 @@ export function MainnetPortfolioScreen({
         </Surface>
       ) : null}
       {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
-      <OwnedBalances />
       <PortfolioActions
         onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}
         onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
         onActivity={() => root.navigate("Activity")}
       />
+      <OwnedBalances />
       <SwapHoldingsSection
         onReviewSale={() => navigation.navigate("Exchange")}
         emptyContent={

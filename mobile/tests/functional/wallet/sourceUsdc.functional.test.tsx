@@ -222,6 +222,12 @@ test("owned token amounts and vault underlying values remain distinct when marke
     valuationComplete: false,
   });
   await open();
+  expect(
+    await screen.findByRole("button", { name: "Tokens and vault positions", expanded: false }),
+  ).toBeVisible();
+  expect(screen.queryByText("0.5 WETH")).toBeNull();
+  expect(screen.queryByText("Checking owned token balances and positions…")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Tokens and vault positions" }));
   expect(await screen.findByText("0.5 WETH")).toBeVisible();
   expect(screen.getByText("Vault position")).toBeVisible();
   expect(screen.getByText("Estimated underlying: 2 USDC")).toBeVisible();
@@ -274,6 +280,9 @@ test("partial vault observations use underlying units and never relabel shares a
     ownedBalanceComplete: false,
   });
   await open();
+  fireEvent.press(
+    await screen.findByRole("button", { name: "Tokens and vault positions", expanded: false }),
+  );
   fireEvent.press(
     await screen.findByRole("button", { name: "USDC position details", expanded: false }),
   );
@@ -361,4 +370,21 @@ test("Swap Max fills the available USDC amount with exact decimal precision", as
   await userEvent.press(screen.getByLabelText("Swap tab"));
   await userEvent.press(await screen.findByRole("button", { name: "Use maximum USDC amount" }));
   expect(screen.getByLabelText("Amount in USDC")).toHaveProp("value", "19.990574");
+});
+
+test("returning to Home reuses balances without refreshing portfolio or token holdings", async () => {
+  const { portfolio } = setup();
+  await open();
+  await screen.findByLabelText("19.990574 USDC");
+  await screen.findByText("Confidential vaults");
+  const balanceReads = portfolio.getMainnetPortfolio.mock.calls.length;
+  const holdingReads = readHoldings.mock.calls.length;
+  await userEvent.press(screen.getByLabelText("Settings tab"));
+  await userEvent.press(screen.getByLabelText("Home tab"));
+  expect(await screen.findByLabelText("19.990574 USDC")).toBeVisible();
+  expect(portfolio.getMainnetPortfolio).toHaveBeenCalledTimes(balanceReads);
+  expect(readHoldings).toHaveBeenCalledTimes(holdingReads);
+  fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
+  await act(async () => {});
+  expect(portfolio.getMainnetPortfolio).toHaveBeenCalledTimes(balanceReads + 1);
 });
