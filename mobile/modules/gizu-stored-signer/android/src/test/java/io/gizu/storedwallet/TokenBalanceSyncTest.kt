@@ -26,6 +26,7 @@ class TokenBalanceSyncTest {
     var logReads = 0
     var dirty: String? = null
     var failure = false
+    var balance = "0x6acfc0"
 
     override suspend fun call(method: String, params: JSONArray): Any {
       check(!failure)
@@ -41,10 +42,15 @@ class TokenBalanceSyncTest {
             .put("hash", "0x" + "a".repeat(64))
         "eth_call" -> {
           reads++
-          if (params.getJSONObject(0).getString("data").endsWith("1")) "0x6acfc0" else "0x0"
+          if (params.getJSONObject(0).getString("data").endsWith("1")) balance else "0x0"
         }
         "eth_getLogs" -> {
           logReads++
+          val filter = params.getJSONObject(0)
+          check(
+            filter.getString("toBlock").removePrefix("0x").toLong(16) -
+              filter.getString("fromBlock").removePrefix("0x").toLong(16) + 1 <= 100
+          )
           JSONArray().also { result ->
             dirty?.let { address ->
               result.put(
@@ -103,6 +109,26 @@ class TokenBalanceSyncTest {
     TokenBalanceSync(file, { key }, "wallet", 143, TOKEN, rpc).read(listOf(a), 0)
     TokenBalanceSync(file, { key }, "wallet", 143, TOKEN, rpc).read(listOf(a, b), 1)
     assertEquals(2, rpc.reads)
+  }
+
+  @Test
+  fun longMonadGapRefreshesDepositsWithoutOversizedLogRequests() = runBlocking {
+    val rpc = Rpc()
+    val file = File()
+    val key = javax.crypto.KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+    val owner = "0x" + "0".repeat(39) + "1"
+    val sync = TokenBalanceSync(file, { key }, "wallet", 143, TOKEN, rpc)
+    sync.read(listOf(owner), 0)
+    rpc.block += 100
+    assertFalse(sync.read(listOf(owner), 31_000).stale)
+    assertEquals(2, rpc.logReads)
+    rpc.block += 4096
+    rpc.balance = "0x47bdb0"
+    val refreshed = sync.read(listOf(owner), 62_000)
+    assertEquals("4701616", refreshed.balances[owner])
+    assertFalse(refreshed.stale)
+    assertFalse(refreshed.syncPending)
+    assertEquals(2, rpc.logReads)
   }
 
   companion object {

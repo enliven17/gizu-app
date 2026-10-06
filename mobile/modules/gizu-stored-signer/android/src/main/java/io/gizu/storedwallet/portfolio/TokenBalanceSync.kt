@@ -246,10 +246,20 @@ internal class TokenBalanceSync(
             if (target > headNumber || canonical(target) != scan.getString("hash")) reconcile()
           }
       }
+      // Monad limits eth_getLogs to 100 blocks. After a longer absence, bounded
+      // balance reconciliation catches up directly instead of replaying a long history.
+      // This also replaces an oversized scan persisted by an earlier app version.
+      if (
+        chainId == 143L &&
+          !root.has("reconcile") &&
+          headNumber - quantity(root.getString("block")) > BigInteger.valueOf(100)
+      ) {
+        reconcile()
+      }
       if (!root.has("reconcile") && !root.has("scan")) {
         val from = quantity(root.getString("block"))
         if (headNumber > from) {
-          val to = headNumber.min(from + BigInteger.valueOf(4096))
+          val to = headNumber.min(from + BigInteger.valueOf(if (chainId == 143L) 100 else 4096))
           root.put(
             "scan",
             JSONObject()
