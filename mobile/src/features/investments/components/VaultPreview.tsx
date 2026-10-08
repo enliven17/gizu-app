@@ -6,6 +6,7 @@ import { useOpportunities } from "@/features/opportunities/useOpportunities";
 import { CatalogStatus } from "@/features/opportunities/components/CatalogStatus";
 import { OpportunityCard } from "@/features/opportunities/components/OpportunityCard";
 import { PagerButton } from "@/components/molecules/PagerButton";
+import { CardGridSkeleton } from "@/components/molecules/CardSkeleton";
 
 /** Frontend Home previews the first page at `items: 4`. */
 const PREVIEW_SIZE = 4;
@@ -44,7 +45,7 @@ export function VaultPreview({
         <SeeAll onPress={onSeeAll} />
       </View>
       {load.kind === "loading" && (
-        <CatalogStatus accessibilityLiveRegion="polite">Loading vaults…</CatalogStatus>
+        <CardGridSkeleton count={PREVIEW_SIZE} label="Loading vaults…" />
       )}
       {load.kind === "failed" && (
         <View className="items-center">

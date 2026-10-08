@@ -1,4 +1,6 @@
 import { ErrorNotice } from "@/components/molecules/ErrorNotice";
+import { Spinner } from "@/components/atoms/Spinner";
+import { CardGridSkeleton, RowListSkeleton } from "@/components/molecules/CardSkeleton";
 import { useEffect, useMemo, useRef, type ReactElement } from "react";
 import { FlatList, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
@@ -65,7 +67,11 @@ export function InfiniteListScreen<T>({
         ListHeaderComponent={<View className="gap-4 pb-4">{header}</View>}
         ListEmptyComponent={
           list.loading ? (
-            <Typography accessibilityLiveRegion="polite">Loading {noun}…</Typography>
+            layout === "list" ? (
+              <RowListSkeleton label={`Loading ${noun}…`} />
+            ) : (
+              <CardGridSkeleton label={`Loading ${noun}…`} />
+            )
           ) : !list.error && !list.refreshing ? (
             <Typography>{emptyMessage}</Typography>
           ) : null
@@ -96,7 +102,12 @@ export function InfiniteListScreen<T>({
               />
             )}
             {list.loadingMore && (
-              <Typography accessibilityLiveRegion="polite">Loading more…</Typography>
+              <View className="flex-row items-center justify-center gap-3 py-2">
+                <Spinner size="sm" />
+                <Typography variant="micro" accessibilityLiveRegion="polite">
+                  Loading more…
+                </Typography>
+              </View>
             )}
             {!list.loading &&
               !list.loadingMore &&
