@@ -1,5 +1,5 @@
 import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import colors from "@/theme/colors.json";
@@ -15,6 +15,7 @@ import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { Button } from "@/components/atoms/Button";
+import { Skeleton } from "@/components/atoms/Skeleton";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
 import { ErrorNotice } from "@/components/molecules/ErrorNotice";
@@ -155,67 +156,145 @@ function OwnedBalanceRow({
       : null
     : asset.observedAtoms;
   return (
-    <Surface>
-      <View className="gap-2 p-5">
-        <Typography variant="rowTitle">{asset.symbol}</Typography>
-        {position && <Typography variant="micro">Vault position</Typography>}
-        <Typography>
-          {asset.complete && amount !== null && asset.decimals !== null
-            ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
-            : `Checking ${asset.symbol} balance…`}
+    <View className="gap-2 rounded-2xl bg-well p-4">
+      <Typography variant="rowTitle">{asset.symbol}</Typography>
+      {position && <Typography variant="micro">Vault position</Typography>}
+      <Typography>
+        {asset.complete && amount !== null && asset.decimals !== null
+          ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
+          : `Checking ${asset.symbol} balance…`}
+      </Typography>
+      {asset.valueUsdcAtoms !== null && (
+        <Typography>Value: {holdingAmount(asset.valueUsdcAtoms, 6)} USDC</Typography>
+      )}
+      {asset.stale && <Typography variant="micro">Cached amount awaiting refresh.</Typography>}
+      <HoldingDetails
+        accessibilityLabel={`${asset.symbol} ${position ? "position" : "holding"} details`}
+      >
+        <Typography variant="micro">Chain {asset.chainId}</Typography>
+        <Typography variant="micro" selectable>
+          {asset.token}
         </Typography>
-        {asset.valueUsdcAtoms !== null && (
-          <Typography>Value: {holdingAmount(asset.valueUsdcAtoms, 6)} USDC</Typography>
-        )}
-        {asset.stale && <Typography variant="micro">Cached amount awaiting refresh.</Typography>}
-        <HoldingDetails
-          accessibilityLabel={`${asset.symbol} ${position ? "position" : "holding"} details`}
-        >
-          <Typography variant="micro">Chain {asset.chainId}</Typography>
-          <Typography variant="micro" selectable>
-            {asset.token}
-          </Typography>
-          {!asset.complete &&
-            typeof observedAmount === "string" &&
-            observedAmount !== "0" &&
-            asset.decimals !== null && (
-              <Typography variant="micro">
-                Previously observed: {holdingAmount(observedAmount, asset.decimals)} {asset.symbol}
-              </Typography>
-            )}
-          {asset.valueUsdcAtoms === null && (
+        {!asset.complete &&
+          typeof observedAmount === "string" &&
+          observedAmount !== "0" &&
+          asset.decimals !== null && (
             <Typography variant="micro">
-              {asset.valuationUnavailable ? "USDC value unavailable." : "Checking USDC value…"}
+              Previously observed: {holdingAmount(observedAmount, asset.decimals)} {asset.symbol}
             </Typography>
           )}
-        </HoldingDetails>
-      </View>
-    </Surface>
+        {asset.valueUsdcAtoms === null && (
+          <Typography variant="micro">
+            {asset.valuationUnavailable ? "USDC value unavailable." : "Checking USDC value…"}
+          </Typography>
+        )}
+      </HoldingDetails>
+    </View>
   );
 }
 function OwnedBalances() {
   const { snapshot } = useMainnetWallet();
   if (!snapshot?.ownedAssets && !snapshot?.positions) return null;
   return (
-    <HoldingDetails
-      label="Tokens and vault positions"
-      accessibilityLabel="Tokens and vault positions"
-    >
-      {snapshot.ownedBalanceComplete === false && (
-        <Typography variant="micro">Checking owned token balances and positions…</Typography>
-      )}
-      {snapshot.valuationComplete === false && (
-        <Typography variant="micro">
-          Some assets have no verified USDC value. Token amounts are shown separately.
-        </Typography>
-      )}
-      {snapshot.ownedAssets?.map((asset) => (
-        <OwnedBalanceRow key={asset.assetId} asset={asset} />
-      ))}
-      {snapshot.positions?.map((asset) => (
-        <OwnedBalanceRow key={asset.assetId} asset={asset} position />
-      ))}
-    </HoldingDetails>
+    <Surface>
+      <View className="px-5 py-2">
+        <HoldingDetails
+          label="Tokens and vault positions"
+          accessibilityLabel="Tokens and vault positions"
+        >
+          {snapshot.ownedBalanceComplete === false && (
+            <Typography variant="micro">Checking owned token balances and positions…</Typography>
+          )}
+          {snapshot.valuationComplete === false && (
+            <Typography variant="micro">
+              Some assets have no verified USDC value. Token amounts are shown separately.
+            </Typography>
+          )}
+          {snapshot.ownedAssets?.map((asset) => (
+            <OwnedBalanceRow key={asset.assetId} asset={asset} />
+          ))}
+          {snapshot.positions?.map((asset) => (
+            <OwnedBalanceRow key={asset.assetId} asset={asset} position />
+          ))}
+        </HoldingDetails>
+      </View>
+    </Surface>
+  );
+}
+
+function BalanceSkeleton() {
+  return (
+    <Surface>
+      <View
+        className="gap-4 p-5"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-10 w-2/3" />
+        <View className="flex-row gap-3">
+          <Skeleton className="h-14 flex-1 rounded-2xl" />
+          <Skeleton className="h-14 flex-1 rounded-2xl" />
+          <Skeleton className="h-14 w-14 rounded-2xl" />
+        </View>
+      </View>
+    </Surface>
+  );
+}
+
+function BalanceCard({
+  snapshot,
+  actions,
+}: {
+  snapshot: NonNullable<ReturnType<typeof useMainnetWallet>["snapshot"]>;
+  actions: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const total = holdingAmount(snapshot.totalAtoms, 6);
+  return (
+    <Surface>
+      <View className="gap-5 p-5">
+        <View className="gap-2">
+          <Typography variant="label11">Total balance</Typography>
+          <View className="flex-row items-center gap-3">
+            <Typography
+              variant="title"
+              className="flex-1 !text-[34px] ios:tracking-tight"
+              accessibilityLabel={`${total} USDC`}
+              style={{ fontVariant: ["tabular-nums"] }}
+            >
+              {total} USDC
+            </Typography>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Balance details"
+              accessibilityState={{ expanded }}
+              onPress={() => setExpanded((value) => !value)}
+              hitSlop={6}
+              className="h-9 w-9 items-center justify-center rounded-full bg-well"
+            >
+              {expanded ? (
+                <ChevronUp size={16} color={colors.fg["70"]} />
+              ) : (
+                <ChevronDown size={16} color={colors.fg["70"]} />
+              )}
+            </Pressable>
+          </View>
+        </View>
+        {expanded && (
+          <View className="gap-3 rounded-2xl bg-well p-4">
+            <Typography>Swap funding: {holdingAmount(snapshot.fundingAtoms, 6)} USDC</Typography>
+            <Typography>
+              Receiving wallets: {holdingAmount(snapshot.returnAtoms, 6)} USDC
+            </Typography>
+            <Typography variant="micro">
+              Last checked {new Date(snapshot.checkedAt).toLocaleTimeString()}
+            </Typography>
+          </View>
+        )}
+        {actions}
+      </View>
+    </Surface>
   );
 }
 
@@ -223,67 +302,34 @@ export function MainnetPortfolioScreen({
   navigation,
 }: BottomTabScreenProps<MainTabParamList, "Home">) {
   const wallet = useMainnetWallet();
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const root = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
+  const actions = (
+    <PortfolioActions
+      onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}
+      onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
+      onActivity={() => root.navigate("Activity")}
+    />
+  );
+  const ready = !!wallet.snapshot && wallet.snapshot.balanceComplete !== false;
   return (
     <Screen refreshing={wallet.loading} onRefresh={() => void wallet.refresh()}>
-      <View className="flex-row items-center gap-3">
+      <View className="flex-row items-center gap-3 pb-1">
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <GizuLogo width={28} height={38} />
+          <GizuLogo width={24} height={32} />
         </View>
-        <Typography variant="pageTitle" accessibilityRole="header" className="flex-1">
+        <Typography variant="pageTitle" accessibilityRole="header" className="flex-1 !text-[26px]">
           Your portfolio
         </Typography>
       </View>
       <BalanceStatus showRefresh={false} />
-      {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
-        <Surface>
-          <View className="gap-3 p-5">
-            <Typography variant="micro">USDC balance</Typography>
-            <View className="flex-row items-center gap-3">
-              <Typography
-                variant="title"
-                className="flex-1"
-                accessibilityLabel={`${holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC`}
-              >
-                {holdingAmount(wallet.snapshot.totalAtoms, 6)} USDC
-              </Typography>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Balance details"
-                accessibilityState={{ expanded: detailsExpanded }}
-                onPress={() => setDetailsExpanded((expanded) => !expanded)}
-                className="min-h-11 min-w-11 items-center justify-center"
-              >
-                {detailsExpanded ? (
-                  <ChevronUp size={18} color={colors.text} />
-                ) : (
-                  <ChevronDown size={18} color={colors.text} />
-                )}
-              </Pressable>
-            </View>
-            {detailsExpanded && (
-              <View className="gap-3">
-                <Typography>
-                  Swap funding: {holdingAmount(wallet.snapshot.fundingAtoms, 6)} USDC
-                </Typography>
-                <Typography>
-                  Receiving wallets: {holdingAmount(wallet.snapshot.returnAtoms, 6)} USDC
-                </Typography>
-                <Typography variant="micro">
-                  Last checked {new Date(wallet.snapshot.checkedAt).toLocaleTimeString()}
-                </Typography>
-              </View>
-            )}
-          </View>
-        </Surface>
-      ) : null}
+      {wallet.snapshot && ready ? (
+        <BalanceCard snapshot={wallet.snapshot} actions={actions} />
+      ) : wallet.loading || wallet.snapshot ? (
+        <BalanceSkeleton />
+      ) : (
+        actions
+      )}
       {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
-      <PortfolioActions
-        onDeposit={() => root.navigate("Transaction", { kind: "deposit" })}
-        onWithdraw={() => root.navigate("Transaction", { kind: "withdraw" })}
-        onActivity={() => root.navigate("Activity")}
-      />
       <OwnedBalances />
       <SwapHoldingsSection
         onReviewSale={() => navigation.navigate("Exchange")}
