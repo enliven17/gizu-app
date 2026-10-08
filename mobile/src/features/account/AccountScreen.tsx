@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { Fingerprint, ShieldCheck, Bell, Globe, FileText, LifeBuoy } from "lucide-react-native";
+import { Fingerprint, ShieldCheck, Bell, FileText, LifeBuoy } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -12,7 +12,6 @@ import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { useSession } from "@/application/SessionProvider";
 import { profileFixture as profile } from "@/services/fixtures/profile";
 import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
-import type { Preferences } from "@/domain/preferences";
 import { sectionDelay } from "@/theme/motion";
 import { AccountAddress } from "./AccountAddress";
 import { PreferenceFeedback } from "./PreferenceFeedback";
@@ -34,13 +33,6 @@ const groups: { title: string; rows: Row[] }[] = [
     ],
   },
   {
-    title: "Preferences",
-    rows: [
-      { page: "currency", label: "Currency", icon: Globe },
-      { page: "statements", label: "Statements", icon: FileText },
-    ],
-  },
-  {
     title: "Support",
     rows: [
       { page: "contact-desk", label: "Contact desk", icon: LifeBuoy },
@@ -48,18 +40,6 @@ const groups: { title: string; rows: Row[] }[] = [
     ],
   },
 ];
-
-function rowValue(
-  page: AccountPage,
-  native: boolean,
-  preferences: Preferences | null,
-  mainnet = false,
-) {
-  if (page === "currency") return native ? (mainnet ? "USDC" : "MON") : "USD";
-  if (page === "statements") return preferences?.statements;
-  if (page === "alerts" && preferences) return preferences.alerts ? "On" : "Off";
-  return undefined;
-}
 
 // Frontend Settings: title, glass identity card, groups staggered 60ms, glass Disconnect.
 export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamList, "Settings">) {
@@ -76,7 +56,15 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
         </Typography>
       </FadeIn>
       <FadeIn delay={sectionDelay(1)} className="mt-2 gap-4">
-        {session?.kind !== "mainnet" && (
+        {session?.kind === "mainnet" ? (
+          <Surface>
+            <View className="pt-5">
+              <AccountAddress
+                heading={<Typography variant="rowTitle">Account address</Typography>}
+              />
+            </View>
+          </Surface>
+        ) : (
           <Surface>
             <View className="pt-5">
               <AccountAddress
@@ -103,7 +91,13 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
               last={rowIndex === group.rows.length - 1}
               label={row.label}
               icon={row.icon}
-              value={rowValue(row.page, native, preferences, native && session.chainId === 143)}
+              value={
+                row.page === "alerts" && preferences
+                  ? preferences.alerts
+                    ? "On"
+                    : "Off"
+                  : undefined
+              }
               onPress={() => root.navigate("AccountPage", { page: row.page })}
             />
           ))}

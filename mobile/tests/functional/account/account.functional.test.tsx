@@ -40,18 +40,18 @@ test("clipboard false result fails and a pending copy cannot duplicate or update
   renderApp(undefined, undefined, undefined, undefined, { dependencies: { clipboard: { copy } } });
   await signInToAccount();
   await openSettings();
-  await open("Passkey wallet");
   const button = screen.getByRole("button", { name: "Copy account address" });
   act(() => {
     fireEvent.press(button);
     fireEvent.press(button);
   });
   expect(copy).toHaveBeenCalledTimes(1);
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
+  await screen.findByRole("button", { name: "Continue with passkey" });
   await act(async () => pending.resolve());
   expect(screen.queryByText("Address copied.")).toBeNull();
 });
-test("alerts and statement frequency persist across app remount and clear on disconnect", async () => {
+test("alerts persist across app remount and clear on disconnect", async () => {
   const { store, storage } = memoryPreferences();
   const dependencies = { store };
   const app = renderApp(undefined, undefined, undefined, undefined, { dependencies });
@@ -61,20 +61,11 @@ test("alerts and statement frequency persist across app remount and clear on dis
   expect(screen.getByRole("switch", { name: "Receive push alerts" })).not.toBeChecked();
   fireEvent(screen.getByRole("switch"), "valueChange", true);
   await waitFor(() => expect(screen.getByRole("switch")).toBeChecked());
-  expect(screen.getByText(/does not request system permission/)).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  await open("Statements");
-  await userEvent.press(screen.getByRole("radio", { name: "Quarterly" }));
-  expect(await screen.findByRole("radio", { name: "Quarterly", checked: true })).toBeVisible();
+  expect(screen.getByText(/Push delivery is not available yet/)).toBeVisible();
   app.unmount();
   renderApp(undefined, undefined, undefined, undefined, { dependencies });
   await signInToAccount();
   await openSettings();
-  await open("Statements");
-  expect(await screen.findByRole("radio", { name: "Quarterly", checked: true })).toBeVisible();
-  await userEvent.press(screen.getByRole("radio", { name: "On request" }));
-  expect(await screen.findByRole("radio", { name: "On request", checked: true })).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await open("Push alerts");
   expect(screen.getByRole("switch")).toBeChecked();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
@@ -85,9 +76,6 @@ test("alerts and statement frequency persist across app remount and clear on dis
   await openSettings();
   await open("Push alerts");
   expect(screen.getByRole("switch")).not.toBeChecked();
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  await open("Statements");
-  expect(screen.getByRole("radio", { name: "Monthly" })).toBeChecked();
 });
 test("failed preference hydration blocks edits until retry; failed save preserves the last committed value", async () => {
   const { store, storage } = memoryPreferences();
@@ -95,16 +83,16 @@ test("failed preference hydration blocks edits until retry; failed save preserve
   renderApp(undefined, undefined, undefined, undefined, { dependencies: { store } });
   await signInToAccount();
   await openSettings();
-  await open("Statements");
-  expect(screen.getByRole("radio", { name: "Quarterly" })).toBeDisabled();
+  await open("Push alerts");
+  expect(screen.getByRole("switch")).toBeDisabled();
   await userEvent.press(screen.getByRole("button", { name: "Retry preferences" }));
-  expect(await screen.findByRole("radio", { name: "Monthly", checked: true })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole("switch")).toBeEnabled());
   storage.setItem.mockRejectedValueOnce(new Error("disk full"));
-  await userEvent.press(screen.getByRole("radio", { name: "Quarterly" }));
+  fireEvent(screen.getByRole("switch"), "valueChange", true);
   expect(await screen.findByRole("alert")).toHaveTextContent(/Preference was not saved/);
-  expect(screen.getByRole("radio", { name: "Monthly" })).toBeChecked();
-  await userEvent.press(screen.getByRole("radio", { name: "Quarterly" }));
-  expect(await screen.findByRole("radio", { name: "Quarterly", checked: true })).toBeVisible();
+  expect(screen.getByRole("switch")).not.toBeChecked();
+  fireEvent(screen.getByRole("switch"), "valueChange", true);
+  await waitFor(() => expect(screen.getByRole("switch")).toBeChecked());
 });
 test("pending writes disable changes and disconnect until persistence completes", async () => {
   const { store, storage } = memoryPreferences();
@@ -113,14 +101,14 @@ test("pending writes disable changes and disconnect until persistence completes"
   renderApp(undefined, undefined, undefined, undefined, { dependencies: { store } });
   await signInToAccount();
   await openSettings();
-  await open("Statements");
-  const quarterly = screen.getByRole("radio", { name: "Quarterly" });
+  await open("Push alerts");
+  const alerts = screen.getByRole("switch");
   act(() => {
-    fireEvent.press(quarterly);
-    fireEvent.press(quarterly);
+    fireEvent(alerts, "valueChange", true);
+    fireEvent(alerts, "valueChange", true);
   });
   expect(storage.setItem).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole("radio", { name: "Monthly" })).toBeDisabled();
+  expect(screen.getByRole("switch")).toBeDisabled();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
   expect(screen.getByRole("button", { name: "Disconnect" })).toBeDisabled();
   await act(async () => pending.resolve());
@@ -158,23 +146,20 @@ test("disconnect during hydration discards its late result for the next session"
   await screen.findByRole("button", { name: "Continue with passkey" });
   await signInToAccount();
   await openSettings();
-  await open("Statements");
-  await act(async () => pending.resolve({ ...defaultPreferences, statements: "Quarterly" }));
-  expect(screen.getByRole("radio", { name: "Monthly" })).toBeChecked();
+  await open("Push alerts");
+  await act(async () => pending.resolve({ ...defaultPreferences, alerts: true }));
+  expect(screen.getByRole("switch")).not.toBeChecked();
 });
-test("currency, security, statements, support and disclosure actions have explicit availability", async () => {
+test("security, support and disclosure actions have explicit availability", async () => {
   renderApp();
   await signInToAccount();
   await openSettings();
-  await open("Currency");
-  expect(screen.getByRole("radio", { name: "USD" })).toBeChecked();
-  for (const name of ["EUR", "GBP", "TRY"])
-    expect(screen.getByRole("radio", { name })).toBeDisabled();
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  expect(screen.queryByText("Preferences")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Currency" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Statements" })).toBeNull();
   for (const [title, actions] of [
     ["Passkey wallet", ["Add backup passkey"]],
     ["Transaction signing", ["Change signing policy"]],
-    ["Statements", ["Request statement"]],
     ["Contact desk", ["Start secure message", "Book callback"]],
     [
       "Terms and disclosures",

@@ -1,20 +1,16 @@
 import { useSession } from "@/application/SessionProvider";
-import { Switch, View } from "react-native";
-import { Bell } from "lucide-react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/types";
 import type { StatementFrequency } from "@/domain/preferences";
 import { Screen } from "@/components/templates/Screen";
-import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
 import { FadeIn } from "@/components/molecules/FadeIn";
 import { GroupedRow } from "@/components/molecules/GroupedRow";
 import { PreferenceOption } from "@/components/molecules/PreferenceOption";
 import { BackAction } from "@/navigation/BackAction";
 import { sectionDelay } from "@/theme/motion";
-import colors from "@/theme/colors.json";
+import { PushAlertsRow } from "./components/PushAlertsRow";
 import { useAccount } from "./AccountProvider";
-import { AccountAddress } from "./AccountAddress";
 import { PreferenceFeedback } from "./PreferenceFeedback";
 import { SettingsGroup } from "./components/SettingsGroup";
 import { PageIntro } from "./components/PageIntro";
@@ -54,48 +50,18 @@ function InformationPage({ page, native }: { page: AccountPage; native: boolean 
           ))}
         </SettingsGroup>
       )}
-      {page === "passkey-wallet" && (
-        <SettingsGroup title="Account address" delay={sectionDelay(2)}>
-          <View className="pt-5">
-            <AccountAddress />
-          </View>
-        </SettingsGroup>
-      )}
       {info.actions && <PageActions labels={info.actions} delay={sectionDelay(3)} />}
     </>
   );
 }
 
 function AlertsPage() {
-  const { preferences, loading, busy, save } = useAccount();
-  const unavailable = loading || busy || !preferences;
-  const enabled = preferences?.alerts ?? false;
   return (
     <>
-      <PageIntro
-        title="Push alerts"
-        body="Saved on this device. Push delivery is not available yet, so this does not request system permission."
-      />
+      <PageIntro title="Push alerts" body="Manage your alert preference on this device." />
       <PreferenceFeedback />
       <SettingsGroup delay={sectionDelay(1)}>
-        <View className="min-h-14 flex-row items-center gap-3 px-5 py-4">
-          <Bell size={18} color={colors.fg["45"]} />
-          <Typography variant="rowTitle" className="min-w-0 flex-1">
-            Receive push alerts
-          </Typography>
-          <Switch
-            accessible
-            accessibilityRole="switch"
-            accessibilityLabel="Receive push alerts"
-            accessibilityState={{ checked: enabled, disabled: unavailable }}
-            value={enabled}
-            disabled={unavailable}
-            trackColor={{ false: colors.fg["20"], true: colors.neon.DEFAULT }}
-            thumbColor={enabled ? colors.ink : colors.fg["85"]}
-            ios_backgroundColor={colors.fg["20"]}
-            onValueChange={(alerts) => void save({ alerts })}
-          />
-        </View>
+        <PushAlertsRow />
       </SettingsGroup>
     </>
   );

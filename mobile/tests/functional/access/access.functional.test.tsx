@@ -149,8 +149,6 @@ test("account actions open secondary pages and the selected capsule tab is acces
     "Passkey wallet",
     "Transaction signing",
     "Push alerts",
-    "Currency",
-    "Statements",
     "Contact desk",
     "Terms and disclosures",
   ]) {

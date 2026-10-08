@@ -15,7 +15,7 @@ registration/authentication is the next integration step; M5 creates no credenti
 | Account details           | Profile, member number and complete synthetic address                       | Fixture, not an authenticated identity or receiving address                                       |
 | Copy address              | Native clipboard write with success/failure feedback and retry              | Expo Clipboard integration; success shown only after acknowledgment                               |
 | Notifications             | Open full text, mark read/unread, mark all, unread count, refresh and retry | Mock service, session scoped; no push delivery or trade reconciliation                            |
-| Push alerts               | Save an on/off preference; default off                                      | Local preference only; does not request permission, register a device or affect the inbox         |
+| Push alerts               | Save an on/off preference on the Push alerts page; default off              | Local preference only; does not request permission, register a device or affect the inbox         |
 | Currency                  | USD selected; EUR/GBP/TRY visibly unavailable                               | No FX rates or relabeled balances; financial asset units stay unchanged                           |
 | Statements                | Save Monthly, Quarterly or On request; default Monthly                      | Frequency preference only; no scheduled delivery                                                  |
 | Statement archive/request | Empty archive and disabled request action with explanation                  | Unavailable until a document service exists; no invented PDFs                                     |
@@ -86,3 +86,9 @@ platform association setup, account identity/session contract and recovery model
 Replace fixture identity and security status with verified provider data. Push,
 FX, document delivery, support and legal publishing remain separately configured
 integrations; completing passkeys alone must not enable those controls.
+
+Settings no longer displays the Preferences section (Currency and Statements).
+The Push alerts row opens a separate page with the alert preference switch.
+
+The account address and copy action appear directly on Settings, including for
+mainnet wallets, rather than inside the Passkey wallet information page.

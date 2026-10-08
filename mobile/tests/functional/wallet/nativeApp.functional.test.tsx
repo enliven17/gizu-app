@@ -1,6 +1,6 @@
 import { tokenCatalogService } from "@/services/tokenCatalog";
 import type { WalletHistory } from "@/domain/wallet/types";
-import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, userEvent, waitFor } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { AppRoot } from "@/application/AppRoot";
 import { createNativeWalletAccess } from "@/development/legacySigner/access";
@@ -82,9 +82,6 @@ test("native access opens existing Home and Account with live units and no fixtu
   await userEvent.press(screen.getByRole("button", { name: "Transaction signing" }));
   expect(await screen.findByText(/Signing requires a separate passkey unlock/)).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
-  await userEvent.press(screen.getByRole("button", { name: "Currency" }));
-  expect(await screen.findByText(/Balances are shown in MON/)).toBeVisible();
-  await userEvent.press(screen.getByRole("button", { name: "Back" }));
   await userEvent.press(screen.getByRole("button", { name: "Push alerts" }));
   fireEvent(
     await screen.findByRole("switch", { name: "Receive push alerts" }),
@@ -93,6 +90,7 @@ test("native access opens existing Home and Account with live units and no fixtu
   );
   expect(store.save).toHaveBeenCalledWith(address, { ...defaultPreferences, alerts: true });
   await userEvent.press(screen.getByRole("button", { name: "Back" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Disconnect" })).toBeEnabled());
   await userEvent.press(screen.getByRole("button", { name: "Disconnect" }));
   expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
   expect(screen.queryByLabelText("Home tab")).toBeNull();
