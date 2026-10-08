@@ -1,6 +1,7 @@
-import { ActivityIndicator, Text, useWindowDimensions } from "react-native";
+import { Text, useWindowDimensions } from "react-native";
 import colors from "@/theme/colors.json";
 import { PressableScale } from "./PressableScale";
+import { Spinner } from "./Spinner";
 
 type Variant = "primary" | "secondary" | "quiet" | "destructive" | "sell";
 type Props = {
@@ -58,7 +59,7 @@ export function Button({
       onPress={onPress}
       className={`flex-row items-center justify-center gap-3 rounded-button ${quiet ? "min-h-11 px-2 py-2" : "min-h-14 px-5 py-4"} ${surface}`}
     >
-      {loading && <ActivityIndicator color={spinners[variant]} />}
+      {loading && <Spinner size="sm" color={spinners[variant]} />}
       <Text
         key={fontScale}
         className={`font-sans shrink text-center font-semibold ${quiet ? "text-[13px]" : "text-[15px]"} ${foreground}`}

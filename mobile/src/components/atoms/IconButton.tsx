@@ -1,7 +1,7 @@
-import { ActivityIndicator } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import colors from "@/theme/colors.json";
 import { PressableScale } from "./PressableScale";
+import { Spinner } from "./Spinner";
 export function IconButton({
   icon: Icon,
   label,
@@ -26,11 +26,7 @@ export function IconButton({
       hitSlop={4}
       className={`h-11 w-11 items-center justify-center rounded-2xl border border-borderSoft bg-glassSoft ${disabled ? "opacity-50" : ""}`}
     >
-      {loading ? (
-        <ActivityIndicator color={colors.accent} />
-      ) : (
-        <Icon size={18} color={colors.fg["55"]} />
-      )}
+      {loading ? <Spinner size="sm" /> : <Icon size={18} color={colors.fg["55"]} />}
     </PressableScale>
   );
 }
