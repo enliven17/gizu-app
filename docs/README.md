@@ -1,18 +1,26 @@
 # Gizu documentation
 
-Documentation is organized by its intended reader and purpose.
+Documentation is organized by complexity, intended reader and purpose.
 
-| Folder                                   | Audience                                            | Purpose                                                                                                |
-| ---------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [Internal](internal/README.md)           | Engineers and maintainers investigating the system  | Debugging, implementation internals, incident findings and diagnostic evidence.                        |
-| [Feature plans](feature-plans/README.md) | Engineers and technical reviewers designing changes | Detailed feature specifications, architecture decisions, implementation plans and acceptance criteria. |
-| [App guide](app-guide/README.md)         | Developers, testers and operators running the app   | Setup, configuration, local development, devices, builds, releases and deployment.                     |
+| Folder                                   | Complexity        | Expected depth                                                                                            |
+| ---------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------- |
+| [App guide](app-guide/README.md)         | **1 — Simple**    | Practical setup and operating steps, brief explanations and expected results.                             |
+| [Internal](internal/README.md)           | **2 — Technical** | How the system works, debugging, implementation boundaries and verification evidence.                     |
+| [Feature plans](feature-plans/README.md) | **3 — Detailed**  | Deep technical designs, contracts, alternatives, tradeoffs, implementation steps and acceptance criteria. |
+
+Shared documentation diagrams and image assets live in [images/](images/README.md).
 
 ## Where a document belongs
 
 - **How do I run, configure or distribute it?** → `app-guide/`
 - **How does it work internally, or why did it fail?** → `internal/`
 - **What should we build or change, and how will we validate it?** → `feature-plans/`
+
+Use technical depth and required background to judge complexity, not word count.
+When a document mixes levels, keep the simple procedure in `app-guide/` and link
+to deeper explanations in `internal/` or detailed designs in `feature-plans/`.
+Highly detailed existing designs can also live in `feature-plans/`; label them as
+implemented or reference material so placement does not imply pending work.
 
 Keep one canonical document for each topic and link across categories rather than
 copying content. Add feature subfolders when needed, such as `internal/swap/` or
@@ -26,7 +34,7 @@ credentials, private keys, wallet backups or unredacted sensitive logs here.
 - Setup, deployment, signing and passkey configuration guides are in
   [App guide](app-guide/README.md).
 - Debugging and implementation references are in [Internal](internal/README.md).
-- Technical plans, the mobile roadmap and supporting parity reference are in
+- Technical plans and supporting parity reference are in
   [Feature plans](feature-plans/README.md).
 - Research documents remain under `research/`; indexes link to relevant evidence.
 - Project/module READMEs and agent instructions remain alongside their code.

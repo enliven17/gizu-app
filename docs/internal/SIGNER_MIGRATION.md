@@ -8,11 +8,10 @@ onboarding/backup checks passed. Guided phase-4 cancellation, withdrawal, restar
 user-reported successful. Extended device failure-path checks, second-device restore
 and phase-5 validation remain pending. Android APK exclusion and iOS simulator binary exclusion are verified; physical iOS
 acceptance remains unverified. Existing installed clients require rebuilding.
-This document details the migration tracked by the [mobile roadmap](MOBILE_ROADMAP.md).
 
 The original Android-only scope below is retained as migration history. The iOS
 replacement is now implemented; current platform behavior and pending acceptance
-are documented in [the native contract](../internal/NATIVE_SIGNER.md).
+are documented in [the native contract](NATIVE_SIGNER.md).
 
 ## Summary
 
@@ -27,7 +26,7 @@ as an inactive, independently buildable implementation for possible future reuse
 do not delete it or rewrite it into the replacement. Keep existing Gizu screens. Android is the only
 supported signing platform for this phase; iOS must show explicit unavailability.
 
-During implementation, update [the native contract](../internal/NATIVE_SIGNER.md) to reflect
+During implementation, update [the native contract](NATIVE_SIGNER.md) to reflect
 the new architecture. Preserve historical verification separately and leave
 `research/combined-wallet-prototype` unchanged.
 

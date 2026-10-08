@@ -1,7 +1,6 @@
 # Mobile foundation
 
-Current source baseline checked 2026-09-24. This reference describes the runtime;
-remaining work belongs in [the roadmap](../feature-plans/MOBILE_ROADMAP.md). Historical milestone diaries
+Current source baseline checked 2026-09-24. This reference describes the runtime. Historical milestone diaries
 remain in Git. Native evidence is summarized in
 [signer verification](NATIVE_SIGNER_VERIFICATION.md).
 

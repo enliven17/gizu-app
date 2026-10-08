@@ -1,11 +1,11 @@
 # Gizu product capabilities and parity
 
 Updated 2026-10-05. Existing frontend-inspired mobile design is retained;
-service availability differs by mode. Future work belongs in [PLAN](MOBILE_ROADMAP.md).
+service availability differs by mode.
 
 The native-mode entries describe the stored-wallet signer; platform differences are noted below.
 Platform acceptance and remaining migration work are tracked in
-[the migration plan](SIGNER_MIGRATION.md). Historical fixture journeys remain in tests and the isolated UI playground;
+[the migration plan](../internal/SIGNER_MIGRATION.md). Historical fixture journeys remain in tests and the isolated UI playground;
 simulated passkey startup has been removed.
 
 | Journey                         | Normal native mode                                                             | Test/preview fixtures                        |
