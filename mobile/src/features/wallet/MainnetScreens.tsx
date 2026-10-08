@@ -1,7 +1,7 @@
 import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronUp } from "lucide-react-native";
 import colors from "@/theme/colors.json";
 import { useFocusEffect } from "@react-navigation/native";
 import type {
@@ -13,6 +13,7 @@ import type { MainTabParamList, RootStackParamList } from "@/navigation/types";
 import { BackAction } from "@/navigation/BackAction";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
+import { IconButton } from "@/components/atoms/IconButton";
 import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { Button } from "@/components/atoms/Button";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
@@ -234,6 +235,11 @@ export function MainnetPortfolioScreen({
         <Typography variant="pageTitle" accessibilityRole="header" className="flex-1">
           Your portfolio
         </Typography>
+        <IconButton
+          icon={Bell}
+          label="Notifications"
+          onPress={() => root.navigate("Notifications")}
+        />
       </View>
       <BalanceStatus showRefresh={false} />
       {wallet.snapshot && wallet.snapshot.balanceComplete !== false ? (
