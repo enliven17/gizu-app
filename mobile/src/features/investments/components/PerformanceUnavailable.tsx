@@ -20,7 +20,7 @@ export function PerformanceUnavailable() {
     <View
       accessible
       accessibilityLabel="Performance chart, no history yet"
-      className="overflow-hidden rounded-card border border-glassBorder bg-glass p-4"
+      className="overflow-hidden rounded-card border border-cardEdge bg-card p-4"
     >
       <Svg width="100%" height={HEIGHT}>
         {gridLines.map((line) => (

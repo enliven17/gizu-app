@@ -44,9 +44,7 @@ export function VaultPreview({
         <Typography variant="section">Confidential vaults</Typography>
         <SeeAll onPress={onSeeAll} />
       </View>
-      {load.kind === "loading" && (
-        <CardGridSkeleton count={PREVIEW_SIZE} label="Loading vaults…" />
-      )}
+      {load.kind === "loading" && <CardGridSkeleton count={PREVIEW_SIZE} label="Loading vaults…" />}
       {load.kind === "failed" && (
         <View className="items-center">
           <CatalogStatus accessibilityRole="alert">Vault catalog unavailable.</CatalogStatus>

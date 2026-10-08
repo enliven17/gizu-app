@@ -22,11 +22,7 @@ export function TvlChart({ history }: { history: TvlLoad }) {
   const series = history.kind === "ready" && history.series.length >= 2 ? history.series : flat;
   const up = (series[series.length - 1] ?? 0) >= (series[series.length - 2] ?? 0);
   return (
-    <View
-      accessible
-      accessibilityLabel={summary(history)}
-      accessibilityLiveRegion="polite"
-    >
+    <View accessible accessibilityLabel={summary(history)} accessibilityLiveRegion="polite">
       <LineChart series={series} height={190} up={up} revealKey={history.kind} format={formatTvl} />
     </View>
   );
