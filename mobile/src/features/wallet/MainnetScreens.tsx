@@ -1,5 +1,5 @@
 import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import colors from "@/theme/colors.json";
@@ -26,6 +26,7 @@ import { PortfolioActions } from "@/features/investments/components/PortfolioAct
 import { VaultPreview } from "@/features/investments/components/VaultPreview";
 import { SwapHoldingsSection, holdingAmount } from "@/features/swap/SwapHoldingsSection";
 import { useMainnetWallet } from "./MainnetWalletProvider";
+import { BalanceCard } from "./BalanceCard";
 
 function usePortfolio() {
   const wallet = useMainnetWallet();
@@ -237,62 +238,6 @@ function BalanceSkeleton() {
           <Skeleton className="h-14 flex-1 rounded-2xl" />
           <Skeleton className="h-14 w-14 rounded-2xl" />
         </View>
-      </View>
-    </Surface>
-  );
-}
-
-function BalanceCard({
-  snapshot,
-  actions,
-}: {
-  snapshot: NonNullable<ReturnType<typeof useMainnetWallet>["snapshot"]>;
-  actions: ReactNode;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const total = holdingAmount(snapshot.totalAtoms, 6);
-  return (
-    <Surface>
-      <View className="gap-5 p-5">
-        <View className="gap-2">
-          <Typography variant="label11">Total balance</Typography>
-          <View className="flex-row items-center gap-3">
-            <Typography
-              variant="title"
-              className="flex-1 !text-[34px] ios:tracking-tight"
-              accessibilityLabel={`${total} USDC`}
-              style={{ fontVariant: ["tabular-nums"] }}
-            >
-              {total} USDC
-            </Typography>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Balance details"
-              accessibilityState={{ expanded }}
-              onPress={() => setExpanded((value) => !value)}
-              hitSlop={6}
-              className="h-9 w-9 items-center justify-center rounded-full bg-well"
-            >
-              {expanded ? (
-                <ChevronUp size={16} color={colors.fg["70"]} />
-              ) : (
-                <ChevronDown size={16} color={colors.fg["70"]} />
-              )}
-            </Pressable>
-          </View>
-        </View>
-        {expanded && (
-          <View className="gap-3 rounded-2xl bg-well p-4">
-            <Typography>Swap funding: {holdingAmount(snapshot.fundingAtoms, 6)} USDC</Typography>
-            <Typography>
-              Receiving wallets: {holdingAmount(snapshot.returnAtoms, 6)} USDC
-            </Typography>
-            <Typography variant="micro">
-              Last checked {new Date(snapshot.checkedAt).toLocaleTimeString()}
-            </Typography>
-          </View>
-        )}
-        {actions}
       </View>
     </Surface>
   );

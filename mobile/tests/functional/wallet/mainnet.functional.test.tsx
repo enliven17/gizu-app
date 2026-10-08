@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppRoot } from "@/application/AppRoot";
 import * as nativeBridge from "@/services/wallet/nativeBridge";
 import type { MainnetPortfolioSnapshot } from "@/domain/wallet/storedSigner";
@@ -132,4 +133,19 @@ test("Swap shows the same total public USDC funding balance including receiving 
   expect(await screen.findByText("Available: 3 USDC")).toBeVisible();
   expect(screen.getByText("You pay · USDC budget")).toBeVisible();
   expect(screen.queryByText(/maximum 10 USDC/)).toBeNull();
+});
+
+test("Home balance shows observed performance and expands to a period chart", async () => {
+  const day = 24 * 3_600_000;
+  await AsyncStorage.setItem(
+    `gizu:balance-history:v1:${walletId}`,
+    JSON.stringify([{ at: snapshot.checkedAt - 20 * day, atoms: "2000000" }]),
+  );
+  await open();
+  expect(await screen.findByText("+$1.00 (+50%) · past month")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Balance details", expanded: false }));
+  expect(screen.getByLabelText("Balance past month: +$1.00 (+50%)")).toBeVisible();
+  fireEvent.press(screen.getByRole("radio", { name: "1W" }));
+  expect(screen.getByLabelText("Balance history is not available yet")).toBeVisible();
+  expect(screen.queryByText(/past week/)).toBeNull();
 });
