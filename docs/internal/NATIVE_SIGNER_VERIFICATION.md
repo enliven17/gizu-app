@@ -1,130 +1,42 @@
 # Native signer verification
 
-## 2026-09-28 — iOS stored-wallet implementation
+Historical evidence consolidated on 2026-10-08; no checks were rerun for this edit.
+Counts describe the recorded revisions, not current suite totals. Replacement and
+retired signer results are separated because they prove different boundaries.
+Current architecture: [signer overview](NATIVE_SIGNER.md). Setup:
+[local development](../app-guide/MOBILE_LOCAL_DEVELOPMENT.md).
 
-- Implemented Swift native storage/passkey verification, verified backup/restore,
-  exact-transfer review, encrypted operation journal, read-only reconciliation and
-  fresh-authorized identical-byte resume. Existing app screens use capability-checked
-  iOS adapters; the debug harness uses the same adapter boundary.
-- Rust device and Apple Silicon simulator libraries built. Full unsigned iOS
-  simulator app build passed with iOS 18 minimum deployment target. Generated Expo
-  registration, Pods graph and compiled symbols include `GizuStoredSignerModule`
-  and exclude the retired `GizuSignerModule` and its core.
-- Native simulator suite: 10 tests passed. Includes registration/assertion rejection,
-  encrypted storage corruption/missing-key recovery, shared backup fixture and account
-  derivation, cancellation/expiry policy, journal restart, stale revisions, exact-byte
-  retry after an uncertain broadcast, and commit failures before/after rename that
-  prevent any broadcast. Keychain and passkey services are not mocked into the app;
-  tests use native-only test dependencies.
-- Android JVM suite: 33 tests passed, including the same backup fixture. Rust core:
-  11 tests passed. JavaScript: 237 tests passed with coverage thresholds; TypeScript,
-  formatting and changed-file lint passed. Repository-wide lint remains blocked by
-  the pre-existing unused `colors` import in `WaveBackdrop.tsx`.
-- CI now builds the iOS Rust library, runs native simulator tests and checks native
-  registration before its existing app build. Remote CI has not been run here.
-- **Not accepted yet:** physical iPhone passkey/provider ceremonies, Keychain/file
-  protection under device lock/passcode removal, Files-provider save/reopen flows,
-  iPhone-to-iPhone recovery, live transfers/batches and lifecycle acceptance. Android↔iOS
-  provider/recovery acceptance, production builds and independent security review remain
-  deferred. No real transaction was submitted during these automated checks.
+## Stored-wallet implementation evidence
 
-## 2026-09-25 — Checked persistence and journal retention
+| Date / slice                   | Recorded verification                                                                                                                        | Limitation                                                                                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-25 isolation           | 182 Jest tests/25 suites; Android arm64 build and binary inspection excluded the retired signer; autolinking excluded it on both platforms   | Replacement was contract-only then; no iOS rebuild/device test. Expo Doctor external metadata/DNS checks failed.                                                                                          |
+| 2026-09-25 storage             | 11 Rust tests and Clippy; 12 JVM tests; 21 focused app tests; APK inspection confirmed replacement-only registration                         | User-reported create/open/cancel/restart; no Keystore instrumentation or backup/transaction acceptance at this stage.                                                                                     |
+| 2026-09-25 backup              | 18 JVM tests, 193 Jest tests/28 suites and focused five-test onboarding suite; arm64 build                                                   | Tampering, wrong PRF, healthy-wallet overwrite and old storage compatibility covered. User reported backup/reconnect success; lock and second-device restore unverified.                                  |
+| 2026-09-25 transfers           | 27 JVM, 206 Jest/30 suites, 11 Rust and 12 focused transfer tests; arm64 build                                                               | Covered lost responses, exact-byte retry, nonce conflicts and stale revisions. User reported cancellation/withdrawal/history/background checks; multi-step and uncertain-submission hardware checks open. |
+| 2026-09-25 durable writes      | 32 JVM tests and arm64 build; sync/close/rename/directory-sync/read-back failure injection, archive failures and unresolved-record retention | Asserted no broadcast after commit failures. No device filesystem fault injection; JS/Rust unchanged and not rerun.                                                                                       |
+| 2026-09-28 iOS                 | 10 native simulator, 33 Android JVM, 11 Rust and 237 JS tests; iOS device/simulator libraries and unsigned simulator app built               | Registration/Pods/symbol inspection included only stored signer. No physical iPhone, provider, Files or recovery acceptance; no transaction sent.                                                         |
+| 2026-09-28 Release preparation | 249 app tests, 13 Release native tests, coverage/type/lint/format, Expo Doctor 21/21 and unsigned iPhone Release archive                     | Test-only visibility used for tests, not app archive. No distribution or signed-device/provider proof.                                                                                                    |
 
-- Android arm64 debug build and all 32 native JVM tests passed. Added failure
-  injection for sync/close, rename, directory sync and committed-byte verification;
-  these paths assert no broadcast. Tests also cover cancelled-review compaction,
-  count/byte-based archival, archive failure, active-write failure after archival
-  and preserving unresolved signed records.
-- Writes now use throwing sync/rename operations plus directory sync and read-back.
-  Settled archives are encrypted local files outside the active Activity window.
-- Documentation formatting and diff checks passed. No device install or device
-  filesystem fault injection was performed; device acceptance of these changes
-  remains pending. JavaScript and Rust code were unchanged and their suites were
-  not rerun.
+The iOS tests covered assertion rejection, corrupt storage/missing key, shared
+backup/derivation fixtures, expiry/cancellation, restart, stale revision and
+identical-byte recovery. Android and iOS shared backup fixtures, but this did not
+establish cross-platform provider recovery compatibility.
 
-## 2026-09-25 — Migration phase 4 exact transfers and resume
+Historical tool failures included Expo 57.0.24 versus expected 57.0.25 and an unused
+`colors` import in `WaveBackdrop.tsx`; these are dated observations, not current
+bugs. Local CI configuration/builds did not establish a remote CI run.
 
-- Android arm64 debug build and all 27 native JVM tests passed. New coverage
-  includes encrypted journal restart, write failure before broadcast, cancellation
-  after persistence, lost responses, identical-byte retry, pending/finalized
-  reconciliation, nonce conflicts, stale revisions and numeric bridge normalization.
-- All 206 Jest tests in 30 suites passed with coverage thresholds; 11 Rust tests
-  passed. App functional tests exercise Withdraw, explicit resume, cancellation,
-  stale revision recovery and nonce conflicts using mocked native responses.
-- TypeScript, lint, formatting, local documentation links and diff checks passed.
-  A final focused run passed all 12 transfer tests. Network-enabled Expo Doctor
-  passed 20/21 checks; the remaining failure is an existing Expo patch mismatch
-  (`57.0.24` installed, `~57.0.25` expected). No dependency upgrade was included.
-- APK inspection found the replacement transfer activity/module/core and no
-  retained signer module/core. Retained module source is unchanged.
-- Installed the updated APK on the connected Android phone, preserving wallet
-  data, and verified normal Home loaded through Metro. The user reported that
-  the guided cancellation, withdrawal, restart/history and background/resume
-  checks all worked. These are user-reported results, not instrumented assertions.
-  Multi-step batches, lost-response identical-byte retries, device-lock/expiry
-  and second-device recovery remain unverified on hardware. No security audit
-  is claimed.
+## Superseded release configuration
 
-## 2026-09-25 — Migration phase 3 verified backup
+September 28 used a testnet-only Release flag and recorded pending signing,
+association and distribution setup. September 30 replaced that flag with
+`GizuWalletEnabled`, shared production/TestFlight identity and `gizu.io`.
+Do not apply the older release instructions or treat their pending deployment
+statements as current. Current identities and signing procedure live in
+[passkey configuration](../app-guide/PASSKEY_CONFIGURATION.md).
 
-- Android arm64 debug build and 18 native JVM tests passed. Tests cover backup
-  roundtrip/tampering/wrong PRF, storage verification failures, healthy-wallet
-  overwrite rejection and compatibility with phase-2 storage records.
-- TypeScript, lint, formatting and diff checks passed. The full Jest coverage
-  run passed 193 tests across 28 suites, including coverage thresholds. An added
-  Account backup/retry scenario subsequently passed in the five-test focused
-  onboarding/backup suite.
-- APK inspection found the replacement backup activity/core and no retained
-  signer module/core. Retained module source remains unchanged.
-- Installed the phase-3 build on the connected Android phone and opened normal
-  onboarding. The user reported the guided backup/onboarding checks worked,
-  including the suggested Account backup and reconnect checks. This is
-  user-reported acceptance, not instrumented verification. Screen-lock behavior
-  and second-device restore remain unverified; no independent security review
-  is claimed.
-- Rust core was unchanged and not rerun; Expo Doctor and iOS checks were not run.
-  Transfers/resume remain unimplemented for the replacement signer.
-
-## 2026-09-25 — Migration phase 2 storage and authorization
-
-- New Android module `GizuStoredSigner` and entropy-based Rust core built successfully.
-- 11 Rust tests and Clippy passed; 12 Android JVM tests passed (credential
-  verification, encryption integrity and wallet storage failure/restart behavior).
-- TypeScript, formatting, lint and 21 focused app/access tests passed. Main-app
-  access remains unavailable; no backup-required wallet can become an app session.
-- Android arm64 APK built. APK inspection found replacement classes/core and no
-  retained signer classes/core. Android autolinking includes only the replacement;
-  Apple includes neither signer. Retained signer source is unchanged.
-- Installed the phase 2 build and development harness on the connected Android
-  phone. The user reported the guided create/open/cancel/restart checks worked.
-  This is user-reported device evidence, not Keystore instrumentation or an
-  independent security review. Backup PRF evaluation, recovery and transaction
-  ceremonies remain unimplemented and unverified.
-- Full app coverage/Expo Doctor were not rerun for this native-only increment;
-  the prior phase's check results and network limitations are recorded below.
-
-## 2026-09-25 — Migration phase 1 disconnection
-
-- TypeScript, formatting, lint and diff checks passed.
-- Full Jest coverage suite: 182 tests across 25 suites passed; coverage thresholds passed.
-- Expo autolinking resolution excludes `gizu-signer` on Android and Apple.
-- Offline Android arm64 debug build passed. APK inspection found neither retained
-  signer DEX classes nor its native library. No device installation performed.
-- Old signer native implementation/tests/build scripts unchanged; only its module
-  README changed. Standalone native tests were not rerun for this disconnection.
-- `npm run check` stopped at Expo Doctor: external Expo/React Native Directory
-  metadata checks failed (including exp.host DNS lookup). Coverage ran separately.
-- iOS rebuild, binary inspection and physical-device checks were not run.
-- Replacement contracts are declared only; no stored-wallet runtime, backup or
-  resume acceptance is claimed by these checks.
-
-Consolidated 2026-09-24. Historical evidence below is carried from the N1–N3 records;
-checks were not rerun for this documentation change. Counts describe those revisions,
-not a claim about current test totals. The [architecture](NATIVE_SIGNER.md) defines
-the boundary; the [roadmap](../feature-plans/MOBILE_ROADMAP.md) owns scheduling. Setup commands live in
-[README](../../mobile/README.md).
-
-## Recorded automated evidence
+## Retired signer automated evidence
 
 | Slice, 2026-09-24    | Recorded checks                                                                                                                                                                     | Scope limitation                                                                  |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -143,7 +55,7 @@ signing key must not be published in domain associations.
 Previously recorded failure: Expo Doctor 20/21, installed Expo 57.0.24 versus
 expected 57.0.25. This is historical until rerun, not a newly observed result.
 
-## Physical Android evidence
+## Retired signer physical Android evidence
 
 N1 user reported success on A142 / Android 16. Provider identity, exact revision,
 prompt count and boundary instrumentation were not fully recorded.
@@ -171,19 +83,19 @@ Account 0 with 19.990574 testnet MON: Android access/balance evidence only.
 Earlier 2026-09-23 JavaScript-probe success proved derivation/recovery/test signing
 on one provider; it does not prove the replacement native secret boundary.
 
-## Main-app integration evidence
+## Retired signer main-app evidence
 
-Existing Home, Account, Deposit/Withdraw and Activity use native adapters. Functional
+At that revision, Home, Account, Deposit/Withdraw and Activity used native adapters. Functional
 coverage mocks those boundaries and exercises validation, duplicate prevention,
 status display, missing legacy details, refresh failure, leaving a page during an
 operation, disconnect and stale results. Native-only signing policy is unchanged.
 Main-app physical acceptance remains outstanding; debug-harness evidence does not
 complete it. Installation/build success is not an accepted live journey.
 
-## Remaining acceptance
+## Historical acceptance gaps
 
-Manual testing was paused by the user. Do not resume transactions or mark skipped
-cases passed as part of documentation work.
+These were open in the original records. They are not a current release-blocker
+list; later acceptance must be established from dated evidence, not inferred.
 
 - Physical iOS PRF create/open/recovery, review, cancellation and provider behavior.
 - Android provider/device/revision/prompt record and native synthetic-secret
@@ -202,34 +114,3 @@ cases passed as part of documentation work.
 
 Record future results with revision, device/OS/provider, build type, prompts and
 public hashes/statuses. Never capture real credential secrets or heap dumps.
-
-## TestFlight Release preparation — 2026-09-28
-
-Target: external testers, bundle `io.gizo.ios`, Monad testnet only. Release wallet
-availability requires the signed native `GizuTestnetWalletEnabled` opt-in; public
-JavaScript configuration cannot enable another chain or bypass native approval.
-
-Local verification: 249 app tests with coverage, TypeScript, lint, formatting and
-21/21 Expo Doctor checks passed. Thirteen native tests passed in Release mode with
-test-only internal visibility enabled. The unsigned iPhone Release archive built
-successfully and contains its JavaScript bundle, iOS 18 minimum and expected release
-identity/flag. Test-only internal visibility was not enabled for the app archive.
-These results do not establish real passkey/provider, Keychain or backup behavior.
-
-Distribution is still pending: no valid local signing identity was found; EAS
-project ownership/signing and App Store Connect metadata are not configured here.
-The live gizu.io association still lists only the development app; the prepared
-frontend association addition must be deployed. The app icon now uses the existing
-white Gizu mark on its dark background. The TestFlight profile points to
-`https://gizu-backend.onrender.com`. Export compliance and
-external Beta App Review are unresolved. No build was uploaded or distributed.
-See [TestFlight setup](../../mobile/README.md#production-builds-and-testflight-distribution).
-
-## Production configuration — 2026-09-30
-
-The production profile now targets the existing Gizu app and Render API, using
-`gizu.io` as its sole passkey domain. `GizuWalletEnabled` replaces the earlier
-release flag. TestFlight inherits production configuration; no separate beta app
-identity is created. This supersedes the profile configuration described in the
-September 28 snapshot above, not its historical test evidence or pending device
-acceptance. The Android package remains unchanged to preserve local wallet storage.
