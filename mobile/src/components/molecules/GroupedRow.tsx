@@ -28,7 +28,11 @@ export function GroupedRow({
     <View
       className={`min-h-14 flex-row flex-wrap items-center gap-3 px-5 py-4 ${last ? "" : "border-b border-divider"}`}
     >
-      {Icon && <Icon size={18} color={colors.fg["45"]} />}
+      {Icon && (
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-well">
+          <Icon size={17} color={colors.fg["70"]} />
+        </View>
+      )}
       <View className="min-w-0 flex-1 gap-1">
         <Typography variant="rowTitle">{label}</Typography>
         {detail && <Typography variant="micro">{detail}</Typography>}
