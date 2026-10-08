@@ -36,16 +36,6 @@ export function MainnetVaults({ onOpen }: { onOpen: (id: string) => void }) {
           <FadeIn delay={sectionDelay(0)} className="gap-2 pb-2">
             <Typography variant="pageTitle">Confidential vaults</Typography>
           </FadeIn>
-          <SearchInput
-            label="Search opportunities"
-            value={query.search}
-            onChangeText={(search) => change({ ...query, search })}
-          />
-          {partial && (
-            <Typography accessibilityRole="alert">
-              Some vaults are unavailable. Showing the available catalog.
-            </Typography>
-          )}
           <View
             className="flex-row flex-wrap gap-2"
             accessibilityRole="radiogroup"
@@ -60,6 +50,16 @@ export function MainnetVaults({ onOpen }: { onOpen: (id: string) => void }) {
               />
             ))}
           </View>
+          <SearchInput
+            label="Search opportunities"
+            value={query.search}
+            onChangeText={(search) => change({ ...query, search })}
+          />
+          {partial && (
+            <Typography accessibilityRole="alert">
+              Some vaults are unavailable. Showing the available catalog.
+            </Typography>
+          )}
           {filtered && (
             <View className="self-start">
               <Button
