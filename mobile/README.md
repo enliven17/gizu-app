@@ -61,7 +61,7 @@ use `gizu.io` as their passkey relying-party domain.
 Passkey identity and manual domain checks are documented in
 [PASSKEY_CONFIGURATION.md](../docs/app-guide/PASSKEY_CONFIGURATION.md). The frontend owns the
 hosted association files; deployment does not happen from mobile scripts.
-The [former P1 probe](../docs/internal/NATIVE_SIGNER.md#retired-javascript-probe) has been removed. Native mode uses
+The [former P1 probe](../docs/internal/NATIVE_SIGNER_RETIRED.md#retired-javascript-probe) has been removed. Native mode uses
 the native signer; raw PRF is never exposed to JavaScript. Rebuild older clients
 to remove the old bridge and install the current signer.
 
@@ -236,7 +236,7 @@ Rebuild installed clients with `npm run android` or `npm run ios` to remove the
 old native module; restarting Metro alone cannot remove native registrations.
 Independent retained-core build/test commands remain `npm run signer:build` and
 `npm run signer:test`; see the [retained module guide](modules/gizu-signer/README.md).
-Follow the [migration plan](../docs/feature-plans/SIGNER_MIGRATION.md) for the replacement contract
+Follow the [migration plan](../docs/internal/SIGNER_MIGRATION.md) for the replacement contract
 and remaining implementation.
 
 ## Wallet integration organization

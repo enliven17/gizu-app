@@ -37,7 +37,7 @@ entropy and all 16 accounts before marking `ready`. Cancellation keeps the same
 backup-required wallet; ready wallets remain ready when a later backup is cancelled.
 `restoreWallet` requires the file and original passkey and only accepts absent or
 unreadable local storage. It never overwrites a healthy wallet. No file paths or
-contents cross Expo. See [backup format and lifecycle](../../../docs/internal/NATIVE_SIGNER.md).
+contents cross Expo. See [backup format and lifecycle](../../../docs/internal/NATIVE_SIGNER_STORAGE.md).
 
 Native capabilities report storage/access/backup/transfers eligibility in Android
 development builds. The app gates entry on `ready`; Account offers backup management.
