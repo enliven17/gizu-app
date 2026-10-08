@@ -3,6 +3,9 @@
 This branch runs mainnet swaps. Provider connectivity checks do not establish
 funded settlement. Keep passkey/native approval with the person testing the phone.
 
+For phase meanings, pause codes and recovery decisions, see
+[Swap failures and recovery](SWAP_FAILURES.md).
+
 ## Local setup
 
 Configure `AURORA_API_KEY`, `PIMLICO_API_KEY` and `ONEINCH_API_KEY` in the ignored

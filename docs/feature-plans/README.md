@@ -1,5 +1,10 @@
 # Technical feature plans
 
+**Complexity: 3 — Detailed.** Include the technical depth needed to assess and
+implement a design: contracts, state transitions, alternatives, tradeoffs,
+constraints, migration steps and acceptance criteria. Existing detailed designs
+may live here too; distinguish them from proposed or unfinished work.
+
 **Audience:** engineers and technical reviewers planning implementation.
 
 Use this folder for detailed feature specifications, technical improvements,
@@ -26,14 +31,15 @@ Instructions for running the delivered feature belong in
 
 ## Plans
 
-| Document                                                         | Role                                                               |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [Mobile roadmap](MOBILE_ROADMAP.md)                              | Dated implementation roadmap and remaining acceptance boundaries.  |
-| [Shared iOS/Android portfolio](GIZU-1_IOS_MONAD_PORTFOLIO.md)    | GIZU-1 technical plan, implementation outcome and verification.    |
-| [Signer migration](SIGNER_MIGRATION.md)                          | Historical stored-wallet migration phases and acceptance criteria. |
-| [Analytics review](ANALYTICS_REVIEW.md)                          | Dated review, improvement plan and implementation status.          |
-| [Confidential Earn plan](2026-09-30-confidential-earn-mobile.md) | Detailed mobile integration plan.                                  |
-| [Product capabilities and parity](PARITY.md)                     | Supporting capability reference; not a future-work backlog.        |
+- [Swap architecture](SWAP_ARCHITECTURE.md): implemented ownership map, with [contracts](SWAP_CONTRACTS.md) and [persistence/recovery](SWAP_PERSISTENCE.md) references.
+
+- [Aurora swap flow](AURORA_SWAP_FLOW.md): current buy/sell flow, diagrams and provider responsibilities; a reference for future improvements.
+
+| Document                                                         | Role                                                            |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Shared iOS/Android portfolio](GIZU-1_IOS_MONAD_PORTFOLIO.md)    | GIZU-1 technical plan, implementation outcome and verification. |
+| [Confidential Earn plan](2026-09-30-confidential-earn-mobile.md) | Detailed mobile integration plan.                               |
+| [Product capabilities and parity](PARITY.md)                     | Supporting capability reference; not a future-work backlog.     |
 
 Moving a document here does not reopen completed work or approve a proposal.
 Check each document's date, implementation status and current code before planning
