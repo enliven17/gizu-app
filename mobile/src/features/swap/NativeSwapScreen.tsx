@@ -1,5 +1,6 @@
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { TextInput, View } from "react-native";
+import { ArrowDown } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { SwapTokenPicker } from "./SwapTokenPicker";
@@ -29,14 +30,16 @@ export function NativeSwapScreen() {
         if (!swap.busy) void swap.refresh();
       }}
     >
-      <View className="gap-1">
-        <Typography variant="pageTitle">Swap</Typography>
+      <View className="gap-1 pb-1">
+        <Typography variant="pageTitle" className="!text-[26px]">
+          Swap
+        </Typography>
         <Typography variant="micro">Buy tokens with USDC.</Typography>
       </View>
       {swap.status ? (
         <Surface>
           <View className="gap-2 px-5 py-5">
-            <Typography variant="section">
+            <Typography variant="cardTitle">
               {swap.status.phase === "COMPLETE"
                 ? "Swap completed"
                 : swap.status.phase === "CANCELLED"
@@ -81,44 +84,61 @@ export function NativeSwapScreen() {
       ) : null}
       {!active && (
         <>
-          <View className="gap-3 rounded-[28px] border border-glassBorder bg-glass px-6 py-6">
-            <Typography variant="micro">You pay</Typography>
-            {wallet && (
-              <Typography variant="micro">
-                {wallet.snapshot && wallet.snapshot.balanceComplete !== false
-                  ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))} USDC`
-                  : "Checking available USDC…"}
-              </Typography>
-            )}
-            <View className="flex-row items-center gap-3">
-              <TextInput
-                accessibilityLabel="Amount in USDC"
-                value={swap.amount}
-                onChangeText={swap.setAmount}
-                editable={!swap.busy}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.fg["20"]}
-                maxLength={21}
-                className="font-sans min-h-14 flex-1 text-[40px] text-text"
-              />
-              <Button
-                label="Max"
-                accessibilityLabel="Use maximum USDC amount"
-                variant="quiet"
-                disabled={swap.busy || maxAmount === null}
-                onPress={() => {
-                  if (maxAmount !== null) swap.setAmount(maxAmount);
-                }}
+          <Surface>
+            <View className="gap-1.5 p-2">
+              <View className="gap-3 rounded-[20px] bg-well p-4">
+                <View className="flex-row flex-wrap items-center justify-between gap-2">
+                  <Typography variant="label11">You pay</Typography>
+                  {wallet && (
+                    <Typography variant="micro">
+                      {wallet.snapshot && wallet.snapshot.balanceComplete !== false
+                        ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))} USDC`
+                        : "Checking available USDC…"}
+                    </Typography>
+                  )}
+                </View>
+                <View className="flex-row items-center gap-3">
+                  <TextInput
+                    accessibilityLabel="Amount in USDC"
+                    value={swap.amount}
+                    onChangeText={swap.setAmount}
+                    editable={!swap.busy}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.fg["20"]}
+                    maxLength={21}
+                    className="font-sans min-h-14 flex-1 text-[36px] text-text"
+                    style={{ fontVariant: ["tabular-nums"] }}
+                  />
+                  <Typography variant="rowTitle" className="!text-fg-55">
+                    USDC
+                  </Typography>
+                  <Button
+                    label="Max"
+                    accessibilityLabel="Use maximum USDC amount"
+                    variant="quiet"
+                    disabled={swap.busy || maxAmount === null}
+                    onPress={() => {
+                      if (maxAmount !== null) swap.setAmount(maxAmount);
+                    }}
+                  />
+                </View>
+              </View>
+              <View
+                className="z-10 -my-4 h-9 w-9 items-center justify-center self-center rounded-full border border-cardEdge bg-card"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
+                <ArrowDown size={16} color={colors.fg["70"]} />
+              </View>
+              <SwapTokenPicker
+                tokens={swap.tokens}
+                target={swap.target}
+                disabled={swap.busy}
+                onSelect={swap.selectToken}
               />
             </View>
-          </View>
-          <SwapTokenPicker
-            tokens={swap.tokens}
-            target={swap.target}
-            disabled={swap.busy}
-            onSelect={swap.selectToken}
-          />
+          </Surface>
           <Button
             label={swap.busy ? "Working" : "Review swap"}
             onPress={swap.start}
