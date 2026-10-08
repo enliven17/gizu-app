@@ -1,5 +1,9 @@
 # App setup and operation
 
+**Complexity: 1 — Simple.** Use short, actionable steps and explain unfamiliar
+terms. Keep only the detail needed to complete the task; link to internals and
+detailed designs instead of embedding them here.
+
 **Audience:** developers, testers and operators who need to run Gizu.
 
 Use this folder for:
@@ -21,12 +25,15 @@ Implementation internals and investigations belong in
 
 ## Guides
 
-| Guide                                             | Purpose                                                                        |
-| ------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [Backend deployment](BACKEND_DEPLOYMENT.md)       | Render runtime, provider configuration, release checks and backend operations. |
-| [Android signing](ANDROID_SIGNING.md)             | Local Android signing and certificate association setup.                       |
-| [Passkey configuration](PASSKEY_CONFIGURATION.md) | App identity, relying-party domain and platform configuration.                 |
-| [Passkey hosting](PASSKEY_HOSTING.md)             | Frontend hosting and deployment of domain association files.                   |
+Each guide follows prerequisites → steps → expected result → troubleshooting.
+
+| Guide                                                   | Purpose                                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [Mobile local development](MOBILE_LOCAL_DEVELOPMENT.md) | Run iOS and Android development builds, including Android over USB.            |
+| [Backend deployment](BACKEND_DEPLOYMENT.md)             | Render runtime, provider configuration, release checks and backend operations. |
+| [Android signing](ANDROID_SIGNING.md)                   | Local Android signing and certificate association setup.                       |
+| [Passkey configuration](PASSKEY_CONFIGURATION.md)       | App identity, relying-party domain and platform configuration.                 |
+| [Passkey hosting](PASSKEY_HOSTING.md)                   | Frontend hosting and deployment of domain association files.                   |
 
 ## Project entry points
 
@@ -34,5 +41,5 @@ Implementation internals and investigations belong in
 - [Frontend README](../../frontend/README.md): web app and token discovery setup.
 - [Repository README](../../README.md): repository overview and shared entry points.
 
-These guides were relocated without revalidating their dated configuration or
-provider evidence. Check current source before applying historical instructions.
+Passkey and local-development instructions were checked against source on
+2026-10-08. This is not a live deployment or device verification record.
