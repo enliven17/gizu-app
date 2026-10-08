@@ -264,3 +264,11 @@ drops waiting requests while native code owns active system-prompt cancellation.
 Swap/transfer cancellation bypasses the queue and holds new work until cancellation
 and the active call settle. This prevents UI reads from racing user actions for
 the native ceremony lock; it does not add parallel transaction execution.
+
+### In-app toast feedback
+
+Address-copy success now uses a shared Gizu toast instead of permanent inline
+success text. Copy failures remain inline. Toasts have success/error/info/warning
+variants, accessible dismissal, reduced-motion support and safe-area placement;
+messages reset with the session. This does not add push notifications or change
+the inbox. See [TOASTS.md](TOASTS.md) for customization and native-modal rules.
