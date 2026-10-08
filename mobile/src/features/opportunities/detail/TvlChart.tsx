@@ -23,7 +23,6 @@ export function TvlChart({ history }: { history: TvlLoad }) {
   const up = (series[series.length - 1] ?? 0) >= (series[series.length - 2] ?? 0);
   return (
     <View
-      className="pt-3"
       accessible
       accessibilityLabel={summary(history)}
       accessibilityLiveRegion="polite"

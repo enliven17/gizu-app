@@ -1,75 +1,104 @@
 import { Image, Text, View, useWindowDimensions } from "react-native";
-import { Lock } from "lucide-react-native";
-import { GlitchLabel } from "@/components/atoms/GlitchLabel";
+import { Button } from "@/components/atoms/Button";
 import { Typography } from "@/components/atoms/Typography";
-import { FadeIn } from "@/components/molecules/FadeIn";
+import { Surface } from "@/components/molecules/Surface";
 import type { OpportunityDetail } from "@/domain/opportunities";
-import colors from "@/theme/colors.json";
-import { sectionDelay } from "@/theme/motion";
-import { rate } from "../format";
+import type { TvlLoad } from "../useTvlSeries";
+import { money, rate } from "../format";
 import { protocolLogo } from "../protocolLogos";
+import { TvlChart } from "./TvlChart";
 
 const tabular = { fontVariant: ["tabular-nums" as const] };
 
-/** Frontend OpportunityDetail hero: glass protocol tile, glitch name, 40px total APR. */
-export function OpportunityHero({ opportunity }: { opportunity: OpportunityDetail }) {
+/** Vault summary card: identity, headline rate, TVL chart and the two vault actions. */
+export function OpportunityHero({
+  opportunity,
+  history,
+  onDeposit,
+  onWithdraw,
+}: {
+  opportunity: OpportunityDetail;
+  history: TvlLoad;
+  onDeposit: () => void;
+  onWithdraw: () => void;
+}) {
   // Remeasure native text after Dynamic Type changes.
   const { fontScale } = useWindowDimensions();
   const apr = rate(opportunity.totalApr);
+  const tvl = money.format(opportunity.tvl);
   const label = opportunity.rateType === "apy" ? "Net APY" : "Total APR";
   const logo = protocolLogo(opportunity.protocol.name, opportunity.protocol.id);
+  const showChart =
+    opportunity.tvl !== null || (history.kind === "ready" && history.series.length >= 2);
   return (
-    <FadeIn delay={sectionDelay(1)} className="mt-4 gap-7">
-      <View className="flex-row items-center gap-3">
-        <View className="h-14 min-w-14 max-w-[88px] items-center justify-center rounded-2xl border border-glassBorder bg-glass px-3">
-          {logo ? (
-            <Image
-              source={logo}
-              className="h-9 w-9 rounded-xl"
-              resizeMode="contain"
-              accessibilityLabel={`${opportunity.protocol.name} logo`}
-              accessibilityIgnoresInvertColors
-            />
-          ) : (
-            <Text
-              key={fontScale}
-              numberOfLines={1}
-              className="font-sans text-[13px] font-bold text-neon"
+    <Surface>
+      <View className="gap-5 p-5">
+        <View className="flex-row items-center gap-3">
+          <View className="h-12 min-w-12 max-w-[80px] items-center justify-center rounded-2xl bg-well px-2">
+            {logo ? (
+              <Image
+                source={logo}
+                className="h-8 w-8 rounded-xl"
+                resizeMode="contain"
+                accessibilityLabel={`${opportunity.protocol.name} logo`}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <Text
+                key={fontScale}
+                numberOfLines={1}
+                className="font-sans text-[13px] font-bold text-neon"
+              >
+                {opportunity.protocol.name.slice(0, 4)}
+              </Text>
+            )}
+          </View>
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Typography
+              variant="cardTitle"
+              accessibilityLabel={opportunity.name}
+              numberOfLines={2}
+              className="!text-[19px]"
             >
-              {opportunity.protocol.name.slice(0, 4)}
-            </Text>
-          )}
-        </View>
-        <View className="min-w-0 flex-1 gap-1">
-          <GlitchLabel
-            variant="heading"
-            className="!text-[26px] !leading-[32px] ios:tracking-tight"
-            text={opportunity.name}
-          />
-          <View className="flex-row items-center gap-1.5">
-            <Lock size={10} color={colors.fg["35"]} />
-            <Typography variant="eyebrow" className="shrink">
+              {opportunity.name}
+            </Typography>
+            <Typography variant="micro">
               {`${opportunity.protocol.name} · ${opportunity.chain.name} · ${opportunity.status}`}
             </Typography>
           </View>
         </View>
+        <View className="flex-row flex-wrap items-end justify-between gap-3">
+          <View accessible accessibilityLabel={`${label} ${apr}`} className="gap-1">
+            <Typography variant="label11">{label}</Typography>
+            <Text
+              key={fontScale}
+              className="font-sans text-[36px] leading-[40px] ios:tracking-tight text-neon"
+              style={tabular}
+            >
+              {apr}
+            </Text>
+          </View>
+          <View accessible accessibilityLabel={`TVL ${tvl}`} className="items-end gap-1">
+            <Typography variant="label11">TVL</Typography>
+            <Text
+              key={`tvl-${fontScale}`}
+              className="font-sans text-[18px] text-text"
+              style={tabular}
+            >
+              {tvl}
+            </Text>
+          </View>
+        </View>
+        {showChart && <TvlChart history={history} />}
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Button label="Deposit" onPress={onDeposit} />
+          </View>
+          <View className="flex-1">
+            <Button label="Withdraw" variant="secondary" onPress={onWithdraw} />
+          </View>
+        </View>
       </View>
-      <View
-        className="flex-row flex-wrap items-end gap-3"
-        accessible
-        accessibilityLabel={`${label} ${apr}`}
-      >
-        <Text
-          key={fontScale}
-          className="font-sans text-[40px] font-normal leading-[44px] ios:tracking-tight text-neon"
-          style={tabular}
-        >
-          {apr}
-        </Text>
-        <Text key={`${fontScale}-suffix`} className="font-sans mb-1.5 text-[13px] text-fg-45">
-          {label}
-        </Text>
-      </View>
-    </FadeIn>
+    </Surface>
   );
 }

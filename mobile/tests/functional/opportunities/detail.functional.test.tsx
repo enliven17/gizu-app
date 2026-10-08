@@ -40,31 +40,27 @@ function setup(service: MockOpportunityService = mockOpportunityService()) {
   return service;
 }
 
-test("detail shows sections and TVL history, then opens Deposit inside Gizu", async () => {
+test("detail shows the summary card, TVL history and opens Deposit inside Gizu", async () => {
   const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
   const service = mockOpportunityService();
   const pending = deferred<OpportunityDetail>();
   service.detail.mockReturnValueOnce(pending.promise);
   setup(service);
-  expect(screen.getByText("Loading vault…")).toBeVisible();
+  expect(screen.getByLabelText("Loading vault…")).toBeVisible();
   await act(async () => pending.resolve(opportunityDetail(1)));
 
   expect(screen.getByLabelText("Mainnet vault 1")).toBeVisible();
   expect(screen.getByText("Aave · Monad · LIVE")).toBeVisible();
   expect(screen.getByLabelText("Total APR 6.1%")).toBeVisible();
+  expect(screen.getByLabelText("TVL $1M")).toBeVisible();
   expect(
     await screen.findByLabelText("TVL history: Start $900K · End $1M (3 samples)"),
   ).toBeVisible();
-  for (const value of ["$1M", "4.25%", "1.85%", "$1.5K", "2", "LEND"]) {
-    expect(screen.getAllByText(value).length).toBeGreaterThan(0);
-  }
+  expect(screen.getByLabelText("Daily rewards: $1.5K")).toBeVisible();
   for (const heading of ["About", "How to", "Tokens", "Details", "Campaigns"]) {
-    expect(screen.getByRole("header", { name: heading })).toBeVisible();
+    expect(screen.queryByRole("header", { name: heading })).toBeNull();
   }
-  expect(screen.getByText("Supply USDC to earn lending yield.")).toBeVisible();
-  expect(screen.getByLabelText("Step 2: Hold the receipt token")).toBeVisible();
-  expect(screen.getByLabelText("Tags: stable, lending")).toBeVisible();
-  expect(screen.getByText("Lending incentive")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Withdraw" })).toBeEnabled();
   expect(service.detail).toHaveBeenCalledWith("op-1", expect.anything());
   expect(service.tvlRecords).toHaveBeenCalledWith("op-1", expect.anything());
 
@@ -74,6 +70,21 @@ test("detail shows sections and TVL history, then opens Deposit inside Gizu", as
     "Deposits to this vault are not available in Gizu yet. No funds have moved.",
   );
   expect(openURL).not.toHaveBeenCalled();
+});
+
+test("earnings estimate projects the typed amount at the vault rate", async () => {
+  setup();
+  expect(await screen.findByLabelText("Mainnet vault 1")).toBeVisible();
+  expect(screen.getByLabelText("After 1 year: about $1,061.00, earning $61.00")).toBeVisible();
+  const amount = screen.getByLabelText("Deposit amount in USD");
+  await userEvent.clear(amount);
+  await userEvent.type(amount, "2000");
+  await userEvent.press(screen.getByRole("radio", { name: "6M" }));
+  expect(screen.getByLabelText("After 6 months: about $2,061.00, earning $61.00")).toBeVisible();
+  await userEvent.clear(amount);
+  await userEvent.type(amount, "abc");
+  expect(screen.getByRole("alert")).toHaveTextContent(/Enter an amount/);
+  expect(screen.getByLabelText("Estimate unavailable")).toBeVisible();
 });
 
 test("Deposit stays inside Gizu regardless of provider URLs", async () => {
@@ -130,11 +141,10 @@ test("configured vault detail shows the contract and unavailable metrics without
   service.tvlRecords.mockResolvedValue([]);
   setup(service);
   expect(await screen.findByLabelText("Configured vault")).toBeVisible();
-  expect(screen.getByLabelText(`Vault contract: ${address}`)).toBeVisible();
-  expect(screen.getByLabelText("Share symbol: gzpAUSD")).toBeVisible();
   expect(screen.getByLabelText("Morpho logo", { includeHiddenElements: true })).toBeTruthy();
   expect(screen.getByLabelText("Net APY Unavailable")).toBeVisible();
-  expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(3);
+  expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(2);
+  expect(screen.getByLabelText("Estimate unavailable")).toBeVisible();
   expect(screen.queryByLabelText("No TVL history yet")).toBeNull();
   expect(screen.queryByText("$0")).toBeNull();
 });
