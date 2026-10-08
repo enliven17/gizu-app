@@ -17,9 +17,17 @@ const variants = {
   micro: "text-[11px] text-fg-45",
   eyebrow: "text-[12px] font-medium text-fg-55",
   eyebrowSmall: "text-[11px] font-medium text-fg-55",
+  cardTitle: "text-[17px] font-medium text-text",
+  label11: "text-[11px] uppercase tracking-[0.6px] text-fg-45",
 };
 export type TypographyVariant = keyof typeof variants;
-const headers = new Set<TypographyVariant>(["title", "heading", "pageTitle", "section"]);
+const headers = new Set<TypographyVariant>([
+  "title",
+  "heading",
+  "pageTitle",
+  "section",
+  "cardTitle",
+]);
 export function Typography({
   variant = "body",
   className = "",
