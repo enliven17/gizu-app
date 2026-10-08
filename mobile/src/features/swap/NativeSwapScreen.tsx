@@ -9,6 +9,7 @@ import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
 import { Screen } from "@/components/templates/Screen";
 import { formatSwapAmount } from "@/domain/swap";
+import { groupDigits } from "@/domain/wallet/amounts";
 import colors from "@/theme/colors.json";
 import { useNativeSwap } from "./useNativeSwap";
 
@@ -92,7 +93,7 @@ export function NativeSwapScreen() {
                   {wallet && (
                     <Typography variant="micro">
                       {wallet.snapshot && wallet.snapshot.balanceComplete !== false
-                        ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))} USDC`
+                        ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${groupDigits(formatSwapAmount(BigInt(wallet.snapshot.totalAtoms)))} USDC`
                         : "Checking available USDC…"}
                     </Typography>
                   )}

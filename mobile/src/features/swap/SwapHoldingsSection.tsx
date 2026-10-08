@@ -8,12 +8,13 @@ import { Notice } from "@/components/molecules/Notice";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
 import { useSwapHoldings } from "./useSwapHoldings";
+import { groupDigits } from "@/domain/wallet/amounts";
 
 export function holdingAmount(atoms: string, decimals: number): string {
   const digits = atoms.padStart(decimals + 1, "0");
-  if (!decimals) return digits;
+  if (!decimals) return groupDigits(digits);
   const fraction = digits.slice(-decimals).replace(/0+$/, "");
-  return digits.slice(0, -decimals) + (fraction ? `.${fraction}` : "");
+  return groupDigits(digits.slice(0, -decimals) + (fraction ? `.${fraction}` : ""));
 }
 
 export function SwapHoldingsSection({
