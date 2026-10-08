@@ -22,3 +22,10 @@ export function formatGwei(wei: string): string {
     fraction = padded.slice(-9).replace(/0+$/, "");
   return fraction ? `${whole}.${fraction}` : whole;
 }
+
+/** Adds thousands separators to a plain decimal string ("12485.25" → "12,485.25"). */
+export function groupDigits(value: string): string {
+  const [whole = "", fraction] = value.split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`;
+}
