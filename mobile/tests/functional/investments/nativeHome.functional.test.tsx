@@ -1,3 +1,4 @@
+import * as nativeBridge from "@/services/wallet/nativeBridge";
 import type { WalletHistory } from "@/domain/wallet/types";
 import { render, screen, userEvent, within } from "@testing-library/react-native";
 import { Linking } from "react-native";
@@ -10,6 +11,17 @@ import {
   opportunityPage as page,
   type MockOpportunityService,
 } from "../../support/opportunities";
+
+beforeEach(() => {
+  // Discovery replaces holdings only after a successful empty native balance read.
+  jest.spyOn(nativeBridge, "getStoredSwapSigner").mockReturnValue({
+    getSwapHoldings: jest.fn().mockResolvedValue({
+      checkedAt: 1_790_000_000_000,
+      block: "0x123",
+      holdings: [],
+    }),
+  } as unknown as NonNullable<ReturnType<typeof nativeBridge.getStoredSwapSigner>>);
+});
 
 const address = "0x" + "1".repeat(40);
 

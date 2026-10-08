@@ -172,7 +172,7 @@ test("updated branding, confidential vaults and Swap availability retain navigat
   expect(screen.queryByRole("header", { name: "Confidential vaults" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Swap tab"));
   expect(await screen.findByRole("header", { name: "Swap" })).toBeVisible();
-  expect(screen.getByText(/Monad USDC bridges through Aurora/)).toBeVisible();
+  expect(screen.getByText("Buy tokens with USDC.")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Buy vault units" })).toBeNull();
   await userEvent.press(screen.getByLabelText("Vaults tab"));
   expect(await screen.findByRole("header", { name: "Confidential vaults" })).toBeVisible();

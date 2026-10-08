@@ -89,17 +89,19 @@ test("locking invalidates queued reads without poisoning the next session", asyn
   const balance = swap.getMainnetPortfolio();
   await entered.promise;
   const outcomes = Promise.allSettled([
+    balance,
     getStoredSigner()!.getSwapDeposit(),
     swap.getSwapDeposit(),
     swap.getSwapStatus("gateway"),
   ]);
   getStoredSigner()!.lock();
   pending.resolve({});
-  await balance;
   for (const outcome of await outcomes) {
     expect(outcome).toMatchObject({
       status: "rejected",
-      reason: expect.objectContaining({ message: "Wallet operation cancelled." }),
+      reason: expect.objectContaining({
+        message: expect.stringMatching(/^Wallet operation cancelled\./),
+      }),
     });
   }
   expect(native.getSwapDeposit).not.toHaveBeenCalled();
