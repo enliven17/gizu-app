@@ -21,6 +21,7 @@ const periods = Object.keys(balancePeriods) as BalancePeriod[];
 const periodNames: Record<BalancePeriod, string> = {
   "1W": "past week",
   "1M": "past month",
+  "1Y": "past year",
   All: "all time",
 };
 const usd = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

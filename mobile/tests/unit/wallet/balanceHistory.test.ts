@@ -30,6 +30,7 @@ test("selects the period and reports change", () => {
   ];
   expect(balanceSeries(history, "1W", 30 * DAY)).toEqual([110, 121]);
   expect(balanceSeries(history, "All", 30 * DAY)).toEqual([100, 110, 121]);
+  expect(balanceSeries(history, "1Y", 390 * DAY)).toEqual([110, 121]);
   expect(balanceChange([100, 110, 121])).toEqual({ delta: 21, percent: 21 });
   expect(balanceChange([0, 5])).toEqual({ delta: 5, percent: null });
   expect(balanceChange([5])).toBeNull();

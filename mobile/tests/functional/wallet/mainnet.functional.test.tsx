@@ -147,4 +147,7 @@ test("Home balance shows observed performance and expands to a period chart", as
   fireEvent.press(screen.getByRole("radio", { name: "1W" }));
   expect(screen.getByLabelText("Balance history is not available yet")).toBeVisible();
   expect(screen.queryByText(/past week/)).toBeNull();
+  fireEvent.press(screen.getByRole("radio", { name: "1Y" }));
+  expect(screen.getByRole("radio", { name: "1Y", checked: true })).toBeVisible();
+  expect(screen.getByLabelText("Balance past year: +$1.00 (+50%)")).toBeVisible();
 });

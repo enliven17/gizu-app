@@ -1,6 +1,6 @@
 /** Total USDC balance observed on this device at a point in time. */
 export type BalancePoint = { at: number; atoms: string };
-export const balancePeriods = { "1W": 7, "1M": 30, All: Infinity } as const;
+export const balancePeriods = { "1W": 7, "1M": 30, "1Y": 365, All: Infinity } as const;
 export type BalancePeriod = keyof typeof balancePeriods;
 
 const HOUR = 3_600_000;
