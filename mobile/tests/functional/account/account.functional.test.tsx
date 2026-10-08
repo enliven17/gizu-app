@@ -22,7 +22,8 @@ test("copies the complete address with feedback and retries clipboard failure", 
   await userEvent.press(screen.getByRole("button", { name: "Copy account address" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not copy address. Try again.");
   await userEvent.press(screen.getByRole("button", { name: "Copy account address" }));
-  expect(await screen.findByText("Address copied.")).toBeVisible();
+  // Native-driven toast animation is verified separately on device.
+  expect(await screen.findByText("Address copied.")).toBeOnTheScreen();
   expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith(profileFixture.address);
   expect(profileFixture.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
 });

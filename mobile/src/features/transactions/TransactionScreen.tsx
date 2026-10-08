@@ -1,3 +1,5 @@
+import { useIsFocused } from "@react-navigation/native";
+import { ToastHost } from "@/components/organisms/toast/ToastHost";
 import { useSession } from "@/application/SessionProvider";
 import { NativeTransaction } from "./NativeTransaction";
 import { useState } from "react";
@@ -22,10 +24,16 @@ export function TransactionScreen(
   props: NativeStackScreenProps<RootStackParamList, "Transaction">,
 ) {
   const { session } = useSession();
-  return session?.kind === "testnet" || session?.kind === "mainnet" ? (
-    <NativeTransaction {...props} />
-  ) : (
-    <DemoTransaction {...props} />
+  const focused = useIsFocused();
+  return (
+    <View className="flex-1">
+      {session?.kind === "testnet" || session?.kind === "mainnet" ? (
+        <NativeTransaction {...props} />
+      ) : (
+        <DemoTransaction {...props} />
+      )}
+      {focused ? <ToastHost /> : null}
+    </View>
   );
 }
 function DemoTransaction({ route }: NativeStackScreenProps<RootStackParamList, "Transaction">) {

@@ -5,6 +5,7 @@ import { Check, Copy } from "lucide-react-native";
 import { Typography } from "@/components/atoms/Typography";
 import { IconButton } from "@/components/atoms/IconButton";
 import { profileFixture } from "@/services/fixtures/profile";
+import { showToast } from "@/services/toast";
 import { useAccount } from "./AccountProvider";
 
 type Props = {
@@ -37,7 +38,10 @@ export function AccountAddress({ leading, heading, compact = false }: Props) {
     setStatus("copying");
     try {
       await clipboard.copy(address);
-      if (mounted.current) setStatus("copied");
+      if (mounted.current) {
+        setStatus("copied");
+        showToast({ variant: "success", title: "Address copied." });
+      }
     } catch {
       if (mounted.current) setStatus("failed");
     } finally {
@@ -77,11 +81,6 @@ export function AccountAddress({ leading, heading, compact = false }: Props) {
             ? "Receive Monad testnet MON only."
             : "This address cannot receive funds."}
       </Typography>
-      {status === "copied" && (
-        <Typography variant="micro" className="!text-accent" accessibilityLiveRegion="polite">
-          Address copied.
-        </Typography>
-      )}
       {status === "failed" && (
         <Typography variant="micro" className="!text-danger" accessibilityRole="alert">
           Could not copy address. Try again.
