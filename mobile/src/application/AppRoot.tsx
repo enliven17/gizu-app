@@ -33,6 +33,7 @@ import { SessionProvider, useSession } from "./SessionProvider";
 import { type AccessService, type WalletSession } from "@/services/access";
 import { createLinking } from "@/navigation/linking";
 import type { RootStackParamList } from "@/navigation/types";
+import { ToastHost } from "@/components/organisms/toast/ToastHost";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { EarnProvider } from "@/features/earn/EarnProvider";
 import type { EarnVaultExecutionService } from "@/domain/earn/vaultExecution";
@@ -175,6 +176,13 @@ function AppNavigation({
     </NavigationContainer>
   );
 }
+function SessionToastHost() {
+  const { session } = useSession();
+  const key = session
+    ? `${session.kind}:${session.accountId ?? "default"}:${session.kind === "demo" ? "demo" : session.address}`
+    : "guest";
+  return <ToastHost key={key} />;
+}
 export function AppRoot({
   analyticsService = analytics,
   accessService,
@@ -244,6 +252,7 @@ export function AppRoot({
               investmentService={investmentService}
               transactionService={transactionService}
             />
+            <SessionToastHost />
           </EarlyAccessProvider>
         </SessionProvider>
       </ErrorBoundary>
