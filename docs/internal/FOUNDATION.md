@@ -1,7 +1,6 @@
 # Mobile foundation
 
-Current source baseline checked 2026-09-24. This reference describes the runtime;
-remaining work belongs in [the roadmap](../PLAN.md). Historical milestone diaries
+Current source baseline checked 2026-09-24. This reference describes the runtime. Historical milestone diaries
 remain in Git. Native evidence is summarized in
 [signer verification](NATIVE_SIGNER_VERIFICATION.md).
 
@@ -29,13 +28,13 @@ and root just recipes remain deferred.
 System fonts remain the fallback until frontend font redistribution rights are
 confirmed. Use shared semantic tokens, safe areas, accessible controls, text scaling
 and reduced motion. Portrait-first/no dedicated tablet layout remains provisional.
-Current product behavior is owned by [PARITY](PARITY.md), not historical phases.
+Current product behavior is owned by [PARITY](../feature-plans/PARITY.md), not historical phases.
 
 ## Identity and release boundary
 
 Development identity and domain association setup live in
-[passkey configuration](PASSKEY_CONFIGURATION.md) and
-[Android signing](ANDROID_SIGNING.md). Do not treat development placeholders,
+[passkey configuration](../app-guide/PASSKEY_CONFIGURATION.md) and
+[Android signing](../app-guide/ANDROID_SIGNING.md). Do not treat development placeholders,
 shared RP or a successful local probe as production release approval.
 Production identity/EAS ownership, signing, physical device acceptance, independent
 recovery and security review remain open. Never silently connect fixture investments

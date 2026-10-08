@@ -42,11 +42,11 @@ Verification for this stage: 51 Swift simulator tests, 148 Rust tests with stric
 
 The hosted native API is `https://gizu-backend.onrender.com`; JavaScript uses `EXPO_PUBLIC_API_URL`. JavaScript updates load through Metro in the development app; native API changes require rebuilding and installing the APK. Local backend changes do not alter Render until deployed.
 
-For the requested pre-deployment phone test, `-PgizuEarnBackend=usb` builds Android debug with a fixed native `http://127.0.0.1:3000` backend. Set Metro's `EXPO_PUBLIC_API_URL` to the same origin and reverse ports 3000 and 8081 over USB. This is compile-time local testing; JavaScript cannot select a native endpoint. Omitting the property keeps the hosted backend; release always uses the hosted HTTPS backend. See [native USB setup](NATIVE_SIGNER.md#android-usb-backend-test-build).
+For the requested pre-deployment phone test, `-PgizuEarnBackend=usb` builds Android debug with a fixed native `http://127.0.0.1:3000` backend. Set Metro's `EXPO_PUBLIC_API_URL` to the same origin and reverse ports 3000 and 8081 over USB. This is compile-time local testing; JavaScript cannot select a native endpoint. Omitting the property keeps the hosted backend; release always uses the hosted HTTPS backend. See [native USB setup](NATIVE_SIGNER_EARN.md#android-usb-backend-test-build).
 
 The local server uses an ignored, permission-restricted `backend/.env` with provider credentials copied by name from the authorized research configuration and an isolated local PostgreSQL database. No research wallet keys or signing journals are imported. A new local-only durable recovery key is retained in that file; production must retain its own stable key. The qualified Aurora fee configuration and installed-certificate association remain required even when the backend runs locally. Publishing the frontend association can enable device signing without deploying the backend.
 
-Render build commands and the pinned Linux Anvil runtime are documented in [backend deployment](../../backend/DEPLOYMENT.md). The service root is `backend`; use `npm start` for the deployed build. Keep provider keys on the server: the existing `ONEINCH_API_KEY`, plus `AURORA_API_KEY` and `PIMLICO_API_KEY` for their respective paths. `ETHEREUM_RPC_URL` can select a qualified HTTPS RPC. `EARN_ANVIL_PATH` must point to a working server-side Anvil binary with pinned-fork access; missing simulation blocks that proposal. No Anvil process or provider key belongs in the mobile app.
+Render build commands and the pinned Linux Anvil runtime are documented in [backend deployment](../app-guide/BACKEND_DEPLOYMENT.md). The service root is `backend`; use `npm start` for the deployed build. Keep provider keys on the server: the existing `ONEINCH_API_KEY`, plus `AURORA_API_KEY` and `PIMLICO_API_KEY` for their respective paths. `ETHEREUM_RPC_URL` can select a qualified HTTPS RPC. `EARN_ANVIL_PATH` must point to a working server-side Anvil binary with pinned-fork access; missing simulation blocks that proposal. No Anvil process or provider key belongs in the mobile app.
 
 The frontend service builds from `frontend` with `npm ci && npm run build`, publishing `dist`. The prepared `.well-known/assetlinks.json` adds this APK certificate and preserves the previous certificate. Verify its publication on `gizu.io`, particularly before new credential registration. Existing-wallet passkey access succeeded on the connected Android phone during the local test; this does not establish new registration or transaction authorization. Dashboard configuration and deployment credentials still need verification at deployment time.
 
@@ -76,59 +76,70 @@ Each investment has an immutable destination pair/profile. Previous cycles remai
 
 Android execution has native and screen-level test coverage. iOS enables only the Ethereum vault execution capability described above. The remaining execution capabilities stay unavailable; simulator checks do not establish device acceptance. Mainnet resolver admission, live paymaster acceptance, passkey ceremonies and the complete deployed phone journey require separately reported provider/device checks. No vault funds moved during implementation; the separately authorized app test funding is recorded below.
 
-## Final review and verification
+## Durable review and recovery decisions
 
-The legacy joint hosted routing preview was removed: live requests never send both destination addresses together. Payout quotes remain one role at a time. Final exit checks refresh the native return journals, require authenticated credit for every submitted return and combine that with a fresh canonical investment-wallet snapshot. Token, native ETH and WETH are priced conservatively against current USDC; the server's public residual flag alone is not completion evidence.
+- Independent payout quotes replaced joint hosted previews; do not send both
+  destination addresses together merely to render a preview.
+- Exit checks require refreshed native return evidence plus a canonical investment
+  snapshot. Price token, ETH and WETH conservatively; a server residual flag alone
+  cannot prove completion.
+- Narrow only fresh unsigned payout deadlines to the validated quote expiry before
+  hashing/review. Signed and recovered payloads remain immutable.
+- React Native's installed abort implementation lacked `throwIfAborted`; adapters
+  use a shared `aborted` check before requests and after asynchronous results.
+  Regression tests reproduced the failure before the fix.
+- Unsigned blocked previews use the existing funding panel, show real estimates
+  only when available and disable authorization. They carry no signing binding.
+- Executable quote recovery and native approval bind the versioned fee policy and
+  exact fee breakdown. Preserve legacy signed authority and retry bytes.
+- `EARN_AURORA_HISTORY_QUALIFIED` defaults false; qualification requires authenticated
+  operation-specific evidence. Public SUCCESS and aggregate balance are insufficient.
+- Read-only previews bind their maximum 60-second lifetime to the verified quote
+  timestamp and separately enforce local freshness/expiry. This does not extend
+  native spending deadlines.
 
-September 30 local verification (before the multi-account changes): Rust 65 tests; Android 140 JVM tests and USB debug APK build; backend typechecking/build and 146 passing tests (three optional upstream-fork tests skipped in that full command). Full mobile TypeScript/format/lint/Expo Doctor (21/21)/coverage verification passed, with 544 tests across 64 suites. The USB APK was installed successfully while preserving app data. Existing-wallet passkey access, the live 0-USDC Home screen and the Earn setup screen were verified on the connected Samsung phone. Intent preparation, transaction authorization, provider acceptance and the funded journey remain unverified device steps; the live certificate association/new registration still need verification.
+## Historical verification summary
 
-## September 30 phone funding and live provider gates
+These results were recorded on September 30–October 1, 2026. They are not current
+provider availability checks or newly executed tests.
 
-The user completed existing-wallet passkey access, selected Robinhood mainnet and confirmed the two prepared destination wallets. The source account was then funded from the earlier research account's returned confidential USDC, with explicit approval for the existing research key's 4-bps application fee/referral on this one funding transfer only. The source received **3.079262 USDC** from **3.081997 USDC** input; the actual difference was **0.002735 USDC**. A canonical finalized Monad Circle USDC transfer and the source balance were verified. See the [mainnet test record](../../research/confidential-earn/MAINNET-TEST.md#september-30-app-test-funding). No Earn, vault deposit, withdrawal or return was started by this transfer. Mobile fee qualification remains unchanged.
+| Milestone                | Evidence                                                                                                                                     | Boundary                                                                                                                                                                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| September 30 integration | Rust 65; Android 140 JVM and USB APK; backend 146 passed/3 optional fork skips; mobile 544 tests/64 suites with full checks and Doctor 21/21 | Existing-wallet login, Home and Earn form observed on Samsung; no complete funded Earn journey.                                                                                         |
+| September 30 app funding | Finalized Monad delivery of 3.079262 USDC from 3.081997 input; difference 0.002735 USDC                                                      | Separate, explicitly authorized research-to-app transfer with a one-time 4-bps/referral exception; not Earn acceptance or general fee qualification.                                    |
+| October 1 fee correction | Android 143; Rust 67; backend 154 passed/3 optional skips; mobile 548/64 suites and full checks                                              | Phone's 3-USDC unsigned review showed 2.98649 source, 0.00351 sponsorship estimate and 0.01 reserve; route/fee/history blockers kept its sole authorization control disabled. No spend. |
+| October 1 multi-account  | Rust 140; Android 220; mobile 604/73 suites; backend 183 passed/3 optional skips; Doctor 21/21, Kotlin format and Swift syntax passed        | Mocked contracts and implementation checks, not live provider or device spending. No device detected at final build check.                                                              |
 
-The live research key rejects authenticated `account/history` access with an invite-only error. Provider status later reported SUCCESS, but authenticated operation-specific history is unavailable. This key therefore cannot establish native Earn settlement; the funding receipt is not evidence that the app's source-credit or payout-reconciliation journey works. Before funded Earn testing, Aurora must enable authenticated history for the configured key and provide an operator-qualified normal service-fee configuration meeting the versioned route-specific, zero-Gizu/integrator-fee policy. Render credentials alone do not resolve these provider gates.
+Details of the separately authorized transfer remain in the
+[mainnet test record](../../research/confidential-earn/MAINNET-TEST.md#september-30-app-test-funding).
+That record also limits what the successful receipt proves. Existing-wallet login
+did not establish new passkey registration or all installed-certificate associations.
 
-Aurora's live generated unsigned payout also used a three-day deadline despite a ten-minute requested quote. The backend now narrows only a validated, fresh unsigned payload to the quote expiry before hashing and native review. Signed or recovered payloads remain immutable. Root verification after that fix passed backend typechecking/build and 146 tests, with three optional upstream-fork skips. The APK/native signing limits were not changed.
+## Historical provider diagnosis
 
-## Phone funding review compatibility fix
+On October 1, 09:02–09:06 UTC, thirteen unsigned quote probes (saved research
+requests, different amounts, dry/firm, slippage, deadlines, confidentiality and a
+public control) returned Aurora HTTP 500 with upstream `1Click returned HTTP 521`.
+Direct 1Click token/quote requests independently returned 521. This established an
+upstream availability failure for those checks, not the infrastructure cause or
+global outage scope.
 
-A real phone review of a 3-USDC budget failed before HTTP with “undefined is not a function.” The installed React Native `AbortSignal` comes from `abort-controller` and has no `throwIfAborted` method. Funding, vault, Robinhood, return and exit adapters now check the supported `aborted` flag through a shared helper, keeping cancellation checks before requests and after asynchronous results.
+Aurora incidents returned 13 entries including the HOT bridge; its relation to the
+earlier `Quoting for this pair is not available` response remained unconfirmed.
+Authentication returned 500, so earlier invite-only history denial remained the
+latest entitlement evidence. Fee qualification was independently unresolved.
+Sanitized responses and request settings remain in the
+[provider diagnosis fixture](../../research/confidential-earn/fixtures/aurora-provider-diagnosis-2026-10-01.json).
+No spending signature or transaction was sent during that investigation.
 
-The regression suite uses the same real abort implementation as React Native. It covers a successful unsigned review, pre-cancellation and cancellation during native quote preparation; an AppRoot journey exercises the real source service and verifies the fee review appears without spending. The three new service tests failed against the old code and passed with the fix. Required full mobile verification then passed TypeScript, formatting, lint, Expo Doctor 21/21 and 544 tests across 64 suites.
-
-On the phone, the review progressed past the runtime error to native quote preparation. The active backend independently returned HTTP 503 with `EARN_AURORA_FEE_UNQUALIFIED` for a valid unsigned diagnostic request. Android's existing native ceremony wrapper displays this as a generic wallet failure; it does not establish wallet corruption or require recreation. The Aurora configuration/history gates remain unresolved. No Earn signature or transaction was submitted by these review checks. JavaScript reached the installed development APK through Metro; no native binary changes were needed.
-
-## October 1 fee and review correction
-
-The existing funding panel now displays an unsigned dry preview when fee or settlement qualification blocks native quote preparation. It shows the actual net quote and listed basis point charges, labels the estimate as unsigned, and disables the single authorization button. No second funding screen or component was added. Estimates are never assigned a quote binding or native signing authority.
-
-Executable quotes use one backend fee registry shared by source, payouts and returns. Their policy version and exact fee breakdown survive quote recovery and enter the Rust native review/approval hash. Native TLS remains the evidence boundary; JavaScript cannot select fee collectors or supply its own qualification. Legacy protected quotes and exact signed retries retain their original authority. Allowlisted native errors explain provider qualification and recovery failures without forwarding raw provider errors or mislabeling them as wallet corruption.
-
-`EARN_AURORA_HISTORY_QUALIFIED` defaults to false. Enable it only after provider history entitlement and operation-scoped evidence are qualified. Public SUCCESS and aggregate private balances remain insufficient. The current research key is still unqualified for the mobile Earn path; implementation of previews does not enable spending or weaken settlement. Earn continues to stop invested; withdrawal and returns require a separate user action.
-
-Live preview recheck on October 1: Aurora also returned HTTP 400, `Quoting for this pair is not available`, for the unchanged research-compatible dry request. This provider condition now returns an unsigned blocked review with null credit/fee estimates; no estimate is fabricated. The live local preview endpoint returned HTTP 200 with fee, history and route-unavailable blockers and no signing binding. Source balance remained 3.079262 USDC after APK installation.
-
-Verification for the fee correction: Android signer JVM tests 143 passed and the USB APK built/installed with existing wallet data retained; Rust core tests 67 passed. Final full mobile checks passed 64 suites / 548 tests, required coverage thresholds, TypeScript, formatting, ESLint and Expo Doctor 21/21. Backend final typechecks/build and 154 passing tests / 3 optional upstream fork skips passed. No deployment, PR or mainnet Earn transaction was performed.
-
-A phone review exposed inconsistent read-only preview clock checks: timestamp validation permitted small server skew but expiry used the phone's clock for the maximum lifetime. The preview now binds its maximum 60-second lifetime to its verified quote timestamp, separately checks local expiry/freshness and rejects any extension. This does not alter native spending deadlines. Funding errors are displayed directly below the existing review button.
-
-Final phone verification: the user-selected 3-USDC budget opened the existing unsigned review after the APK update and JavaScript refresh. It displayed **2.98649 USDC** as the provisional source amount, **0.00351 USDC** as the estimated sponsorship cap, and retained **0.01 USDC** within the budget. It showed the current Aurora route-unavailable, collector/referral qualification and authenticated history blockers. There was exactly one funding authorization control and it was disabled. No native spending approval, funding submission, payout, deposit, withdrawal or return was performed.
-
-## October 1 research and upstream diagnosis
-
-Fresh live checks around 09:02–09:06 UTC established that research is also currently unable to quote. The backend and research use the same Aurora API key. Replaying the exact saved source request bodies from the completed Ethereum and Robinhood mainnet tests returned HTTP 500 with `1Click returned HTTP 521`. Thirteen unsigned, unfunded quote checks covered those original amounts, 3 USDC, dry versus firm quotes, zero versus 100-bps slippage, explicit/default deadlines, explicit/default SIMPLE mode, basic/advanced confidentiality, private payouts to both destination chains, and a public Monad-to-Ethereum control. Every quote returned the same upstream error. No working research quote was obtained to port into the app.
-
-Direct calls to the [documented 1Click endpoint](https://docs.near-intents.org/integration/distribution-channels/1click-api/quickstart/making-a-request), without any Aurora credential, independently returned HTTP 521 for both `/v0/tokens` and an unsigned public dry quote. Cloudflare's HTML title was `521: Web server is down`; response rays included `a43a4dfc9f6fd5a3-AMS` and `a43a4dfc9dfca006-AMS` at 09:05:16 UTC. [Cloudflare documents 521](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-521/) as the origin refusing Cloudflare connections, with an offline origin or blocked Cloudflare requests as common causes. This identifies an upstream availability failure; it does not establish the provider's underlying infrastructure cause or global outage scope. Aurora's token registry and the previously completed funding route's status also returned HTTP 500.
-
-Aurora's [ongoing incidents endpoint](https://docs.intents.aurora.dev/api-reference/swap-api-reference/get-ongoing-incidents.md) remained reachable: HTTP 200, `status: incidents`, 13 active entries, including `{scopeType: bridge, scopeValue: hot, direction: "*", publicDescription: null}`. Our Monad USDC asset is `nep245:v2_1.omni.hot.tg:143_2dmLwYWkCQKyTjeUPAsGJuiVLbFx`; [HOT's primary documentation](https://github.com/hot-dao/docs/blob/main/omni-tokens/README.md) identifies `v2_1.omni.hot.tg` as its omni bridge contract. The HOT incident is relevant to this route, but a causal connection to the earlier `Quoting for this pair is not available` response remains unconfirmed. No incident description or restoration estimate was returned. A fresh token-registry response could not be obtained during the 521 failure; the previously fetched registry and completed research journals identify the same source token.
-
-Research authentication was retried using a short-lived, empty-intent login signature, which grants no spending authority. Aurora returned HTTP 500, `Something went wrong`. History therefore could not be retested; the earlier invite-only history response remains the latest entitlement evidence. Fee ownership/referral qualification also remains unresolved, independently of service recovery.
-
-The next funded phone test requires provider recovery and qualification: restore 1Click connectivity; explain and clear or qualify the HOT bridge incident for Monad USDC; enable and demonstrate authenticated operation-specific history; and verify the key's public/confidential fee rules and beneficiaries with zero Gizu/integrator commission. Changing slippage, switching to public routing, or copying research's aggregate-balance/public-SUCCESS fallback does not address the observed failure or meet the handover's settlement requirements. After recovery, rerun the same request comparison before changing app routing.
-
-Sanitized live responses and quote settings are saved in [provider diagnosis evidence](../../research/confidential-earn/fixtures/aurora-provider-diagnosis-2026-10-01.json). No research journal was changed, no spending signature or transaction was sent, and no app runtime code or component was added during this investigation.
+For a new test, recheck route availability, fee beneficiaries/referrals and
+operation-scoped history entitlement. Do not infer today's service status from
+this incident or weaken settlement rules to work around it.
 
 ## October 1 multi-account refresh and approval
+
+Historical design snapshot; current UI refresh triggers may differ. The bounded
+read policy and approval constraints below record the implementation decision.
 
 All keys and the complete account/cycle graph stay in native device storage. The backend receives individual public operation proposals, never the ownership catalogue or signing keys. Existing components display the merged portfolio and per-source progress.
 
@@ -137,5 +148,3 @@ Ordinary app openings refresh encrypted snapshots with bounded work: token synch
 The native batch approval binds the wallet, journal generation, registry, selected owners, budgets, recipients, original requests and fee caps. It is memory-only and expires after the existing 15-minute signing-session window. Native signing still verifies exact final UserOperation/paymaster terms within those limits. Separate downstream payout, investment and withdrawal actions retain their own approvals. This batches source funding approval; it does not approve an unlimited or automatic full lifecycle.
 
 The scalability bounds currently cover up to 8,192 public accounts and 256 Earn cycles per device. A cold/restored catalogue is synchronized incrementally. Funding review probes fresh candidate balances separately with a bounded search; an incomplete portfolio is not a promise that every account has been searched. Confidential valuation currently covers the configured Monad USDC asset only. Full iOS execution and live provider/device acceptance remain separate verification gates.
-
-Final multi-account checks: 140 Rust tests; 220 Android JVM tests; 604 mobile tests across 73 suites; backend typechecking/build and 183 passing tests (three optional fork tests skipped). Mobile TypeScript, formatting, lint and Expo Doctor 21/21 passed. Maintained Kotlin formatting and Swift syntax checks passed. These checks verify the implementation and mocked provider contracts, not live Aurora admission or a device spending ceremony. No phone was detected by ADB at the final build check; no assets were moved or deployment performed.

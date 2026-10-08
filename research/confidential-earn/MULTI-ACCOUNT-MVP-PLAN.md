@@ -34,4 +34,4 @@ The Android implementation shares native source discovery and encrypted reservat
 
 The mobile UI reuses its existing portfolio, funding and exit components. Token/position observations are incremental and bounded; unknown prices and incomplete coverage stay visible. Cold or restored accounts can require several openings to finish indexing. Current balances are reread independently before signing.
 
-Latest verification counts and platform/provider limitations are recorded in [the mobile integration record](../../mobile/docs/CONFIDENTIAL_EARN.md#october-1-multi-account-refresh-and-approval). Mainnet spending, deployment and pushing are excluded from this implementation run.
+Latest verification counts and platform/provider limitations are recorded in [the mobile integration record](../../docs/internal/CONFIDENTIAL_EARN.md#october-1-multi-account-refresh-and-approval). Mainnet spending, deployment and pushing are excluded from this implementation run.

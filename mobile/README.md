@@ -14,7 +14,7 @@ remain unavailable. Deposit shows the Monad mainnet USDC receiving address.
 Direct standalone USDC withdrawals remain unavailable. Earn can review a separate
 withdrawal of verified investment return credit to a native Monad receiving account. Confidential Earn
 prepares two native-owned wallets after intent, reads vault readiness and private
-balances, and executes independently reviewed native funding, payouts and investments. See [Confidential Earn](docs/CONFIDENTIAL_EARN.md).
+balances, and executes independently reviewed native funding, payouts and investments. See [Confidential Earn](../docs/internal/CONFIDENTIAL_EARN.md).
 iOS 18+ stored-wallet support is implemented; physical-device acceptance is pending. Incoming/external activity is not indexed.
 
 Normal startup supports native access only. Historical M2–M5 fixture flows remain
@@ -59,9 +59,9 @@ use `gizu.io` as their passkey relying-party domain.
 ## Commands
 
 Passkey identity and manual domain checks are documented in
-[PASSKEY_CONFIGURATION.md](docs/PASSKEY_CONFIGURATION.md). The frontend owns the
+[PASSKEY_CONFIGURATION.md](../docs/app-guide/PASSKEY_CONFIGURATION.md). The frontend owns the
 hosted association files; deployment does not happen from mobile scripts.
-The [former P1 probe](docs/NATIVE_SIGNER.md#retired-javascript-probe) has been removed. Native mode uses
+The [former P1 probe](../docs/internal/NATIVE_SIGNER_RETIRED.md#retired-javascript-probe) has been removed. Native mode uses
 the native signer; raw PRF is never exposed to JavaScript. Rebuild older clients
 to remove the old bridge and install the current signer.
 
@@ -122,8 +122,8 @@ based on this small foundation's measured coverage; include all source files and
 raise floors as the app grows. These tests do not verify native gestures, keyboard
 presentation, real biometrics, network operations or on-chain settlement.
 
-See [docs/FOUNDATION.md](docs/FOUNDATION.md) for version decisions and the validation
-record, and [docs/PARITY.md](docs/PARITY.md) for the frozen product scope.
+See [docs/FOUNDATION.md](../docs/internal/FOUNDATION.md) for version decisions and the validation
+record, and [docs/PARITY.md](../docs/feature-plans/PARITY.md) for the frozen product scope.
 
 ## Portfolio and vaults
 
@@ -200,7 +200,7 @@ submission, Check status reconciles the same operation; closing the modal does
 not cancel it. Home and Activity can reopen status. The session-scoped mock ledger
 updates cash, units and activity only on confirmed responses and resets at sign-out.
 
-See [docs/TRADING.md](docs/TRADING.md) for exact fee, minimum, lockup, rounding,
+See [docs/TRADING.md](../docs/internal/TRADING.md) for exact fee, minimum, lockup, rounding,
 scenario and dismissal rules. These interfaces are mock contracts, not production
 API specifications or real wallet/signing integrations.
 
@@ -214,7 +214,7 @@ this account's preferences and all session state. USD is the only supported disp
 currency. Recovery, push delivery, FX, document downloads and support channels are
 explicitly unavailable pending their integrations. Real passkeys are next.
 
-See [docs/ACCOUNT.md](docs/ACCOUNT.md) for availability and persistence rules.
+See [docs/ACCOUNT.md](../docs/internal/ACCOUNT.md) for availability and persistence rules.
 M5 adds native storage/clipboard modules: rebuild an existing development client
 with `npm run ios` or `npm run android` from `mobile/` before testing this version.
 
@@ -236,7 +236,7 @@ Rebuild installed clients with `npm run android` or `npm run ios` to remove the
 old native module; restarting Metro alone cannot remove native registrations.
 Independent retained-core build/test commands remain `npm run signer:build` and
 `npm run signer:test`; see the [retained module guide](modules/gizu-signer/README.md).
-Follow the [migration plan](docs/SIGNER_MIGRATION.md) for the replacement contract
+Follow the [migration plan](../docs/internal/SIGNER_MIGRATION.md) for the replacement contract
 and remaining implementation.
 
 ## Wallet integration organization
@@ -275,7 +275,7 @@ harness and retained legacy source remain separate from normal entry.
 Normal wallet mode reads the backend's `GET /v1/chains` and combines opportunities
 from all configured chains without a chain selector. The initial environment example enables Robinhood,
 Ethereum and Monad. Set `CATALOG_CHAINS_JSON` and optional `CATALOG_VAULTS_JSON` on
-the backend; see [catalog configuration](../backend/DEPLOYMENT.md#vault-catalog-configuration)
+the backend; see [catalog configuration](../docs/app-guide/BACKEND_DEPLOYMENT.md#vault-catalog-configuration)
 for contracts on any enabled chain and fallback metadata. The example includes
 Gizu Prime AUSD on Monad (`0x997D5064A7B48305c15C9D55AC2D94D7069Fc008`, share symbol
 `gzpAUSD`, underlying asset AUSD). Merkl discovery is preserved.
@@ -332,7 +332,7 @@ or complete the outstanding physical-iPhone acceptance.
 
 The sole passkey domain is `gizu.io`. Deploy the association file and verify both
 the origin and Apple's cache authorize `588X2UZY3L.io.gizo.ios`; see
-[hosting instructions](../frontend/docs/PASSKEY_HOSTING.md). Existing development
+[hosting instructions](../docs/app-guide/PASSKEY_HOSTING.md). Existing development
 association entries are retained for older installations, not additional domains.
 
 From `mobile/`, increment `ios.buildNumber` before a new upload, then build locally:

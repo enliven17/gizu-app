@@ -1,7 +1,7 @@
 # Account and notifications (M5)
 
 This reference describes demo/local account behavior. For native-mode availability
-and real wallet identity, use the [current capability matrix](PARITY.md). Fixture
+and real wallet identity, use the [current capability matrix](../feature-plans/PARITY.md). Fixture
 profile and notification data are not real account services.
 
 M5 provides account and secondary-page journeys while authentication, account

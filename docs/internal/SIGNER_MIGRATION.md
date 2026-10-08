@@ -8,7 +8,6 @@ onboarding/backup checks passed. Guided phase-4 cancellation, withdrawal, restar
 user-reported successful. Extended device failure-path checks, second-device restore
 and phase-5 validation remain pending. Android APK exclusion and iOS simulator binary exclusion are verified; physical iOS
 acceptance remains unverified. Existing installed clients require rebuilding.
-This document details the migration tracked by the [mobile roadmap](../PLAN.md).
 
 The original Android-only scope below is retained as migration history. The iOS
 replacement is now implemented; current platform behavior and pending acceptance
