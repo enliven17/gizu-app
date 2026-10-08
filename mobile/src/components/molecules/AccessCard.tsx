@@ -1,6 +1,7 @@
-import { ActivityIndicator, Pressable, Text, useWindowDimensions } from "react-native";
+import { Pressable, Text, useWindowDimensions } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import colors from "@/theme/colors.json";
+import { Spinner } from "@/components/atoms/Spinner";
 
 /**
  * Full-width primary access action (frontend `neon-btn`: 56 pt, button radius, neon
@@ -34,7 +35,7 @@ export function AccessCard({
       className={`min-h-14 w-full flex-row items-center justify-center gap-3 rounded-button px-5 py-4 active:opacity-85 ${disabled ? "border border-borderSoft bg-glassSoft" : "bg-neon"}`}
     >
       {loading ? (
-        <ActivityIndicator color={foreground} />
+        <Spinner size="sm" color={foreground} />
       ) : (
         <Icon size={20} strokeWidth={2} color={foreground} />
       )}

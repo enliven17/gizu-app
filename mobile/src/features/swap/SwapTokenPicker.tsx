@@ -33,14 +33,14 @@ export function SwapTokenPicker({
         onPress={() => {
           setOpen(true);
         }}
-        className="gap-2 rounded-[28px] border border-glassBorder bg-glass p-6"
+        className="gap-3 rounded-[20px] bg-well p-4"
       >
-        <Typography variant="micro">You receive</Typography>
+        <Typography variant="label11">You receive</Typography>
         <View className="flex-row items-center justify-between gap-3">
-          <Typography variant="rowTitle" className="flex-1">
+          <Typography variant="rowTitle" className="flex-1 !text-[22px]">
             {selected?.symbol ?? "Choose token"}
           </Typography>
-          <Typography variant="caption" className="!text-neon">
+          <Typography variant="caption" className="rounded-full bg-neon/15 px-3 py-1 !text-neon">
             Change
           </Typography>
         </View>
@@ -130,7 +130,7 @@ function TokenChoices({
             onPress={() => {
               if (selectable && !disabled) onSelect(item);
             }}
-            className="gap-1 border-b border-borderSoft py-4"
+            className={`mb-2 gap-1 rounded-2xl px-4 py-3 ${checked ? "bg-neon/10" : "bg-well"} ${!selectable ? "opacity-60" : ""}`}
           >
             <Typography variant="rowTitle" className={checked ? "!text-neon" : ""}>
               {item.symbol}

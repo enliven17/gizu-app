@@ -1,3 +1,4 @@
+import * as nativeBridge from "@/services/wallet/nativeBridge";
 import { openEarnLink } from "../../support/earnNavigation";
 import { mainnetPortfolio } from "../../support/mainnetWallet";
 import { act, render, screen, userEvent } from "@testing-library/react-native";
@@ -10,6 +11,17 @@ import { opportunityDetail } from "../../support/opportunities";
 import { earnProfiles } from "@/domain/earn/types";
 import type { OpportunityDetail } from "@/domain/opportunities";
 const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
+beforeEach(() => {
+  // Discovery replaces holdings only after a successful empty native balance read.
+  jest.spyOn(nativeBridge, "getStoredSwapSigner").mockReturnValue({
+    getSwapHoldings: jest.fn().mockResolvedValue({
+      checkedAt: 1_790_000_000_000,
+      block: "0x123",
+      holdings: [],
+    }),
+  } as unknown as NonNullable<ReturnType<typeof nativeBridge.getStoredSwapSigner>>);
+});
+
 const address = "0x" + "1".repeat(40);
 const intent = {
   status: "prepared" as const,

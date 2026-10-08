@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { View, Pressable, type LayoutRectangle } from "react-native";
+import { Text, View, Pressable, type LayoutRectangle } from "react-native";
 import Animated, {
   Extrapolation,
   cancelAnimation,
@@ -18,6 +18,7 @@ import colors from "@/theme/colors.json";
 import { springs } from "@/theme/motion";
 
 const icons = { Home: House, Vaults: PieChart, Exchange: ArrowLeftRight, Settings };
+const titles = { Home: "Home", Vaults: "Vaults", Exchange: "Swap", Settings: "Settings" };
 /** Frontend BottomNav enters from `y: 60` with a fade. */
 const ENTRANCE_OFFSET = 60;
 
@@ -70,7 +71,7 @@ export function FloatingTabs({ state, descriptors, navigation, insets }: BottomT
       }}
     >
       <Animated.View
-        className="self-center rounded-full border border-glassBorder bg-glass p-2"
+        className="self-center rounded-[28px] border border-cardEdge bg-card p-1.5"
         style={entranceStyle}
       >
         {/* Keep measured tabs and the absolute pill in the same border-free coordinates. */}
@@ -80,7 +81,7 @@ export function FloatingTabs({ state, descriptors, navigation, insets }: BottomT
               pointerEvents="none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-              className="absolute left-0 top-0 rounded-full bg-neon"
+              className="absolute left-0 top-0 rounded-[22px] bg-neon/15"
               style={[{ width: bounds.width, height: bounds.height }, pillStyle]}
             />
           )}
@@ -123,7 +124,7 @@ export function FloatingTabs({ state, descriptors, navigation, insets }: BottomT
                     navigation.navigate(route.name, route.params);
                 }}
                 onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-                className="h-12 w-14 items-center justify-center rounded-full"
+                className="h-14 w-[68px] items-center justify-center gap-1 rounded-[22px]"
               >
                 <View
                   pointerEvents="none"
@@ -132,10 +133,18 @@ export function FloatingTabs({ state, descriptors, navigation, insets }: BottomT
                 >
                   <Icon
                     size={19}
-                    color={selected ? colors.ink : colors.fg["45"]}
-                    strokeWidth={selected ? 2.4 : 1.8}
+                    color={selected ? colors.neon.DEFAULT : colors.fg["45"]}
+                    strokeWidth={selected ? 2.25 : 1.75}
                   />
                 </View>
+                <Text
+                  maxFontSizeMultiplier={1.3}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  className={`font-sans text-[10px] font-medium ${selected ? "text-neon" : "text-fg-45"}`}
+                >
+                  {titles[route.name as keyof typeof titles]}
+                </Text>
               </Pressable>
             );
           })}

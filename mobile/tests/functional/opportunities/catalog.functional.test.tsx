@@ -65,7 +65,7 @@ function setup(fail = false, chains?: OpportunityService["chains"]) {
 }
 test("mainnet listing shows real metrics without investment actions and supports pagination and filters", async () => {
   const { list } = setup();
-  expect(screen.getByText("Loading vaults…")).toBeVisible();
+  expect(screen.getByLabelText("Loading vaults…")).toBeVisible();
   expect(await screen.findByText("Lend USDC on Aave")).toBeVisible();
   expect(screen.getByText("6.1% total APR")).toBeVisible();
   expect(screen.queryByRole("button", { name: /deposit|withdraw|buy/i })).toBeNull();

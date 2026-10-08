@@ -25,7 +25,7 @@ export function NotificationCard({ item, open, disabled, onOpen, onToggleRead, o
   // Remeasure native text after Dynamic Type changes.
   const { fontScale } = useWindowDimensions();
   return (
-    <View className="overflow-hidden rounded-card border border-glassBorder bg-glass">
+    <View className="overflow-hidden rounded-card border border-cardEdge bg-card">
       <PressableScale
         accessibilityRole="button"
         accessibilityLabel={`${item.title}, ${item.read ? "read" : "unread"}`}

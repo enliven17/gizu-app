@@ -20,7 +20,7 @@ function TransferButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border border-glassBorder bg-glass py-4"
+      className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-well py-4"
     >
       <Icon size={17} color={colors.neon.DEFAULT} />
       <Text
@@ -52,7 +52,7 @@ export function PortfolioActions({
         accessibilityRole="button"
         accessibilityLabel="View activity"
         onPress={onActivity}
-        className="w-14 items-center justify-center rounded-2xl border border-borderSoft bg-glassSoft"
+        className="w-14 items-center justify-center rounded-2xl bg-well"
       >
         <MoreHorizontal size={18} color={colors.fg["45"]} />
       </PressableScale>

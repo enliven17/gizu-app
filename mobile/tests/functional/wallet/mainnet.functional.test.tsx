@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppRoot } from "@/application/AppRoot";
 import * as nativeBridge from "@/services/wallet/nativeBridge";
 import type { MainnetPortfolioSnapshot } from "@/domain/wallet/storedSigner";
@@ -84,11 +85,7 @@ test("mainnet Home includes receiving USDC, Deposit uses funding address, Withdr
   fireEvent.press(screen.getByRole("button", { name: "Balance details", expanded: true }));
   expect(screen.queryByText("Swap funding: 0.5 USDC")).toBeNull();
   expect(screen.getByLabelText("3 USDC")).toBeVisible();
-  fireEvent.press(screen.getByRole("button", { name: "Wallet details", expanded: false }));
-  expect(screen.getByText("USDC accounts")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Copy funding address" })).toBeVisible();
-  fireEvent.press(screen.getByRole("button", { name: "Wallet details", expanded: true }));
-  expect(screen.queryByText("USDC accounts")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Wallet details" })).toBeNull();
   expect(screen.queryByText(/testnet MON/)).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "Receive" }));
   expect(
@@ -96,7 +93,10 @@ test("mainnet Home includes receiving USDC, Deposit uses funding address, Withdr
   ).toBeVisible();
   expect(screen.getByLabelText(`Account address: ${funding}`)).toBeVisible();
   expect(screen.queryByText("USDC accounts")).toBeNull();
-  expect(screen.getByRole("button", { name: "Wallet details", expanded: false })).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Wallet details", expanded: false }));
+  expect(screen.getByText("USDC accounts")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Copy funding address" })).toBeVisible();
+
   fireEvent.press(screen.getByRole("button", { name: "Back" }));
   fireEvent.press(await screen.findByRole("button", { name: "Send" }));
   expect(await screen.findByText(/Sending USDC directly is not available/)).toBeVisible();
@@ -130,6 +130,21 @@ test("Swap shows the same total public USDC funding balance including receiving 
   await screen.findByLabelText("3 USDC");
   fireEvent.press(screen.getByLabelText("Swap tab"));
   expect(await screen.findByText("Available: 3 USDC")).toBeVisible();
-  expect(screen.getByText("You pay · USDC budget")).toBeVisible();
+  expect(screen.getByLabelText("Amount in USDC")).toBeVisible();
   expect(screen.queryByText(/maximum 10 USDC/)).toBeNull();
+});
+
+test("Home balance shows observed performance and expands to a period chart", async () => {
+  const day = 24 * 3_600_000;
+  await AsyncStorage.setItem(
+    `gizu:balance-history:v1:${walletId}`,
+    JSON.stringify([{ at: snapshot.checkedAt - 20 * day, atoms: "2000000" }]),
+  );
+  await open();
+  expect(await screen.findByText("+$1.00 (+50%) · past month")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Balance details", expanded: false }));
+  expect(screen.getByLabelText("Balance past month: +$1.00 (+50%)")).toBeVisible();
+  fireEvent.press(screen.getByRole("radio", { name: "1W" }));
+  expect(screen.getByLabelText("Balance history is not available yet")).toBeVisible();
+  expect(screen.queryByText(/past week/)).toBeNull();
 });

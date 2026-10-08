@@ -140,7 +140,7 @@ function CardBody({
 
 // Frontend `.glass` card: 24 px radius, p-4, content spread top to bottom.
 const cardClass =
-  "flex-1 justify-between overflow-hidden rounded-card border border-glassBorder bg-glass p-4";
+  "flex-1 justify-between overflow-hidden rounded-card border border-cardEdge bg-card p-4";
 
 /** Frontend OpportunityCard/VaultCard: glass tile with ticker chip, sparkline, name, TVL and rate. */
 export function VaultCard({

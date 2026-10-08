@@ -16,7 +16,7 @@ function MetricTile({ label, value, accent = false }: Omit<MetricProps, "emphasi
   const { fontScale } = useWindowDimensions();
   // Frontend: `SpotlightCard px-4 py-5`, 19px mono value, 9px tracked label.
   return (
-    <View className="grow gap-2.5 rounded-card border border-glassBorder bg-glass px-4 py-5">
+    <View className="grow gap-2.5 rounded-card border border-cardEdge bg-card px-4 py-5">
       <Text
         key={fontScale}
         className={`font-sans text-[19px] font-normal ios:tracking-tight ${accent ? "text-neon" : "text-fg-85"}`}

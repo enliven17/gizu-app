@@ -10,9 +10,9 @@ export function SettingsGroup({
   children,
 }: PropsWithChildren<{ title?: string; delay: number }>) {
   return (
-    <FadeIn delay={delay} className="mt-3 gap-3">
+    <FadeIn delay={delay} className="mt-2 gap-2">
       {title !== undefined && (
-        <Typography variant="eyebrow" className="px-1" accessibilityRole="header">
+        <Typography variant="label11" className="px-1" accessibilityRole="header">
           {title}
         </Typography>
       )}

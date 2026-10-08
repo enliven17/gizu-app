@@ -104,7 +104,9 @@ test("balance failure is unavailable rather than zero and retry can return a rea
   const { balance } = setup();
   balance.getBalance.mockRejectedValueOnce(new Error("offline"));
   await open();
-  expect(await screen.findByRole("alert")).toHaveTextContent("Balance unavailable. Please retry.");
+  expect(
+    await screen.findByRole("alert", { name: "Balance unavailable. Please retry." }),
+  ).toHaveTextContent("Balance unavailable. Please retry.");
   expect(screen.queryByLabelText("0 MON")).toBeNull();
   balance.getBalance.mockResolvedValueOnce("0");
   await userEvent.press(screen.getByRole("button", { name: "Retry balance" }));

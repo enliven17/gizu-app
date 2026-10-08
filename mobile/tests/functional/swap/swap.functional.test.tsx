@@ -92,7 +92,7 @@ test("aborts superseded requests, ignores stale success/failure and aborts on un
     .mockReturnValueOnce(staleFailure.promise)
     .mockResolvedValue({ ...catalogPage, list: [], total: 0 });
   const { unmount } = open(list);
-  expect(screen.getByText("Loading tokens…")).toBeVisible();
+  expect(screen.getByLabelText("Loading tokens…")).toBeVisible();
   fireEvent.press(screen.getByRole("radio", { name: "Ethereum" }));
   expect(list.mock.calls[0]?.[1].aborted).toBe(true);
   fireEvent.press(screen.getByRole("radio", { name: "Monad" }));

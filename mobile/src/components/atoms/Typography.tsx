@@ -17,23 +17,37 @@ const variants = {
   micro: "text-[11px] text-fg-45",
   eyebrow: "text-[12px] font-medium text-fg-55",
   eyebrowSmall: "text-[11px] font-medium text-fg-55",
+  cardTitle: "text-[17px] font-medium text-text",
+  label11: "text-[11px] tracking-[0.6px] text-fg-45",
 };
 export type TypographyVariant = keyof typeof variants;
-const headers = new Set<TypographyVariant>(["title", "heading", "pageTitle", "section"]);
+const headers = new Set<TypographyVariant>([
+  "title",
+  "heading",
+  "pageTitle",
+  "section",
+  "cardTitle",
+]);
 export function Typography({
   variant = "body",
   className = "",
+  children,
   ...props
 }: TextProps & { variant?: keyof typeof variants }) {
   // Remeasure native text after Dynamic Type changes, including on inactive screens.
   // Remount only the text node so feature and navigation state are retained.
   const { fontScale } = useWindowDimensions();
+  // Locale-independent caps: CSS `uppercase` follows the device locale (Turkish "İ").
+  const content =
+    variant === "label11" && typeof children === "string" ? children.toUpperCase() : children;
   return (
     <Text
       key={fontScale}
       accessibilityRole={headers.has(variant) ? "header" : undefined}
       {...props}
       className={`font-sans ${variants[variant]} ${className}`}
-    />
+    >
+      {content}
+    </Text>
   );
 }

@@ -36,7 +36,7 @@ export function PortfolioHeader({
           // Brand header: bare Gizu mark, no tile.
           <GizuLogo width={(32 * 638) / 866} height={32} />
         ) : (
-          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-glassBorder bg-glass">
+          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-cardEdge bg-card">
             <Text
               key={fontScale}
               className="font-sans text-sm text-neon"

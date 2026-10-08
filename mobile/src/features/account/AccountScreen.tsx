@@ -70,8 +70,10 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
   const method = session?.method === "Demo passkey" ? "Passkey" : session?.method;
   return (
     <Screen>
-      <FadeIn delay={sectionDelay(0)} className="mt-6">
-        <Typography variant="pageTitle">Account</Typography>
+      <FadeIn delay={sectionDelay(0)} className="pb-1">
+        <Typography variant="pageTitle" className="!text-[26px]">
+          Account
+        </Typography>
       </FadeIn>
       <FadeIn delay={sectionDelay(1)} className="mt-2 gap-4">
         {session?.kind !== "mainnet" && (
@@ -108,11 +110,11 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
         </SettingsGroup>
       ))}
       {native && session.walletId && (
-        <FadeIn delay={sectionDelay(groups.length + 2)} className="mt-5">
+        <FadeIn delay={sectionDelay(groups.length + 2)} className="mt-3">
           <WalletBackupAction />
         </FadeIn>
       )}
-      <FadeIn delay={sectionDelay(groups.length + 3)} className="mt-5">
+      <FadeIn delay={sectionDelay(groups.length + 3)} className="mt-3">
         <Button
           variant="destructive"
           label="Disconnect"
