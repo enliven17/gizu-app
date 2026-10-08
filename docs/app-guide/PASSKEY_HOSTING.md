@@ -14,8 +14,8 @@ Vite includes the file in `dist/.well-known/apple-app-site-association`.
 
 For a Render Static Site, add this rule under **Headers** in the service dashboard:
 
-| Path | Name | Value |
-| --- | --- | --- |
+| Path                                      | Name           | Value              |
+| ----------------------------------------- | -------------- | ------------------ |
 | `/.well-known/apple-app-site-association` | `Content-Type` | `application/json` |
 
 The file must be served directly on `gizu.io` with valid HTTPS and HTTP 200.
@@ -54,8 +54,7 @@ path if needed. Preserve both files and any future approved signing identities.
 
 Only the public fingerprint is published; the private keystore stays on the
 developer's Mac. This does not configure Play production signing. Android native stored-wallet
-passkeys require the installed APK certificate to appear in this association. See `mobile/docs/ANDROID_SIGNING.md` in the repo.
-
+passkeys require the installed APK certificate to appear in this association. See `docs/app-guide/ANDROID_SIGNING.md` in the repo.
 
 The September 30 local APK update preserves the existing fingerprint and adds:
 

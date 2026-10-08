@@ -2,9 +2,9 @@
 
 Updated 2026-09-25. One active implementation roadmap. Completed work is summarized
 below; implementation does not imply device/security acceptance. Setup belongs in
-[README](README.md), product behavior in [parity](docs/PARITY.md), native contracts
-in [signer architecture](docs/NATIVE_SIGNER.md), and evidence in
-[signer verification](docs/NATIVE_SIGNER_VERIFICATION.md).
+[README](../../mobile/README.md), product behavior in [parity](PARITY.md), native contracts
+in [signer architecture](../internal/NATIVE_SIGNER.md), and evidence in
+[signer verification](../internal/NATIVE_SIGNER_VERIFICATION.md).
 
 ## Current implementation
 
@@ -18,11 +18,11 @@ in [signer architecture](docs/NATIVE_SIGNER.md), and evidence in
 
 `npm start` uses native access only. Fixtures remain in tests and UI previews. No separate
 wallet product screen, new wallet tab or mock financial fallback for real sessions.
-See [capabilities and accepted UI decisions](docs/PARITY.md).
+See [capabilities and accepted UI decisions](PARITY.md).
 
 ## Next work — Android stored-wallet signer migration
 
-Follow the agreed [signer migration plan](docs/SIGNER_MIGRATION.md): replace
+Follow the agreed [signer migration plan](SIGNER_MIGRATION.md): replace
 PRF-derived wallets with locally encrypted random entropy, reuse the Rust core,
 require verified onboarding backups and add explicitly authorized operation resume.
 The Android migration is implemented for fresh development wallets. iOS 18+ now has
@@ -94,11 +94,11 @@ pass-through wrappers, a second live ledger or a generic JavaScript signer.
 
 Production configuration uses Gizu (`io.gizo.ios`) and the signed
 `GizuWalletEnabled` release flag. TestFlight distributes the same app configuration.
-See [release setup](README.md#production-builds-and-testflight-distribution) for
+See [release setup](../../mobile/README.md#production-builds-and-testflight-distribution) for
 build instructions. Existing mainnet flows retain their native policies; branding
 and profile changes do not complete physical-device acceptance.
 
-- [ ] Complete the open [native security and device acceptance](docs/NATIVE_SIGNER_VERIFICATION.md#remaining-acceptance).
+- [ ] Complete the open [native security and device acceptance](../internal/NATIVE_SIGNER_VERIFICATION.md#remaining-acceptance).
 - [ ] Independently review signer, native review, FFI copies, dependency/license
       obligations, update provenance and redacted release diagnostics.
 - [ ] Resolve production identifiers, signing, domain associations, Expo/EAS ownership

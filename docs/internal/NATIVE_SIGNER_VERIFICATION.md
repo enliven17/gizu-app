@@ -121,8 +121,8 @@
 Consolidated 2026-09-24. Historical evidence below is carried from the N1–N3 records;
 checks were not rerun for this documentation change. Counts describe those revisions,
 not a claim about current test totals. The [architecture](NATIVE_SIGNER.md) defines
-the boundary; the [roadmap](../PLAN.md) owns scheduling. Setup commands live in
-[README](../README.md).
+the boundary; the [roadmap](../feature-plans/MOBILE_ROADMAP.md) owns scheduling. Setup commands live in
+[README](../../mobile/README.md).
 
 ## Recorded automated evidence
 
@@ -223,7 +223,7 @@ frontend association addition must be deployed. The app icon now uses the existi
 white Gizu mark on its dark background. The TestFlight profile points to
 `https://gizu-backend.onrender.com`. Export compliance and
 external Beta App Review are unresolved. No build was uploaded or distributed.
-See [TestFlight setup](../README.md#production-builds-and-testflight-distribution).
+See [TestFlight setup](../../mobile/README.md#production-builds-and-testflight-distribution).
 
 ## Production configuration — 2026-09-30
 

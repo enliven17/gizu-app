@@ -2,7 +2,7 @@
 
 The Android app package is `io.gizu.android` for all build profiles. This page
 describes local development signing; release signing uses a separate production key. The former Android Mera probe is retired. Its signing configuration is retained
-for the implemented native signer; see [the retirement record](NATIVE_SIGNER.md#retired-javascript-probe).
+for the implemented native signer; see [the retirement record](../internal/NATIVE_SIGNER.md#retired-javascript-probe).
 
 ## This Mac
 
@@ -57,7 +57,7 @@ Reference: https://developer.android.com/identity/credential-manager/prerequisit
 
 `npm start` opens the normal app using the stored-wallet signer. Native access is
 the only supported passkey mode; simulated access and the old PRF probe are
-disconnected. See [the signer guide](NATIVE_SIGNER.md) for the trust boundary.
+disconnected. See [the signer guide](../internal/NATIVE_SIGNER.md) for the trust boundary.
 
 Rebuild installed Android clients with `npm run android` after native module
 changes. Metro reload alone cannot remove a bridge embedded in an older APK.

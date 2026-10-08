@@ -1,37 +1,8 @@
-# Render backend runtime
+# Backend runtime and provider requirements
 
-The Earn deposit and exit planners need a server-local Anvil executable. The normal
-`npm run build` remains a TypeScript build for local development. The dedicated
-`npm run build:render` installs the pinned Linux executable before compiling the API.
-This repository has no existing Docker deployment convention, so the prepared path
-uses Render's native Node runtime. No live Render configuration is changed by these files.
-
-## Service settings
-
-Configure these settings when publishing the backend:
-
-| Field            | Value                                                                      |
-| ---------------- | -------------------------------------------------------------------------- |
-| Runtime          | Node                                                                       |
-| Root directory   | `backend`                                                                  |
-| Node version     | `NODE_VERSION=24.19.0` (the verified local/container version)              |
-| Build command    | `npm ci --include=dev && npm run build:render`                             |
-| Start command    | `npm start`                                                                |
-| Health check     | `/v1/health`                                                               |
-| Environment      | `NODE_ENV=production`, Render-provided `PORT`, and the server fields below |
-| Anvil executable | `EARN_ANVIL_PATH=.runtime/anvil-v1.8.3/anvil-fork`                         |
-
-The relative Anvil path resolves from the configured `backend` root directory.
-An absolute equivalent is `/opt/render/project/src/backend/.runtime/anvil-v1.8.3/anvil-fork`.
-Install during the build, not a pre-deploy command: Render documents that pre-deploy
-filesystem changes do not reach the running service. Build output contains the executable;
-no runtime download, Rust toolchain or persistent disk is needed for forks.
-
-The installer currently supports **Linux x86-64 only**. An unsupported platform,
-failed download, checksum disagreement, incompatible executable or missing wrapper
-stops the build. There is no fallback to a floating Foundry release or fabricated gas.
-Local macOS development can configure a separately verified native Anvil through
-`EARN_ANVIL_PATH`; `npm run runtime:anvil` intentionally rejects macOS.
+For service setup and deployment steps, see the [backend deployment guide](../app-guide/BACKEND_DEPLOYMENT.md).
+This reference preserves implementation details and dated verification evidence.
+Historical probes do not establish current provider availability.
 
 ## Verified release
 
@@ -61,23 +32,7 @@ and `gh attestation verify` with `--repo foundry-rs/foundry` and the fixed relea
 workflow identity. Updating the pin requires a reviewed artifact/checksum change
 and repeating the Linux checks; do not substitute `foundryup` or `latest` in the build.
 
-## Server configuration
-
-Credentials and configuration stay in Render's server environment. Never put them
-in `EXPO_PUBLIC_*`, mobile bundles or research configuration files.
-
-| Field                                | Purpose                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `DATABASE_URL`                       | Existing server database connection                                           |
-| `MERKL_API_URL`, `MERKL_API_KEY`     | Existing catalog provider configuration                                       |
-| `ONEINCH_API_KEY`                    | Server-held 1inch quotes and constrained native Fusion gateway                |
-| `AURORA_API_KEY`                     | Authenticated confidential history/balances and provider quotes               |
-| `PIMLICO_API_KEY`                    | Server-held fixed-chain token sponsorship and native bundler gateway          |
-| `ETHEREUM_RPC_URL`                   | HTTPS Ethereum read/fork provider with recent pinned-block state access       |
-| `ROBINHOOD_RPC_URL`                  | HTTPS Robinhood chain 4663 read/fork provider with pinned-block state access  |
-| `EARN_ANVIL_PATH`                    | The installed resource-limited `anvil-fork` wrapper above                     |
-| `EARN_AURORA_FEE_QUALIFICATION_JSON` | Versioned route-specific provider fee qualification                   |
-| `EARN_GATEWAY_RECOVERY_KEY`          | Durable server-only 32-byte AES-256 key, encoded as exactly 64 hex characters |
+## Recovery and provider qualification
 
 Retain the recovery key across deploys and restarts. Changing or losing it prevents
 verification of existing native-protected payout recovery envelopes. Keep a protected
@@ -97,7 +52,9 @@ following illustrates the schema; **it does not qualify a collector or API key**
   "version": "verified-policy-2026-10-01",
   "routes": {
     "source": {
-      "collectors": [{ "recipient": "verified-provider.near", "maximumBps": 4 }],
+      "collectors": [
+        { "recipient": "verified-provider.near", "maximumBps": 4 }
+      ],
       "maximumTotalBps": 4,
       "referral": null,
       "integratorFeeBps": 0,
@@ -131,42 +88,7 @@ invite-only history. Reconciliation still checks the live authenticated evidence
 never substitutes balances or public SUCCESS. Dry source previews remain unsigned,
 uncached and unusable as quote bindings, and show the blockers on the existing screen.
 
-## Vault catalog configuration
-
-Set these server variables in `.env` locally and in Render's environment when deploying:
-
-```dotenv
-CATALOG_CHAINS_JSON='[{"id":4663,"name":"Robinhood"},{"id":1,"name":"Ethereum"},{"id":143,"name":"Monad"}]'
-CATALOG_VAULTS_JSON='[{"chainId":143,"address":"0x997D5064A7B48305c15C9D55AC2D94D7069Fc008","name":"Gizu Prime AUSD","symbol":"gzpAUSD","asset":{"address":"0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a","name":"AUSD","symbol":"AUSD","decimals":6}}]'
-MORPHO_API_URL=https://api.morpho.org/graphql
-```
-
-In Render, enter the JSON value without the surrounding shell quotes. Restart the
-backend after changing configuration. `GET /v1/chains` returns `{ "list": [...] }`;
-the existing opportunities endpoints filter Merkl by the requested enabled chain
-and retain the Aave/Morpho/Curvance protocol filters. Mobile combines the enabled
-chains into one catalog and Home preview, without a chain picker.
-Without `CATALOG_CHAINS_JSON`,
-the legacy Monad-only catalog remains enabled. The example and local configuration
-include the operator-selected Gizu Prime AUSD vault on Monad. The same array accepts
-Ethereum (1), Robinhood (4663), and any other chain enabled in `CATALOG_CHAINS_JSON`.
-An omitted or empty `CATALOG_VAULTS_JSON` adds no custom contracts.
-
-Each entry has its own chain ID. For example, the configured Monad vault is:
-
-```json
-[
-  {
-    "chainId": 143,
-    "address": "0x997D5064A7B48305c15C9D55AC2D94D7069Fc008",
-    "name": "Gizu Prime AUSD",
-    "symbol": "gzpAUSD",
-    "description": "Gizu Prime AUSD vault on Morpho, Monad mainnet.",
-    "depositUrl": "https://app.morpho.org/monad/vault/0x997D5064A7B48305c15C9D55AC2D94D7069Fc008/gizu-prime-ausd#overview",
-    "tags": ["lending"]
-  }
-]
-```
+## Catalog validation and caching
 
 Contract addresses must be real nonzero 20-byte EVM addresses.
 Optional `asset` metadata takes `{ "address": "0x…", "name": "USD Coin",

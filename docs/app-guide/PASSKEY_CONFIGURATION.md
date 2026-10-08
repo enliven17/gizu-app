@@ -7,13 +7,13 @@ Access requires Android API 28+, the installed native module and a compatible
 credential provider. New wallets must complete backup verification before app access.
 iOS 18+ wallet support and production build configuration are implemented;
 physical-device/provider acceptance remains pending.
-See [native signer architecture](NATIVE_SIGNER.md) for the active contract. Wallet
+See [native signer architecture](../internal/NATIVE_SIGNER.md) for the active contract. Wallet
 entropy is randomly generated and encrypted locally; the passkey authorizes access
 and its PRF protects backups. It no longer determines wallet addresses.
 The frozen derivation below documents the retained module only, not the new wallet
 model. App identifiers/domain associations remain valid configuration inputs.
 See [Android signing](ANDROID_SIGNING.md) for development association setup and
-[verification](NATIVE_SIGNER_VERIFICATION.md) for device evidence and limitations.
+[verification](../internal/NATIVE_SIGNER_VERIFICATION.md) for device evidence and limitations.
 Apple Team ID `588X2UZY3L` is configured; production release acceptance remains open.
 
 ## Retained signer identity
@@ -43,7 +43,7 @@ Unsupported platforms or missing native modules fail explicitly without a legacy
 or mock fallback. Simulated passkey startup is no longer supported.
 `npm run debug:stored-wallet` opens the isolated replacement diagnostic;
 `npm run debug:ui` opens the UI playground. `native` is the only valid
-passkey mode and defaults when the variable is omitted. See [README](../README.md)
+passkey mode and defaults when the variable is omitted. See [README](../../mobile/README.md)
 for launch and rebuild instructions.
 
 Configuration alone does not prove domain ownership, installed signing or provider
@@ -55,7 +55,7 @@ native code or entitlements. No JavaScript PRF/signing fallback is permitted.
 The frontend owns `public/.well-known/apple-app-site-association` and
 `public/.well-known/assetlinks.json`. Keep their approved app identities aligned
 with the mobile configuration; preserve existing entries when adding identities.
-Follow the [hosting guide](../../frontend/docs/PASSKEY_HOSTING.md) for deployment
+Follow the [hosting guide](PASSKEY_HOSTING.md) for deployment
 and manual HTTP/header/content checks. No mobile script generates or publishes them.
 
 For iOS, verify the hosted Apple file includes the configured Team ID and bundle ID.
@@ -68,7 +68,7 @@ Rebuild native clients after changing signing configuration or entitlements.
 Functional tests mock external/native boundaries. Create/open/recovery, unsupported
 PRF, cancellation, partial creation, wrong credentials and late callbacks need
 provider-aware verification. Current evidence and remaining physical iOS/Android
-cases are tracked in [signer verification](NATIVE_SIGNER_VERIFICATION.md).
+cases are tracked in [signer verification](../internal/NATIVE_SIGNER_VERIFICATION.md).
 No device test, hosting check or provisioning action was performed during this
 documentation consolidation.
 

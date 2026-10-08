@@ -333,7 +333,7 @@ Never say that withdrawing is “free,” that all reserved ETH has been spent, 
 
 ### Existing mobile entry points
 
-Read [mobile guidance](../../mobile/AGENTS.md) and [native signer contract](../../mobile/docs/NATIVE_SIGNER.md) before implementation. Relevant current paths:
+Read [mobile guidance](../../mobile/AGENTS.md) and [native signer contract](../../docs/internal/NATIVE_SIGNER.md) before implementation. Relevant current paths:
 
 - [Investment domain](../../mobile/src/domain/investments.ts) and [service](../../mobile/src/services/investments.ts): display models/demo loading, not a live earn execution API.
 - [Investment provider](../../mobile/src/features/investments/InvestmentProvider.tsx), [vault controller](../../mobile/src/features/investments/useVaultDetailController.ts), [vault screen](../../mobile/src/features/investments/VaultDetailScreen.tsx), [trade bar](../../mobile/src/features/investments/detail/TradeBar.tsx): UI integration points; current navigation is not proof of live vault support.

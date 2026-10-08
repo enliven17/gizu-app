@@ -36,7 +36,7 @@ remains the app account. The registered passkey authorizes locally stored-wallet
 use; PRF encrypts backups rather than determining wallet addresses.
 
 Storage, passkey authorization, verified onboarding backup and transfer/resume are
-implemented; see [the migration plan](SIGNER_MIGRATION.md). No old state or provider passkeys
+implemented; see [the migration plan](../feature-plans/SIGNER_MIGRATION.md). No old state or provider passkeys
 are deleted or migrated. Web wallet sharing and physical iOS acceptance are deferred.
 
 ## Shared public Monad portfolio
@@ -81,7 +81,7 @@ library via JNA as well as compiling Android's generated bindings.
 The iOS portfolio includes persistent public swap summaries. Robinhood token
 holdings use a separate read contract; Earn asset extensions remain Android-only.
 The testnet transfer transport/policy remains separate.
-See [GIZU-1](GIZU-1_IOS_MONAD_PORTFOLIO.md) for verification and device acceptance.
+See [GIZU-1](../feature-plans/GIZU-1_IOS_MONAD_PORTFOLIO.md) for verification and device acceptance.
 
 ## Shared swap holdings and iOS recovery
 
@@ -240,7 +240,7 @@ the replacement intentionally changes those rules under the migration plan.
 
 Updated 2026-09-24 against current source. Development implementation exists on
 Android and iOS; full security/device acceptance is open. Work is tracked only in
-[the roadmap](../PLAN.md); dated results and acceptance gaps live in
+[the roadmap](../feature-plans/MOBILE_ROADMAP.md); dated results and acceptance gaps live in
 [verification](NATIVE_SIGNER_VERIFICATION.md).
 
 ## Threat model and enforceable claim
@@ -277,7 +277,7 @@ Current native exports are `getCapabilities`, `openWallet`, `openNativeProbe`,
 These are the current implementation, not the former N0 proposed API. App-facing
 TypeScript interfaces are in `src/services/wallet/nativeBridge.ts`; diagnostics
 remain under `src/development/`. Source/generated ownership is documented in the
-[module guide](../modules/gizu-signer/README.md).
+[module guide](../../mobile/modules/gizu-signer/README.md).
 
 `openWallet` returns allowlisted public address, account index and chain ID after
 native derivation; it does not sign. Wallet sessions are in-memory viewing access,
@@ -288,7 +288,7 @@ digest, fetch PRF/private keys or receive raw signed transaction bytes.
 ## Frozen identity and bounded policy
 
 Identity source: `src/config/passkey-identity.json`; setup and association files:
-[passkey configuration](PASSKEY_CONFIGURATION.md). Preserve RP `gizu.io`, salt
+[passkey configuration](../app-guide/PASSKEY_CONFIGURATION.md). Preserve RP `gizu.io`, salt
 SHA-256 of UTF-8 `mera.prf.salt.v1`, 32-byte entropy, English BIP-39 and empty
 passphrase. Account 0 is `m/44'/60'/0'/0/0` (`mera-evm-v1`); native indexed derivation
 uses `m/44'/60'/0'/0/i`, i=0..15 (`gizu-indexed-v1`). Main-app access exposes Account 0.

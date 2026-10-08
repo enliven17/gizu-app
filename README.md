@@ -4,7 +4,7 @@ Each application lives in its own top-level folder:
 
 - `frontend/`: React, TypeScript, and Vite web app.
 - `mobile/`: Expo / React Native mobile app. See [mobile setup](mobile/README.md).
-- `backend/`: Fastify API for catalog, token discovery, Swap and Earn preparation and settlement. See [Earn integration/deployment](mobile/docs/CONFIDENTIAL_EARN.md).
+- `backend/`: Fastify API for catalog, token discovery, Swap and Earn preparation and settlement. See [Earn integration/deployment](docs/internal/CONFIDENTIAL_EARN.md).
 - `landing/`: React, TypeScript, and Vite landing website.
 
 ## Run the frontend

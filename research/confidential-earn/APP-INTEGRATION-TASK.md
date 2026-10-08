@@ -19,7 +19,7 @@ Keep the source's Monad USDC paymaster separate from destination execution. Base
 - [Mainnet results](MAINNET-TEST.md): chronology, receipts and caveats.
 - [Ethereum completion evidence](fixtures/ethereum-mainnet-cycle.json) and [Robinhood receipts](fixtures/robinhood-mainnet-receipts.json).
 - [Native CLI](NATIVE-CLI.md), [two-route setup](TWO-ROUTES.md), [package versions](package.json).
-- [Mobile engineering instructions](../../mobile/AGENTS.md), [native signing design](../../mobile/docs/NATIVE_SIGNER.md), [product parity](../../mobile/docs/PARITY.md).
+- [Mobile engineering instructions](../../mobile/AGENTS.md), [native signing design](../../docs/internal/NATIVE_SIGNER.md), [product parity](../../docs/feature-plans/PARITY.md).
 - Research code: [native planner](src/native-planner.mjs), [Fusion](src/fusion-bootstrap.mjs), [native engine](src/native-engine.mjs), [native context](src/native-context.mjs), [token policy](src/token-earn-policy.mjs), [token engine](src/token-earn-engine.mjs), [source paymaster](src/source-paymaster.mjs), [Aurora return validator](src/aurora-return.mjs).
 
 Confirm whether the first delivery targets mobile, web, or both before making platform-specific changes. For mobile, extend the existing investment feature and **GizuStoredSigner**; do not resurrect the disconnected legacy signer.

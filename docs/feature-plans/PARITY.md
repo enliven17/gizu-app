@@ -1,7 +1,7 @@
 # Gizu product capabilities and parity
 
 Updated 2026-10-05. Existing frontend-inspired mobile design is retained;
-service availability differs by mode. Future work belongs in [PLAN](../PLAN.md).
+service availability differs by mode. Future work belongs in [PLAN](MOBILE_ROADMAP.md).
 
 The native-mode entries describe the stored-wallet signer; platform differences are noted below.
 Platform acceptance and remaining migration work are tracked in
@@ -117,8 +117,8 @@ Source balances come from RPC; transaction
 history is not a complete chain ledger. Unknown/pending native entries block new
 transfers until reconciliation. Closing a screen cannot undo a submitted operation.
 Legacy journal details remain missing when never recorded. Preferences are local,
-not credentials; see [Account](ACCOUNT.md). Fixture transaction semantics remain
-explicitly demo-only; see [Trading](TRADING.md).
+not credentials; see [Account](../internal/ACCOUNT.md). Fixture transaction semantics remain
+explicitly demo-only; see [Trading](../internal/TRADING.md).
 
 ## Product and interaction decisions retained from agent guidance
 
@@ -214,7 +214,7 @@ synthesized. Backend responses may be cached for five minutes.
 
 ### Catalog scrolling
 
-Swap and mainnet Vaults use the shared [infinite-list foundation](INFINITE_LISTS.md):
+Swap and mainnet Vaults use the shared [infinite-list foundation](../internal/INFINITE_LISTS.md):
 virtualized cards, automatic loading, accessible Load more, pull-to-refresh and
 operation-specific retries. Vaults retain eight-item requests and responsive
 columns; Swap retains two columns and 20-item requests. Filters reset results,
@@ -223,7 +223,7 @@ wallet behavior are unchanged.
 
 ### Earn native parity
 
-The first iOS execution stage supports Ethereum vault deposits/full redemptions in the existing Earn flow, using the Android Rust policy. Native journals preserve uncertain transactions, exact-byte explicit retry, canonical settlement and cancellation locks. Source sponsorship, private payouts, Ethereum liquidity and Robinhood execution remain iOS follow-ups; this does not enable the complete iOS funding journey. See [the staged rollout](CONFIDENTIAL_EARN.md#ios-parity-rollout). Simulator/native tests and mocked bridge tests are separate from pending physical-iPhone and funded acceptance.
+The first iOS execution stage supports Ethereum vault deposits/full redemptions in the existing Earn flow, using the Android Rust policy. Native journals preserve uncertain transactions, exact-byte explicit retry, canonical settlement and cancellation locks. Source sponsorship, private payouts, Ethereum liquidity and Robinhood execution remain iOS follow-ups; this does not enable the complete iOS funding journey. See [the staged rollout](../internal/CONFIDENTIAL_EARN.md#ios-parity-rollout). Simulator/native tests and mocked bridge tests are separate from pending physical-iPhone and funded acceptance.
 
 ### Simplified native Swap layout
 
@@ -271,4 +271,4 @@ Address-copy success now uses a shared Gizu toast instead of permanent inline
 success text. Copy failures remain inline. Toasts have success/error/info/warning
 variants, accessible dismissal, reduced-motion support and safe-area placement;
 messages reset with the session. This does not add push notifications or change
-the inbox. See [TOASTS.md](TOASTS.md) for customization and native-modal rules.
+the inbox. See [TOASTS.md](../internal/TOASTS.md) for customization and native-modal rules.

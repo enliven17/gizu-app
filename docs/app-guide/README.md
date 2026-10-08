@@ -1,0 +1,38 @@
+# App setup and operation
+
+**Audience:** developers, testers and operators who need to run Gizu.
+
+Use this folder for:
+
+- Prerequisites, installation and environment configuration.
+- Running the mobile app, frontend and backend locally.
+- Simulator, physical-device and USB connection instructions.
+- Builds, signing, distribution and release procedures.
+- Deployment, routine service checks and operational runbooks.
+
+State which platform and environment each procedure targets. Explain expected
+results and link to deeper troubleshooting instead of embedding long investigations.
+Clearly identify commands that deploy, publish or move real funds. Use placeholder
+values for secrets and document where configuration belongs.
+
+Implementation internals and investigations belong in
+[Internal](../internal/README.md). Proposed work belongs in
+[Feature plans](../feature-plans/README.md).
+
+## Guides
+
+| Guide                                             | Purpose                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [Backend deployment](BACKEND_DEPLOYMENT.md)       | Render runtime, provider configuration, release checks and backend operations. |
+| [Android signing](ANDROID_SIGNING.md)             | Local Android signing and certificate association setup.                       |
+| [Passkey configuration](PASSKEY_CONFIGURATION.md) | App identity, relying-party domain and platform configuration.                 |
+| [Passkey hosting](PASSKEY_HOSTING.md)             | Frontend hosting and deployment of domain association files.                   |
+
+## Project entry points
+
+- [Mobile README](../../mobile/README.md): local development, devices, builds and distribution.
+- [Frontend README](../../frontend/README.md): web app and token discovery setup.
+- [Repository README](../../README.md): repository overview and shared entry points.
+
+These guides were relocated without revalidating their dated configuration or
+provider evidence. Check current source before applying historical instructions.
