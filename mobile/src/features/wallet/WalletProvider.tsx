@@ -80,8 +80,8 @@ export function useFundingWallet() {
         mainnet.snapshot && mainnet.snapshot.balanceComplete !== false
           ? formatUsdc(mainnet.snapshot.totalAtoms)
           : null,
-      loading: mainnet.loading || mainnet.snapshot?.balanceComplete === false,
-      error: Boolean(mainnet.error),
+      loading: mainnet.loading,
+      error: Boolean(mainnet.error) || mainnet.snapshot?.balanceComplete === false,
       refresh: mainnet.refresh,
     };
   if (!legacy) throw new Error("Wallet provider required");

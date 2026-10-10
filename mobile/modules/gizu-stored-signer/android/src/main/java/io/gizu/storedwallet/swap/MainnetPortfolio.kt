@@ -3,6 +3,9 @@ package io.gizu.storedwallet.swap
 import android.content.Context
 import io.gizu.storedwallet.*
 import io.gizu.storedwallet.portfolio.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import uniffi.gizu_stored_signer_core.*
@@ -15,7 +18,28 @@ internal class MainnetPortfolio(private val context: Context) {
     record: WalletRecord,
     history: List<Map<String, Any?>>,
     includeOwned: Boolean = true,
-  ): Map<String, Any?> {
+  ): Map<String, Any?> = coroutineScope {
+    val owned = async {
+      try {
+        if (includeOwned) NativeOwnedPortfolio(context).read(record) else emptyMap()
+      } catch (cancelled: CancellationException) {
+        throw cancelled
+      } catch (failure: Exception) {
+        PortfolioDiagnostics.event(
+          PortfolioDiagnostics.Stage.MAINNET_OWNED,
+          PortfolioDiagnostics.Reason.UNAVAILABLE,
+          failure = failure,
+        )
+        mapOf(
+          "ownedAssets" to emptyList<Any>(),
+          "positions" to emptyList<Any>(),
+          "ownedStale" to true,
+          "ownedBalanceComplete" to false,
+          "ownedSyncPending" to true,
+          "valuationComplete" to false,
+        )
+      }
+    }
     val indices = publicAccountIndices(record)
     val accounts =
       indices.indices.toList().chunked(64).flatMap { chunk ->
@@ -35,10 +59,18 @@ internal class MainnetPortfolio(private val context: Context) {
         record.id,
         143,
         USDC,
-        NativePortfolioRpc("https://rpc.monad.xyz"),
+        PortfolioReadBudget().wrap(NativePortfolioRpc("https://rpc.monad.xyz"), 143L),
         ::decodePortfolioBalance,
       )
-    val snapshot = sync.read(addresses, System.currentTimeMillis())
+    val snapshot =
+      try {
+        sync.read(addresses, System.currentTimeMillis())
+      } catch (cancelled: CancellationException) {
+        throw cancelled
+      } catch (_: Exception) {
+        sync.cachedSnapshot(addresses, System.currentTimeMillis())?.copy(stale = true)
+          ?: TokenSnapshot(emptyMap(), "0x0", 0, false, true, true)
+      }
     val public =
       buildPublicPortfolio(
         record.id,
@@ -52,9 +84,7 @@ internal class MainnetPortfolio(private val context: Context) {
           snapshot.syncPending,
         ),
       )
-    return public.toPublicMap() +
-      mapOf("history" to history) +
-      if (includeOwned) NativeOwnedPortfolio(context).read(record) else emptyMap()
+    public.toPublicMap() + mapOf("history" to history) + owned.await()
   }
 
   companion object {

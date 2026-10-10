@@ -3,7 +3,7 @@ import Fastify, {
   type FastifyServerOptions,
 } from "fastify";
 import { createHash } from "node:crypto";
-import { legacyCatalogChains } from "./domain/catalog.ts";
+import { resolveCatalogChains, resolveCatalogVaults } from "./domain/catalog.ts";
 import { ConfiguredOpportunities } from "./adapters/catalog/configured-opportunities.ts";
 import { MorphoVaults } from "./adapters/catalog/morpho-vaults.ts";
 import {
@@ -101,9 +101,9 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   registerEarnFusionRoutes(app,new FusionNativeGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,apiKey:secret.ONEINCH_API_KEY,rpcUrl:ethereumPlannerConfig.rpcUrl}));
   registerEarnExitRoutes(app, new EarnExitSnapshot({ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL,auroraApiKey:secret.AURORA_API_KEY}));
   registerEarnPayoutRoutes(app,new PrivatePayoutGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined,ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com"}));
-  const chains = secret.CATALOG_CHAINS_JSON ?? legacyCatalogChains;
-  const vaults = secret.CATALOG_VAULTS_JSON ?? [];
-  const namespace = `catalog:v1:${createHash("sha256")
+  const chains = resolveCatalogChains(secret);
+  const vaults = resolveCatalogVaults(secret, chains);
+  const namespace = `catalog:v4:${createHash("sha256")
     .update(JSON.stringify({ chains, vaults, morpho: secret.MORPHO_API_URL, merkl: secret.MERKL_API_URL }))
     .digest("hex")}`;
   const opportunities = new ConfiguredOpportunities(

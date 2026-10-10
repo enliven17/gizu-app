@@ -115,6 +115,7 @@ export type OwnedPortfolioPosition = OwnedPortfolioAsset & {
 };
 
 export type MainnetPortfolioSnapshot = {
+  confidentialReadState?: "ready" | "locked" | "unavailable" | "partial";
   ownedAssets?: OwnedPortfolioAsset[];
   positions?: OwnedPortfolioPosition[];
   valuationComplete?: boolean;

@@ -1386,22 +1386,22 @@ class GizuStoredSignerModule : Module() {
                 op.close()
               }
             }
-            val snapshot =
-              io.gizu.storedwallet.swap
-                .MainnetPortfolio(activity.applicationContext)
-                .read(record, saved.portfolio.history())
-            val private = io.gizu.storedwallet.portfolio.NativeOwnedConfidentialPortfolio(activity)
-            if (
-              balanceReadWallet == record.id &&
-                balanceReadGeneration == record.journalId &&
-                balanceReadUntil > System.currentTimeMillis()
-            ) {
-              try {
-                val targets = private.nextTargets(record)
-                if (targets.isNotEmpty()) {
+            coroutineScope {
+              val public = async {
+                io.gizu.storedwallet.swap
+                  .MainnetPortfolio(activity.applicationContext)
+                  .read(record, saved.portfolio.history())
+              }
+              val private = async {
+                try {
+                  val cache =
+                    io.gizu.storedwallet.portfolio.NativeOwnedConfidentialPortfolio(activity)
+                  val authorized =
+                    balanceReadWallet == record.id &&
+                      balanceReadGeneration == record.journalId &&
+                      balanceReadUntil > System.currentTimeMillis()
                   val api = ConfidentialBalance()
-                  val salt = api.salt()
-                  for (target in targets) {
+                  cache.refresh(record, authorized, { api.salt() }) { target, salt ->
                     currentCoroutineContext().ensureActive()
                     check(balanceReadUntil > System.currentTimeMillis())
                     val started = System.currentTimeMillis()
@@ -1425,26 +1425,29 @@ class GizuStoredSignerModule : Module() {
                           started.toULong(),
                           System.currentTimeMillis().toULong(),
                         )
-                    try {
-                      private.recordValidated(target, api.read(auth, target.address))
-                    } catch (cancelled: CancellationException) {
-                      throw cancelled
-                    } catch (_: Exception) {
-                      /* Preserve visibly stale prior observations. */
-                    }
+                    api.read(auth, target.address)
                   }
+                } catch (cancelled: CancellationException) {
+                  throw cancelled
+                } catch (_: Exception) {
+                  mapOf(
+                    "ownedAssets" to emptyList<Any>(),
+                    "confidentialComplete" to false,
+                    "confidentialStale" to true,
+                    "confidentialSyncPending" to true,
+                    "confidentialReadRequired" to true,
+                    "confidentialCheckedAt" to 0L,
+                    "confidentialReadState" to "unavailable",
+                  )
                 }
-              } catch (cancelled: CancellationException) {
-                throw cancelled
-              } catch (_: Exception) {
-                /* Provider outage cannot fabricate a zero or hide public balances. */
               }
+              val snapshot = public.await()
+              val confidential = private.await()
+              val assets =
+                (snapshot["ownedAssets"] as? List<*> ?: emptyList<Any>()) +
+                  (confidential["ownedAssets"] as List<*>)
+              snapshot + confidential + mapOf("ownedAssets" to assets)
             }
-            val confidential = private.snapshot(record)
-            val assets =
-              (snapshot["ownedAssets"] as? List<*> ?: emptyList<Any>()) +
-                (confidential["ownedAssets"] as List<*>)
-            snapshot + confidential + mapOf("ownedAssets" to assets)
           }
         }
       }
@@ -1470,7 +1473,10 @@ class GizuStoredSignerModule : Module() {
             val targets =
               saved.portfolio.targets() +
                 listOfNotNull(target.lowercase().takeIf { it.isNotBlank() })
-            val snapshot = io.gizu.storedwallet.swap.SwapHoldings().read(record, targets)
+            val snapshot =
+              withTimeoutOrNull(8_000L) {
+                io.gizu.storedwallet.swap.SwapHoldings().read(record, targets)
+              } ?: throw io.gizu.storedwallet.portfolio.PortfolioReadTimeout()
             if (target.isNotBlank()) saved.portfolio.watch(target)
             snapshot
           }

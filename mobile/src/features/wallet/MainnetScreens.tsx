@@ -43,15 +43,19 @@ function BalanceStatus({ showRefresh = true }: { showRefresh?: boolean }) {
   const wallet = useMainnetWallet();
   return (
     <>
-      {wallet.loading || wallet.snapshot?.balanceComplete === false ? (
+      {wallet.loading ? (
         <Typography variant="micro" accessibilityLiveRegion="polite">
           Checking Monad mainnet balances…
         </Typography>
       ) : null}
       {wallet.snapshot?.stale && !wallet.error && (
-        <Typography variant="micro">Previously cached balances are being checked.</Typography>
+        <Typography variant="micro">
+          {wallet.loading
+            ? "Previously cached balances are being checked."
+            : "Showing cached balances."}
+        </Typography>
       )}
-      {wallet.error ? (
+      {wallet.error || (!wallet.loading && wallet.snapshot?.balanceComplete === false) ? (
         <ErrorNotice
           kind="balance"
           message="Couldn’t refresh your balance."
@@ -61,7 +65,7 @@ function BalanceStatus({ showRefresh = true }: { showRefresh?: boolean }) {
           onAction={() => void wallet.refresh()}
         />
       ) : null}
-      {showRefresh && !wallet.error && (
+      {showRefresh && !wallet.error && wallet.snapshot?.balanceComplete !== false && (
         <Button
           label="Refresh mainnet balances"
           variant="quiet"
@@ -96,7 +100,7 @@ function WalletDetails() {
 }
 
 function ReceivingAccounts() {
-  const { snapshot } = useMainnetWallet();
+  const { snapshot, loading } = useMainnetWallet();
   const [message, setMessage] = useState("");
   return (
     <View className="gap-3">
@@ -114,7 +118,9 @@ function ReceivingAccounts() {
             </Typography>
             <Typography>
               {snapshot.balanceComplete === false
-                ? "Checking balance…"
+                ? loading
+                  ? "Checking balance…"
+                  : "Balance unavailable. Refresh to retry."
                 : `${holdingAmount(account.balanceAtoms, 6)} USDC`}
             </Typography>
             <Typography variant="micro" selectable>
@@ -145,7 +151,9 @@ function ReceivingAccounts() {
 function OwnedBalanceRow({
   asset,
   position = false,
+  loading,
 }: {
+  loading: boolean;
   asset: OwnedPortfolioAsset | OwnedPortfolioPosition;
   position?: boolean;
 }) {
@@ -164,12 +172,18 @@ function OwnedBalanceRow({
       <Typography>
         {asset.complete && amount !== null && asset.decimals !== null
           ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
-          : `Checking ${asset.symbol} balance…`}
+          : loading
+            ? `Checking ${asset.symbol} balance…`
+            : `${asset.symbol} balance unavailable. Refresh to retry.`}
       </Typography>
       {asset.valueUsdcAtoms !== null && (
         <Typography>Value: {holdingAmount(asset.valueUsdcAtoms, 6)} USDC</Typography>
       )}
-      {asset.stale && <Typography variant="micro">Cached amount awaiting refresh.</Typography>}
+      {asset.stale && (
+        <Typography variant="micro">
+          {loading ? "Cached amount awaiting refresh." : "Showing a cached observation."}
+        </Typography>
+      )}
       <HoldingDetails
         accessibilityLabel={`${asset.symbol} ${position ? "position" : "holding"} details`}
       >
@@ -187,7 +201,9 @@ function OwnedBalanceRow({
           )}
         {asset.valueUsdcAtoms === null && (
           <Typography variant="micro">
-            {asset.valuationUnavailable ? "USDC value unavailable." : "Checking USDC value…"}
+            {asset.valuationUnavailable || !loading
+              ? "USDC value unavailable."
+              : "Checking USDC value…"}
           </Typography>
         )}
       </HoldingDetails>
@@ -195,7 +211,7 @@ function OwnedBalanceRow({
   );
 }
 function OwnedBalances() {
-  const { snapshot } = useMainnetWallet();
+  const { snapshot, loading, refresh } = useMainnetWallet();
   if (!snapshot?.ownedAssets && !snapshot?.positions) return null;
   return (
     <Surface>
@@ -204,8 +220,24 @@ function OwnedBalances() {
           label="Tokens and vault positions"
           accessibilityLabel="Tokens and vault positions"
         >
+          {!loading && snapshot.confidentialReadState === "locked" && (
+            <Typography variant="micro">
+              Private USDC needs wallet unlock before refresh.
+            </Typography>
+          )}
           {snapshot.ownedBalanceComplete === false && (
-            <Typography variant="micro">Checking owned token balances and positions…</Typography>
+            <Typography variant="micro">
+              {loading
+                ? "Checking owned token balances and positions…"
+                : "Some token balances or positions are unavailable. Refresh to retry."}
+            </Typography>
+          )}
+          {snapshot.ownedBalanceComplete === false && !loading && (
+            <Button
+              label="Retry token balances and positions"
+              variant="quiet"
+              onPress={() => void refresh()}
+            />
           )}
           {snapshot.valuationComplete === false && (
             <Typography variant="micro">
@@ -213,10 +245,10 @@ function OwnedBalances() {
             </Typography>
           )}
           {snapshot.ownedAssets?.map((asset) => (
-            <OwnedBalanceRow key={asset.assetId} asset={asset} />
+            <OwnedBalanceRow key={asset.assetId} asset={asset} loading={loading} />
           ))}
           {snapshot.positions?.map((asset) => (
-            <OwnedBalanceRow key={asset.assetId} asset={asset} position />
+            <OwnedBalanceRow key={asset.assetId} asset={asset} position loading={loading} />
           ))}
         </HoldingDetails>
       </View>
@@ -275,7 +307,7 @@ export function MainnetPortfolioScreen({
       <BalanceStatus showRefresh={false} />
       {wallet.snapshot && ready ? (
         <BalanceCard snapshot={wallet.snapshot} actions={actions} />
-      ) : wallet.loading || wallet.snapshot ? (
+      ) : wallet.loading ? (
         <BalanceSkeleton />
       ) : (
         actions

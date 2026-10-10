@@ -23,6 +23,7 @@ internal class NativeOwnedPortfolio(
   private val targets: (WalletRecord) -> List<String>,
   private val clock: () -> Long = System::currentTimeMillis,
   private val selector: (String) -> String = { earnEventTopic(it).take(10) },
+  private val rpcBudget: () -> PortfolioReadBudget = { PortfolioReadBudget() },
 ) {
   constructor(
     context: Context
@@ -155,12 +156,14 @@ internal class NativeOwnedPortfolio(
     val eth = addresses(owners.getJSONArray("1"))
     val hood = addresses(owners.getJSONArray("4663"))
     val groups = mutableListOf<Group>()
+    // Cash is observed before vault metadata and gas so an unavailable Earn chain cannot
+    // consume the display budget before Robinhood USDG gets its first observation.
+    groups.add(Group(4663, HOOD_EARN_USDG, "USDG", 6, (hood + public).distinct()))
     if (eth.isNotEmpty()) {
       groups.add(Group(1, ETH_EARN_USDC, "USDC", 6, eth))
       groups.add(Group(1, ETH_EARN_WETH, "WETH", 18, eth))
       groups.add(Group(1, ETH_EARN_VAULT, "USDC", null, eth, ETH_EARN_USDC))
     }
-    groups.add(Group(4663, HOOD_EARN_USDG, "USDG", 6, (hood + public).distinct()))
     if (hood.isNotEmpty())
       groups.add(Group(4663, HOOD_EARN_VAULT, "USDG", null, hood, HOOD_EARN_USDG))
     val swapTargets = targets(record).map(String::lowercase).distinct()
@@ -176,9 +179,10 @@ internal class NativeOwnedPortfolio(
     root.put("tokenOffset", (start + selected.size) % groups.size)
     var calls = 0
     val rpcs = mutableMapOf<Long, PortfolioRpc>()
+    val budget = rpcBudget()
     fun chainRpc(chain: Long): PortfolioRpc =
       rpcs.getOrPut(chain) {
-        val upstream = rpc(chain)
+        val upstream = budget.wrap(rpc(chain), chain)
         object : PortfolioRpc {
           override suspend fun call(method: String, params: JSONArray): Any {
             calls++
@@ -233,7 +237,13 @@ internal class NativeOwnedPortfolio(
           metadata.put(id, JSONObject().put("decimals", decimals))
         } catch (e: CancellationException) {
           throw e
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
+          PortfolioDiagnostics.event(
+            PortfolioDiagnostics.Stage.TOKEN_METADATA,
+            PortfolioDiagnostics.Reason.UNAVAILABLE,
+            group.chain,
+            failure = failure,
+          )
           /* Amount remains an integer with unknown precision. */
         }
       }
@@ -391,7 +401,13 @@ internal class NativeOwnedPortfolio(
       return result
     } catch (e: CancellationException) {
       throw e
-    } catch (_: Exception) {
+    } catch (failure: Exception) {
+      PortfolioDiagnostics.event(
+        PortfolioDiagnostics.Stage.OWNED_TOKEN,
+        PortfolioDiagnostics.Reason.CACHE_STALE,
+        group.chain,
+        failure = failure,
+      )
       return cached()
     }
   }
@@ -505,7 +521,13 @@ internal class NativeOwnedPortfolio(
       return Rate(converted, decimals, now, false, sample.first)
     } catch (e: CancellationException) {
       throw e
-    } catch (_: Exception) {
+    } catch (failure: Exception) {
+      PortfolioDiagnostics.event(
+        PortfolioDiagnostics.Stage.VAULT_RATE,
+        PortfolioDiagnostics.Reason.UNAVAILABLE,
+        group.chain,
+        failure = failure,
+      )
       return old?.copy(stale = true)
     }
   }
@@ -586,7 +608,13 @@ internal class NativeOwnedPortfolio(
         )
       } catch (e: CancellationException) {
         throw e
-      } catch (_: Exception) {
+      } catch (failure: Exception) {
+        PortfolioDiagnostics.event(
+          PortfolioDiagnostics.Stage.NATIVE_BALANCE,
+          PortfolioDiagnostics.Reason.CACHE_STALE,
+          chain,
+          failure = failure,
+        )
         /* Cached observations remain visibly stale. */
       }
     }

@@ -33,7 +33,7 @@ export type VaultMetadata = {
   totalAssetsUsd?: number;
 };
 export interface VaultMetadataSource {
-  lookup(chainId: number, address: string): Promise<VaultMetadata | null>;
+  lookup(chainId: number, address: string, signal?: AbortSignal): Promise<VaultMetadata | null>;
 }
 
 /** Public metadata only. Unknown metrics remain unknown; no transaction construction. */
@@ -46,6 +46,7 @@ export class MorphoVaults implements VaultMetadataSource {
   async lookup(
     chainId: number,
     address: string,
+    signal?: AbortSignal,
   ): Promise<VaultMetadata | null> {
     const fields =
       "address name symbol asset { address name symbol decimals } metadata { description }";
@@ -60,7 +61,7 @@ export class MorphoVaults implements VaultMetadataSource {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query, variables: { address, chainId } }),
-          signal: AbortSignal.timeout(5_000),
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000),
         });
         if (!response.ok) return null;
         const body = (await response.json()) as {

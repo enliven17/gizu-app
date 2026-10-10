@@ -1,4 +1,5 @@
 import type { ProtocolSelection } from "../domain/protocol.ts";
+import type { CatalogAsset } from "../domain/catalog.ts";
 
 export type Opportunity = {
   id: string;
@@ -10,6 +11,9 @@ export type Opportunity = {
   tvl: number | null;
   vaultAddress?: string;
   rateType?: "apr" | "apy";
+  /** Explicit server-configured promotion; does not qualify native deposit support. */
+  featured?: boolean;
+  asset?: CatalogAsset;
   chainId: number;
   chain: {
     id: number;

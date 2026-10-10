@@ -2,6 +2,12 @@ package io.gizu.storedwallet
 
 import io.gizu.storedwallet.portfolio.*
 import javax.crypto.KeyGenerator
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -20,7 +26,7 @@ class OwnedConfidentialPortfolioTest {
     }
   }
 
-  private class Fixture {
+  private class Fixture(cycleCount: Int = 10) {
     val file = File()
     val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
     var now = 100_000L
@@ -31,10 +37,10 @@ class OwnedConfidentialPortfolioTest {
         StoredPasskey(byteArrayOf(1), ByteArray(32), ByteArray(32)),
         ByteArray(32),
         earnChain = 1,
-        earnCycleIndex = 9,
+        earnCycleIndex = (cycleCount - 1).coerceAtLeast(0),
         earnCycles =
           JSONArray(
-              (0..9).map {
+              (0 until cycleCount).map {
                 JSONObject().put("cycleIndex", it).put("chainId", 1).put("intentId", "cycle-$it")
               }
             )
@@ -62,6 +68,109 @@ class OwnedConfidentialPortfolioTest {
         "authenticated" to true,
         "operationScoped" to false,
       )
+  }
+
+  @Test
+  fun delayedSaltDoesNotConsumeTheIndependentSharedBalanceReadBudget() = runBlocking {
+    val f = Fixture(cycleCount = 1)
+    val salt = byteArrayOf(1, 2, 3, 4)
+    var completed = 0
+    val result =
+      f.cache().refresh(
+        f.record,
+        true,
+        {
+          delay(250L)
+          salt
+        },
+        timeoutMs = 400L,
+      ) { target, receivedSalt ->
+        assertArrayEquals(salt, receivedSalt)
+        delay(250L)
+        completed++
+        f.observation(target)
+      }
+    assertEquals(2, completed)
+    assertEquals("ready", result["confidentialReadState"])
+    assertEquals("2000000", asset(result)["balanceAtoms"])
+    assertEquals("2000000", f.cache().snapshot(f.record)["confidentialKnownAtoms"])
+  }
+
+  @Test
+  fun unavailableSaltEndsReadAndKeepsKnownObservations() = runBlocking {
+    val f = Fixture()
+    val cache = f.cache()
+    val target = cache.nextTargets(f.record).first()
+    cache.recordValidated(target, f.observation(target))
+    f.now += 31_000
+    val result =
+      cache.refresh(f.record, true, { awaitCancellation() }, timeoutMs = 30L) { _, _ ->
+        error("No salt")
+      }
+    assertEquals("unavailable", result["confidentialReadState"])
+    assertEquals("1000000", result["confidentialKnownAtoms"])
+    assertNull(asset(result)["balanceAtoms"])
+  }
+
+  @Test
+  fun privateSuccessSurvivesAnotherTargetTimeoutWithAtMostTwoReads() = runBlocking {
+    val f = Fixture()
+    val cache = f.cache()
+    var active = 0
+    var maxActive = 0
+    val result =
+      cache.refresh(f.record, true, { ByteArray(4) }, timeoutMs = 100L) { target, _ ->
+        active++
+        maxActive = maxOf(maxActive, active)
+        try {
+          if (target.cycleIndex == 9 && target.kind == "earn") f.observation(target)
+          else awaitCancellation()
+        } finally {
+          active--
+        }
+      }
+    assertEquals(2, maxActive)
+    assertEquals(0, active)
+    assertEquals("partial", result["confidentialReadState"])
+    assertEquals("1000000", result["confidentialKnownAtoms"])
+    assertNull(asset(result)["balanceAtoms"])
+    assertEquals("1000000", f.cache().snapshot(f.record)["confidentialKnownAtoms"])
+  }
+
+  @Test
+  fun callerCancellationCancelsPrivateRefreshWithoutPublishingSuccess() = runBlocking {
+    val f = Fixture()
+    val started = CompletableDeferred<Unit>()
+    var completed = false
+    val job = launch {
+      f.cache().refresh(
+        f.record,
+        true,
+        {
+          started.complete(Unit)
+          awaitCancellation()
+        },
+      ) { _, _ ->
+        error("No salt")
+      }
+      completed = true
+    }
+    started.await()
+    job.cancel()
+    job.join()
+    assertFalse(completed)
+    assertTrue(job.isCancelled)
+  }
+
+  @Test
+  fun lockedPrivateReadDoesNotContactProvider() = runBlocking {
+    val f = Fixture()
+    val result =
+      f.cache().refresh(f.record, false, { error("Must stay locked") }) { _, _ ->
+        error("Must stay locked")
+      }
+    assertEquals("locked", result["confidentialReadState"])
+    assertNull(asset(result)["balanceAtoms"])
   }
 
   @Test

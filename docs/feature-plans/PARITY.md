@@ -196,20 +196,32 @@ Monad (143). There is no chain picker; Aave/Morpho/Curvance filters remain. Home
 the combined catalog too. Each chain is paged independently; exhausted chains are not
 queried again when loading more. Optional configured contracts add Morpho metadata with operator fallback
 names/descriptions; details display the contract address and share symbol. The example
-includes Gizu Prime AUSD on Monad, whose underlying asset is AUSD. Missing rates, TVL and
+features Gizu Prime AUSD on Monad, independently of the native-supported Pendle USDC
+Ethereum and Steakhouse USDG Robinhood profiles. `CATALOG_VAULTS_JSON` is additive
+promotion configuration; an empty list removes promotions only. Explicit promotions
+have a Featured label and public details, while unsupported promotions omit
+deposit/withdraw actions and the deposit amount calculator. Enabled-chain selection
+still controls their visibility. Only ordinary vaults with an existing native deposit profile and canonical USDC/USDG underlying
+contracts are admitted; receipt/reward-token membership
+and names such as syrupUSDC cannot qualify a vault. Unknown underlying assets are omitted.
+Morpho underlying metadata is verified with bounded, cached lookups; Aave and Curvance
+remain empty until their native deposit profiles are implemented and qualified. Missing rates, TVL and
 token prices show `Unavailable`; Morpho net APY is labeled explicitly. A partial
 provider catalog is marked on the screen. Cards on Vaults and the Home preview draw a
 sparkline from the latest 30 TVL records (`/v1/opportunities/:id/tvl-records`), loaded
 lazily per card and cached per vault for the app session; a failed history omits the
 sparkline, an empty one draws a flat line only when TVL is known. Tapping a card opens the browse-only
-mainnet vault detail (`/v1/opportunities/:id`), ported from the frontend: glitch name,
-total APR, TVL chart, stat tiles, about, how-to, tokens, details, tags and campaigns,
+mainnet vault detail (`/v1/opportunities/:id`): vault identity, deposit asset,
+APR/APY, TVL chart, stat tiles and earnings estimate,
 with loading and error/retry states. Deposit opens an in-app entry bound to the selected
 vault. Exact existing Ethereum/Robinhood profile matches request a fresh native Earn
-cycle after explicit intent and reuse funding/fee reviews. Other vaults show a deposit
-unavailable state; catalog metadata does not enable Monad/AUSD execution. The app
-never changes the funding network or extends native Earn's signing registry. Buy/sell
-and withdraw actions are absent from catalog details. Unsupported demo risk, APY and price values are not
+cycle after explicit intent and reuse funding/fee reviews. Vaults without an existing native deposit profile are omitted from the catalog,
+including older backend responses on the phone. Unsupported direct links are rejected;
+catalog metadata does not extend native execution authority. Successful detail metadata is reused for 60 seconds between
+browsing and Deposit; native review still obtains fresh executable terms. A failed chain
+leaves other chains visible and remains retryable. The app
+never changes the funding network or extends native Earn's signing registry. Withdraw
+opens existing Earn activity; it does not create a deposit cycle. Unsupported demo risk, APY and price values are not
 synthesized. Backend responses may be cached for five minutes.
 
 ### Catalog scrolling
@@ -272,3 +284,25 @@ success text. Copy failures remain inline. Toasts have success/error/info/warnin
 variants, accessible dismissal, reduced-motion support and safe-area placement;
 messages reset with the session. This does not add push notifications or change
 the inbox. See [TOASTS.md](../internal/TOASTS.md) for customization and native-modal rules.
+
+### Bounded balance refresh
+
+Android public funding, owned tokens/positions and authenticated private balances are
+read independently. Public observation RPCs have a three-second request deadline and
+ten-second aggregate budget. Private refresh caps the salt lookup at five seconds, then
+allows ten seconds for at most two concurrent authenticated reads; salt latency does
+not consume the read phase. Cached observations remain visibly stale, and missing observations
+show unavailable/retry after requests finish rather than permanent loading. Execution
+and settlement validation do not use these display deadlines or cached balances.
+
+Successful passkey login preserves its native read-only balance permission when Welcome
+unmounts; unfinished access still cancels, and disconnect/background still lock it.
+Robinhood portfolios with at most 80 owners refresh balances at one canonically checked
+block and advance their encrypted checkpoint to that sample. Larger portfolios retain
+bounded incremental scans. A moving latest block does not leave a full snapshot pending.
+
+The native aggregate shows all owned USDG once. Swap receiving-wallet sale tools retain
+their native IDs without repeating a complete owned token amount. If the aggregate is
+incomplete, a fresh swap subset remains visible with its account-space label. Portfolio
+and sale/account relationships remain encrypted on the device. Native Android changes
+require an APK rebuild; this parity is not yet verified on iOS.

@@ -94,9 +94,15 @@ Contract addresses must be real nonzero 20-byte EVM addresses.
 Optional `asset` metadata takes `{ "address": "0x…", "name": "USD Coin",
 "symbol": "USDC", "decimals": 6 }`, using that chain's actual underlying token.
 Duplicate chain IDs, duplicate chain/contract pairs, malformed JSON, invalid
-addresses and contracts on disabled chains stop startup with a field-specific error.
+addresses and unknown chains stop startup with a field-specific error.
+`VAULT_CHAINS=1,4663` selects Ethereum and Robinhood in that order, using built-in
+metadata plus optional `CATALOG_CHAINS_JSON` overrides. Known inactive vault
+configurations are filtered before adapter construction. Without `VAULT_CHAINS`,
+the JSON chain list retains its selection behavior and disabled-chain contracts
+still prevent startup. Resolved chains and active contracts enter the cache
+fingerprint, so changing the selection does not reuse a previous catalog cache.
 
-Only configured contracts are looked up through Morpho's public
+Built-in native profiles, explicit promotions, and Merkl contracts matching a vetted native deposit profile are looked up through Morpho's public
 [GraphQL API](https://docs.morpho.org/developers/earn/tutorials/get-data/).
 V1 and V2 are queried separately: a missing non-nullable version otherwise nulls
 the entire GraphQL result. Available API metadata wins; environment values fill
@@ -108,18 +114,43 @@ entries because this integration has no historical Morpho series.
 
 Configured rows have stable `configured:<chainId>:<lowercase address>` IDs,
 `vaultAddress` and share `symbol` in list/detail responses. Matching Merkl contract entries are merged
-once across pages. Chains without extra contracts retain Merkl's existing paging.
-For chains with extras, a shared five-minute snapshot loads at most ten 100-item
-Merkl pages under one shared eight-second provider deadline, then applies
-protocol/search/paging locally. Morpho lookups are also
-cached/coalesced for five minutes. A Merkl failure or a catalog exceeding that bound
+once across pages. `CATALOG_VAULTS_JSON` adds promoted entries with `featured: true`
+to the built-in profiles. An empty array disables promotions only. Duplicate
+chain/address configuration merges, with explicit metadata filling/overriding
+built-in fallback metadata; provider metadata still wins. Promotions are filtered
+by enabled chains and cannot remove the regular entries. Catalog cache namespace
+v4 separates the revised composition from older replacement-list responses.
+Chains with a native profile use a shared five-minute snapshot loading at most ten
+100-item Merkl pages under one shared eight-second provider deadline. Other enabled
+chains, including Monad, skip Merkl discovery but can load explicitly configured
+promotions. Before ordinary discovery metadata requests or local protocol/search/paging, exact chain/vault identity must
+match the deposit planners' `ETHEREUM_PROFILE` or `ROBINHOOD_PROFILE`. Only Pendle
+USDC (`1:0x55C1B6e461a6334B567bAF0FEb5D728715446f05`) and Steakhouse USDG
+(`4663:0xBeEff033F34C046626B8D0A041844C5d1A5409dd`) qualify. Duplicate Merkl
+rows for a supported contract merge once. Each vault's underlying contract must
+also match its native profile's exact asset, so another canonical stablecoin cannot
+substitute for it. Other legitimate USDC/USDG vaults, Aave/Curvance and raw markets
+are omitted from regular discovery. List/detail expose canonical `asset` metadata;
+detail/history enforce the same native identity and asset checks for regular entries.
+Promotions are an explicit presentation exception: lists/details may include their
+configured or Morpho underlying asset, even AUSD, or omit it if unknown. The mobile
+Featured label and informational view do not qualify a native deposit. Configured assets provide an outage
+fallback, but available Morpho asset metadata remains authoritative.
+Morpho lookups are limited to eligible native identities or explicit promotions and cached/coalesced for
+five minutes. Configured reads share a five-second deadline. A Merkl failure,
+unknown asset metadata or catalog exceeding provider bounds
 sets `partial: true`; the mobile screen explicitly marks the available subset.
 Persistent response caches are namespaced by configuration so removed chains or
 contracts cannot reappear from an earlier configuration's cache.
 
-Catalog configuration is read-only. It does not change the funded source network,
-native signing policies or the pinned Confidential Earn execution registry. Listing
-a contract does not enable investing into it through the native Earn flow.
+Catalog configuration cannot extend native signing policies or the pinned
+Confidential Earn execution registry. To support another vault, update and verify
+the backend deposit planner/profile, the native signer policies in
+`mobile/modules/gizu-stored-signer` and the mobile Earn profile registry together,
+then extend the catalog's profile mapping in `backend/src/adapters/catalog/native-catalog.ts`.
+The backend uses planner identities as its authority; the mobile client independently
+requires its native profile match before enabling a deposit. Response cache namespace
+`catalog:v4` prevents older replacement-list responses from reappearing after this change.
 
 ## Fork isolation and capacity
 
