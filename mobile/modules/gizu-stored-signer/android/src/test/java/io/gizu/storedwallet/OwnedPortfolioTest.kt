@@ -3,7 +3,9 @@ package io.gizu.storedwallet
 import io.gizu.storedwallet.portfolio.*
 import java.math.BigInteger
 import javax.crypto.KeyGenerator
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -29,6 +31,7 @@ class OwnedPortfolioTest {
     var nativeReads = 0
     var balances = 0
     var failure = false
+    var stalled = false
     var latestOnly = false
     var head = 100
 
@@ -44,6 +47,7 @@ class OwnedPortfolioTest {
     }
 
     override suspend fun call(method: String, params: JSONArray): Any {
+      if (stalled) awaitCancellation()
       check(!failure)
       return when (method) {
         "eth_chainId" -> "0x${chain.toString(16)}"
@@ -100,6 +104,7 @@ class OwnedPortfolioTest {
     var now = 100_000L
     var derivations = 0
     var targets = emptyList<String>()
+    var budgetMs = 10_000L
 
     fun observer() =
       NativeOwnedPortfolio(
@@ -114,6 +119,7 @@ class OwnedPortfolioTest {
         targets = { targets },
         clock = { now },
         selector = { "0x07a2d13a" },
+        rpcBudget = { PortfolioReadBudget(budgetMs, minOf(budgetMs, 3_000L)) },
       )
 
     fun record(count: Int = 30, chain: Int = 1, recipients: Int = 3) =
@@ -266,6 +272,36 @@ class OwnedPortfolioTest {
     assertEquals("0x66", refreshed["conversionBlock"])
     assertEquals(2, rpc.rates)
     assertEquals(2, rpc.decimals)
+  }
+
+  @Test
+  fun stalledEthereumStillAllowsFirstUsdGObservation() = runBlocking {
+    val f = Fixture()
+    f.rpcs.getValue(1).stalled = true
+    f.budgetMs = 100L
+    val result = withTimeout(1_000L) { f.observer().read(f.record(count = 0, chain = 1)) }
+    val usdg = rows(result, "ownedAssets").single { it["symbol"] == "USDG" }
+    assertEquals(true, usdg["complete"])
+    assertEquals(false, usdg["stale"])
+    assertNotNull(usdg["balanceAtoms"])
+    assertTrue(rows(result, "positions").all { it["balanceAtoms"] == null })
+  }
+
+  @Test
+  fun stalledProviderCannotHidePreviouslyObservedUsdG() = runBlocking {
+    val f = Fixture()
+    val record = f.record(count = 0, chain = 4663)
+    val initial = f.observer().read(record)
+    f.now += 31_000
+    f.rpcs.values.forEach { it.stalled = true }
+    f.budgetMs = 30L
+    val result = withTimeout(12_000L) { f.observer().read(record) }
+    val usdg = rows(result, "ownedAssets").single { it["symbol"] == "USDG" }
+    assertEquals(
+      rows(initial, "ownedAssets").single { it["symbol"] == "USDG" }["balanceAtoms"],
+      usdg["balanceAtoms"],
+    )
+    assertEquals(true, usdg["stale"])
   }
 
   @Suppress("UNCHECKED_CAST")

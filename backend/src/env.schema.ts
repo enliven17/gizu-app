@@ -3,7 +3,8 @@ import {
   catalogChainsSchema,
   catalogVaultsSchema,
   jsonEnvironment,
-  legacyCatalogChains,
+  defaultCatalogChains,
+  vaultChainsEnvironment,
 } from "./domain/catalog.ts";
 
 const apiEnvSchema = z
@@ -31,6 +32,7 @@ const apiEnvSchema = z
     EARN_AURORA_HISTORY_QUALIFIED: z.enum(["true", "false"]).optional(),
     EARN_ANVIL_PATH: z.string().min(1).optional(),
     EARN_AURORA_FEE_QUALIFICATION_JSON: z.string().min(1).max(16384).optional(),
+    VAULT_CHAINS: vaultChainsEnvironment.optional(),
     CATALOG_CHAINS_JSON: jsonEnvironment(catalogChainsSchema).optional(),
     CATALOG_VAULTS_JSON: jsonEnvironment(catalogVaultsSchema).optional(),
     MORPHO_API_URL: z
@@ -39,14 +41,26 @@ const apiEnvSchema = z
       .optional(),
   })
   .superRefine((env, context) => {
-    const enabled = new Set(
-      (env.CATALOG_CHAINS_JSON ?? legacyCatalogChains).map((chain) => chain.id),
+    const known = new Set(
+      (env.VAULT_CHAINS
+        ? [...defaultCatalogChains, ...(env.CATALOG_CHAINS_JSON ?? [])]
+        : (env.CATALOG_CHAINS_JSON ?? defaultCatalogChains)
+      ).map((chain) => chain.id),
     );
-    if (env.CATALOG_VAULTS_JSON?.some((vault) => !enabled.has(vault.chainId))) {
+    if (env.VAULT_CHAINS?.some((id) => !known.has(id))) {
+      context.addIssue({
+        code: "custom",
+        path: ["VAULT_CHAINS"],
+        message: "unknown chain IDs require metadata in CATALOG_CHAINS_JSON",
+      });
+    }
+    if (env.CATALOG_VAULTS_JSON?.some((vault) => !known.has(vault.chainId))) {
       context.addIssue({
         code: "custom",
         path: ["CATALOG_VAULTS_JSON"],
-        message: "every vault must belong to an enabled catalog chain",
+        message: env.VAULT_CHAINS
+          ? "every vault must belong to a known catalog chain"
+          : "every vault must belong to an enabled catalog chain",
       });
     }
   });

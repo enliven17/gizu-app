@@ -56,6 +56,38 @@ URL scheme `gizu`. The Android package is retained for installation and wallet
 storage continuity; changing it requires an explicit migration. Both platforms
 use `gizu.io` as their passkey relying-party domain.
 
+## Android without a laptop or Metro
+
+A development APK needs Metro for its JavaScript. A locally built release APK
+embeds JavaScript and assets, so it opens from the phone's Gizu icon after USB is
+disconnected. Internet access is still required for Render and chain providers.
+
+After the native Android project and signer libraries have been generated, build
+from `mobile/android/` on this Mac:
+
+```sh
+JAVA_HOME=/opt/homebrew/opt/openjdk@17 \
+NODE_ENV=production \
+GIZU_BUILD_VARIANT=production \
+EXPO_PUBLIC_API_URL=https://gizu-backend.onrender.com \
+EXPO_PUBLIC_PASSKEY_MODE=native \
+./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
+```
+
+Use Node 24 on PATH. This arm64 APK matches the connected Samsung phone. Install
+`mobile/android/app/build/outputs/apk/release/app-release.apk` with
+`adb install -r <path-to-apk>`, then open Gizu from the phone's app list. USB is only
+needed for installation. Mobile source changes require rebuilding/reinstalling;
+backend catalog/environment changes require a Render deployment and app refresh.
+
+For this existing test installation, retain its Android application ID and signing
+keystore when updating. Its generated project uses `com.example.gizu.dev`, while
+new projects use `io.gizu.android`. Re-running prebuild can replace that local
+identity. Never uninstall to resolve a signing mismatch: installation identity
+also determines access to the encrypted wallet storage. The local release uses
+the existing development signing key for testing; store distribution has separate
+signing requirements.
+
 ## Commands
 
 Passkey identity and manual domain checks are documented in
@@ -273,12 +305,17 @@ harness and retained legacy source remain separate from normal entry.
 ## Local vault catalog
 
 Normal wallet mode reads the backend's `GET /v1/chains` and combines opportunities
-from all configured chains without a chain selector. The initial environment example enables Robinhood,
-Ethereum and Monad. Set `CATALOG_CHAINS_JSON` and optional `CATALOG_VAULTS_JSON` on
+from all configured chains without a chain selector. The environment example uses
+`VAULT_CHAINS=1,4663,143` for Ethereum, Robinhood and Monad. Set `VAULT_CHAINS` and optional
+`CATALOG_CHAINS_JSON` metadata / `CATALOG_VAULTS_JSON` contracts on
 the backend; see [catalog configuration](../docs/app-guide/BACKEND_DEPLOYMENT.md#vault-catalog-configuration)
-for contracts on any enabled chain and fallback metadata. The example includes
-Gizu Prime AUSD on Monad (`0x997D5064A7B48305c15C9D55AC2D94D7069Fc008`, share symbol
-`gzpAUSD`, underlying asset AUSD). Merkl discovery is preserved.
+for contracts on any enabled chain and fallback metadata. The default pinned
+profiles are Pendle USDC on Ethereum and Steakhouse USDG on Robinhood.
+`CATALOG_VAULTS_JSON` adds featured promotions alongside these profiles; omitted or
+`[]` disables promotions only. The example features Gizu Prime AUSD on Monad
+(`0x997D5064A7B48305c15C9D55AC2D94D7069Fc008`). Duplicate chain/contract pairs merge
+into one card. Promotions on disabled chains remain hidden.
+Merkl discovery remains scoped to enabled chains and supported native profiles.
 The existing Aave/Morpho/Curvance protocol choices, search, paging and retry controls share one screen.
 Paging tracks each chain independently and stops querying exhausted chains.
 Details show contract addresses and share symbols; unknown metrics show `Unavailable`,
@@ -286,9 +323,11 @@ and Morpho net APY is labeled separately from Merkl APR. Protocol logos resolve 
 stable protocol ID before display name. Wallet balances still use Monad mainnet USDC.
 Deposit stays inside Gizu and rechecks the selected vault. An exact match to an
 existing Ethereum/Robinhood native profile prepares a fresh Earn cycle only after
-explicit intent, then reuses the existing funding and fee reviews. Unsupported vaults
-show their selected identity and an unavailable state. Monad/AUSD execution is not
-implemented in this catalog change. Catalog metadata cannot grant signing authority.
+explicit intent, then reuses the existing funding and fee reviews. Unsupported
+ordinary vaults are excluded from lists and details. Explicit promotions remain
+visible with a Featured label; unsupported promotions have informational details
+without deposit/withdraw actions or a deposit amount calculator. Monad/AUSD execution is not implemented
+in this catalog change. Catalog metadata cannot grant signing authority.
 Fixture vaults remain in tests and the isolated UI playground.
 
 Start PostgreSQL with `docker compose up -d` in `backend/`. Set the backend local

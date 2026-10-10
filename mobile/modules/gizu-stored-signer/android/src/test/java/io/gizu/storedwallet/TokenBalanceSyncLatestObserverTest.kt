@@ -24,6 +24,8 @@ class TokenBalanceSyncLatestObserverTest {
   /** The public provider exposes headers/logs but no old contract state. */
   private class Rpc : PortfolioRpc {
     var head = 100
+    var advanceDuringRead = false
+    var latestHeaders = 0
     var fork = "a"
     var reads = 0
     var logs = 0
@@ -45,7 +47,11 @@ class TokenBalanceSyncLatestObserverTest {
           val tag = params.getString(0)
           val number =
             when (tag) {
-              "latest" -> head
+              "latest" -> {
+                latestHeaders++
+                if (advanceDuringRead && latestHeaders % 2 == 0) head++
+                head
+              }
               "finalized" -> head - 20
               else -> tag.drop(2).toInt(16)
             }
@@ -94,6 +100,53 @@ class TokenBalanceSyncLatestObserverTest {
       repeat((owners.size + 79) / 80) { sync().read(owners, it.toLong()) }
       assertTrue(sync().read(owners, 99).complete)
     }
+  }
+
+  @Test
+  fun validatedFullLatestBalanceDoesNotRequireTheChainToStopAdvancing() = runBlocking {
+    val f = Fixture(2)
+    f.rpc.advanceDuringRead = true
+    val snapshot = f.sync().read(f.owners, 0)
+    assertEquals(2, snapshot.balances.size)
+    assertEquals("0x65", snapshot.sampleBlock)
+    assertTrue("All owners were canonically observed at the sample block", snapshot.complete)
+    assertFalse(snapshot.syncPending)
+    assertEquals(snapshot.sampleBlock, snapshot.block)
+    assertTrue(f.sync().cachedSnapshot(f.owners, 1)!!.complete)
+    assertTrue(f.rpc.batches.all { it <= 40 })
+  }
+
+  @Test
+  fun cachedSmallCatalogueRefreshesEveryOwnerAtOneAdvancingSample() = runBlocking {
+    val f = Fixture(80)
+    f.initial()
+    f.rpc.advanceDuringRead = true
+    f.rpc.amount = "0x5"
+    val before = f.rpc.reads
+    val refreshed = f.sync().read(f.owners, 31_000)
+    assertEquals(80, f.rpc.reads - before)
+    assertTrue(refreshed.complete)
+    assertFalse(refreshed.syncPending)
+    assertEquals(refreshed.sampleBlock, refreshed.block)
+    assertTrue(refreshed.balances.values.all { it == "5" })
+    assertTrue(f.rpc.batches.all { it <= 40 })
+    val freshReads = f.rpc.reads
+    assertTrue(f.sync().read(f.owners, 31_001).complete)
+    assertEquals(freshReads, f.rpc.reads)
+  }
+
+  @Test
+  fun partialCatalogueCannotAdvancePastAnUnobservedOwnerAtNewSample() = runBlocking {
+    val f = Fixture(81)
+    f.rpc.advanceDuringRead = true
+    val first = f.sync().read(f.owners, 0)
+    assertEquals(80, f.rpc.reads)
+    assertEquals(80, first.balances.size)
+    assertFalse(first.complete)
+    assertTrue(first.syncPending)
+    assertNotEquals(first.sampleBlock, first.block)
+    assertNull(first.balances[f.owners.last()])
+    assertTrue(f.rpc.batches.all { it <= 40 })
   }
 
   @Test

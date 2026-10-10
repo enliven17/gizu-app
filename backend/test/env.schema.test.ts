@@ -147,3 +147,43 @@ test("catalog rejects malformed JSON, duplicate chains, invalid addresses and di
     /CATALOG_VAULTS_JSON/,
   );
 });
+
+test("VAULT_CHAINS parses an ordered Ethereum/Robinhood allowlist independently of legacy chain settings", () => {
+  const env = parseApiEnv({
+    ...apiEnv,
+    VAULT_CHAINS: " 1, 4663 ",
+    CATALOG_CHAINS_JSON: '[{"id":143,"name":"Monad"}]',
+  });
+  assert.deepEqual(env.VAULT_CHAINS, [1, 4663]);
+});
+
+test("VAULT_CHAINS rejects empty, duplicate, invalid and unknown chain IDs", () => {
+  for (const VAULT_CHAINS of [
+    "",
+    "1,",
+    "1,1",
+    "0",
+    "-1",
+    "1.5",
+    "ethereum",
+    "1e3",
+    "999999",
+    "9007199254740992",
+  ]) {
+    assert.throws(
+      () => parseApiEnv({ ...apiEnv, VAULT_CHAINS }),
+      /VAULT_CHAINS/,
+    );
+  }
+});
+
+test("VAULT_CHAINS accepts custom chain metadata and retains inactive known-chain configurations", () => {
+  const env = parseApiEnv({
+    ...apiEnv,
+    VAULT_CHAINS: "1,4663,8453",
+    CATALOG_CHAINS_JSON: '[{"id":8453,"name":"Base"}]',
+    CATALOG_VAULTS_JSON:
+      '[{"chainId":143,"address":"0x1111111111111111111111111111111111111111"}]',
+  });
+  assert.deepEqual(env.VAULT_CHAINS, [1, 4663, 8453]);
+});

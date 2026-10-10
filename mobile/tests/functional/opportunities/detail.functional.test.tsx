@@ -40,7 +40,7 @@ function setup(service: MockOpportunityService = mockOpportunityService()) {
   return service;
 }
 
-test("detail shows the summary card, TVL history and opens Deposit inside Gizu", async () => {
+test("detail shows metrics and marks unsupported deposits before navigation", async () => {
   const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
   const service = mockOpportunityService();
   const pending = deferred<OpportunityDetail>();
@@ -65,10 +65,14 @@ test("detail shows the summary card, TVL history and opens Deposit inside Gizu",
   expect(service.tvlRecords).toHaveBeenCalledWith("op-1", expect.anything());
 
   expect(screen.queryByRole("link", { name: "Open deposit page" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
+  expect(screen.getByText("In-app deposits are not supported for this vault.")).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Deposit" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Deposits to this vault are not available in Gizu yet. No funds have moved.",
-  );
+  expect(
+    screen.queryByText(
+      "Deposits to this vault are not available in Gizu yet. No funds have moved.",
+    ),
+  ).toBeNull();
   expect(openURL).not.toHaveBeenCalled();
 });
 
@@ -93,6 +97,37 @@ test("Deposit stays inside Gizu regardless of provider URLs", async () => {
   setup(service);
   expect(await screen.findByLabelText("Mainnet vault 1")).toBeVisible();
   expect(screen.queryByRole("link", { name: "Open deposit page" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Deposit" })).toBeDisabled();
+});
+test("featured unsupported vault details are informational and expose no deposit or withdrawal actions", async () => {
+  const service = mockOpportunityService();
+  service.detail.mockResolvedValue({
+    ...opportunityDetail(1),
+    featured: true,
+    name: "Gizu Prime AUSD",
+    protocol: { id: "morpho", name: "Morpho" },
+    vaultAddress: "0x997D5064A7B48305c15C9D55AC2D94D7069Fc008",
+  } as OpportunityDetail);
+  setup(service);
+  expect(await screen.findByLabelText("Gizu Prime AUSD")).toBeVisible();
+  expect(screen.getByText("Featured vault")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Deposit" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
+  expect(screen.queryByLabelText("Deposit amount in USD")).toBeNull();
+});
+test("featuring a supported vault preserves its existing deposit flow", async () => {
+  const service = mockOpportunityService();
+  service.detail.mockResolvedValue({
+    ...opportunityDetail(1),
+    featured: true,
+    name: "Pendle USDC",
+    chainId: 1,
+    chain: { name: "Ethereum" },
+    vaultAddress: "0x55C1B6e461a6334B567bAF0FEb5D728715446f05",
+  });
+  setup(service);
+  expect(await screen.findByLabelText("Pendle USDC")).toBeVisible();
+  expect(screen.getByText("Featured vault")).toBeVisible();
   expect(screen.getByRole("button", { name: "Deposit" })).toBeEnabled();
 });
 

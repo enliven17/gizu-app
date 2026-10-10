@@ -22,7 +22,8 @@ export function useAccessController(): AccessViewModel {
   useEffect(
     () => () => {
       attempt.current += 1;
-      accessService.cancel?.();
+      if (inFlight.current) accessService.cancel?.();
+      inFlight.current = false;
     },
     [accessService],
   );
@@ -44,7 +45,12 @@ export function useAccessController(): AccessViewModel {
         restoring && accessService.restore
           ? await accessService.restore()
           : await accessService.request(accessService.method ?? "Demo passkey");
-      if (id === attempt.current) signIn(session);
+      if (id === attempt.current) {
+        // Successful navigation unmounts Welcome. Its cleanup must not revoke
+        // the native read-only permission granted by this completed login.
+        inFlight.current = false;
+        signIn(session);
+      }
     } catch (cause) {
       if (id === attempt.current)
         setError(
