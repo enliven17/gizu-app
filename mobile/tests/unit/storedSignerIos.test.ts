@@ -162,7 +162,7 @@ test.each([
 
 test("iOS exposes holdings and explicit sell/recovery actions through native capability gates", async () => {
   const target = "0x" + "11".repeat(20);
-  const gateway = "https://gizu-backend.onrender.com";
+  const gateway = "https://gizu-app.onrender.com";
   const native = {
     getCapabilities: jest
       .fn()

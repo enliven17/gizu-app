@@ -22,7 +22,7 @@ transactions simulated.
    ```
 
 2. Choose the backend in `mobile/.env` using `EXPO_PUBLIC_API_URL`.
-   Use `https://gizu-backend.onrender.com` for the hosted backend. Never put provider
+   Use `https://gizu-app.onrender.com` for the hosted backend. Never put provider
    API keys in mobile environment variables.
 3. Build and install for **one** platform:
 

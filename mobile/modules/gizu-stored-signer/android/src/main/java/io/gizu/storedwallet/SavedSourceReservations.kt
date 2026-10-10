@@ -54,7 +54,7 @@ internal fun fundingReservations(context: Context, record: WalletRecord): Fundin
           val operation =
             uniffi.gizu_stored_signer_core.SwapOperation.restore(
               raw,
-              "https://gizu-backend.onrender.com",
+              "https://gizu-app.onrender.com",
             )
           val complete =
             operation.use { JSONObject(it.publicStatus()).getString("phase") == "COMPLETE" }
