@@ -1,6 +1,7 @@
 import {
   TOKEN_PAGE_SIZE,
   tokenIdentity,
+  tokenNetworks,
   type CatalogToken,
   type TokenCatalogService,
   type TokenPage,
@@ -14,7 +15,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isToken(value: unknown, query: TokenQuery): value is CatalogToken {
   return (
     isRecord(value) &&
-    value.chainId === query.chainId &&
+    (query.chainId === null
+      ? tokenNetworks.some((network) => network.chainId === value.chainId)
+      : value.chainId === query.chainId) &&
     typeof value.address === "string" &&
     /^0x[0-9a-fA-F]{40}$/.test(value.address) &&
     typeof value.symbol === "string" &&
@@ -24,7 +27,7 @@ function isToken(value: unknown, query: TokenQuery): value is CatalogToken {
     value.decimals >= 0 &&
     (value.logoURI === null || typeof value.logoURI === "string") &&
     (value.category === "rwa" || value.category === "other") &&
-    (query.category === "all" || value.category === "rwa") &&
+    (query.category === "all" || value.category === query.category) &&
     (value.issuer === null || value.issuer === "Robinhood") &&
     typeof value.swapListed === "boolean" &&
     value.fusionStatus === "quote-required"
@@ -53,7 +56,8 @@ export function createTokenCatalogService(baseUrl: string): TokenCatalogService 
   return {
     async list(query, signal) {
       if (!root) throw new Error("Token catalog is not configured.");
-      const params = `chainId=${query.chainId}&category=${query.category}&search=${encodeURIComponent(query.search)}&page=${query.page}&items=${TOKEN_PAGE_SIZE}`;
+      const chain = query.chainId === null ? "" : `chainId=${query.chainId}&`;
+      const params = `${chain}category=${query.category}&search=${encodeURIComponent(query.search)}&page=${query.page}&items=${TOKEN_PAGE_SIZE}`;
       const body = await getJson(
         `${root}/v1/tokens?${params}`,
         signal,

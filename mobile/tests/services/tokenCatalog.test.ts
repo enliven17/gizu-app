@@ -116,3 +116,20 @@ test.each([true, false])("forwards caller cancellation (already aborted: %s)", a
   controller.abort();
   await result;
 });
+test("omits chainId to browse every network and validates DeFi categories", async () => {
+  const defi = { ...catalogToken, chainId: 1 as const, category: "other" as const, issuer: null };
+  response({ ...catalogPage, list: [defi] });
+  const all = { ...query, chainId: null, category: "other" as const };
+  expect(await service.list(all, new AbortController().signal)).toEqual({
+    ...catalogPage,
+    list: [defi],
+  });
+  expect(fetch).toHaveBeenCalledWith(
+    "https://api.example.com/v1/tokens?category=other&search=&page=0&items=20",
+    { signal: expect.anything() },
+  );
+  response({ ...catalogPage, list: [catalogToken] });
+  await expect(service.list(all, new AbortController().signal)).rejects.toThrow(
+    "Invalid token catalog",
+  );
+});

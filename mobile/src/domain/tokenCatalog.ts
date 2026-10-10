@@ -5,9 +5,10 @@ export const tokenNetworks = [
 ] as const;
 export const TOKEN_PAGE_SIZE = 20;
 export type TokenChainId = (typeof tokenNetworks)[number]["chainId"];
-export type TokenCategory = "all" | "rwa";
+export type TokenCategory = "all" | CatalogToken["category"];
 export interface TokenQuery {
-  chainId: TokenChainId;
+  /** `null` browses every catalog network. */
+  chainId: TokenChainId | null;
   category: TokenCategory;
   search: string;
   page: number;
