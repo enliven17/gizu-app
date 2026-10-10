@@ -20,11 +20,14 @@ const status = {
 beforeEach(() => {
   readStatus.mockReset().mockResolvedValue(status);
   jest.mocked(tokenCatalogService.list).mockImplementation(async (query) => {
+    const chainId = query.chainId ?? 4663;
+    const category = query.category === "other" ? ("other" as const) : ("rwa" as const);
     const tokens = [
-      { ...catalogToken, chainId: query.chainId, address: token, symbol: "COIN", name: "Coinbase" },
+      { ...catalogToken, chainId, category, address: token, symbol: "COIN", name: "Coinbase" },
       {
         ...catalogToken,
-        chainId: query.chainId,
+        chainId,
+        category,
         address: secondToken,
         symbol: "GOOGL",
         name: "Alphabet",
@@ -129,7 +132,7 @@ test("pull-to-refresh reloads saved swap status without a refresh button", async
   expect(readStatus).toHaveBeenCalledTimes(2);
 });
 
-test("picker browses all three networks but only selects supported Robinhood targets", async () => {
+test("picker opens on stocks from every network with a network badge on each token", async () => {
   render(
     <SafeAreaProvider>
       <NativeSwapScreen />
@@ -138,18 +141,32 @@ test("picker browses all three networks but only selects supported Robinhood tar
   await screen.findByText("COIN");
   fireEvent.press(screen.getByRole("button", { name: "Choose receive token" }));
   expect(await screen.findByRole("radio", { name: "COIN · Coinbase" })).toBeEnabled();
-  for (const [name, chainId] of [
-    ["Ethereum", 1],
-    ["Monad", 143],
-  ] as const) {
-    fireEvent.press(screen.getByRole("radio", { name }));
-    expect(await screen.findByRole("radio", { name: "COIN · Coinbase" })).toBeDisabled();
-    expect(tokenCatalogService.list).toHaveBeenCalledWith(
-      expect.objectContaining({ chainId, category: "all", page: 0 }),
-      expect.anything(),
-    );
-  }
+  expect(screen.getByRole("radio", { name: "Stocks", checked: true })).toBeVisible();
+  expect(screen.queryByRole("radiogroup", { name: "Token network" })).toBeNull();
+  expect(screen.getAllByText("Robinhood")).toHaveLength(2);
+  expect(tokenCatalogService.list).toHaveBeenCalledWith(
+    expect.objectContaining({ chainId: null, category: "rwa", page: 0 }),
+    expect.anything(),
+  );
   expect(start).not.toHaveBeenCalled();
+});
+
+test("picker DeFi tab lists non-stock tokens that cannot be swap targets", async () => {
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  await screen.findByText("COIN");
+  fireEvent.press(screen.getByRole("button", { name: "Choose receive token" }));
+  await screen.findByRole("radio", { name: "COIN · Coinbase" });
+  fireEvent.press(screen.getByRole("radio", { name: "DeFi" }));
+  expect(await screen.findByRole("radio", { name: "COIN · Coinbase" })).toBeDisabled();
+  expect(screen.getAllByText("Not available for swaps").length).toBeGreaterThan(0);
+  expect(tokenCatalogService.list).toHaveBeenCalledWith(
+    expect.objectContaining({ chainId: null, category: "other", page: 0 }),
+    expect.anything(),
+  );
 });
 
 test("a native HTTP failure shows actionable guidance instead of a bare code", async () => {

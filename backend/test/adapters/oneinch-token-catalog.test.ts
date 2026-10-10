@@ -50,6 +50,12 @@ test("Ethereum RWA filter uses 1inch token tags without including ordinary token
   assert.equal(result[0]?.fusionStatus, "quote-required");
 });
 
+test("DeFi filter keeps tokens without the 1inch RWA tag", async () => {
+  const catalog = new OneInchTokenCatalog("key", fakeFetch([]));
+  const result = await catalog.list(1, "other");
+  assert.deepEqual(result.map((token) => token.symbol), ["AAPL", "USDC"]);
+});
+
 test("reuses the token catalog for 10 minutes", async () => {
   const requests: Array<{ url: string; authorization: string | null }> = [];
   const catalog = new OneInchTokenCatalog("key", fakeFetch(requests));

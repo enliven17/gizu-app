@@ -1,11 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "@fastify/type-provider-zod";
 import { z } from "zod";
-import type { CatalogToken } from "../../adapters/oneinch/token-catalog.ts";
+import type { CatalogCategory, CatalogToken } from "../../adapters/oneinch/token-catalog.ts";
+
+// Robinhood first: its stock tokens are the only swap targets, so they lead a cross-chain list.
+const CATALOG_CHAIN_IDS = [4663, 143, 1];
 
 const querySchema = z.object({
-  chainId: z.coerce.number().int().refine((id) => [1, 143, 4663].includes(id)),
-  category: z.enum(["all", "rwa"]),
+  chainId: z.coerce.number().int().refine((id) => CATALOG_CHAIN_IDS.includes(id)).optional(),
+  category: z.enum(["all", "rwa", "other"]),
   search: z.string().max(200),
   page: z.coerce.number().int().nonnegative(),
   items: z.coerce.number().int().min(1).max(100),
@@ -13,13 +16,15 @@ const querySchema = z.object({
 
 export function registerTokenRoutes(
   app: FastifyInstance,
-  catalog: { list(chainId: number, category: "all" | "rwa"): Promise<CatalogToken[]> },
+  catalog: { list(chainId: number, category: CatalogCategory): Promise<CatalogToken[]> },
 ) {
   app.withTypeProvider<ZodTypeProvider>().get(
     "/v1/tokens",
     { schema: { querystring: querySchema } },
     async (request, reply) => {
-      const tokens = await catalog.list(request.query.chainId, request.query.category);
+      const { chainId, category } = request.query;
+      const chainIds = chainId === undefined ? CATALOG_CHAIN_IDS : [chainId];
+      const tokens = (await Promise.all(chainIds.map((id) => catalog.list(id, category)))).flat();
       const search = request.query.search.trim().toLowerCase();
       const matches = tokens.filter((token) =>
         token.symbol.toLowerCase().includes(search) ||

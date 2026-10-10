@@ -5,10 +5,15 @@ import { SearchInput } from "@/components/atoms/SearchInput";
 import { Typography } from "@/components/atoms/Typography";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { InfiniteListScreen } from "@/components/templates/InfiniteListScreen";
-import { Choice } from "@/components/molecules/Choice";
+import { Badge } from "@/components/atoms/Badge";
 import { tokenIdentity, tokenNetworks, type CatalogToken } from "@/domain/tokenCatalog";
 import { useTokenCatalog } from "./useTokenCatalog";
 import type { ListedToken } from "./confidentialSwap";
+
+const tokenKinds = [
+  { category: "rwa", label: "Stocks" },
+  { category: "other", label: "DeFi" },
+] as const;
 
 export function SwapTokenPicker({
   tokens,
@@ -74,7 +79,7 @@ function TokenChoices({
   onClose: () => void;
   onSelect: (token: CatalogToken) => void;
 }) {
-  const { query, queryKey, list, change } = useTokenCatalog("all");
+  const { query, queryKey, list, change } = useTokenCatalog({ category: "rwa", chainId: null });
   return (
     <InfiniteListScreen
       list={list}
@@ -92,18 +97,27 @@ function TokenChoices({
             <Button label="Close" variant="quiet" onPress={onClose} />
           </View>
           <View
-            className="flex-row flex-wrap gap-2"
+            className="flex-row gap-1 rounded-full bg-well p-1"
             accessibilityRole="radiogroup"
-            accessibilityLabel="Token network"
+            accessibilityLabel="Token type"
           >
-            {tokenNetworks.map(({ chainId, name }) => (
-              <Choice
-                key={chainId}
-                label={name}
-                selected={query.chainId === chainId}
-                onPress={() => change({ chainId })}
-              />
-            ))}
+            {tokenKinds.map(({ category, label }) => {
+              const selected = query.category === category;
+              return (
+                <PressableScale
+                  key={category}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => change({ category })}
+                  className={`min-h-11 flex-1 items-center justify-center rounded-full ${selected ? "bg-neon/10" : ""}`}
+                >
+                  <Typography variant="caption" className={selected ? "!text-neon" : ""}>
+                    {label}
+                  </Typography>
+                </PressableScale>
+              );
+            })}
           </View>
           <SearchInput
             label="Search tokens"
@@ -112,13 +126,12 @@ function TokenChoices({
             onChangeText={(search) => change({ search })}
           />
           <Typography variant="micro">
-            Browse all tokens. Swaps currently support Robinhood only; availability is checked
-            during review.
+            Swaps currently support Robinhood stocks only; availability is checked during review.
           </Typography>
         </>
       }
       renderItem={(item) => {
-        const selectable = item.chainId === 4663 && item.swapListed;
+        const selectable = item.chainId === 4663 && item.category === "rwa" && item.swapListed;
         const checked =
           item.chainId === 4663 && item.address.toLowerCase() === target.toLowerCase();
         return (
@@ -132,14 +145,18 @@ function TokenChoices({
             }}
             className={`mb-2 gap-1 rounded-2xl px-4 py-3 ${checked ? "bg-neon/10" : "bg-well"} ${!selectable ? "opacity-60" : ""}`}
           >
-            <Typography variant="rowTitle" className={checked ? "!text-neon" : ""}>
-              {item.symbol}
-            </Typography>
+            <View className="flex-row items-center justify-between gap-3">
+              <Typography variant="rowTitle" className={`flex-1 ${checked ? "!text-neon" : ""}`}>
+                {item.symbol}
+              </Typography>
+              <Badge
+                label={
+                  tokenNetworks.find((network) => network.chainId === item.chainId)?.name ?? ""
+                }
+              />
+            </View>
             <Typography variant="micro">{item.name}</Typography>
-            <Typography variant="micro">
-              {tokenNetworks.find((network) => network.chainId === item.chainId)?.name}
-              {!selectable ? " · Not available for swaps" : ""}
-            </Typography>
+            {!selectable && <Typography variant="micro">Not available for swaps</Typography>}
           </PressableScale>
         );
       }}

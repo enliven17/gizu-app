@@ -36,12 +36,14 @@ export type CatalogToken = {
   fusionStatus: "quote-required";
 };
 
+export type CatalogCategory = "all" | CatalogToken["category"];
+
 export class OneInchTokenCatalog {
   private readonly cache = new Map<number, { until: number; tokens: CatalogToken[] }>();
 
   constructor(private readonly key: string, private readonly fetchImpl: typeof fetch = fetch) {}
 
-  async list(chainId: number, category: "all" | "rwa"): Promise<CatalogToken[]> {
+  async list(chainId: number, category: CatalogCategory): Promise<CatalogToken[]> {
     const cached = this.cache.get(chainId);
     let tokens: CatalogToken[];
     if (cached && cached.until > Date.now()) {
@@ -54,7 +56,7 @@ export class OneInchTokenCatalog {
       }
       this.cache.set(chainId, { until: Date.now() + CACHE_TTL_MS, tokens });
     }
-    return category === "rwa" ? tokens.filter((token) => token.category === "rwa") : tokens;
+    return category === "all" ? tokens : tokens.filter((token) => token.category === category);
   }
 
   private async load(chainId: number): Promise<CatalogToken[]> {

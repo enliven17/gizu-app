@@ -18,11 +18,30 @@ test("GET /v1/tokens filters, paginates, and validates explicit query fields", a
   assert.deepEqual({ symbols: good.json().list.map((token: {symbol: string}) => token.symbol), total: good.json().total, page: good.json().page, items: good.json().items }, {
     symbols: ["MSFTx"], total: 2, page: 1, items: 1,
   });
+  const defi = await app.inject("/v1/tokens?chainId=143&category=other&search=&page=0&items=10");
+  assert.equal(defi.statusCode, 200);
   const bad = await app.inject("/v1/tokens?chainId=999&category=all&search=&page=0&items=60");
   assert.equal(bad.statusCode, 400);
   const missingCategory = await app.inject("/v1/tokens?chainId=143&search=&page=0&items=60");
   assert.equal(missingCategory.statusCode, 400);
   const badItems = await app.inject("/v1/tokens?chainId=143&category=all&search=&page=0&items=101");
   assert.equal(badItems.statusCode, 400);
+  await app.close();
+});
+
+test("GET /v1/tokens without chainId merges every catalog chain, Robinhood first", async () => {
+  const app = Fastify();
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+  const calls: Array<[number, string]> = [];
+  registerTokenRoutes(app, { list: async (chainId, category) => {
+    calls.push([chainId, category]);
+    return [{ chainId, address: `0x${String(chainId).padStart(40, "0")}`, symbol: `T${chainId}`, name: "Token", decimals: 18, logoURI: null, category: "rwa", issuer: null, swapListed: true, fusionStatus: "quote-required" }];
+  } });
+  const all = await app.inject("/v1/tokens?category=rwa&search=&page=0&items=10");
+  assert.equal(all.statusCode, 200);
+  assert.deepEqual(all.json().list.map((token: {symbol: string}) => token.symbol), ["T4663", "T143", "T1"]);
+  assert.equal(all.json().total, 3);
+  assert.deepEqual(calls, [[4663, "rwa"], [143, "rwa"], [1, "rwa"]]);
   await app.close();
 });
