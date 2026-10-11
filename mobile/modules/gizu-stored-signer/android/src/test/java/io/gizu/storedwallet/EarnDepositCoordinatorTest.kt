@@ -6,9 +6,42 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EarnDepositCoordinatorTest {
+  @Test
+  fun onlyExplicitResumeRetriesPersistedUnsubmittedPayoutBytes() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val j = testDepositJournal()
+      val id = j.loadOrCreate(r, 4663, null).getString("journeyId")
+      val review = DepositFixtures.review(r).put("journeyId", id)
+      j.saveReview(id, 1, review)
+      val e =
+        Engines(r).apply {
+          creditReady = true
+          investUnknown = true
+        }
+      val c = EarnDepositCoordinator(j, e)
+      val grant = EarnDepositApproval.fromReview(r, review).apply { approveAfterPasskey(1000) }
+      c.confirmed(id, 2, grant)
+      assertEquals("submissionUnknown", j.get(id).getString("pauseReason"))
+      c.cancel(id, j.get(id).getInt("revision"))
+      val restarted = EarnDepositCoordinator(j, e)
+      restarted.reconcile(id)
+      assertEquals(0, e.savedPayoutRetries)
+      val bytes = e.rows.getValue("payout-source0-invest").getString("signedData")
+      e.investUnknown = false
+      val remaining =
+        EarnDepositApproval.fromRemainingReview(r, review, 1000).apply { approveAfterPasskey(1000) }
+      restarted.resume(id, j.get(id).getInt("revision"), remaining)
+      assertEquals(1, e.savedPayoutRetries)
+      assertEquals(bytes, e.rows.getValue("payout-source0-invest").getString("signedData"))
+      assertEquals(4, e.signed)
+      assertEquals("invested", j.get(id).getString("phase"))
+    }
+  }
+
   internal class Engines(val record: WalletRecord) : EarnDepositEngines {
     val rows = mutableMapOf<String, JSONObject>()
     var signed = 0
+    var savedPayoutRetries = 0
     var payoutCreates = 0
     var depositCreates = 0
     var creditReady = false
@@ -78,7 +111,8 @@ class EarnDepositCoordinatorTest {
         now,
       )
       grant.recordDurableSignature(stage, id, "durable-$id")
-      signed++
+      if (stage == "payouts" && row.has("signedData")) savedPayoutRetries++ else signed++
+      if (stage == "payouts") row.put("signedData", "durable-$id")
       when (stage) {
         "funding" -> row.put("status", if (failedSource) "reverted" else "finalized")
         "payouts" ->

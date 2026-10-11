@@ -22,7 +22,7 @@ internal class EarnDepositRemaining(
   private val journal: EarnDepositJournal,
   private val gateway: EarnDepositGateway,
   private val source: suspend (JSONObject) -> DepositRemainingSource,
-  private val payout: (String) -> JSONObject,
+  private val payout: suspend (String) -> JSONObject,
   private val receipt: (JSONObject) -> String?,
   private val reservation: () -> JSONObject,
   private val deposit: (String) -> JSONObject,
@@ -141,12 +141,39 @@ internal class EarnDepositRemaining(
   }
 }
 
+/** Only the existing native empty-intents read permission may authenticate pre-review history. */
+internal fun requireDepositReadPermission(
+  record: WalletRecord,
+  wallet: String?,
+  generation: String?,
+  until: Long,
+  now: Long,
+) {
+  check(
+    record.verified &&
+      record.id == wallet &&
+      record.journalId == generation &&
+      now in (until - 120000) until until
+  ) {
+    "Unlock your wallet again to reconcile saved payouts before reviewing the remaining deposit."
+  }
+}
+
+internal suspend fun reconcileDepositPayoutBeforeReview(
+  row: JSONObject,
+  reconcile: suspend (JSONObject) -> JSONObject,
+): JSONObject {
+  if (!row.has("signedData") || row.getString("status") == "paid") return row
+  return reconcile(row)
+}
+
 internal fun nativeDepositRemaining(
   context: Context,
   store: WalletStore,
   record: WalletRecord,
   journal: EarnDepositJournal,
   foreground: () -> Unit,
+  readAuth: suspend () -> uniffi.gizu_stored_signer_core.EarnReadAuthentication,
 ): EarnDepositRemaining {
   val root = journal.all().single { it.getInt("cycleIndex") == record.earnCycleIndex }
   val sourceRefs = root.getJSONObject("children").optJSONArray("funding")
@@ -171,9 +198,12 @@ internal fun nativeDepositRemaining(
     { original ->
       foreground()
       val saved =
-        sponsored.all().singleOrNull {
-          it.getString("operationId") == original.getString("operationId")
-        }
+        sponsored
+          .all()
+          .singleOrNull { it.getString("operationId") == original.getString("operationId") }
+          ?.let {
+            rootAdapter.reconcileBeforeRemaining("funding", it.getString("operationId"), readAuth)
+          }
       var current =
         depositRemainingSourceRecord(
           original,
@@ -210,7 +240,7 @@ internal fun nativeDepositRemaining(
           ?: error("Missing source credit proof")
       DepositRemainingSource(current, minimum)
     },
-    payouts::get,
+    { id -> rootAdapter.reconcileBeforeRemaining("payouts", id, readAuth) },
     rootAdapter::payoutReceipt,
     { fundingReservations(context, record).batch(reservationId) },
     sponsored::get,

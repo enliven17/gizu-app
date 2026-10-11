@@ -26,6 +26,12 @@ internal fun nativeDepositPreparer(
       val ledger = fundingReservations(context, current)
       val batchId = plan.getString("fundingBatchId")
       try {
+        val journey = journal.all().single { it.getInt("cycleIndex") == current.earnCycleIndex }
+        journal.bindPreparationReservation(
+          journey.getString("journeyId"),
+          journey.getInt("revision"),
+          batchId,
+        )
         val quotes = earnQuoteJournal(context, current)
         val replan = EarnSourceReplanner(quotes)
         val credits = linkedMapOf<String, String>()
@@ -105,7 +111,10 @@ internal class EarnDepositPreparer(
     check(row.getJSONObject("children").length() == 0) {
       "Reconcile the existing deposit before preparing another amount"
     }
-    row.optJSONObject("review")?.let(releaseUnsigned)
+    row =
+      journal.cancelUnsignedReview(id) { batchId ->
+        releaseUnsigned(JSONObject().put("reservation", JSONObject().put("id", batchId)))
+      }
     row =
       journal.update(id, row.getInt("revision")) {
         it.put("phase", "preparing").put("budgetAtoms", budgetAtoms)
@@ -116,6 +125,9 @@ internal class EarnDepositPreparer(
     try {
       val started = now()
       draft = selectSources(record, budgetAtoms)
+      row = journal.get(id)
+      check(row.getString("phase") == "preparing" && row.getJSONObject("children").length() == 0)
+      check(row.getString("budgetAtoms") == budgetAtoms)
       check(draft.rows.isNotEmpty())
       val sources = JSONArray()
       var offset = BigInteger.ZERO
@@ -199,7 +211,12 @@ internal class EarnDepositPreparer(
       EarnDepositApproval.fromReview(record, review).invalidate()
       return journal.saveReview(id, row.getInt("revision"), review)
     } catch (failure: Exception) {
-      if (draft != null) releaseUnsigned(JSONObject().put("reservation", draft.reservation))
+      val saved = journal.get(id)
+      if (!saved.has("preparationBatchId") && draft != null)
+        releaseUnsigned(JSONObject().put("reservation", draft.reservation))
+      journal.cancelUnsignedReview(id) { batchId ->
+        releaseUnsigned(JSONObject().put("reservation", JSONObject().put("id", batchId)))
+      }
       journal.pause(id, "previewUnavailable")
       if (failure is CancellationException) throw failure
       return journal.get(id)

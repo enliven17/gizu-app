@@ -67,7 +67,7 @@ internal class EarnDepositCoordinator(
     check(depositCanonical(row.getJSONObject("review")) == depositCanonical(grant.review))
     activeGrant = grant
     engines.useGrant(grant)
-    advance(journeyId, grant)
+    advance(journeyId, grant, retrySavedPayouts = true)
   }
 
   private fun setPhase(id: String, phase: String) {
@@ -94,10 +94,15 @@ internal class EarnDepositCoordinator(
     stage: String,
     id: String,
     grant: EarnDepositApproval?,
+    retrySavedPayouts: Boolean = false,
   ): JSONObject {
     var row = engines.reconcile(stage, id, grant)
     if (
       row.getString("status") in setOf("planned", "authorizationSaved", "signed") ||
+        (stage == "payouts" &&
+          retrySavedPayouts &&
+          row.getString("status") == "submissionUnknown" &&
+          row.has("signedData")) ||
         (stage == "payouts" && row.getString("status") == "cancelled" && !row.has("signedData"))
     ) {
       if (grant == null) return row
@@ -107,7 +112,7 @@ internal class EarnDepositCoordinator(
     return row
   }
 
-  suspend fun advance(id: String, grant: EarnDepositApproval?) {
+  suspend fun advance(id: String, grant: EarnDepositApproval?, retrySavedPayouts: Boolean = false) {
     val start = journal.get(id)
     if (start.getString("phase") == "invested") return
     if (grant != null) check(activeGrant === grant)
@@ -179,7 +184,8 @@ internal class EarnDepositCoordinator(
           )
           attach(id, leg, child.getString("operationId"))
         }
-        val settled = reconcileAndExecute("payouts", child.getString("operationId"), grant)
+        val settled =
+          reconcileAndExecute("payouts", child.getString("operationId"), grant, retrySavedPayouts)
         engines.payoutReceipt(settled)?.let { atoms ->
           check(
             depositAtoms(atoms, true) >=

@@ -3,10 +3,14 @@ package io.gizu.storedwallet
 import android.app.Activity
 import android.app.Dialog
 import android.app.KeyguardManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
+import android.os.PowerManager
 import android.view.Gravity
 import android.view.View
 import android.view.Window
@@ -14,6 +18,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import androidx.core.content.ContextCompat
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -49,6 +54,84 @@ class GizuStoredSignerModule : Module() {
   private var balanceReadGeneration: String? = null
   private var balanceReadUntil = 0L
   private var depositHost: EarnDepositHost? = null
+  private var depositPreparingId: String? = null
+  private var departureContext: Context? = null
+  private val depositLifecycle = EarnDepositLifecycle {
+    balanceReadUntil = 0
+    depositHost?.revoke("approvalExpired")
+    task?.cancel()
+  }
+  private val departureReceiver =
+    object : BroadcastReceiver() {
+      override fun onReceive(context: Context?, intent: Intent?) {
+        depositLifecycle.onSystemEvent(intent?.action, intent?.getStringExtra("reason"))
+      }
+    }
+
+  private fun observeDepositDepartures(context: Context) {
+    if (departureContext != null) return
+    val app = context.applicationContext
+    val filter =
+      IntentFilter().apply {
+        addAction(Intent.ACTION_SCREEN_OFF)
+        addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+      }
+    ContextCompat.registerReceiver(
+      app,
+      departureReceiver,
+      filter,
+      ContextCompat.RECEIVER_NOT_EXPORTED,
+    )
+    departureContext = app
+  }
+
+  private fun releaseUnsignedDeposit(context: Context, journal: EarnDepositJournal, id: String) {
+    journal.cancelUnsignedReview(id) { batch ->
+      walletStore(context).load().use { record ->
+        val saved = journal.get(id)
+        check(
+          saved.getString("walletId") == record.id &&
+            saved.getString("generation") == record.journalId
+        )
+        fundingReservations(context, record).cancelBatchUnsigned(batch)
+      }
+    }
+  }
+
+  private suspend fun depositReconciliationReadAuth(
+    activity: Activity,
+    store: WalletStore,
+    wallet: String,
+    generation: String,
+    cycle: Int,
+  ): EarnReadAuthentication {
+    requireForeground(activity)
+    fun checkPermission(record: WalletRecord) {
+      check(
+        record.id == wallet &&
+          record.journalId == generation &&
+          record.earnChain == 4663 &&
+          record.earnCycleIndex == cycle
+      )
+      requireDepositReadPermission(
+        record,
+        balanceReadWallet,
+        balanceReadGeneration,
+        balanceReadUntil,
+        System.currentTimeMillis(),
+      )
+    }
+    store.load().use { checkPermission(it) }
+    val salt = ConfidentialBalance().salt()
+    val random = ByteArray(7).also { SecureRandom().nextBytes(it) }
+    val started = System.currentTimeMillis()
+    currentCoroutineContext().ensureActive()
+    requireForeground(activity)
+    return store.load().use { record ->
+      checkPermission(record)
+      cycleReadAuth(record, salt, random, started.toULong(), System.currentTimeMillis().toULong())
+    }
+  }
 
   private fun eligible(activity: Activity?) =
     WalletBuildPolicy.isAvailable(Build.VERSION.SDK_INT, activity != null)
@@ -292,7 +375,12 @@ class GizuStoredSignerModule : Module() {
           val existing = journal.all().singleOrNull { it.getString("journeyId") == id }
           if (existing != null && existing.getJSONObject("children").length() > 0)
             return@use journal.publicSnapshot(id)
-          nativeDepositPreparer(activity, record, journal).prepare(record, 4663, budgetAtoms, id)
+          depositPreparingId = id
+          try {
+            nativeDepositPreparer(activity, record, journal).prepare(record, 4663, budgetAtoms, id)
+          } finally {
+            depositPreparingId = null
+          }
           journal.publicSnapshot(id)
         }
       }
@@ -323,7 +411,22 @@ class GizuStoredSignerModule : Module() {
         val fresh =
           store.load().use { record ->
             val journal = earnDepositJournal(activity, record)
-            nativeDepositRemaining(activity, store, record, journal) { requireForeground(activity) }
+            nativeDepositRemaining(
+                activity,
+                store,
+                record,
+                journal,
+                foreground = { requireForeground(activity) },
+                readAuth = {
+                  depositReconciliationReadAuth(
+                    activity,
+                    store,
+                    record.id,
+                    record.journalId,
+                    record.earnCycleIndex,
+                  )
+                },
+              )
               .refresh(record, id, revision)
           }
         val host = makeDepositHost(activity, store, walletId, id)
@@ -400,8 +503,10 @@ class GizuStoredSignerModule : Module() {
               earnDepositJournal(context, record)
             }
           check(revision in 1..journal.get(id).getInt("revision"))
+          if (depositPreparingId == id) task?.cancel()
           if (depositHost?.busy == true) depositHost!!.cancel(id, revision)
           else journal.pause(id, "cancelled")
+          releaseUnsignedDeposit(context, journal, id)
           promise.resolve(journal.publicSnapshot(id))
         } catch (_: Exception) {
           promise.reject(
@@ -1697,8 +1802,17 @@ class GizuStoredSignerModule : Module() {
       scope.launch { task?.cancel() }
     }
     OnActivityEntersForeground { foreground = true }
+    OnUserLeavesActivity { depositLifecycle.onUserLeave(awaitingProvider) }
     OnActivityEntersBackground {
       foreground = false
+      val systemContext = departureContext ?: appContext.reactContext
+      val interactive =
+        (systemContext?.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isInteractive ==
+          true
+      val locked =
+        (systemContext?.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)
+          ?.isKeyguardLocked != false
+      depositLifecycle.onBackground(awaitingProvider, interactive, locked)
       depositHost?.onBackground(awaitingProvider)
       if (!awaitingProvider) {
         balanceReadUntil = 0
@@ -1706,6 +1820,10 @@ class GizuStoredSignerModule : Module() {
       }
     }
     OnDestroy {
+      departureContext?.let { context ->
+        runCatching { context.unregisterReceiver(departureReceiver) }
+      }
+      departureContext = null
       depositHost?.close()
       task?.cancel()
       dialog?.dismiss()
@@ -1743,6 +1861,7 @@ class GizuStoredSignerModule : Module() {
     walletId: String,
     id: String,
   ): EarnDepositHost {
+    observeDepositDepartures(activity)
     val journal =
       store.load().use { record ->
         requireSponsoredWallet(record, walletId)
@@ -1778,6 +1897,9 @@ class GizuStoredSignerModule : Module() {
         }
       },
       { requireForeground(activity) },
+      releaseUnsigned = { journeyId ->
+        releaseUnsignedDeposit(activity.applicationContext, journal, journeyId)
+      },
     )
   }
 

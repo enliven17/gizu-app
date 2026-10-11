@@ -6,6 +6,46 @@ import org.junit.Test
 
 class EarnDepositHostTest {
   @Test
+  fun screenOffAndHomeDuringCredentialApprovalCannotBeResumedByReturning() = runBlocking {
+    for ((event, reason) in
+      listOf(
+        "android.intent.action.SCREEN_OFF" to null,
+        "android.intent.action.CLOSE_SYSTEM_DIALOGS" to "homekey",
+        "android.intent.action.CLOSE_SYSTEM_DIALOGS" to "recentapps",
+      )) {
+      DepositFixtures.record().use { r ->
+        val j = testDepositJournal()
+        val id = j.loadOrCreate(r, 4663, null).getString("journeyId")
+        j.saveReview(id, 1, DepositFixtures.review(r).put("journeyId", id))
+        val e = EarnDepositCoordinatorTest.Engines(r)
+        val provider = CompletableDeferred<Unit>()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val host =
+          EarnDepositHost(
+            scope,
+            j,
+            { DepositFixtures.record() },
+            { EarnDepositCoordinator(j, e) },
+            { _, _, _ -> provider.await() },
+            {},
+            now = { 1002 },
+          )
+        val approval = scope.launch { host.confirm(id, 2, false) }
+        assertTrue(host.busy)
+        host.onBackground(true) // The legitimate provider focus transition alone is allowed.
+        assertTrue(host.busy)
+        EarnDepositLifecycle { host.revoke("approvalExpired") }.onSystemEvent(event, reason)
+        provider.complete(Unit) // Device unlock / return does not restore the canceled ceremony.
+        approval.join()
+        assertFalse(host.busy)
+        assertEquals(0, e.signed)
+        assertEquals("approvalExpired", j.publicSnapshot(id)["pauseReason"])
+        scope.cancel()
+      }
+    }
+  }
+
+  @Test
   fun journalCapacityIsCheckedBeforeTheFirstSourceCanSpend() {
     DepositFixtures.record().use { r ->
       val review = DepositFixtures.review(r)

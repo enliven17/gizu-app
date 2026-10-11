@@ -162,6 +162,36 @@ internal class EarnDepositJournal(
       row
     }
 
+  /** Persist the batch owner before any leg becomes a sticky operation reservation. */
+  fun bindPreparationReservation(id: String, revision: Int, batchId: String): JSONObject =
+    update(id, revision) { row ->
+      check(row.getString("phase") == "preparing" && row.getJSONObject("children").length() == 0)
+      check(!row.has("preparationBatchId") || row.getString("preparationBatchId") == batchId)
+      check(batchId.matches(Regex("[-a-zA-Z0-9_]{1,128}")))
+      row.put("preparationBatchId", batchId)
+    }
+
+  /** No children means signing cannot have started: attachChild is durable before every signer. */
+  fun cancelUnsignedReview(id: String, release: (String) -> Unit): JSONObject =
+    synchronized(lock) {
+      val rows = all()
+      val row = rows.single { it.getString("journeyId") == id }
+      if (row.getJSONObject("children").length() > 0 || row.getString("phase") == "invested")
+        return@synchronized row
+      val batch =
+        row.optString("preparationBatchId").takeIf { it.isNotBlank() }
+          ?: row.optJSONObject("review")?.getJSONObject("reservation")?.getString("id")
+      if (batch != null) release(batch) // A failed release preserves ownership for the next retry.
+      if (batch == null && !row.has("review")) return@synchronized row
+      row.remove("preparationBatchId")
+      row.remove("review")
+      row.remove("pauseReason")
+      row.remove("message")
+      row.put("phase", "draft").put("revision", Math.addExact(row.getInt("revision"), 1))
+      write(rows)
+      row
+    }
+
   fun saveReview(id: String, revision: Int, review: JSONObject): JSONObject =
     update(id, revision) { row ->
       check(row.getJSONObject("children").length() == 0) {
@@ -174,6 +204,10 @@ internal class EarnDepositJournal(
       )
       check(review.getInt("cycleIndex") == row.getInt("cycleIndex"))
       row.put("budgetAtoms", depositAtoms(review.getString("sourceBudgetAtoms"), true).toString())
+      if (row.has("preparationBatchId"))
+        check(
+          row.getString("preparationBatchId") == review.getJSONObject("reservation").getString("id")
+        )
       row.put("review", JSONObject(review.toString())).put("phase", "review")
       row.remove("pauseReason")
       row.remove("message")

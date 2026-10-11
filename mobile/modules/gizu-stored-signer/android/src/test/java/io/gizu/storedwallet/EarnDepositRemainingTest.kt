@@ -27,7 +27,7 @@ class EarnDepositRemainingTest {
 
   @Test
   fun freshReviewPreservesPaidChildrenAndShowsWorseUnsignedTerms() = runBlocking {
-    DepositFixtures.record().use { r ->
+    for (investArrived in listOf(false, true)) DepositFixtures.record().use { r ->
       val j = testDepositJournal()
       val row = j.loadOrCreate(r, 4663, null)
       val id = row.getString("journeyId")
@@ -46,6 +46,14 @@ class EarnDepositRemainingTest {
           .put("status", "paid")
           .put("receivedAtoms", "99000")
           .put("signedData", "immutable")
+      if (investArrived) j.attachChild(id, j.get(id).getInt("revision"), "invest", "pending_invest")
+      val pending =
+        JSONObject(paid.toString())
+          .put("operationId", "pending_invest")
+          .put("status", "submissionUnknown")
+          .put("receivedAtoms", "880000")
+      pending.getJSONObject("proposal").put("leg", "invest").put("amountAtoms", "891000")
+      var authenticatedReads = 0
       var previews = 0
       val gateway =
         EarnDepositGateway(
@@ -74,7 +82,10 @@ class EarnDepositRemainingTest {
                 .put("referenceHash", "0x" + "1".repeat(64))
                 .put("feePolicy", JSONObject())
             } else {
-              check(path == "/robinhood/deposit-preview" && b.getString("startingUsdgAtoms") == "0")
+              check(
+                path == "/robinhood/deposit-preview" &&
+                  b.getString("startingUsdgAtoms") == if (investArrived) "880000" else "0"
+              )
               out
                 .put("assumption", "hypothetical-USDG-funding-isolated-fork")
                 .put("profileId", "robinhood-usdg")
@@ -83,7 +94,7 @@ class EarnDepositRemainingTest {
                 .put("token", HOOD_EARN_USDG)
                 .put("vault", HOOD_EARN_VAULT)
                 .put("expectedUsdgAtoms", b.getString("expectedUsdgAtoms"))
-                .put("startingUsdgAtoms", "0")
+                .put("startingUsdgAtoms", if (investArrived) "880000" else "0")
                 .put("policyVersion", "robinhood-v1")
                 .put("depositAmount", "850000")
                 .put("depositFeeBudget", "15000")
@@ -102,7 +113,14 @@ class EarnDepositRemainingTest {
           j,
           gateway,
           { DepositRemainingSource(source, "990000") },
-          { paid },
+          { childId ->
+            if (childId == "paid_hold") paid
+            else
+              reconcileDepositPayoutBeforeReview(pending) {
+                authenticatedReads++
+                JSONObject(it.toString()).put("status", "paid")
+              }
+          },
           { it.getString("receivedAtoms") },
           { original.getJSONObject("reservation") },
           { error("No deposit reference") },
@@ -110,7 +128,8 @@ class EarnDepositRemainingTest {
         )
       val next = refresh.refresh(r, id, j.get(id).getInt("revision"))
       assertEquals("paused", next.getString("phase"))
-      assertEquals(1, previews)
+      assertEquals(if (investArrived) 0 else 1, previews)
+      assertEquals(if (investArrived) 1 else 0, authenticatedReads)
       assertEquals("paid_hold", next.getJSONObject("children").getJSONArray("hold").getString(0))
       assertEquals(
         "immutable",

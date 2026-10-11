@@ -12,6 +12,7 @@ internal class EarnDepositHost(
   private val foreground: () -> Unit,
   private val now: () -> Long = System::currentTimeMillis,
   private val wait: suspend (Long) -> Unit = { delay(it) },
+  private val releaseUnsigned: (String) -> Unit = {},
 ) {
   private var ownedId: String? = null
   private var grant: EarnDepositApproval? = null
@@ -115,6 +116,7 @@ internal class EarnDepositHost(
     val row = journal.get(id)
     check(revision in 1..row.getInt("revision"))
     if (ownedId == id) revoke("cancelled") else journal.pause(id, "cancelled")
+    releaseUnsigned(id)
     return status(id)
   }
 
@@ -131,6 +133,7 @@ internal class EarnDepositHost(
     val executing = job
     approving?.cancel()
     executing?.cancel()
+    runCatching { releaseUnsigned(id) }
   }
 
   fun close() = revoke("approvalExpired")

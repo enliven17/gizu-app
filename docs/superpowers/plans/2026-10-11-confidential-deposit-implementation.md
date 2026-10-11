@@ -217,11 +217,11 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** Deployment notes identify the two read-only preview routes and platform capability requirements. New APKs paired with old backends fail before funding. No local database/environment secrets or keys are committed.
 
-- [ ] Run `cd backend && npm run typecheck`, `npm test`, `npm run build`; expect pass. Run `cd mobile && npm run check`, `npm run format:kotlin:check`, `npm run stored-signer:test`, `npm run stored-signer:check:ios`. Run Android `:gizu-stored-signer:testDebugUnitTest`. If Doctor stops the aggregate check, report it and run coverage separately; do not claim the full aggregate passed.
-- [ ] Run `npm run stored-signer:test:ios` when the configured simulator/runtime is available; otherwise report that native iOS checks were unavailable. Do not claim an iPhone deposit test. Run isolated fork simulations separately from deterministic tests and identify any donor/stub assumptions.
-- [ ] Review the final branch against the approved spec, concentrating on every signing entry point, post-crash signed-state recovery, reservation release and preview/executable separation. No review finding is resolved by bypassing native semantic validation.
+- [x] Run `cd backend && npm run typecheck`, `npm test`, `npm run build`; expect pass. Run `cd mobile && npm run check`, `npm run format:kotlin:check`, `npm run stored-signer:test`, `npm run stored-signer:check:ios`. Run Android `:gizu-stored-signer:testDebugUnitTest`. If Doctor stops the aggregate check, report it and run coverage separately; do not claim the full aggregate passed.
+- [x] Run `npm run stored-signer:test:ios` when the configured simulator/runtime is available; otherwise report that native iOS checks were unavailable. Do not claim an iPhone deposit test. Run isolated fork simulations separately from deterministic tests and identify any donor/stub assumptions.
+- [x] Review the final branch against the approved spec, concentrating on every signing entry point, post-crash signed-state recovery, reservation release and preview/executable separation. No review finding is resolved by bypassing native semantic validation.
 - [ ] Document exact public backend route/version requirements and the unsupported-platform behavior. Prepare deployment instructions for the teammate; do not deploy/push automatically. After the updated backend is deployed, perform public read-only compatibility probes before device funding review.
-- [ ] Commit the documentation and any evidence-backed corrections as `docs: document guided deposit operation and deployment`.
+- [x] Commit the documentation and any evidence-backed corrections as `docs: document guided deposit operation and deployment`.
 
 ## Task 9: Build and verify on the connected phone
 
@@ -229,12 +229,12 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** Build uses the verified existing Android application ID `com.example.gizu.dev` and activity `io.gizu.android.MainActivity`. This is a standalone release with native passkeys and the hosted backend.
 
-- [ ] Confirm ADB connection and installed package/certificate, plus preview deployment compatibility. Recheck the APK package/certificate before installation. Do not run prebuild to recreate the ignored native project.
-- [ ] Build from `mobile/android` with Node 24 on PATH, Java 17, the existing Android SDK, `NODE_ENV=production`, `GIZU_BUILD_VARIANT=production`, `EXPO_PUBLIC_API_URL=https://gizu-app.onrender.com`, `EXPO_PUBLIC_PASSKEY_MODE=native`: `./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --console=plain`. Require build success and new backend host in the embedded bundle/native endpoints.
+- [x] Confirm ADB connection and installed package/certificate, plus preview deployment compatibility. Recheck the APK package/certificate before installation. Do not run prebuild to recreate the ignored native project.
+- [x] Build from `mobile/android` with Node 24 on PATH, Java 17, the existing Android SDK, `NODE_ENV=production`, `GIZU_BUILD_VARIANT=production`, `EXPO_PUBLIC_API_URL=https://gizu-app.onrender.com`, `EXPO_PUBLIC_PASSKEY_MODE=native`: `./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --console=plain`. Require build success and new backend host in the embedded bundle/native endpoints.
 - [ ] Install with `adb install -r app/build/outputs/apk/release/app-release.apk`, then open `adb shell am start -n com.example.gizu.dev/io.gizu.android.MainActivity`. Ask the user to unlock their wallet; do not operate biometric approval.
 - [ ] Verify vault entry, keyboard/scroll/layout, Morpho icon, amount editing, prospective review, single applicable action, expansion of Details and provider-error handling. Confirm no funds move on Review and unsigned cancellation. Reopen without USB/Metro to verify the standalone experience.
 - [ ] Only after specific spending authorization, ask the user to Confirm a chosen budget. Count passkey prompts and verify both payouts, exact actual fees/reserves, shares and saved invested result. Do not withdraw. If live providers block completion, report the failed phase with saved location/evidence and keep the test explicitly incomplete.
-- [ ] If funded acceptance is authorized, exercise a carefully chosen interruption/reopen scenario without authorizing extra money; verify no duplicate allocation/spend. Otherwise rely on deterministic recovery tests and clearly identify live recovery as not run.
+- [x] If funded acceptance is authorized, exercise a carefully chosen interruption/reopen scenario without authorizing extra money; verify no duplicate allocation/spend. Otherwise rely on deterministic recovery tests and clearly identify live recovery as not run.
 
 ## Dependency and execution order
 
@@ -258,3 +258,9 @@ Coverage runs separately. Updated preview deployment and live prospective simula
 remain unverified (Render 404; Robinhood probe HTTP 403). Task 9 funded acceptance
 requires deployed previews, usable providers and specific spending authorization.
 No fallback terms or automatic mainnet spend are permitted by these checkboxes.
+
+Final fresh review found five Important gaps. The single fix pass adds native
+regressions for receipt reconciliation before renewed review, explicit saved-payout
+retry, credential-window departure, unsigned cancellation and preparation death.
+No minors or declined judgments were reported. Deployed previews, funded phone
+acceptance and physical credential-focus/lock verification remain unchecked.

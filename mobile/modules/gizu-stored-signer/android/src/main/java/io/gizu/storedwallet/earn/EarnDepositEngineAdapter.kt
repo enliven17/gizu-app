@@ -75,7 +75,9 @@ internal class EarnDepositEngineAdapter(
     }
   }
 
-  private fun payoutEngine(grant: EarnDepositApproval) =
+  private fun payoutEngine(grant: EarnDepositApproval) = payoutEngine { readAuth(grant) }
+
+  private fun payoutEngine(auth: suspend () -> EarnReadAuthentication) =
     EarnPayoutEngine(
       store,
       payouts(),
@@ -89,7 +91,7 @@ internal class EarnDepositEngineAdapter(
       sourceBatchReader = { id ->
         batch(id).also { rows -> check(rows.all { credit(it) != null }) }
       },
-      readAuth = { readAuth(grant) },
+      readAuth = auth,
     )
 
   private var executionGrant: EarnDepositApproval? = null
@@ -310,6 +312,34 @@ internal class EarnDepositEngineAdapter(
       return saved
     }
     return row
+  }
+
+  /**
+   * Reconciles saved children using login's bounded read-only permission, never a spending grant.
+   */
+  suspend fun reconcileBeforeRemaining(
+    stage: String,
+    id: String,
+    auth: suspend () -> EarnReadAuthentication,
+  ): JSONObject {
+    foreground()
+    if (stage == "payouts")
+      return reconcileDepositPayoutBeforeReview(payouts().get(id)) { row ->
+        payoutEngine(auth).use { it.reconcile(id, row.getInt("revision")) }
+      }
+    check(stage == "funding")
+    val row = reconcile(stage, id, null)
+    if (
+      row.getString("status") != "finalized" ||
+        row.optJSONObject("settlement")?.optString("status") == "credited"
+    )
+      return row
+    val proof = readNativeSponsoredSettlement(auth(), sponsoredSettlementExpected(row))
+    foreground()
+    val saved = sponsored().update(id, row.getInt("revision")) { it.put("settlement", proof) }
+    if (proof.getString("status") == "credited")
+      record { fundingReservations(context, it).complete(id) }
+    return saved
   }
 
   override fun credit(row: JSONObject): String? {

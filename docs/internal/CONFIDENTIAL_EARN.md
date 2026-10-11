@@ -219,10 +219,9 @@ both use `https://gizu-app.onrender.com`; an old backend's 404 blocks before fun
 Deterministic checks pass for source/credit ordering, odd-atom splits, bound grants,
 crash journals, uncertain submissions, paid-child preservation, unsigned remaining
 refresh, stale amount results, screen exit and saved investment ownership. The
-JavaScript suite initially passed 726 tests across 90 suites with coverage; added
-recovery regressions are recorded in the final device acceptance notes. Backend
+JavaScript suite passed 728 tests across 90 suites with coverage. Backend
 checks passed 225 tests with three optional skips, typecheck and build. Rust passed
-148 tests. Android signer tests and Kotlin formatting passed.
+148 tests. All 273 Android signer tests and Kotlin formatting passed.
 
 The aggregate mobile check stops at Expo Doctor: network-enabled Doctor passed
 20/21 checks, with installed Expo 57.0.26 versus expected ~57.0.27. Types, lint,
@@ -235,3 +234,47 @@ A separate live Robinhood RPC/fork probe returned HTTP 403 before simulation; th
 new prospective fork path is therefore not live-qualified by this test. These
 are deployment/provider gates, not permission to use fallback executable terms.
 No new mainnet Earn spending or funded one-passkey phone acceptance has occurred.
+
+### Final review and phone check
+
+A fresh whole-branch review found five Important recovery/lifecycle gaps; the fix
+pass reproduced and addressed them: exact-byte payout retry on explicit Resume
+only; authenticated receipt reconciliation before remaining preview; screen-off
+and Home/Recents revocation during credential UI; unsigned-review reservation
+release; and journaled reservation ownership before sticky source binding.
+Public polling never rebroadcasts. Missing child records and signing uncertainty
+continue to block reservation release. Any registered child set is conservatively
+retained for existing explicit recovery/discard actions.
+
+Pre-review reconciliation uses only the existing native owner/generation-bound
+login read permission (two minutes). It signs empty-intents authentication, never
+asset-transfer authority. An expired permission requires unlocking the wallet
+again; the feature does not renew it silently or ask for a spending approval to
+obtain unknown remaining economics. Historical signed children remain immutable.
+
+Android lifecycle wiring uses screen-off and system Home/Recents events, plus
+interactive/keyguard checks on activity pause and the user-leave callback. Legitimate
+credential focus loss remains bounded; an intervening departure cancels the pending
+ceremony permanently. The receiver observes system broadcasts listed in the
+[Android platform reference](https://developer.android.com/about/versions/12/reference/broadcast-intents-31);
+it does not send the deprecated close-dialog action. Physical credential-focus and
+lock acceptance still requires the deployed review/provider path.
+
+The initial guided standalone release built and updated the Samsung phone using `adb install -r`.
+Its package and SHA-256 certificate matched the existing installation; wallet data
+was preserved. The embedded bundle contains the new Render host and guided native
+bridge, and no old backend host. The user unlocked the wallet. The phone deposit
+hierarchy showed Morpho/Steakhouse USDG, an entered 3-USDC budget, available USDC,
+Review deposit and Details, and the correct unavailable-preview alert with no
+Confirm action. Both required public preview routes returned 404. No spending was
+approved. Prospective review, one-passkey funded execution and live interruption
+recovery remain incomplete until backend deployment and usable providers.
+
+The final recovery-fix release rebuilt successfully with all 273 Android signer
+tests passing. Its certificate and Render bundle endpoint were verified again.
+USB disconnected before that last update, so the phone currently retains the
+initial guided build. The final APK is ready for a preserving `adb install -r`.
+A coverage rerun hit ten test timeouts during an abnormally long 62-minute run;
+all were timing failures in previously passing suites. The fresh run with idle sleep
+prevented passed all 728 tests in 151 seconds. No timeout was increased or test
+skipped.
