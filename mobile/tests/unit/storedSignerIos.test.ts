@@ -6,9 +6,20 @@ import {
   getStoredTransferSigner,
   getStoredSwapSigner,
   getStoredEarnVaultSigner,
+  getStoredEarnDepositSigner,
 } from "@/services/wallet/nativeBridge";
 
 jest.mock("expo", () => ({ requireOptionalNativeModule: jest.fn() }));
+
+test("iOS cannot advertise or start the Android deposit journey", async () => {
+  jest.mocked(requireOptionalNativeModule).mockReturnValue({
+    getCapabilities: jest
+      .fn()
+      .mockResolvedValue({ contractVersion: 1, available: true, earnDepositJourney: false }),
+  });
+  expect((await getSignerCapabilities()).earnDepositJourney).toBe(false);
+  expect(getStoredEarnDepositSigner()).toBeNull();
+});
 
 test("iOS release reads public portfolio without enabling unsupported execution", async () => {
   const development = __DEV__;
@@ -162,7 +173,7 @@ test.each([
 
 test("iOS exposes holdings and explicit sell/recovery actions through native capability gates", async () => {
   const target = "0x" + "11".repeat(20);
-  const gateway = "https://gizu-backend.onrender.com";
+  const gateway = "https://gizu-app.onrender.com";
   const native = {
     getCapabilities: jest
       .fn()

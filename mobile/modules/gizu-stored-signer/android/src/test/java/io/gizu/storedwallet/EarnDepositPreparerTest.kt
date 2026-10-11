@@ -9,12 +9,14 @@ import org.junit.Test
 
 internal class DepositMemoryFile : WalletFile {
   var bytes: ByteArray? = null
+  var fail = false
 
   override fun exists() = bytes != null
 
   override fun read() = bytes!!.copyOf()
 
   override fun write(bytes: ByteArray) {
+    check(!fail)
     this.bytes = bytes.copyOf()
   }
 }

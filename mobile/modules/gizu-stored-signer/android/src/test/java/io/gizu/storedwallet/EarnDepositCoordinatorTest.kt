@@ -6,7 +6,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EarnDepositCoordinatorTest {
-  private class Engines(val record: WalletRecord) : EarnDepositEngines {
+  internal class Engines(val record: WalletRecord) : EarnDepositEngines {
     val rows = mutableMapOf<String, JSONObject>()
     var signed = 0
     var payoutCreates = 0
@@ -18,6 +18,7 @@ class EarnDepositCoordinatorTest {
     var failedSignatureCommit = false
     var failedPayoutRead = false
     val readySources = mutableSetOf<String>()
+    var now = 1002L
 
     override suspend fun registerFunding(row: JSONObject) =
       row.also { rows[it.getString("operationId")] = it }
@@ -74,7 +75,7 @@ class EarnDepositCoordinatorTest {
         row,
         DepositFixtures.prepared()
           .put("minimumSharesAtoms", row.getJSONObject("proposal").getString("amountAtoms")),
-        1002,
+        now,
       )
       grant.recordDurableSignature(stage, id, "durable-$id")
       signed++

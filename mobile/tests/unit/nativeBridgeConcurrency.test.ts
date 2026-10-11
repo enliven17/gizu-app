@@ -1,6 +1,10 @@
 import { Platform } from "react-native";
 import { requireOptionalNativeModule } from "expo";
-import { getStoredSigner, getStoredSwapSigner } from "@/services/wallet/nativeBridge";
+import {
+  getStoredSigner,
+  getStoredSwapSigner,
+  getStoredEarnDepositSigner,
+} from "@/services/wallet/nativeBridge";
 jest.mock("expo", () => ({ requireOptionalNativeModule: jest.fn() }));
 const originalOS = Platform.OS;
 const originalVersion = Platform.Version;
@@ -11,6 +15,42 @@ afterEach(() => {
 const tick = async () => {
   for (let i = 0; i < 15; i++) await Promise.resolve();
 };
+test("deposit status coalesces and journey cancellation interrupts a pending confirmation", async () => {
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "Version", { configurable: true, value: 35 });
+  let finish!: (value: unknown) => void;
+  const pending = new Promise((resolve) => {
+    finish = resolve;
+  });
+  const native = {
+    getCapabilities: jest
+      .fn()
+      .mockResolvedValue({ contractVersion: 1, available: true, earnDepositJourney: true }),
+    prepareEarnDeposit: jest.fn(),
+    resumeEarnDeposit: jest.fn(),
+    confirmEarnDeposit: jest.fn(() => pending),
+    getEarnDepositStatus: jest.fn().mockResolvedValue({ phase: "funding" }),
+    cancelEarnDeposit: jest.fn().mockResolvedValue({ phase: "paused", pauseReason: "cancelled" }),
+  };
+  jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
+  const a = getStoredEarnDepositSigner()!,
+    b = getStoredEarnDepositSigner()!;
+  await Promise.all([
+    a.getEarnDepositStatus("wallet", "journey"),
+    b.getEarnDepositStatus("wallet", "journey"),
+  ]);
+  expect(native.getEarnDepositStatus).toHaveBeenCalledTimes(1);
+  const confirm = a.confirmEarnDeposit("wallet", "journey", 2);
+  const rejected = expect(confirm).rejects.toThrow(/cancelled/);
+  await tick();
+  await expect(b.cancelEarnDeposit("wallet", "journey", 2)).resolves.toEqual({
+    phase: "paused",
+    pauseReason: "cancelled",
+  });
+  expect(native.cancelEarnDeposit).toHaveBeenCalledTimes(1);
+  finish({ phase: "funding" });
+  await rejected;
+});
 test.each(["android", "ios"])("%s coordinates calls across separate adapters", async (os) => {
   Object.defineProperty(Platform, "OS", { configurable: true, value: os });
   Object.defineProperty(Platform, "Version", { configurable: true, value: 30 });

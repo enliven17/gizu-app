@@ -48,6 +48,7 @@ class GizuStoredSignerModule : Module() {
   private var balanceReadWallet: String? = null
   private var balanceReadGeneration: String? = null
   private var balanceReadUntil = 0L
+  private var depositHost: EarnDepositHost? = null
 
   private fun eligible(activity: Activity?) =
     WalletBuildPolicy.isAvailable(Build.VERSION.SDK_INT, activity != null)
@@ -178,6 +179,9 @@ class GizuStoredSignerModule : Module() {
       task = coroutineContext[Job]
       try {
         requireForeground(activity!!)
+        check(depositHost?.busy != true) {
+          "A native deposit is running. Check its progress or stop its remaining approval first."
+        }
         val result =
           withTimeout(timeoutMs) { block(activity, walletStore(activity.applicationContext)) }
         currentCoroutineContext().ensureActive()
@@ -246,11 +250,156 @@ class GizuStoredSignerModule : Module() {
           "earnSponsoredExecution" to eligible(appContext.currentActivity),
           "earnPrivatePayoutExecution" to eligible(appContext.currentActivity),
           "earnEthereumLiquidityExecution" to eligible(appContext.currentActivity),
+          "earnDepositJourney" to eligible(appContext.currentActivity),
         )
       )
     }
     AsyncFunction("getWalletState") { promise: Promise ->
       runCeremony(promise) { _, store -> withContext(Dispatchers.IO) { publicState(store) } }
+    }
+    AsyncFunction("prepareEarnDeposit") {
+      walletId: String,
+      profile: String,
+      budgetAtoms: String,
+      draftId: String?,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        check(profile == "robinhood-usdg") {
+          "Guided native deposits currently support Robinhood USDG only"
+        }
+        depositAtoms(budgetAtoms, true)
+        var id =
+          store.load().use { record ->
+            check(record.id == walletId && record.verified && !record.earnRecoveryRequired)
+            store.prepareEarnDepositCycle(record, 4663, draftId)
+          }
+        // Recover a crash after the invested journal commit but before its allocation marker
+        // commit.
+        if (draftId == null)
+          for (attempt in 0 until 256) {
+            val old =
+              store.load().use {
+                earnDepositJournal(activity, it).all().singleOrNull { row ->
+                  row.getString("journeyId") == id
+                }
+              }
+            if (old?.getString("phase") != "invested") break
+            store.load().use { store.completeEarnDepositCycle(it, id) }
+            id = store.load().use { store.prepareEarnDepositCycle(it, 4663, null) }
+          }
+        store.load().use { record ->
+          val journal = earnDepositJournal(activity, record)
+          val existing = journal.all().singleOrNull { it.getString("journeyId") == id }
+          if (existing != null && existing.getJSONObject("children").length() > 0)
+            return@use journal.publicSnapshot(id)
+          nativeDepositPreparer(activity, record, journal).prepare(record, 4663, budgetAtoms, id)
+          journal.publicSnapshot(id)
+        }
+      }
+    }
+    AsyncFunction("confirmEarnDeposit") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val host = makeDepositHost(activity, store, walletId, id)
+        depositHost = host
+        host.confirm(id, revision, false)
+      }
+    }
+    AsyncFunction("resumeEarnDeposit") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        val row =
+          store.load().use { record ->
+            check(record.id == walletId && record.verified && !record.earnRecoveryRequired)
+            earnDepositJournal(activity, record).get(id)
+          }
+        store.selectEarnCycle(row.getInt("cycleIndex"))
+        val host = makeDepositHost(activity, store, walletId, id)
+        depositHost = host
+        host.confirm(id, revision, true)
+      }
+    }
+    AsyncFunction("getEarnDepositStatus") { walletId: String, id: String, promise: Promise ->
+      scope.launch {
+        try {
+          val activity = checkNotNull(appContext.currentActivity)
+          requireForeground(activity)
+          val store = walletStore(activity)
+          val journal =
+            store.load().use { record ->
+              check(record.id == walletId && record.verified && !record.earnRecoveryRequired)
+              earnDepositJournal(activity, record)
+            }
+          val lookupId =
+            if (id == "current-deposit")
+              journal
+                .all()
+                .filter { it.getString("phase") != "invested" }
+                .maxByOrNull { it.getInt("cycleIndex") }
+                ?.getString("journeyId") ?: error("No saved deposit draft")
+            else id
+          if (depositHost?.busy == true) promise.resolve(journal.publicSnapshot(lookupId))
+          else {
+            val row = journal.get(lookupId)
+            if (
+              row.has("review") &&
+                row.getString("phase") !in setOf("review", "invested") &&
+                ceremony.tryLock()
+            ) {
+              try {
+                val matching =
+                  store.load().use {
+                    it.earnCycleIndex == row.getInt("cycleIndex") && it.earnChain == 4663
+                  }
+                if (matching)
+                  depositCoordinator(activity, store, journal, row.getInt("cycleIndex"))
+                    .reconcile(lookupId)
+              } finally {
+                ceremony.unlock()
+              }
+            }
+            promise.resolve(journal.publicSnapshot(lookupId))
+          }
+        } catch (_: Exception) {
+          promise.reject(
+            "DEPOSIT_STATUS_UNAVAILABLE",
+            "Saved deposit progress is unavailable. Reopen the wallet before retrying.",
+            null,
+          )
+        }
+      }
+    }
+    AsyncFunction("cancelEarnDeposit") {
+      walletId: String,
+      id: String,
+      revision: Int,
+      promise: Promise ->
+      scope.launch {
+        try {
+          val context = checkNotNull(appContext.reactContext)
+          val journal =
+            walletStore(context).load().use { record ->
+              check(record.id == walletId && record.verified)
+              earnDepositJournal(context, record)
+            }
+          check(revision in 1..journal.get(id).getInt("revision"))
+          if (depositHost?.busy == true) depositHost!!.cancel(id, revision)
+          else journal.pause(id, "cancelled")
+          promise.resolve(journal.publicSnapshot(id))
+        } catch (_: Exception) {
+          promise.reject(
+            "DEPOSIT_CANCEL_UNAVAILABLE",
+            "Check saved deposit progress. Cancellation cannot undo submitted funds.",
+            null,
+          )
+        }
+      }
     }
     AsyncFunction("createWallet") { promise: Promise ->
       runCeremony(promise) { activity, store -> createWallet(activity, store) }
@@ -1378,7 +1527,7 @@ class GizuStoredSignerModule : Module() {
               val op =
                 uniffi.gizu_stored_signer_core.SwapOperation.restore(
                   root.getString("state"),
-                  "https://gizu-backend.onrender.com",
+                  "https://gizu-app.onrender.com",
                 )
               try {
                 saved.portfolio.remember(root.getString("state"), op.publicStatus())
@@ -1462,7 +1611,7 @@ class GizuStoredSignerModule : Module() {
               val previous =
                 uniffi.gizu_stored_signer_core.SwapOperation.restore(
                   root.getString("state"),
-                  "https://gizu-backend.onrender.com",
+                  "https://gizu-app.onrender.com",
                 )
               try {
                 saved.portfolio.remember(root.getString("state"), previous.publicStatus())
@@ -1533,20 +1682,144 @@ class GizuStoredSignerModule : Module() {
     }
     Function("lock") {
       balanceReadUntil = 0
+      depositHost?.revoke("approvalExpired")
       scope.launch { task?.cancel() }
     }
     OnActivityEntersForeground { foreground = true }
     OnActivityEntersBackground {
       foreground = false
+      depositHost?.onBackground(awaitingProvider)
       if (!awaitingProvider) {
         balanceReadUntil = 0
         task?.cancel()
       }
     }
     OnDestroy {
+      depositHost?.close()
       task?.cancel()
       dialog?.dismiss()
       scope.cancel()
+    }
+  }
+
+  private fun depositCoordinator(
+    activity: Activity,
+    store: WalletStore,
+    journal: EarnDepositJournal,
+    cycle: Int,
+  ): EarnDepositCoordinator {
+    val identity =
+      store.load().use {
+        check(it.earnCycleIndex == cycle)
+        it.id to it.journalId
+      }
+    return EarnDepositCoordinator(
+      journal,
+      EarnDepositEngineAdapter(
+        activity,
+        store,
+        identity.first,
+        identity.second,
+        cycle,
+        { requireForeground(activity) },
+      ),
+    )
+  }
+
+  private fun makeDepositHost(
+    activity: Activity,
+    store: WalletStore,
+    walletId: String,
+    id: String,
+  ): EarnDepositHost {
+    val journal =
+      store.load().use { record ->
+        requireSponsoredWallet(record, walletId)
+        val saved = earnDepositJournal(activity, record)
+        check(saved.get(id).getInt("cycleIndex") == record.earnCycleIndex)
+        saved
+      }
+    val cycle = journal.get(id).getInt("cycleIndex")
+    return EarnDepositHost(
+      scope,
+      journal,
+      { store.load() },
+      { depositCoordinator(activity, store, journal, cycle) },
+      { record, grant, remaining ->
+        requireDepositCapacity(
+          grant.review,
+          earnSponsoredJournal(activity, record).all(),
+          earnPayoutJournal(activity, record).all(),
+        )
+        confirm(
+          activity,
+          if (remaining) "Review remaining deposit approval" else "Confirm confidential deposit",
+          depositReviewText(grant, remaining),
+          fullReview = true,
+        )
+        withProviderUi(activity) {
+          PasskeyGate(activity)
+            .authorize(
+              record.credential,
+              walletId,
+              "earn-deposit:v1:$id:${journal.get(id).getInt("revision")}:${grant.digest}",
+            )
+        }
+      },
+      { requireForeground(activity) },
+    )
+  }
+
+  private fun depositReviewText(grant: EarnDepositApproval, remaining: Boolean): String {
+    val review = grant.review
+    val sources = review.getJSONArray("sources").objects()
+    val deposit = review.getJSONObject("deposit")
+    fun usd(atoms: String) =
+      java.math
+        .BigDecimal(depositAtoms(atoms))
+        .movePointLeft(6)
+        .stripTrailingZeros()
+        .toPlainString()
+    val hold =
+      sources.fold(java.math.BigInteger.ZERO) { n, s ->
+        n + depositAtoms(s.getJSONObject("hold").getString("minimumOutputAtoms"))
+      }
+    val sourceFees =
+      sources.fold(java.math.BigInteger.ZERO) { n, s ->
+        n + depositAtoms(s.getString("maximumFeeAtoms"))
+      }
+    return buildString {
+      if (remaining)
+        append(
+          "Approve only the remaining work under these saved limits. Historical estimates are not fresh quotes; every exact operation is checked again.\n\n"
+        )
+      append("Total source budget: ${usd(review.getString("sourceBudgetAtoms"))} USDC\n")
+      append("Source gas limit: ${usd(sourceFees.toString())} USDC\n")
+      append("Holding wallet receives at least ${usd(hold.toString())} USDG\n")
+      append("Vault deposit: at least ${usd(deposit.getString("minimumAssetsAtoms"))} USDG\n")
+      append("Minimum share units: ${deposit.getString("minimumSharesAtoms")}\n")
+      append("Vault gas limit: ${usd(deposit.getString("maximumFeeAtoms"))} USDG\n")
+      append(
+        "Liquid withdrawal reserve: ${usd(deposit.getString("withdrawalReserveAtoms"))} USDG. This is retained, not paid now.\n\n"
+      )
+      append(
+        "Funding becomes confidential USDC. Each source retains its own funding and independent 10/90 payouts. Only wallet 2 deposits into Steakhouse USDG on Robinhood. This approval never withdraws or returns funds.\n\n"
+      )
+      append(
+        "Valid for up to 15 minutes in the foreground. Leaving, locking or closing revokes further signing. Submitted transactions remain saved.\n\n"
+      )
+      append(
+        "EIP-7702 may persistently delegate selected source wallets and wallet 2 to $EARN_IMPLEMENTATION. Token approvals and sponsorship use $EARN_PAYMASTER and $EARN_ENTRY_POINT. Canceling this journey does not revoke a saved delegation signature.\n\n"
+      )
+      append(
+        "Read-only confidential authentication for this cycle is included. Its identity is visible to the history provider: ${review.getString("confidentialAccount")}\n"
+      )
+      for (source in sources) append(
+        "\nSource ${source.getInt("accountIndex")}: ${source.getString("address")}\nMaximum budget ${usd(source.getString("budgetAtoms"))} USDC; retained margin ${usd(source.getString("retainedAtoms"))} USDC\n"
+      )
+      append(
+        "\nWallet 1: ${review.getJSONArray("destinations").getString(0)}\nWallet 2: ${review.getJSONArray("destinations").getString(1)}\nVault: $HOOD_EARN_VAULT\n"
+      )
     }
   }
 
