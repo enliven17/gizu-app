@@ -8,19 +8,19 @@ The supplied `research/confidential-earn/APP-INTEGRATION-HANDOVER.md` is the pro
 
 Funding uses Circle USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` (six decimals) on Monad mainnet 143. Swap and Earn share native source selection across accounts 0, 1 and allocated public receiving accounts, with fresh balances and shared reservations. A sufficient single account is preferred; a larger budget can span multiple sources. One combined native review and passkey assertion authorizes the selected source funding operations. Each source retains its own fees, transaction and recovery journal. Changed terms or an interrupted/expired approval require a fresh review of the remaining sources.
 
-After native intent authorization, each investment cycle derives a fresh holding wallet, investment wallet and confidential identity. Payouts wait for authenticated credit from every source in the batch. Across those credits, wallet 1 receives floor(total confirmed private input / 10); wallet 2 receives the rest, before their independent payout fees. Wallet 1's deliberate holdings do not count as wallet 2's exit dust and must not be swept to complete that exit.
+After an explicit investment intent, native code derives a fresh holding wallet, investment wallet and confidential identity. Payouts wait for authenticated credit from every source in the batch. Across those credits, wallet 1 receives floor(total confirmed private input / 10); wallet 2 receives the rest, before their independent payout fees. Wallet 1's deliberate holdings do not count as wallet 2's exit dust and must not be swept to complete that exit.
 
 ## Implementation map
 
 - `src/services/wallet/usdcBalance.ts`: pinned chain/token balance reads, exact base-unit strings, timeouts and malformed-response rejection.
-- `src/services/wallet/earnWallets.ts` and native stored signer: immutable profile/pair preparation after passkey approval, backup-compatible derivation, restore reconciliation gate.
+- `src/services/wallet/earnWallets.ts` and native stored signer: immutable profile/pair preparation after user intent, backup-compatible derivation, restore reconciliation gate.
 - `src/domain/earn/policy.ts` and `lifecycle.ts`: integer fee/reserve formulas, split conservation, cost ledger, uncertain-operation and exit policies.
 - `src/services/earn/`: real read-only readiness, authenticated private balance, independent native quotes and final exit snapshots. An aggregate private balance is not operation-scoped settlement evidence.
 - Backend `adapters/earn/`: dynamic isolated fork simulation and unsigned destination deposit planning. Backend `adapters/pimlico/source-funding.ts`: address-only source sponsorship preparation, conservative ceiling fee cap, bounded approval and fresh-state validation. No preview signs or broadcasts.
 - Native `core/src/earn_execution.rs`: constrained Ethereum allowance/deposit/full-redemption transactions. The core derives only the investment role, constructs canonical pinned Morpho SDK router calldata, binds native review and revision, and requires fresh native state before signing.
 - Native Rust `earn_sponsored.rs`, `earn_ethereum_liquidity.rs`, and `earn_payout.rs`: source/Robinhood token sponsorship; exact native USDC permit/Fusion order; constrained USDC/native ETH returns; exact independent confidential payouts. No generic digest, calldata, key or signature authority is available to JavaScript.
 - Android native engines/journals: passkey-bound review; encrypted signed-before-submit records; exact saved-byte recovery; canonical receipt/finality checks; authenticated operation-specific credit. Pending Ethereum liquidity transactions support separately reviewed same-nonce cancellations and retain every candidate until the finalized winner is known.
-- `features/earn/`: source funding, two independently authorized payout roles, Ethereum funding/investment/exit and Robinhood token-sponsored investment/exit progress. All default execution adapters are real native/provider adapters; functional tests inject services only at those boundaries.
+- `features/earn/`: guided Robinhood deposit, staged Ethereum deposit, saved investment/recovery and separately approved exits. All default execution adapters are real native/provider adapters; functional tests inject services only at those boundaries.
 
 The initial destination namespaces are `m/44'/60'/143'/destinationChain'/role`, with role 0 holding and role 1 investing. The separate confidential identity is role 2. Cycle zero keeps that historical derivation. New cycles use a monotonically allocated native cycle index. Each requested exit allocates a new public receiving address, saved before execution and reused on retries; it never returns to the original funding account. The encrypted catalogue and backup retain cycle/receiver relationships. Restore never clears the spending gate merely because local history is missing.
 
@@ -40,7 +40,7 @@ Verification for this stage: 51 Swift simulator tests, 148 Rust tests with stric
 
 ## Runtime and deployment
 
-The hosted native API is `https://gizu-backend.onrender.com`; JavaScript uses `EXPO_PUBLIC_API_URL`. JavaScript updates load through Metro in the development app; native API changes require rebuilding and installing the APK. Local backend changes do not alter Render until deployed.
+The hosted native API is `https://gizu-app.onrender.com`; JavaScript uses `EXPO_PUBLIC_API_URL`. JavaScript updates load through Metro in the development app; native API changes require rebuilding and installing the APK. Local backend changes do not alter Render until deployed.
 
 For the requested pre-deployment phone test, `-PgizuEarnBackend=usb` builds Android debug with a fixed native `http://127.0.0.1:3000` backend. Set Metro's `EXPO_PUBLIC_API_URL` to the same origin and reverse ports 3000 and 8081 over USB. This is compile-time local testing; JavaScript cannot select a native endpoint. Omitting the property keeps the hosted backend; release always uses the hosted HTTPS backend. See [native USB setup](NATIVE_SIGNER_EARN.md#android-usb-backend-test-build).
 
@@ -148,3 +148,133 @@ Ordinary app openings refresh encrypted snapshots with bounded work: token synch
 The native batch approval binds the wallet, journal generation, registry, selected owners, budgets, recipients, original requests and fee caps. It is memory-only and expires after the existing 15-minute signing-session window. Native signing still verifies exact final UserOperation/paymaster terms within those limits. Separate downstream payout, investment and withdrawal actions retain their own approvals. This batches source funding approval; it does not approve an unlimited or automatic full lifecycle.
 
 The scalability bounds currently cover up to 8,192 public accounts and 256 Earn cycles per device. A cold/restored catalogue is synchronized incrementally. Funding review probes fresh candidate balances separately with a bounded search; an incomplete portfolio is not a promise that every account has been searched. Confidential valuation currently covers the configured Monad USDC asset only. Full iOS execution and live provider/device acceptance remain separate verification gates.
+
+## Guided Robinhood deposit (October 11)
+
+The catalog Deposit action opens Amount → Review → native approval → progress →
+Invested. Review allocates exactly two fresh destinations and a cycle confidential
+identity in encrypted native storage, with no signing, transfer or extra passkey.
+Editing or retrying an unsigned draft reuses that pair. Source selection uses the
+existing multi-account planner and shared Swap/Earn reservations. The amount is a
+USDC budget including source gas and the retained 0.01-USDC margin.
+
+On Android, `earnDepositJourney` exposes five native methods: prepare, confirm,
+status, resume and cancel. A normal uninterrupted Robinhood deposit receives one
+final native semantic review/passkey. Its memory-only grant binds owner, journal
+generation, cycle, source membership/reservations, both destinations, fixed
+contracts, source budgets, minimum payout/deposit/share amounts and gas/reserve
+bounds. The grant lasts at most 15 minutes while foregrounded; quote deadlines
+remain shorter. All exact children still pass the existing Rust/native checks.
+It grants no withdrawal or return authority. EIP-7702 delegation and provider
+identity disclosures remain in the final native review.
+
+Funding children keep their own durable journals. All selected sources must have
+authenticated operation-specific credit before the cumulative 10/90 payouts start.
+Each source has independent hold/invest payouts. Only verified investment payout
+receipts establish wallet 2's permitted deposit budget; unrelated incoming tokens
+do not enlarge it. Success requires finalized deposit evidence and shares.
+
+Leaving the screen, backgrounding, locking, closing or Stop remaining approval
+revokes further signing, preserving all submitted children. Explicit Resume
+refreshes only unsigned remaining terms before a fresh native approval. Paid
+payouts and durably signed bytes remain unchanged. Missing child history fails
+closed. The prospective refresh may include verified USDG already delivered to
+wallet 2, and requires the real balance to equal that starting amount. A signed
+vault child uses its saved bounds and reconciliation rather than replacement.
+
+Saved investment details retain existing withdrawal/return and funding recovery
+controls, without a new source-funding amount. Exits still allocate fresh receiving
+addresses. Ethereum keeps its existing separately approved funding, payouts,
+liquidity and vault stages; this branch does not claim one-passkey Ethereum.
+iOS advertises `earnDepositJourney: false` and preserves existing vault APIs.
+
+### Teammate deployment checklist
+
+Deploy this branch's backend before testing the new APK's review. In addition to
+the existing executable routes it must serve these **read-only** POST endpoints:
+
+- `/v1/earn/native/payout/preview`: per-source Robinhood USDG route estimate;
+  dry quote only, with qualified provider fee proof and a short expiry.
+- `/v1/earn/robinhood/deposit-preview`: isolated prospective simulation for the
+  pinned USDG/Steakhouse contracts; expected USDG and optional verified starting
+  USDG, without executable calldata or UserOperation fields.
+
+Keep the existing provider keys, qualified `EARN_AURORA_FEE_QUALIFICATION_JSON`,
+`EARN_AURORA_HISTORY_QUALIFIED`, stable `EARN_GATEWAY_RECOVERY_KEY` and RPC
+configuration. `EARN_ANVIL_PATH` must identify the pinned runnable Anvil on Render;
+this preview additionally needs fork/debug access to prove the USDG balance slot.
+Wrong/reverting storage candidates are restored and rejected, never guessed.
+The hypothetical override and fork-only ETH donor cannot authorize live execution.
+Missing qualification or simulation support produces an unavailable review.
+Do not rotate recovery keys during deployment or print them in compatibility logs.
+
+Run backend typecheck/test/build, deploy through the existing teammate workflow,
+then probe both public endpoints with an invalid empty body: the deployed strict
+routes should return 400 rather than 404. Follow with valid unsigned previews
+before requesting a funded phone approval. JavaScript and native release endpoints
+both use `https://gizu-app.onrender.com`; an old backend's 404 blocks before funding.
+
+### Current verification boundary
+
+Deterministic checks pass for source/credit ordering, odd-atom splits, bound grants,
+crash journals, uncertain submissions, paid-child preservation, unsigned remaining
+refresh, stale amount results, screen exit and saved investment ownership. The
+JavaScript suite passed 728 tests across 90 suites with coverage. Backend
+checks passed 225 tests with three optional skips, typecheck and build. Rust passed
+148 tests. All 273 Android signer tests and Kotlin formatting passed.
+
+The aggregate mobile check stops at Expo Doctor: network-enabled Doctor passed
+20/21 checks, with installed Expo 57.0.26 versus expected ~57.0.27. Types, lint,
+formatting and coverage were run separately; the aggregate is not reported as
+passing. Native iOS checks are unavailable on this checkout because Pods support
+files and a simulator runtime are absent. No iPhone acceptance is claimed.
+
+The hosted new deposit-preview route returned 404 during the October 11 probe.
+A separate live Robinhood RPC/fork probe returned HTTP 403 before simulation; the
+new prospective fork path is therefore not live-qualified by this test. These
+are deployment/provider gates, not permission to use fallback executable terms.
+No new mainnet Earn spending or funded one-passkey phone acceptance has occurred.
+
+### Final review and phone check
+
+A fresh whole-branch review found five Important recovery/lifecycle gaps; the fix
+pass reproduced and addressed them: exact-byte payout retry on explicit Resume
+only; authenticated receipt reconciliation before remaining preview; screen-off
+and Home/Recents revocation during credential UI; unsigned-review reservation
+release; and journaled reservation ownership before sticky source binding.
+Public polling never rebroadcasts. Missing child records and signing uncertainty
+continue to block reservation release. Any registered child set is conservatively
+retained for existing explicit recovery/discard actions.
+
+Pre-review reconciliation uses only the existing native owner/generation-bound
+login read permission (two minutes). It signs empty-intents authentication, never
+asset-transfer authority. An expired permission requires unlocking the wallet
+again; the feature does not renew it silently or ask for a spending approval to
+obtain unknown remaining economics. Historical signed children remain immutable.
+
+Android lifecycle wiring uses screen-off and system Home/Recents events, plus
+interactive/keyguard checks on activity pause and the user-leave callback. Legitimate
+credential focus loss remains bounded; an intervening departure cancels the pending
+ceremony permanently. The receiver observes system broadcasts listed in the
+[Android platform reference](https://developer.android.com/about/versions/12/reference/broadcast-intents-31);
+it does not send the deprecated close-dialog action. Physical credential-focus and
+lock acceptance still requires the deployed review/provider path.
+
+The initial guided standalone release built and updated the Samsung phone using `adb install -r`.
+Its package and SHA-256 certificate matched the existing installation; wallet data
+was preserved. The embedded bundle contains the new Render host and guided native
+bridge, and no old backend host. The user unlocked the wallet. The phone deposit
+hierarchy showed Morpho/Steakhouse USDG, an entered 3-USDC budget, available USDC,
+Review deposit and Details, and the correct unavailable-preview alert with no
+Confirm action. Both required public preview routes returned 404. No spending was
+approved. Prospective review, one-passkey funded execution and live interruption
+recovery remain incomplete until backend deployment and usable providers.
+
+The final recovery-fix release rebuilt successfully with all 273 Android signer
+tests passing. Its certificate and Render bundle endpoint were verified again.
+USB disconnected before that last update, so the phone currently retains the
+initial guided build. The final APK is ready for a preserving `adb install -r`.
+A coverage rerun hit ten test timeouts during an abnormally long 62-minute run;
+all were timing failures in previously passing suites. The fresh run with idle sleep
+prevented passed all 728 tests in 151 seconds. No timeout was increased or test
+skipped.

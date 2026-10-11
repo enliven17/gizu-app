@@ -445,7 +445,15 @@ internal class EarnSponsoredEngine(
     }
   }
 
-  suspend fun execute(review: SponsoredReview, authority: () -> Unit) {
+  suspend fun execute(review: SponsoredReview, authority: () -> Unit) =
+    executeBounded(review, authority) {}
+
+  /** Additional journey limits apply to the same freshly reconstructed native state. */
+  suspend fun executeBounded(
+    review: SponsoredReview,
+    authority: () -> Unit,
+    stateGuard: (NativeSponsoredState) -> Unit,
+  ) {
     check(displayed == review && journal.get(review.id).getInt("revision") == review.revision)
     authority()
     currentCoroutineContext().ensureActive()
@@ -454,6 +462,7 @@ internal class EarnSponsoredEngine(
     val p = op.getJSONObject("proposal")
     store.load().use { walletCheck(it, p) }
     val state = stateReader(p)
+    stateGuard(state)
     if (p.getString("kind") == "hoodTokenReturn") check(state.shares == "0")
     authority()
     currentCoroutineContext().ensureActive()

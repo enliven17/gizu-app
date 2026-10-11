@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { EarnPayoutPreviewGateway } from "../../../src/adapters/earn/payout-preview.ts";
+const now = 1800000000000;
+const input = {
+  profileChainId: 4663 as const,
+  confidentialAccount: "0x" + "1".repeat(40),
+  recipient: "0x" + "2".repeat(40),
+  amountAtoms: "1000000",
+  operationId: "preview",
+  revision: 1,
+  leg: "hold" as const,
+};
+const qualification = {
+  protocolFeeBps: 2 as const,
+  appFees: [{ recipient: "provider", fee: 2 as const }],
+  referral: null,
+};
+function fetcher(change: Record<string, unknown> = {}): typeof fetch {
+  return (async (_url, init) => {
+    const request = JSON.parse(String(init?.body));
+    assert.equal(request.dry, true);
+    assert.equal(request.depositType, "CONFIDENTIAL_INTENTS");
+    return Response.json({
+      quoteRequest: {
+        ...request,
+        appFees: qualification.appFees,
+        referral: null,
+      },
+      quote: {
+        amountIn: request.amount,
+        minAmountIn: request.amount,
+        amountOut: "990000",
+        minAmountOut: "980000",
+        deadline: request.deadline,
+        ...change,
+      },
+      timestamp: new Date(now).toISOString(),
+    });
+  }) as typeof fetch;
+}
+test("payout preview checks the route's qualified fees and exposes only indicative public amounts", async () => {
+  const gateway = new EarnPayoutPreviewGateway(
+    { auroraApiKey: "test", auroraFeeQualification: qualification },
+    fetcher(),
+    () => now,
+  );
+  const result = await gateway.preview(input);
+  assert.equal(result.minimumOutputAtoms, "980000");
+  assert.equal(result.estimatedOutputAtoms, "990000");
+  assert.equal(result.feePolicy.totalBps, 2);
+  assert.equal(result.executionAvailable, false);
+  assert.equal("signedData" in result, false);
+  assert.equal("quote" in result, false);
+});
+test("unqualified fees, zero outputs and changed input cannot become a payout preview", async () => {
+  await assert.rejects(
+    new EarnPayoutPreviewGateway(
+      { auroraApiKey: "test" },
+      fetcher(),
+      () => now,
+    ).preview(input),
+  );
+  for (const change of [
+    { minAmountOut: "0" },
+    { amountIn: "2" },
+    { minAmountOut: "999999" },
+    { deadline: new Date(now - 1).toISOString() },
+  ])
+    await assert.rejects(
+      new EarnPayoutPreviewGateway(
+        { auroraApiKey: "test", auroraFeeQualification: qualification },
+        fetcher(change),
+        () => now,
+      ).preview(input),
+    );
+});

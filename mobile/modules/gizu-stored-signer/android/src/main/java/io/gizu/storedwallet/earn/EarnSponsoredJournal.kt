@@ -203,6 +203,55 @@ internal class EarnSponsoredJournal(
       }
     }
 
+  fun refreshUnsignedDeposit(
+    id: String,
+    revision: Int,
+    proposal: JSONObject,
+    unsigned: JSONObject,
+  ): JSONObject =
+    synchronized(signingLock) {
+      val old = get(id)
+      val p = old.getJSONObject("proposal")
+      check(
+        old.getInt("revision") == revision &&
+          !old.sponsoredSpendSaved() &&
+          !signingPending(old) &&
+          !old.optBoolean("cancelled") &&
+          !old.optBoolean("conflict")
+      )
+      check(
+        p.getString("kind") == "hoodDeposit" && proposal.getInt("revision") > p.getInt("revision")
+      )
+      for (field in
+        listOf(
+          "kind",
+          "operationId",
+          "chainId",
+          "profileChainId",
+          "cycleIndex",
+          "expectedFrom",
+          "token",
+          "vault",
+          "router",
+          "slippageBps",
+        )) check(nativeJsonEqual(p.opt(field), proposal.opt(field)))
+      check(
+        depositAtoms(proposal.getString("budgetAtoms"), true) <=
+          depositAtoms(p.getString("budgetAtoms"), true)
+      )
+      check(
+        unsigned.getString("sender").equals(p.getString("expectedFrom"), true) &&
+          (!unsigned.has("signature") || unsigned.getString("signature") == "0x") &&
+          !unsigned.has("eip7702Auth")
+      )
+      update(id, revision) {
+        it
+          .put("proposal", JSONObject(proposal.toString()))
+          .put("unsignedUserOperation", JSONObject(unsigned.toString()))
+          .put("status", if (it.has("authorization")) "authorizationSaved" else "planned")
+      }
+    }
+
   fun saveAuthorization(
     id: String,
     revision: Int,

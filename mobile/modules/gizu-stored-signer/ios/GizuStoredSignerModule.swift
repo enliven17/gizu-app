@@ -91,6 +91,7 @@ public final class GizuStoredSignerModule: Module {
         "earnSponsoredExecution": false,
         "earnPrivatePayoutExecution": false,
         "earnEthereumLiquidityExecution": false,
+        "earnDepositJourney": false,
       ]
     }
 

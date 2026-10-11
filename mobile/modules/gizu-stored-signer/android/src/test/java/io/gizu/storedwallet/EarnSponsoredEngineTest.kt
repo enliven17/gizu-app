@@ -9,6 +9,23 @@ import org.junit.Test
 import uniffi.gizu_stored_signer_core.*
 
 class EarnSponsoredEngineTest {
+  @Test
+  fun boundedJourneyChecksFreshStateBeforeAnyDurableSigning() = runBlocking {
+    val journal = setup()
+    val rpc = Rpc()
+    val fake = Signer()
+    EarnSponsoredEngine(store(), journal, rpc, rpc, { _, _ -> fake }, { state() }, { null }).use {
+      engine ->
+      val review = engine.prepare("hood-1", 1)
+      try {
+        engine.executeBounded(review, {}, { error("Approved minimum shares no longer satisfied") })
+        fail("Changed live bounds signed")
+      } catch (_: IllegalStateException) {}
+      assertFalse(journal.get("hood-1").has("signedUserOperation"))
+      assertEquals(0, rpc.sent)
+    }
+  }
+
   private val wallet = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12"
   private val owner = "0x" + "1".repeat(40)
   private val hash = "0x" + "a".repeat(64)

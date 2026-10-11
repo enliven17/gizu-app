@@ -22,6 +22,9 @@ import { ConfidentialBalance } from "./adapters/aurora/confidential-balance.ts";
 import { EarnPreflight } from "./adapters/evm/earn-preflight.ts";
 import { registerEarnRoutes } from "./http/routes/earn.routes.ts";
 import { registerEarnPlanningRoutes } from "./http/routes/earn-planning.routes.ts";
+import { registerEarnPreviewRoutes } from "./http/routes/earn-preview.routes.ts";
+import { RobinhoodDepositPreviewPlanner } from "./adapters/earn/robinhood-deposit-preview.ts";
+import { EarnPayoutPreviewGateway } from "./adapters/earn/payout-preview.ts";
 import { EthereumDepositPlanner } from "./adapters/earn/ethereum-deposit-planner.ts";
 import { MonadFundingPlanner } from "./adapters/pimlico/source-funding.ts";
 import { EthereumWithdrawalPlanner } from "./adapters/earn/ethereum-withdrawal-planner.ts";
@@ -95,6 +98,7 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   registerEarnSettlementRoutes(app,new ConfidentialSettlement(secret.AURORA_API_KEY));
   const nativeGateway=new NativeEarnGateway({auroraHistoryQualified:secret.EARN_AURORA_HISTORY_QUALIFIED==="true",recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,pimlicoApiKey:secret.PIMLICO_API_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined});
   const hoodConfig={rpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com",pimlicoApiKey:secret.PIMLICO_API_KEY,anvilPath:secret.EARN_ANVIL_PATH,auroraApiKey:secret.AURORA_API_KEY};
+  registerEarnPreviewRoutes(app,new RobinhoodDepositPreviewPlanner(hoodConfig),new EarnPayoutPreviewGateway({auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined}));
   registerEarnPlanningRoutes(app,new EthereumDepositPlanner(ethereumPlannerConfig),new MonadFundingPlanner(secret.PIMLICO_API_KEY),new EthereumWithdrawalPlanner(ethereumPlannerConfig),new RobinhoodDepositPlanner(hoodConfig),new RobinhoodWithdrawalPlanner(hoodConfig),new RobinhoodReturnPlanner(hoodConfig,nativeGateway));
   registerEarnNativeRoutes(app,nativeGateway);
   registerEarnReturnRoutes(app,new EthereumReturnPlanner(ethereumPlannerConfig,{quote:r=>nativeGateway.returnQuote(r)}));

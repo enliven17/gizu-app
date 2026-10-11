@@ -10,6 +10,7 @@ export function createLinking(signedIn: boolean): LinkingOptions<RootStackParamL
         OpportunityDetail: "opportunity/:id",
         Activity: "activity",
         Earn: "earn",
+        EarnInvestment: "earn/investment/:intentId",
         Notifications: "notifications",
         Main: {
           screens: { Home: "home", Vaults: "vaults", Exchange: "exchange", Settings: "settings" },

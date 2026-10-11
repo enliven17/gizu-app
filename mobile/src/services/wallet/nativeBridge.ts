@@ -21,6 +21,7 @@ const coalescedReads = new Set([
   "getMainnetPortfolio",
   "getSwapHoldings",
   "getSwapStatus",
+  "getEarnDepositStatus",
 ]);
 function nativeModule(): StoredSignerContract | null {
   const native = supportedPlatform()
@@ -44,7 +45,11 @@ function nativeModule(): StoredSignerContract | null {
       if (property === "lock") return () => calls.lock(() => value.call(target));
       return (...args: unknown[]) => {
         const work = () => value.apply(target, args);
-        if (property === "cancelSwap" || property === "cancelOperation")
+        if (
+          property === "cancelSwap" ||
+          property === "cancelOperation" ||
+          property === "cancelEarnDeposit"
+        )
           return calls.interrupt(work);
         const readKey = coalescedReads.has(property)
           ? JSON.stringify([property, ...args])
@@ -83,6 +88,7 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
       earnSponsoredExecution: result.earnSponsoredExecution === true,
       earnEthereumLiquidityExecution: result.earnEthereumLiquidityExecution === true,
       earnPrivatePayoutExecution: result.earnPrivatePayoutExecution === true,
+      earnDepositJourney: Platform.OS === "android" && result.earnDepositJourney === true,
     };
   } catch {
     return unavailable;
@@ -108,7 +114,8 @@ async function checked(
     | "earnVaultExecution"
     | "earnSponsoredExecution"
     | "earnEthereumLiquidityExecution"
-    | "earnPrivatePayoutExecution",
+    | "earnPrivatePayoutExecution"
+    | "earnDepositJourney",
 ) {
   const generation = authorizationGeneration;
   const value = await native.getCapabilities();
@@ -475,6 +482,51 @@ export function getStoredEarnBalanceSigner() {
     lock() {
       authorizationGeneration++;
       native.lock();
+    },
+  };
+}
+
+export function getStoredEarnDepositSigner() {
+  const native = nativeModule();
+  if (
+    Platform.OS !== "android" ||
+    !native?.prepareEarnDeposit ||
+    !native.confirmEarnDeposit ||
+    !native.getEarnDepositStatus ||
+    !native.resumeEarnDeposit ||
+    !native.cancelEarnDeposit
+  )
+    return null;
+  const prepare = native.prepareEarnDeposit.bind(native),
+    confirm = native.confirmEarnDeposit.bind(native),
+    status = native.getEarnDepositStatus.bind(native),
+    resume = native.resumeEarnDeposit.bind(native),
+    cancel = native.cancelEarnDeposit.bind(native);
+  return {
+    async prepareEarnDeposit(
+      walletId: string,
+      profileId: string,
+      budgetAtoms: string,
+      draftId: string | null,
+    ) {
+      await checked(native, "earnDepositJourney");
+      return prepare(walletId, profileId, budgetAtoms, draftId);
+    },
+    async confirmEarnDeposit(walletId: string, journeyId: string, revision: number) {
+      await checked(native, "earnDepositJourney");
+      return confirm(walletId, journeyId, revision);
+    },
+    async getEarnDepositStatus(walletId: string, journeyId: string) {
+      await checked(native, "earnDepositJourney");
+      return status(walletId, journeyId);
+    },
+    async resumeEarnDeposit(walletId: string, journeyId: string, revision: number) {
+      await checked(native, "earnDepositJourney");
+      return resume(walletId, journeyId, revision);
+    },
+    // Revocation remains available when foreground/capability reads are interrupted.
+    async cancelEarnDeposit(walletId: string, journeyId: string, revision: number) {
+      return cancel(walletId, journeyId, revision);
     },
   };
 }

@@ -1,3 +1,5 @@
+import { createEarnDepositService } from "@/services/earn/depositJourney";
+import type { EarnDepositService } from "@/domain/earn/depositJourney";
 import {
   createContext,
   useCallback,
@@ -40,8 +42,13 @@ function useEarnController(
   injectedLiquidity?: EarnLiquidityService,
   injectedPayout?: EarnPayoutService,
   injectedRobinhood?: EarnRobinhoodService,
+  injectedDeposit?: EarnDepositService,
 ) {
   const { session } = useFundingWallet();
+  const depositJourney = useMemo(
+    () => injectedDeposit ?? createEarnDepositService(),
+    [injectedDeposit],
+  );
   const privateBalance = useMemo(
     () => injectedPrivateBalance ?? createEarnPrivateBalanceService(),
     [injectedPrivateBalance],
@@ -157,6 +164,7 @@ function useEarnController(
   };
   return {
     cycles,
+    depositJourney,
     prepareNew: service.prepareNew
       ? (profile: EarnProfileId) => changeCycle(() => service.prepareNew!(owner, profile))
       : undefined,
@@ -188,6 +196,7 @@ export function EarnProvider({
   liquidity,
   payout,
   robinhood,
+  depositJourney,
   children,
 }: PropsWithChildren<{
   service?: EarnWalletService;
@@ -198,6 +207,7 @@ export function EarnProvider({
   liquidity?: EarnLiquidityService;
   payout?: EarnPayoutService;
   robinhood?: EarnRobinhoodService;
+  depositJourney?: EarnDepositService;
 }>) {
   const value = useEarnController(
     service,
@@ -208,6 +218,7 @@ export function EarnProvider({
     liquidity,
     payout,
     robinhood,
+    depositJourney,
   );
   return <EarnContext.Provider value={value}>{children}</EarnContext.Provider>;
 }
