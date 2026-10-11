@@ -1,0 +1,99 @@
+import {
+  parseDepositSnapshot,
+  type EarnDepositService,
+  type DepositSnapshot,
+} from "@/domain/earn/depositJourney";
+import type { EarnOwner } from "@/domain/earn/types";
+import { getStoredEarnDepositSigner } from "@/services/wallet/nativeBridge";
+export function createEarnDepositService(
+  bridgeFactory = getStoredEarnDepositSigner,
+): EarnDepositService {
+  const occupied = new Set<string>(),
+    uncertain = new Map<string, string>();
+  const bridge = () => {
+    const native = bridgeFactory();
+    if (!native) throw new Error("This deposit needs the updated Android native signer.");
+    return native;
+  };
+  async function status(owner: EarnOwner, id: string) {
+    const saved = parseDepositSnapshot(
+      await bridge().getEarnDepositStatus(owner.walletId, id),
+      owner,
+    );
+    if (id !== "current-deposit" && saved.journeyId !== id)
+      throw new Error("Native deposit identity changed.");
+    return saved;
+  }
+  async function mutation(
+    owner: EarnOwner,
+    task: () => Promise<unknown>,
+  ): Promise<DepositSnapshot> {
+    if (occupied.has(owner.walletId)) throw new Error("A deposit action is already running.");
+    occupied.add(owner.walletId);
+    try {
+      return parseDepositSnapshot(await task(), owner);
+    } finally {
+      occupied.delete(owner.walletId);
+    }
+  }
+  return {
+    async available() {
+      return bridgeFactory() !== null;
+    },
+    prepare: (owner, profile, budget, draftId) =>
+      mutation(owner, async () => {
+        let id = draftId;
+        const unresolved = uncertain.get(owner.walletId);
+        if (unresolved) {
+          const saved = await status(owner, unresolved);
+          if (
+            !["draft", "preparing", "review"].includes(saved.phase) &&
+            !(
+              saved.phase === "paused" &&
+              saved.completedSteps.length === 0 &&
+              saved.creditedAtoms === "0" &&
+              [
+                "previewUnavailable",
+                "quoteUnavailable",
+                "insufficientFunds",
+                "uneconomicAmount",
+              ].includes(saved.pauseReason ?? "")
+            )
+          )
+            return saved;
+          id = saved.journeyId;
+          uncertain.delete(owner.walletId);
+        }
+        try {
+          const saved = parseDepositSnapshot(
+            await bridge().prepareEarnDeposit(owner.walletId, profile, budget, id ?? null),
+            owner,
+          );
+          if (saved.profileId !== profile || (id && saved.journeyId !== id))
+            throw new Error("Native deposit identity changed.");
+          return saved;
+        } catch (error) {
+          uncertain.set(owner.walletId, id ?? "current-deposit");
+          try {
+            uncertain.set(owner.walletId, (await status(owner, id ?? "current-deposit")).journeyId);
+          } catch {
+            /* preserve unresolved identity */
+          }
+          throw error;
+        }
+      }),
+    confirm: (owner, id, revision) =>
+      mutation(owner, () => bridge().confirmEarnDeposit(owner.walletId, id, revision)),
+    resume: (owner, id, revision) =>
+      mutation(owner, () => bridge().resumeEarnDeposit(owner.walletId, id, revision)),
+    status,
+    async cancel(owner, id, revision) {
+      const saved = parseDepositSnapshot(
+        await bridge().cancelEarnDeposit(owner.walletId, id, revision),
+        owner,
+      );
+      if (saved.journeyId !== id) throw new Error("Native deposit identity changed.");
+      return saved;
+    },
+  };
+}
