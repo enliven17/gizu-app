@@ -1,3 +1,4 @@
+import { EarnInvestmentScreen } from "@/features/earn/EarnInvestmentScreen";
 import { UnavailableScreen } from "./UnavailableScreen";
 import { AccountPageScreen } from "@/features/account/AccountPageScreen";
 import { NotificationsScreen } from "@/features/notifications/NotificationsScreen";
@@ -35,6 +36,10 @@ export function RootNavigator() {
           <Stack.Screen
             name="Earn"
             component={native && session.chainId === 143 ? EarnScreen : UnavailableScreen}
+          />
+          <Stack.Screen
+            name="EarnInvestment"
+            component={native && session.chainId === 143 ? EarnInvestmentScreen : UnavailableScreen}
           />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen

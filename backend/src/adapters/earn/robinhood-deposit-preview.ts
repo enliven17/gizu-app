@@ -77,6 +77,7 @@ export class RobinhoodDepositPreviewPlanner {
       vault: plan.vault,
       token: plan.token,
       tokenDecimals: plan.tokenDecimals,
+      shareDecimals: plan.shareDecimals,
       expectedUsdgAtoms: request.expectedUsdgAtoms,
       referenceBlockNumber: plan.referenceBlockNumber,
       referenceBlockHash: plan.referenceBlockHash,

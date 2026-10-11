@@ -143,6 +143,7 @@ private constructor(
           depositAtoms(d.getString("maximumFeeAtoms"), true) +
           depositAtoms(d.getString("withdrawalReserveAtoms"), true) <= investMinimum
       )
+      check(d.getInt("shareDecimals") in 0..18)
       depositAtoms(d.getString("minimumSharesAtoms"), true)
       val reservation = review.getJSONObject("reservation")
       val funding =

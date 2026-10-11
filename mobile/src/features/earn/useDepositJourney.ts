@@ -44,20 +44,22 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [details, setDetails] = useState(false),
-    [clock, setClock] = useState(Date.now());
+    [clock, setClock] = useState(() => Date.now()),
+    [authorizing, setAuthorizing] = useState(false);
   const saved = useRef<DepositSnapshot | null>(null),
     request = useRef(0),
     mounted = useRef(false),
     occupied = useRef(false),
     foreground = useRef(true),
-    started = useRef(Date.now()),
+    started = useRef(0),
     epoch = useRef(0),
-    authorizing = useRef(false);
+    ceremony = useRef(false);
   const accept = useCallback(
     (next: DepositSnapshot) => {
       if (next.profileId !== profileId)
         throw new Error("The saved deposit belongs to a different vault.");
       saved.current = next;
+      if (next.phase === "review") setClock(Date.now());
       setSnapshot((old) =>
         old && old.journeyId === next.journeyId && old.revision > next.revision ? old : next,
       );
@@ -65,12 +67,13 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     [profileId],
   );
   const revoke = useCallback(() => {
-    const row = saved.current;
+    const row = saved.current,
+      lifecycleEpoch = epoch.current;
     if (row && row.phase !== "invested")
       void service
         .cancel(owner, row.journeyId, row.revision)
         .then((next) => {
-          if (mounted.current) accept(next);
+          if (mounted.current && epoch.current === lifecycleEpoch) accept(next);
         })
         .catch(() => {
           if (mounted.current)
@@ -78,17 +81,21 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
         });
   }, [service, owner, accept]);
   useEffect(() => {
-    ++epoch.current;
+    const lifecycleEpoch = ++epoch.current;
     saved.current = null;
-    setSnapshot(null);
-    setAmountText("");
-    setLoading(true);
     mounted.current = true;
     foreground.current = AppState.currentState !== "background";
     started.current = Date.now();
     const attempt = ++request.current;
-    void service
-      .available()
+    void Promise.resolve()
+      .then(() => {
+        if (epoch.current !== lifecycleEpoch) return false;
+        setSnapshot(null);
+        setAmountText("");
+        setLoading(true);
+        setAuthorizing(false);
+        return service.available();
+      })
       .then(async (enabled) => {
         if (!mounted.current || attempt !== request.current) return;
         setAvailable(enabled);
@@ -107,7 +114,7 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "background") {
         foreground.current = false;
-        if (!authorizing.current) {
+        if (!ceremony.current) {
           ++request.current;
           revoke();
         }
@@ -118,26 +125,29 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     });
     return () => {
       mounted.current = false;
-      ++epoch.current;
-      ++request.current;
+      epoch.current = lifecycleEpoch + 1;
+      request.current = attempt + 1;
       subscription.remove();
       revoke();
     };
   }, [service, owner, savedJourneyId, accept, revoke]);
+  const journeyId = snapshot?.journeyId,
+    phase = snapshot?.phase,
+    pauseReason = snapshot?.pauseReason,
+    expiresAtMs = snapshot?.review?.expiresAtMs;
   useEffect(() => {
-    if (!snapshot || snapshot.phase === "invested" || !foreground.current) return;
-    if (snapshot.phase === "review" && (snapshot.review?.expiresAtMs ?? 0) > Date.now()) {
+    if (!journeyId || phase === "invested" || !foreground.current) return;
+    if (phase === "review" && (expiresAtMs ?? 0) > Date.now()) {
       const timer = setTimeout(
         () => setClock(Date.now()),
-        Math.max(1, (snapshot.review?.expiresAtMs ?? Date.now()) - Date.now()),
+        Math.max(1, (expiresAtMs ?? Date.now()) - Date.now()),
       );
       return () => clearTimeout(timer);
     }
     if (
-      !running.includes(snapshot.phase) &&
+      !running.includes(phase ?? "") &&
       !(
-        snapshot.phase === "paused" &&
-        ["settlementPending", "submissionUnknown"].includes(snapshot.pauseReason ?? "")
+        phase === "paused" && ["settlementPending", "submissionUnknown"].includes(pauseReason ?? "")
       )
     )
       return;
@@ -147,7 +157,7 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     async function poll() {
       if (disposed || !foreground.current || Date.now() - started.current >= 900000) return;
       try {
-        const next = await service.status(owner, snapshot!.journeyId);
+        const next = await service.status(owner, journeyId!);
         if (!disposed && mounted.current) accept(next);
       } catch {
         if (!disposed && mounted.current)
@@ -164,7 +174,7 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       disposed = true;
       if (timer) clearTimeout(timer);
     };
-  }, [snapshot?.journeyId, snapshot?.phase, snapshot?.pauseReason, service, owner, accept, clock]);
+  }, [journeyId, phase, pauseReason, expiresAtMs, service, owner, accept, clock]);
   const perform = async (task: () => Promise<DepositSnapshot>) => {
     if (occupied.current || !foreground.current) return;
     occupied.current = true;
@@ -201,17 +211,18 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
   };
   const atoms = depositBudgetAtoms(amount),
     editable =
-      !snapshot ||
-      ["draft", "review", "preparing"].includes(snapshot.phase) ||
-      (snapshot.phase === "paused" &&
-        !snapshot.completedSteps.length &&
-        snapshot.creditedAtoms === "0" &&
-        [
-          "previewUnavailable",
-          "quoteUnavailable",
-          "insufficientFunds",
-          "uneconomicAmount",
-        ].includes(snapshot.pauseReason ?? ""));
+      !authorizing &&
+      (!snapshot ||
+        ["draft", "review", "preparing"].includes(snapshot.phase) ||
+        (snapshot.phase === "paused" &&
+          !snapshot.completedSteps.length &&
+          snapshot.creditedAtoms === "0" &&
+          [
+            "previewUnavailable",
+            "quoteUnavailable",
+            "insufficientFunds",
+            "uneconomicAmount",
+          ].includes(snapshot.pauseReason ?? "")));
   return {
     amount,
     snapshot,
@@ -222,6 +233,7 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     details,
     setDetails,
     editable,
+    authorizing,
     setAmount: (text: string) => {
       if (!editable) return;
       ++request.current;
@@ -240,27 +252,41 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       wallet.balance !== null &&
       !!depositBudgetAtoms(wallet.balance) &&
       BigInt(atoms ?? "0") <= BigInt(depositBudgetAtoms(wallet.balance) ?? "0"),
-    canConfirm: !busy && !!snapshot && canConfirmDeposit(snapshot, Math.max(clock, Date.now())),
+    canConfirm:
+      !busy &&
+      !!snapshot &&
+      canConfirmDeposit(snapshot, clock) &&
+      (savedJourneyId !== undefined || snapshot.budgetAtoms === atoms),
     review: () =>
       atoms
         ? perform(() => service.prepare(owner, profileId, atoms, saved.current?.journeyId))
         : Promise.resolve(),
     confirm: async () => {
-      if (!snapshot || !canConfirmDeposit(snapshot, Date.now()) || occupied.current) return;
-      authorizing.current = true;
+      if (
+        !snapshot ||
+        !canConfirmDeposit(snapshot, Date.now()) ||
+        (savedJourneyId === undefined && snapshot.budgetAtoms !== atoms) ||
+        occupied.current
+      )
+        return;
+      ceremony.current = true;
+      setAuthorizing(true);
       try {
         await perform(() => service.confirm(owner, snapshot.journeyId, snapshot.revision));
       } finally {
-        authorizing.current = false;
+        ceremony.current = false;
+        if (mounted.current) setAuthorizing(false);
       }
     },
     resume: async () => {
       if (!snapshot || occupied.current) return;
-      authorizing.current = true;
+      ceremony.current = true;
+      setAuthorizing(true);
       try {
         await perform(() => service.resume(owner, snapshot.journeyId, snapshot.revision));
       } finally {
-        authorizing.current = false;
+        ceremony.current = false;
+        if (mounted.current) setAuthorizing(false);
       }
     },
     cancel: () => {

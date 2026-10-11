@@ -192,6 +192,7 @@ internal class EarnDepositPreparer(
               .put("estimatedAssetsAtoms", deposit.getString("depositAmount"))
               .put("minimumAssetsAtoms", deposit.getString("depositAmount"))
               .put("minimumSharesAtoms", deposit.getString("minimumSharesAtoms"))
+              .put("shareDecimals", deposit.getInt("shareDecimals"))
               .put("maximumFeeAtoms", deposit.getString("depositFeeBudget"))
               .put("withdrawalReserveAtoms", deposit.getString("withdrawalReserve")),
           )

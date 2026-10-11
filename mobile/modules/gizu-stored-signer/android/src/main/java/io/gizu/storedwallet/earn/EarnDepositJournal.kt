@@ -301,6 +301,7 @@ internal fun depositPublicReview(review: JSONObject): JSONObject {
         "estimatedAssetsAtoms",
         "minimumAssetsAtoms",
         "minimumSharesAtoms",
+        "shareDecimals",
         "maximumFeeAtoms",
         "withdrawalReserveAtoms",
       ),

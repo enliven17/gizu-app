@@ -1,5 +1,11 @@
+import { DepositJourneyScreen } from "./DepositJourneyScreen";
+import { LegacyEthereumDepositScreen } from "./LegacyEthereumDepositScreen";
 import { useState } from "react";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
+import type {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from "@react-navigation/native-stack";
 import { View } from "react-native";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
@@ -46,6 +52,7 @@ function CatalogEarnEntry({ opportunityId }: { opportunityId: string }) {
     );
   const vault = load.opportunity;
   const profile = catalogEarnProfile(vault);
+  if (profile === "robinhood-usdg") return <DepositJourneyScreen profileId={profile} />;
   if (profile) return <CatalogEarnStart profile={profile} />;
   return (
     <Screen>
@@ -72,7 +79,7 @@ function CatalogEarnStart({ profile }: { profile: EarnProfileId }) {
   const [requested, setRequested] = useState(false);
   const intent = earn.state && "intentId" in earn.state ? earn.state : null;
   if (requested && intent && intent.intentId !== initialIntentId && intent.profileId === profile)
-    return <EarnJourney profile={profile} />;
+    return <LegacyEthereumDepositScreen intent={intent} />;
   const canStart =
     !!earn.state &&
     !earn.loading &&
@@ -120,6 +127,7 @@ function CatalogEarnStart({ profile }: { profile: EarnProfileId }) {
 }
 
 function EarnJourney({ profile }: { profile?: EarnProfileId }) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const wallet = useFundingWallet();
   const earn = useEarn();
   const [selected, setSelected] = useState<EarnProfileId>(profile ?? "ethereum-usdc");
@@ -163,6 +171,11 @@ function EarnJourney({ profile }: { profile?: EarnProfileId }) {
       ) : intent ? (
         <>
           <Typography variant="heading">{earnProfiles[intent.profileId].name}</Typography>
+          <Button
+            label="View saved investment"
+            variant="secondary"
+            onPress={() => navigation.navigate("EarnInvestment", { intentId: intent.intentId })}
+          />
           {earn.prepareNew && (
             <View className="gap-2">
               {profiles.map((profile) => (

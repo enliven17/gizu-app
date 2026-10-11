@@ -53,6 +53,7 @@ export type DepositReview = {
     estimatedAssetsAtoms: string;
     minimumAssetsAtoms: string;
     minimumSharesAtoms: string;
+    shareDecimals: number;
     maximumFeeAtoms: string;
     withdrawalReserveAtoms: string;
   };
@@ -176,6 +177,7 @@ function review(value: unknown, snapshot: DepositSnapshot): DepositReview {
       estimatedAssetsAtoms: atoms(d.estimatedAssetsAtoms, true),
       minimumAssetsAtoms: atoms(d.minimumAssetsAtoms, true),
       minimumSharesAtoms: atoms(d.minimumSharesAtoms, true),
+      shareDecimals: integer(d.shareDecimals, 0, 18),
       maximumFeeAtoms: atoms(d.maximumFeeAtoms, true),
       withdrawalReserveAtoms: atoms(d.withdrawalReserveAtoms, true),
     },

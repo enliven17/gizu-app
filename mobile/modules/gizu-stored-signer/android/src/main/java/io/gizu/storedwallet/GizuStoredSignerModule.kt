@@ -343,6 +343,8 @@ class GizuStoredSignerModule : Module() {
                 .filter { it.getString("phase") != "invested" }
                 .maxByOrNull { it.getInt("cycleIndex") }
                 ?.getString("journeyId") ?: error("No saved deposit draft")
+            else if (id.startsWith("intent:"))
+              journal.all().single { it.getString("intentId") == id.removePrefix("intent:") }.getString("journeyId")
             else id
           if (depositHost?.busy == true) promise.resolve(journal.publicSnapshot(lookupId))
           else {

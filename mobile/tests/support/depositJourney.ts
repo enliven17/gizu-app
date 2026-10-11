@@ -54,6 +54,7 @@ export function depositSnapshot() {
         estimatedAssetsAtoms: "2498000",
         minimumAssetsAtoms: "2495000",
         minimumSharesAtoms: "2490000000000000000",
+        shareDecimals: 18,
         maximumFeeAtoms: "50000",
         withdrawalReserveAtoms: "52000",
       },

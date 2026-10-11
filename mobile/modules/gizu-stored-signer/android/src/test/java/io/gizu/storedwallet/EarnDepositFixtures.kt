@@ -132,6 +132,7 @@ internal object DepositFixtures {
           .put("estimatedAssetsAtoms", "870000")
           .put("minimumAssetsAtoms", "870000")
           .put("minimumSharesAtoms", "860000")
+          .put("shareDecimals", 18)
           .put("maximumFeeAtoms", "10000")
           .put("withdrawalReserveAtoms", "11000"),
       )

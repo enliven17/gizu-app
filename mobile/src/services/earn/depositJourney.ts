@@ -20,7 +20,10 @@ export function createEarnDepositService(
       await bridge().getEarnDepositStatus(owner.walletId, id),
       owner,
     );
-    if (id !== "current-deposit" && saved.journeyId !== id)
+    if (
+      (id.startsWith("intent:") && saved.intentId !== id.slice(7)) ||
+      (!id.startsWith("intent:") && id !== "current-deposit" && saved.journeyId !== id)
+    )
       throw new Error("Native deposit identity changed.");
     return saved;
   }
@@ -35,6 +38,11 @@ export function createEarnDepositService(
     } finally {
       occupied.delete(owner.walletId);
     }
+  }
+  async function statusResult(owner: EarnOwner, id: string, task: Promise<unknown>) {
+    const saved = parseDepositSnapshot(await task, owner);
+    if (saved.journeyId !== id) throw new Error("Native deposit identity changed.");
+    return saved;
   }
   return {
     async available() {
@@ -69,7 +77,11 @@ export function createEarnDepositService(
             await bridge().prepareEarnDeposit(owner.walletId, profile, budget, id ?? null),
             owner,
           );
-          if (saved.profileId !== profile || (id && saved.journeyId !== id))
+          if (
+            saved.profileId !== profile ||
+            (id && saved.journeyId !== id) ||
+            (["draft", "preparing", "review"].includes(saved.phase) && saved.budgetAtoms !== budget)
+          )
             throw new Error("Native deposit identity changed.");
           return saved;
         } catch (error) {
@@ -83,9 +95,18 @@ export function createEarnDepositService(
         }
       }),
     confirm: (owner, id, revision) =>
-      mutation(owner, () => bridge().confirmEarnDeposit(owner.walletId, id, revision)),
+      mutation(owner, async () => {
+        const saved = await statusResult(
+          owner,
+          id,
+          bridge().confirmEarnDeposit(owner.walletId, id, revision),
+        );
+        return saved;
+      }),
     resume: (owner, id, revision) =>
-      mutation(owner, () => bridge().resumeEarnDeposit(owner.walletId, id, revision)),
+      mutation(owner, () =>
+        statusResult(owner, id, bridge().resumeEarnDeposit(owner.walletId, id, revision)),
+      ),
     status,
     async cancel(owner, id, revision) {
       const saved = parseDepositSnapshot(

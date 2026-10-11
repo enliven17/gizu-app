@@ -119,6 +119,7 @@ internal class EarnDepositGateway(
     val fee = depositAtoms(row.getString("depositFeeBudget"), true)
     val reserve = depositAtoms(row.getString("withdrawalReserve"), true)
     check(assets + fee + reserve <= depositAtoms(expected, true))
+    check(row.getInt("shareDecimals") in 0..18)
     val shares = depositAtoms(row.getString("previewShares"), true)
     val price = depositAtoms(row.getString("maxSharePrice"), true)
     val minimumShares = assets * BigInteger.TEN.pow(27) / price
