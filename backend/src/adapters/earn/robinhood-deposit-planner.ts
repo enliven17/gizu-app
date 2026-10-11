@@ -235,6 +235,76 @@ export async function readRobinhoodState(
     shareDecimals,
   };
 }
+export function createRobinhoodPlannerProviders(
+  config: RobinhoodPlannerConfig,
+  now: () => number = Date.now,
+): RobinhoodPlannerProviders {
+  const client = createPublicClient({
+    chain: robinhoodChain,
+    transport: http(config.rpcUrl, { retryCount: 0, timeout: 12000 }),
+    cacheTime: 0,
+  });
+  let paymaster:
+    Awaited<ReturnType<typeof createRobinhoodPaymaster>> | undefined;
+  let destination: Address | undefined;
+  const requirePaymaster = async () => {
+    if (!destination) throw new Error("Robinhood destination unavailable");
+    return (paymaster ??= await createRobinhoodPaymaster(
+      client,
+      destination,
+      config.pimlicoApiKey ?? "",
+    ));
+  };
+  return {
+    readState: async (owner) => {
+      destination = owner;
+      return readRobinhoodState(client, owner, now);
+    },
+    market: async () => (await requirePaymaster()).market(),
+    prepare: async (calls, fees, override) =>
+      (await requirePaymaster()).prepare(calls, fees, override),
+    simulate: (state, amount) => {
+      if (!config.anvilPath) throw new Error("Robinhood fork unavailable");
+      return simulateRobinhoodDeposit({
+        rpcUrl: config.rpcUrl,
+        anvilPath: config.anvilPath,
+        timeoutMs: config.timeoutMs,
+        block: state.block,
+        owner: getAddress(state.owner),
+        amount,
+      });
+    },
+    assertFresh: async (state, fees) => {
+      const fresh = await readRobinhoodState(
+          client,
+          getAddress(state.owner),
+          now,
+        ),
+        market = await (await requirePaymaster()).market();
+      if (
+        (await client.getBlock({ blockNumber: state.block.number })).hash !==
+          state.block.hash ||
+        now() - Number(state.block.timestamp) * 1000 > 60000 ||
+        market.maxFeePerGas > fees.maxFeePerGas ||
+        market.maxPriorityFeePerGas > fees.maxPriorityFeePerGas ||
+        [
+          "token",
+          "shares",
+          "native",
+          "wrappedNative",
+          "nonce",
+          "ownerCode",
+        ].some(
+          (key) =>
+            state[key as keyof RobinhoodState] !==
+            fresh[key as keyof RobinhoodState],
+        )
+      )
+        throw new Error("Robinhood state/fees changed");
+    },
+  };
+}
+
 export class RobinhoodDepositPlanner {
   private providers?: RobinhoodPlannerProviders;
   constructor(
@@ -243,74 +313,6 @@ export class RobinhoodDepositPlanner {
     private now: () => number = Date.now,
   ) {
     this.providers = providers;
-  }
-  private createProviders(): RobinhoodPlannerProviders {
-    const config = this.config,
-      now = this.now;
-    const client = createPublicClient({
-      chain: robinhoodChain,
-      transport: http(config.rpcUrl, { retryCount: 0, timeout: 12000 }),
-      cacheTime: 0,
-    });
-    let paymaster:
-      Awaited<ReturnType<typeof createRobinhoodPaymaster>> | undefined;
-    let destination: Address | undefined;
-    const requirePaymaster = async () => {
-      if (!destination) throw new Error("Robinhood destination unavailable");
-      return (paymaster ??= await createRobinhoodPaymaster(
-        client,
-        destination,
-        config.pimlicoApiKey ?? "",
-      ));
-    };
-    return {
-      readState: async (owner) => {
-        destination = owner;
-        return readRobinhoodState(client, owner, now);
-      },
-      market: async () => (await requirePaymaster()).market(),
-      prepare: async (calls, fees, override) =>
-        (await requirePaymaster()).prepare(calls, fees, override),
-      simulate: (state, amount) => {
-        if (!config.anvilPath) throw new Error("Robinhood fork unavailable");
-        return simulateRobinhoodDeposit({
-          rpcUrl: config.rpcUrl,
-          anvilPath: config.anvilPath,
-          timeoutMs: config.timeoutMs,
-          block: state.block,
-          owner: getAddress(state.owner),
-          amount,
-        });
-      },
-      assertFresh: async (state, fees) => {
-        const fresh = await readRobinhoodState(
-            client,
-            getAddress(state.owner),
-            now,
-          ),
-          market = await (await requirePaymaster()).market();
-        if (
-          (await client.getBlock({ blockNumber: state.block.number })).hash !==
-            state.block.hash ||
-          this.now() - Number(state.block.timestamp) * 1000 > 60000 ||
-          market.maxFeePerGas > fees.maxFeePerGas ||
-          market.maxPriorityFeePerGas > fees.maxPriorityFeePerGas ||
-          [
-            "token",
-            "shares",
-            "native",
-            "wrappedNative",
-            "nonce",
-            "ownerCode",
-          ].some(
-            (key) =>
-              state[key as keyof RobinhoodState] !==
-              fresh[key as keyof RobinhoodState],
-          )
-        )
-          throw new Error("Robinhood state/fees changed");
-      },
-    };
   }
   async plan(request: RobinhoodPlanRequest): Promise<RobinhoodDepositPlan> {
     if (
@@ -326,7 +328,9 @@ export class RobinhoodDepositPlanner {
         "A destination owner, operation ID and positive revision are required.",
       );
     try {
-      const providers = this.providers ?? this.createProviders();
+      const providers =
+        this.providers ??
+        createRobinhoodPlannerProviders(this.config, this.now);
       const owner = getAddress(request.owner),
         state = await providers.readState(owner);
       if (
@@ -369,7 +373,11 @@ export class RobinhoodDepositPlanner {
         )
           throw new Error("Insufficient or stale USDG budget");
         const simulation = await providers.simulate(state, amount),
-          deposit = await providers.prepare(simulation.depositCalls, fees),
+          deposit = await providers.prepare(
+            simulation.depositCalls,
+            fees,
+            simulation.fundingOverride,
+          ),
           withdrawal = await providers.prepare(
             simulation.withdrawalCalls,
             fees,
@@ -383,7 +391,11 @@ export class RobinhoodDepositPlanner {
           amount = next;
           continue;
         }
-        const final = await providers.prepare(simulation.depositCalls, fees);
+        const final = await providers.prepare(
+          simulation.depositCalls,
+          fees,
+          simulation.fundingOverride,
+        );
         if (final.feeCap > depositFeeBudget)
           throw new Error("Final USDG cap exceeds deposit budget");
         await providers.assertFresh(state, fees);

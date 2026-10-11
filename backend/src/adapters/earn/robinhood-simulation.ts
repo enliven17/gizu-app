@@ -1,5 +1,5 @@
 import type { Address, Hex, PublicClient, StateOverride } from "viem";
-import { toHex } from "viem";
+import { toHex, encodeFunctionData, erc20Abi } from "viem";
 import { balance } from "./vault.ts";
 import { withPinnedFork, simulateForkSequence } from "./fork-simulation.ts";
 import type { ReferenceBlock } from "./policy.ts";
@@ -19,6 +19,7 @@ export type RobinhoodSimulation = {
   stateOverride: StateOverride;
   deposit: SimulationRow[];
   withdrawal: SimulationRow[];
+  fundingOverride?: StateOverride;
 };
 type TraceAccount = { storage?: Record<string, string> };
 export function mergeRobinhoodTraces(traces: unknown[]): StateOverride {
@@ -67,19 +68,126 @@ export function mergeRobinhoodTraces(traces: unknown[]): StateOverride {
     })),
   }));
 }
-export async function simulateRobinhoodDeposit(options: {
+type RobinhoodSimulationOptions = {
   rpcUrl: string;
   anvilPath: string;
   timeoutMs?: number;
   block: ReferenceBlock;
   owner: Address;
   amount: bigint;
-}): Promise<RobinhoodSimulation> {
+};
+export async function simulateRobinhoodDeposit(
+  options: RobinhoodSimulationOptions,
+): Promise<RobinhoodSimulation> {
+  return simulateRobinhoodSequence(options);
+}
+export async function simulateProspectiveRobinhoodDeposit(
+  options: RobinhoodSimulationOptions & { expectedUsdg: bigint },
+): Promise<RobinhoodSimulation> {
+  return simulateRobinhoodSequence(options, options.expectedUsdg);
+}
+/** Discover, perturb and verify a balance slot on an isolated fork; never guess token storage. */
+export async function fundProspectiveRobinhoodBalance(
+  client: PublicClient,
+  owner: Address,
+  amount: bigint,
+): Promise<StateOverride> {
+  if (amount <= 1n || amount >= (1n << 256n) - 1n)
+    throw new Error("Invalid prospective funding");
+  const rpc = (method: string, params: unknown[]) =>
+    client.request({ method, params } as never) as Promise<unknown>;
+  const trace = (await rpc("debug_traceCall", [
+    {
+      to: ROBINHOOD_PROFILE.token,
+      data: encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [owner],
+      }),
+    },
+    "latest",
+    { tracer: "prestateTracer" },
+  ])) as Record<string, TraceAccount>;
+  const account = Object.entries(trace).find(
+    ([key]) => key.toLowerCase() === ROBINHOOD_PROFILE.token.toLowerCase(),
+  )?.[1];
+  const slots = Object.keys(account?.storage ?? {});
+  if (!slots.length || slots.length > 128)
+    throw new Error("Unverified USDG storage layout");
+  const control = "0x000000000000000000000000000000000000dEaD" as Address;
+  const controlBalance = await balance(
+    client,
+    ROBINHOOD_PROFILE.token,
+    control,
+  );
+  for (const slot of slots) {
+    if (!/^0x[0-9a-f]{64}$/i.test(slot))
+      throw new Error("Invalid USDG storage trace");
+    const original = await client.getStorageAt({
+      address: ROBINHOOD_PROFILE.token,
+      slot: slot as Hex,
+    });
+    let matched = false;
+    try {
+      await rpc("anvil_setStorageAt", [
+        ROBINHOOD_PROFILE.token,
+        slot,
+        toHex(amount, { size: 32 }),
+      ]);
+      if ((await balance(client, ROBINHOOD_PROFILE.token, owner)) !== amount)
+        continue;
+      await rpc("anvil_setStorageAt", [
+        ROBINHOOD_PROFILE.token,
+        slot,
+        toHex(amount + 1n, { size: 32 }),
+      ]);
+      if (
+        (await balance(client, ROBINHOOD_PROFILE.token, owner)) !==
+          amount + 1n ||
+        (await balance(client, ROBINHOOD_PROFILE.token, control)) !==
+          controlBalance
+      )
+        continue;
+      matched = true;
+    } finally {
+      await rpc("anvil_setStorageAt", [
+        ROBINHOOD_PROFILE.token,
+        slot,
+        original ?? toHex(0n, { size: 32 }),
+      ]);
+    }
+    if (matched) {
+      const value = toHex(amount, { size: 32 });
+      await rpc("anvil_setStorageAt", [ROBINHOOD_PROFILE.token, slot, value]);
+      if ((await balance(client, ROBINHOOD_PROFILE.token, owner)) !== amount)
+        throw new Error("Changed prospective balance");
+      return [
+        {
+          address: ROBINHOOD_PROFILE.token,
+          stateDiff: [{ slot: slot as Hex, value }],
+        },
+      ];
+    }
+  }
+  throw new Error("Unverified USDG owner balance storage");
+}
+async function simulateRobinhoodSequence(
+  options: RobinhoodSimulationOptions,
+  prospectiveBalance?: bigint,
+): Promise<RobinhoodSimulation> {
   return withPinnedFork(
     { ...options, chain: robinhoodChain },
     async (client, signal) => {
       const rpc = (method: string, params: unknown[]) =>
         client.request({ method, params } as never) as Promise<unknown>;
+      const fundingOverride =
+        prospectiveBalance === undefined
+          ? undefined
+          : await fundProspectiveRobinhoodBalance(
+              client,
+              options.owner,
+              prospectiveBalance,
+            );
       if (
         (await balance(client, ROBINHOOD_PROFILE.vault, options.owner)) !==
           0n ||
@@ -145,6 +253,7 @@ export async function simulateRobinhoodDeposit(options: {
         stateOverride,
         deposit,
         withdrawal,
+        ...(fundingOverride ? { fundingOverride } : {}),
       };
     },
   );
