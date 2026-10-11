@@ -28,6 +28,7 @@ export type StoredSignerCapabilities = {
   earnSponsoredExecution?: boolean;
   earnEthereumLiquidityExecution?: boolean;
   earnPrivatePayoutExecution?: boolean;
+  earnDepositJourney?: boolean;
   reason?: "notImplemented" | "unsupportedPlatform" | "unsupportedProvider";
 };
 export type StoredTransferProposal = {
@@ -154,6 +155,16 @@ export type MainnetPortfolioSnapshot = {
 
 /** All dialogs, file IO and authorization originate natively. No JS approve/export API. */
 export interface StoredSignerContract {
+  prepareEarnDeposit?(
+    walletId: string,
+    profileId: string,
+    budgetAtoms: string,
+    draftId: string | null,
+  ): Promise<unknown>;
+  confirmEarnDeposit?(walletId: string, journeyId: string, revision: number): Promise<unknown>;
+  getEarnDepositStatus?(walletId: string, journeyId: string): Promise<unknown>;
+  resumeEarnDeposit?(walletId: string, journeyId: string, revision: number): Promise<unknown>;
+  cancelEarnDeposit?(walletId: string, journeyId: string, revision: number): Promise<unknown>;
   getCapabilities(): Promise<StoredSignerCapabilities>;
   getWalletState(): Promise<StoredWalletState>;
   createWallet(): Promise<StoredWalletState>;
