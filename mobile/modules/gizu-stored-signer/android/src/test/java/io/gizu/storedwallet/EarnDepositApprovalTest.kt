@@ -16,15 +16,16 @@ class EarnDepositApprovalTest {
       val child = DepositFixtures.funding(r)
       fails { a.assertPrepared(r, "funding", child, DepositFixtures.prepared(), 1000) }
       a.approveAfterPasskey(1000)
+      a.assertPrepared(r, "funding", child, DepositFixtures.prepared(), 1001)
+      DepositFixtures.record("27cfcc2e-0891-4e31-a7d4-03780d7b4f12").use {
+        fails { a.assertPrepared(it, "funding", child, DepositFixtures.prepared(), 1002) }
+      }
+      DepositFixtures.record(cycle = 1).use {
+        fails { a.assertPrepared(it, "funding", child, DepositFixtures.prepared(), 1002) }
+      }
       a.assertPrepared(r, "funding", child, DepositFixtures.prepared(), 900999)
       fails { a.assertPrepared(r, "funding", child, DepositFixtures.prepared(), 901000) }
       fails { a.assertPrepared(r, "funding", child, DepositFixtures.prepared(), 999) }
-      DepositFixtures.record("27cfcc2e-0891-4e31-a7d4-03780d7b4f12").use {
-        fails { a.assertPrepared(it, "funding", child, DepositFixtures.prepared(), 1001) }
-      }
-      DepositFixtures.record(cycle = 1).use {
-        fails { a.assertPrepared(it, "funding", child, DepositFixtures.prepared(), 1001) }
-      }
       a.invalidate()
       fails { a.approveAfterPasskey(1001) }
       fails { a.assertPrepared(r, "funding", child, DepositFixtures.prepared(), 1001) }
@@ -168,6 +169,37 @@ class EarnDepositApprovalTest {
     DepositFixtures.record().use { r ->
       val a = EarnDepositApproval.fromReview(r, DepositFixtures.review(r))
       fails { a.approveAfterPasskey(46000) }
+    }
+  }
+
+  @Test
+  fun explicitRemainingApprovalNeverRenewsQuotesOrRestoresAuthorityAutomatically() {
+    DepositFixtures.record().use { r ->
+      val saved = DepositFixtures.review(r)
+      val normal = EarnDepositApproval.fromReview(r, saved)
+      val resumed = EarnDepositApproval.fromRemainingReview(r, saved, 100000)
+      assertNotEquals(normal.digest, resumed.digest)
+      fails { resumed.assertRead(r, 100000) }
+      fails { normal.approveAfterPasskey(100000) }
+      resumed.approveAfterPasskey(100001)
+      resumed.assertRead(r, 100002)
+      assertEquals(46000, resumed.review.getInt("expiresAtMs"))
+      resumed.review.put("sourceBudgetAtoms", "999999999")
+      assertEquals("1010000", resumed.review.getString("sourceBudgetAtoms"))
+      val expiredChild = DepositFixtures.funding(r)
+      expiredChild.getJSONObject("proposal").put("deadline", 1)
+      fails {
+        resumed.assertPrepared(r, "funding", expiredChild, DepositFixtures.prepared(), 100003)
+      }
+      fails {
+        resumed.assertPrepared(
+          r,
+          "return",
+          DepositFixtures.funding(r),
+          DepositFixtures.prepared(),
+          100003,
+        )
+      }
     }
   }
 }

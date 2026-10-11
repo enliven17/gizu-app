@@ -31,6 +31,7 @@ class EarnDepositJournalTest {
     val j = journal(f)
     DepositFixtures.record().use { r ->
       val first = j.loadOrCreate(r, 4663, null)
+      assertEquals("earn-v1:${r.id}:robinhood-usdg", first.getString("intentId"))
       val id = first.getString("journeyId")
       assertEquals(id, journal(f).loadOrCreate(r, 4663, id).getString("journeyId"))
       assertEquals(id, j.loadOrCreate(r, 4663, null).getString("journeyId"))

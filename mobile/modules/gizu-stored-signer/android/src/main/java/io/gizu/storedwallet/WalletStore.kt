@@ -249,6 +249,69 @@ internal class WalletStore(private val file: WalletFile, private val keys: Walle
       }
     }
 
+  /** Commit unsigned draft identity with its fresh cycle before the journey file is created. */
+  fun prepareEarnDepositCycle(expected: WalletRecord, chain: Int, draftId: String?): String =
+    synchronized(lock) {
+      check(chain == 4663)
+      load().use { current ->
+        checkIdentity(current, expected)
+        check(current.verified && !current.earnRecoveryRequired)
+        val rows = JSONArray(current.earnCycles)
+        val cycles = (0 until rows.length()).map(rows::getJSONObject)
+        val existing =
+          if (draftId != null) cycles.singleOrNull { it.optString("depositJourneyId") == draftId }
+          else
+            cycles
+              .filter { it.has("depositJourneyId") && !it.optBoolean("depositFinished") }
+              .maxByOrNull { it.getInt("cycleIndex") }
+        if (draftId != null)
+          check(existing != null) { "Deposit draft was not allocated by this device" }
+        if (existing != null) {
+          check(existing.getInt("chainId") == chain)
+          replacement(current, chain = chain, cycle = existing.getInt("cycleIndex")).use {
+            save(it)
+          }
+          return@synchronized existing.getString("depositJourneyId")
+        }
+        check(rows.length() < 255)
+        if (rows.length() == 0 && current.earnChain > 0)
+          rows.put(cycleRow(current.id, 0, current.earnChain))
+        val next =
+          (0 until rows.length())
+            .maxOfOrNull { rows.getJSONObject(it).getInt("cycleIndex") }
+            ?.let { Math.addExact(it, 1) } ?: 1
+        val id = "deposit_" + UUID.randomUUID().toString().replace("-", "")
+        rows.put(
+          cycleRow(current.id, next, chain)
+            .put("depositJourneyId", id)
+            .put("depositFinished", false)
+        )
+        replacement(current, chain = chain, cycle = next, cycles = rows.toString()).use { save(it) }
+        id
+      }
+    }
+
+  /** Call only after the journey journal has durably saved its independently verified result. */
+  fun completeEarnDepositCycle(expected: WalletRecord, journeyId: String) =
+    synchronized(lock) {
+      load().use { current ->
+        checkIdentity(current, expected)
+        check(
+          current.verified &&
+            !current.earnRecoveryRequired &&
+            current.earnCycleIndex == expected.earnCycleIndex
+        )
+        val rows = JSONArray(current.earnCycles)
+        val cycle =
+          (0 until rows.length()).map(rows::getJSONObject).single {
+            it.getInt("cycleIndex") == current.earnCycleIndex &&
+              it.optString("depositJourneyId") == journeyId
+          }
+        cycle.put("depositFinished", true)
+        replacement(current, cycles = rows.toString()).use { save(it) }
+      }
+    }
+
   /** A retry keeps its receiver. Different cycles can never consolidate into one receiver. */
   fun reserveEarnWithdrawal(expected: WalletRecord): Int =
     synchronized(lock) {

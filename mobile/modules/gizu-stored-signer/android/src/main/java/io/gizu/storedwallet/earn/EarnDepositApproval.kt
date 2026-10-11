@@ -13,10 +13,24 @@ private constructor(
   private val generation: String,
   private val cycle: Int,
   private val registry: String,
-  val review: JSONObject,
+  review: JSONObject,
   private val funding: EarnFundingBatchApproval,
 ) {
-  val digest = depositDigest(depositCanonical(review))
+  private val envelope = JSONObject(review.toString())
+  val review: JSONObject
+    get() = JSONObject(envelope.toString())
+
+  private var remainingApprovalAt: Long? = null
+  val digest: String
+    get() =
+      depositDigest(
+        depositCanonical(
+          JSONObject()
+            .put("review", review)
+            .put("remainingApprovalAt", remainingApprovalAt ?: JSONObject.NULL)
+        )
+      )
+
   private var approvedAt: Long? = null
   private var lastObservedAt = 0L
   private var invalidated = false
@@ -29,6 +43,16 @@ private constructor(
     review.getJSONArray("sources").objects().sortedBy { it.getInt("accountIndex") }
 
   companion object {
+    /** Fresh explicit resume approval preserves saved minimums; it does not renew old quotes. */
+    fun fromRemainingReview(
+      record: WalletRecord,
+      review: JSONObject,
+      now: Long,
+    ): EarnDepositApproval {
+      check(now >= review.getLong("quotedAtMs") && now <= Long.MAX_VALUE - 45000)
+      return fromReview(record, review).also { it.remainingApprovalAt = now }
+    }
+
     fun fromReview(record: WalletRecord, review: JSONObject): EarnDepositApproval {
       check(record.verified && !record.earnRecoveryRequired && record.earnChain == 4663)
       check(
@@ -144,12 +168,9 @@ private constructor(
 
   @Synchronized
   fun approveAfterPasskey(now: Long) {
-    check(
-      !invalidated &&
-        approvedAt == null &&
-        now >= review.getLong("quotedAtMs") &&
-        now < review.getLong("expiresAtMs")
-    )
+    val start = remainingApprovalAt ?: review.getLong("quotedAtMs")
+    val expiry = remainingApprovalAt?.let { it + 45000 } ?: review.getLong("expiresAtMs")
+    check(!invalidated && approvedAt == null && now >= start && now < expiry)
     check(now <= Long.MAX_VALUE - 900000)
     funding.approveAfterPasskey(now)
     approvedAt = now

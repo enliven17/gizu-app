@@ -89,7 +89,7 @@ internal class EarnDepositJournal(
       )
       val rows = all()
       val existing =
-        if (draftId != null) rows.single { it.getString("journeyId") == draftId }
+        if (draftId != null) rows.singleOrNull { it.getString("journeyId") == draftId }
         else rows.singleOrNull { it.getInt("cycleIndex") == record.earnCycleIndex }
       if (existing != null) {
         check(
@@ -99,7 +99,16 @@ internal class EarnDepositJournal(
         return@synchronized existing
       }
       check(rows.size < 256)
-      val id = "deposit_" + UUID.randomUUID().toString().replace("-", "")
+      val allocated =
+        JSONArray(record.earnCycles).objects().singleOrNull {
+          it.getInt("cycleIndex") == record.earnCycleIndex
+        }
+      if (draftId != null) check(allocated?.optString("depositJourneyId") == draftId)
+      check(rows.none { it.getInt("cycleIndex") == record.earnCycleIndex })
+      val id =
+        draftId
+          ?: allocated?.optString("depositJourneyId")?.takeIf { it.isNotBlank() }
+          ?: "deposit_" + UUID.randomUUID().toString().replace("-", "")
       val row =
         JSONObject()
           .put("version", 1)
@@ -108,7 +117,11 @@ internal class EarnDepositJournal(
           .put("walletId", walletId)
           .put("generation", generation)
           .put("cycleIndex", record.earnCycleIndex)
-          .put("intentId", "earn_${record.id}_${record.earnCycleIndex}")
+          .put(
+            "intentId",
+            if (record.earnCycleIndex == 0) "earn-v1:${record.id.lowercase()}:robinhood-usdg"
+            else "earn-v2:${record.id.lowercase()}:robinhood-usdg:${record.earnCycleIndex}",
+          )
           .put("profileChainId", profile)
           .put("profileId", "robinhood-usdg")
           .put("phase", "draft")
