@@ -74,7 +74,7 @@ test("production accepts a public HTTPS URL or an unconfigured catalog", () => {
 
 test("release profiles use the Render backend and production environment", () => {
   const config = JSON.parse(readFileSync(resolve(__dirname, "../../eas.json"), "utf8"));
-  expect(config.build.production.env.EXPO_PUBLIC_API_URL).toBe("https://gizu-backend.onrender.com");
+  expect(config.build.production.env.EXPO_PUBLIC_API_URL).toBe("https://gizu-app.onrender.com");
   expect(config.build.production.environment).toBe("production");
   expect(config.build.preview.extends).toBe("production");
   expect(config.build.testflight.extends).toBe("production");

@@ -68,12 +68,10 @@ function setup(enabled = true) {
       .mockImplementation(async () =>
         filled ? [{ kind: "fusionEthOrder", status: "fusionFilled" }] : [],
       ),
-    bootstrap: jest
-      .fn()
-      .mockResolvedValue({
-        proposal: { kind: "fusionEthOrder", inputAtoms: "100000" },
-        expiresAtMs: Date.now() + 45000,
-      }),
+    bootstrap: jest.fn().mockResolvedValue({
+      proposal: { kind: "fusionEthOrder", inputAtoms: "100000" },
+      expiresAtMs: Date.now() + 45000,
+    }),
     execute: jest.fn().mockImplementation(async () => {
       filled = true;
     }),
@@ -87,15 +85,13 @@ function setup(enabled = true) {
   const vault = {
     available: jest.fn().mockResolvedValue(enabled),
     list: jest.fn().mockImplementation(async () => (invested ? [{ status: "invested" }] : [])),
-    plan: jest
-      .fn()
-      .mockImplementation(async () => ({
-        amountAtoms: "2500000",
-        fusionRequired: !filled,
-        maximumGasCostWei: "100",
-        withdrawalReserveWei: "200",
-        expiresAtMs: Date.now() + 45000,
-      })),
+    plan: jest.fn().mockImplementation(async () => ({
+      amountAtoms: "2500000",
+      fusionRequired: !filled,
+      maximumGasCostWei: "100",
+      withdrawalReserveWei: "200",
+      expiresAtMs: Date.now() + 45000,
+    })),
     execute: jest.fn().mockImplementation(async () => {
       invested = true;
     }),

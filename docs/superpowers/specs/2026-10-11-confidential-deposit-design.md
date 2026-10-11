@@ -2,7 +2,7 @@
 
 - Date: 2026-10-11
 - Branch: `fix/backend-deposits`
-- Status: Written specification for user review; product implementation has not started.
+- Status: Approved; Android implementation in progress, live acceptance pending.
 
 ## Agreed outcome
 

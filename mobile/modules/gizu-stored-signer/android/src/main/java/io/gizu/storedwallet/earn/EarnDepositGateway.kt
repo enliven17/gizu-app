@@ -94,6 +94,7 @@ internal class EarnDepositGateway(
     id: String,
     revision: Int,
     expected: String,
+    starting: String = "0",
   ): JSONObject {
     val owner = cycleAddresses(record)[1]
     val request =
@@ -102,6 +103,7 @@ internal class EarnDepositGateway(
         .put("operationId", id)
         .put("revision", revision)
         .put("expectedUsdgAtoms", expected)
+        .put("startingUsdgAtoms", starting)
     val row = JSONObject(post("/robinhood/deposit-preview", request.toString()))
     preview(row, "hypothetical-USDG-funding-isolated-fork")
     check(
@@ -115,6 +117,7 @@ internal class EarnDepositGateway(
         row.getString("token").equals(HOOD_EARN_USDG, true) &&
         row.getString("vault").equals(HOOD_EARN_VAULT, true)
     )
+    check(row.optString("startingUsdgAtoms", "0") == starting)
     val assets = depositAtoms(row.getString("depositAmount"), true)
     val fee = depositAtoms(row.getString("depositFeeBudget"), true)
     val reserve = depositAtoms(row.getString("withdrawalReserve"), true)

@@ -80,7 +80,7 @@ class EarnDepositPreparerTest {
                   .put("depositFeeBudget", "10000")
                   .put("withdrawalReserve", "11000")
                   .put("shareDecimals", 18)
-          .put("previewShares", "870000")
+                  .put("previewShares", "870000")
                   .put("maxSharePrice", "1000000000000000000000000000")
                   .toString()
               else -> error("Preparation attempted an execution/auth endpoint")

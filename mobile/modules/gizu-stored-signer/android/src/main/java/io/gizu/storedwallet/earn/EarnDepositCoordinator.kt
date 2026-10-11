@@ -96,7 +96,10 @@ internal class EarnDepositCoordinator(
     grant: EarnDepositApproval?,
   ): JSONObject {
     var row = engines.reconcile(stage, id, grant)
-    if (row.getString("status") in setOf("planned", "authorizationSaved", "signed")) {
+    if (
+      row.getString("status") in setOf("planned", "authorizationSaved", "signed") ||
+        (stage == "payouts" && row.getString("status") == "cancelled" && !row.has("signedData"))
+    ) {
       if (grant == null) return row
       engines.execute(stage, id, grant)
       row = engines.reconcile(stage, id, grant)
@@ -218,7 +221,16 @@ internal class EarnDepositCoordinator(
           depositAtoms(child.getJSONObject("proposal").getString("budgetAtoms"), true) <= invest
         )
         attach(id, "deposit", depositId)
-      } else check(refs.length() == 1 && refs.getString(0) == depositId)
+      } else {
+        check(refs.length() == 1 && refs.getString(0) == depositId)
+        val existing = engines.child("deposit", depositId)
+        if (
+          grant != null &&
+            !existing.sponsoredSpendSaved() &&
+            existing.getString("status") in setOf("planned", "authorizationSaved")
+        )
+          engines.prepareDeposit(depositId, invest.toString())
+      }
       val settled = reconcileAndExecute("deposit", depositId, grant)
       val investment = engines.investment(settled)
       if (investment == null) {

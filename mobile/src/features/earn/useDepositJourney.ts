@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import {
   canConfirmDeposit,
   type DepositPauseCode,
@@ -31,6 +32,7 @@ export function depositBudgetAtoms(text: string): string | null {
 }
 const running = ["authorizing", "funding", "settlingCredit", "payouts", "depositing"];
 export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: string) {
+  const isFocused = useIsFocused();
   const wallet = useFundingWallet(),
     { depositJourney: service } = useEarn();
   const owner = useMemo(
@@ -131,12 +133,18 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       revoke();
     };
   }, [service, owner, savedJourneyId, accept, revoke]);
+  useEffect(() => {
+    if (!isFocused) {
+      ++request.current;
+      revoke();
+    }
+  }, [isFocused, revoke]);
   const journeyId = snapshot?.journeyId,
     phase = snapshot?.phase,
     pauseReason = snapshot?.pauseReason,
     expiresAtMs = snapshot?.review?.expiresAtMs;
   useEffect(() => {
-    if (!journeyId || phase === "invested" || !foreground.current) return;
+    if (!isFocused || !journeyId || phase === "invested" || !foreground.current) return;
     if (phase === "review" && (expiresAtMs ?? 0) > Date.now()) {
       const timer = setTimeout(
         () => setClock(Date.now()),
@@ -174,9 +182,9 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       disposed = true;
       if (timer) clearTimeout(timer);
     };
-  }, [journeyId, phase, pauseReason, expiresAtMs, service, owner, accept, clock]);
+  }, [journeyId, phase, pauseReason, expiresAtMs, service, owner, accept, clock, isFocused]);
   const perform = async (task: () => Promise<DepositSnapshot>) => {
-    if (occupied.current || !foreground.current) return;
+    if (occupied.current || !foreground.current || !isFocused) return;
     occupied.current = true;
     setBusy(true);
     setMessage("");
@@ -189,7 +197,8 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
         return;
       }
       saved.current = next;
-      if (mounted.current && foreground.current && attempt === request.current) accept(next);
+      if (mounted.current && foreground.current && isFocused && attempt === request.current)
+        accept(next);
       else if (!mounted.current || !foreground.current)
         void service.cancel(owner, next.journeyId, next.revision).catch(() => undefined);
     } catch (error) {

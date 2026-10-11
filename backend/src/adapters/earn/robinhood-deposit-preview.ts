@@ -11,6 +11,7 @@ import { simulateProspectiveRobinhoodDeposit } from "./robinhood-simulation.ts";
 export type RobinhoodPreviewRequest = {
   owner: string;
   expectedUsdgAtoms: string;
+  startingUsdgAtoms?: string;
   operationId: string;
   revision: number;
 };
@@ -27,6 +28,12 @@ export class RobinhoodDepositPreviewPlanner {
       BigInt(request.expectedUsdgAtoms) >= 1n << 256n
     )
       throw new Error("Invalid preview budget");
+    const starting = request.startingUsdgAtoms ?? "0";
+    if (
+      !/^(0|[1-9][0-9]{0,77})$/.test(starting) ||
+      BigInt(starting) > BigInt(request.expectedUsdgAtoms)
+    )
+      throw new Error("Invalid attributed preview balance");
     const expected = BigInt(request.expectedUsdgAtoms),
       actual =
         this.injected ?? createRobinhoodPlannerProviders(this.config, this.now);
@@ -35,7 +42,7 @@ export class RobinhoodDepositPreviewPlanner {
       ...actual,
       readState: async (owner) => {
         real = await actual.readState(owner);
-        if (real.token !== 0n || real.shares !== 0n)
+        if (real.token !== BigInt(starting) || real.shares !== 0n)
           throw new Error("Preview requires unused destination");
         return { ...real, token: expected };
       },
@@ -79,6 +86,7 @@ export class RobinhoodDepositPreviewPlanner {
       tokenDecimals: plan.tokenDecimals,
       shareDecimals: plan.shareDecimals,
       expectedUsdgAtoms: request.expectedUsdgAtoms,
+      startingUsdgAtoms: starting,
       referenceBlockNumber: plan.referenceBlockNumber,
       referenceBlockHash: plan.referenceBlockHash,
       referenceTimestampMs: plan.referenceTimestampMs,

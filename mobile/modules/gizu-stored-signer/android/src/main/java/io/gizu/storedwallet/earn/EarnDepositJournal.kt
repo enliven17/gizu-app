@@ -179,6 +179,33 @@ internal class EarnDepositJournal(
       row.remove("message")
     }
 
+  fun saveRemainingReview(id: String, revision: Int, review: JSONObject): JSONObject =
+    update(id, revision) { row ->
+      check(row.getString("phase") == "paused")
+      val old = row.getJSONObject("review")
+      for (field in
+        listOf(
+          "journeyId",
+          "walletId",
+          "generation",
+          "cycleIndex",
+          "profileChainId",
+          "confidentialAccount",
+          "destinations",
+          "sourceBudgetAtoms",
+        )) check(nativeJsonEqual(old.get(field), review.get(field)))
+      val before = old.getJSONArray("sources").objects()
+      val after = review.getJSONArray("sources").objects()
+      check(before.size == after.size)
+      for (source in before) {
+        val next = after.single { it.getString("operationId") == source.getString("operationId") }
+        for (field in listOf("operationId", "accountIndex", "address", "budgetAtoms")) check(
+          nativeJsonEqual(source.get(field), next.get(field))
+        )
+      }
+      row.put("review", JSONObject(review.toString()))
+    }
+
   fun attachChild(id: String, revision: Int, stage: String, childId: String): JSONObject =
     update(id, revision) { row ->
       check(

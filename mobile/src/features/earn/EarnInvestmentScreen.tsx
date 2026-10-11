@@ -86,7 +86,7 @@ export function EarnInvestmentScreen({
             <VaultExecutionPanel intent={cycle} presentation="investment" />
           )}
           <Typography variant="heading">Funding recovery</Typography>
-          <SourceFundingPanel intent={cycle} />
+          <SourceFundingPanel intent={cycle} presentation="recovery" />
         </>
       )}
       {earn.message !== "" && <Typography accessibilityRole="alert">{earn.message}</Typography>}

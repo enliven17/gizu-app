@@ -68,3 +68,13 @@ test("rejects duplicate authorization and cancel only revokes the named journey"
   await first;
   expect(native.confirmEarnDeposit).toHaveBeenCalledTimes(1);
 });
+test("intent lookup is scoped to the exact saved cycle", async () => {
+  const { service, native } = fixture();
+  const id = depositSnapshot().intentId;
+  expect((await service.status(owner, "intent:" + id)).intentId).toBe(id);
+  native.getEarnDepositStatus.mockResolvedValue({
+    ...depositSnapshot(),
+    intentId: "another_cycle",
+  });
+  await expect(service.status(owner, "intent:" + id)).rejects.toThrow(/identity/);
+});

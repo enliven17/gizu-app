@@ -145,13 +145,23 @@ internal class EarnDepositEngineAdapter(
   override suspend fun prepareDeposit(id: String, attributedAtoms: String): JSONObject {
     foreground()
     val existing = sponsored().all().singleOrNull { it.getString("operationId") == id }
-    if (existing != null) return existing
+    if (
+      existing != null &&
+        (existing.sponsoredSpendSaved() ||
+          existing.getString("status") !in setOf("planned", "authorizationSaved"))
+    )
+      return existing
     val pair =
       store.load().use { r ->
         record {}
         checkNotNull(executionGrant).assertRead(r, now())
         gateway.depositPlan(r, id, attributedAtoms)
       }
+    if (existing != null) {
+      pair.first.put("revision", existing.getJSONObject("proposal").getInt("revision") + 1)
+      return sponsored()
+        .refreshUnsignedDeposit(id, existing.getInt("revision"), pair.first, pair.second)
+    }
     return sponsoredEngine(4663).use {
       it.create(
         mapOf(
@@ -202,12 +212,20 @@ internal class EarnDepositEngineAdapter(
         val proof =
           witness(row, review.hash, review.text)
             .put("providerFeeBps", JSONObject(quoted.text).getJSONObject("quote").getInt("feeBps"))
-        engine.execute(review) {
-          foreground()
-          val fresh = engine.journal.get(id)
-          record { grant.assertPrepared(it, stage, fresh, proof, now()) }
-          if (fresh.has("signedData"))
-            grant.recordDurableSignature(stage, id, depositDigest(fresh.getString("signedData")))
+        try {
+          engine.execute(review) {
+            foreground()
+            val fresh = engine.journal.get(id)
+            record { grant.assertPrepared(it, stage, fresh, proof, now()) }
+            if (fresh.has("signedData"))
+              grant.recordDurableSignature(stage, id, depositDigest(fresh.getString("signedData")))
+          }
+        } catch (failure: Exception) {
+          if (
+            !engine.journal.get(id).has("signedData") ||
+              failure is kotlinx.coroutines.CancellationException
+          )
+            throw failure
         }
       }
     } else {

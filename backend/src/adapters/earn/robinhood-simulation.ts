@@ -149,6 +149,10 @@ export async function fundProspectiveRobinhoodBalance(
       )
         continue;
       matched = true;
+    } catch {
+      // Traced proxy/configuration slots can make balanceOf revert when perturbed.
+      // Restore them and continue; only independently proved owner storage is accepted.
+      matched = false;
     } finally {
       await rpc("anvil_setStorageAt", [
         ROBINHOOD_PROFILE.token,

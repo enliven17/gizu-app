@@ -1,5 +1,5 @@
 import { act, render, screen, userEvent, waitFor } from "@testing-library/react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { MainnetWalletProvider } from "@/features/wallet/MainnetWalletProvider";
@@ -28,6 +28,7 @@ function setup(overrides: Partial<EarnDepositService> = {}, id?: string) {
     cancel: jest.fn().mockResolvedValue({ ...snapshot, phase: "paused", pauseReason: "cancelled" }),
     ...overrides,
   };
+  const navigation = createNavigationContainerRef();
   const result = render(
     <MainnetWalletProvider
       session={{
@@ -53,17 +54,18 @@ function setup(overrides: Partial<EarnDepositService> = {}, id?: string) {
           cancel: jest.fn(),
         }}
       >
-        <NavigationContainer>
+        <NavigationContainer ref={navigation}>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Deposit">
               {() => <DepositJourneyScreen profileId="robinhood-usdg" savedJourneyId={id} />}
             </Stack.Screen>
+            <Stack.Screen name="Other">{() => null}</Stack.Screen>
           </Stack.Navigator>
         </NavigationContainer>
       </EarnProvider>
     </MainnetWalletProvider>,
   );
-  return { service, snapshot, ...result };
+  return { service, snapshot, navigation, ...result };
 }
 async function review() {
   const user = userEvent.setup();
@@ -90,20 +92,18 @@ test("amount, unsigned review, one confirm and verified investment have no child
   await user.press(screen.getByRole("button", { name: "Confirm deposit" }));
   expect(await screen.findByText("Converting USDC to private balance")).toBeVisible();
   expect(service.confirm).toHaveBeenCalledTimes(1);
-  jest
-    .mocked(service.status)
-    .mockResolvedValue({
-      ...snapshot,
-      phase: "invested",
-      revision: 5,
-      completedSteps: ["funding", "credit", "payouts", "deposit"],
-      creditedAtoms: "2970000",
-      holdReceivedAtoms: "290000",
-      investReceivedAtoms: "2650000",
-      depositedAtoms: "2498000",
-      sharesAtoms: "2490000000000000000",
-      depositTransactionHash: "0x" + "a".repeat(64),
-    });
+  jest.mocked(service.status).mockResolvedValue({
+    ...snapshot,
+    phase: "invested",
+    revision: 5,
+    completedSteps: ["funding", "credit", "payouts", "deposit"],
+    creditedAtoms: "2970000",
+    holdReceivedAtoms: "290000",
+    investReceivedAtoms: "2650000",
+    depositedAtoms: "2498000",
+    sharesAtoms: "2490000000000000000",
+    depositTransactionHash: "0x" + "a".repeat(64),
+  });
   await user.press(screen.getByRole("button", { name: "Check progress" }));
   expect(await screen.findByText("Invested")).toBeVisible();
   expect(screen.getByText("0.29 USDG held")).toBeVisible();
@@ -129,14 +129,12 @@ test("late preparation cannot authorize an edited amount; the same draft is reus
 });
 test("unavailable preview explains why and never requests signing", async () => {
   const { service } = setup({
-    prepare: jest
-      .fn()
-      .mockResolvedValue({
-        ...ready(),
-        phase: "paused",
-        pauseReason: "previewUnavailable",
-        review: undefined,
-      }),
+    prepare: jest.fn().mockResolvedValue({
+      ...ready(),
+      phase: "paused",
+      pauseReason: "previewUnavailable",
+      review: undefined,
+    }),
   });
   await review();
   expect(await screen.findByText(/fresh fee estimate is unavailable/)).toBeVisible();
@@ -209,4 +207,16 @@ test("unsupported native build keeps review disabled", async () => {
   expect(await screen.findByText(/updated.*native|Update the native app/)).toBeVisible();
   await user.type(screen.getByLabelText("USDC deposit amount"), "3");
   expect(screen.getByRole("button", { name: "Review deposit" })).toBeDisabled();
+});
+
+test("navigating away while the deposit remains mounted revokes its approval", async () => {
+  const { service, navigation } = setup();
+  const user = await review();
+  await user.press(screen.getByRole("button", { name: "Confirm deposit" }));
+  await screen.findByText("Converting USDC to private balance");
+  expect(service.cancel).not.toHaveBeenCalled();
+  act(() => navigation.navigate("Other" as never));
+  await waitFor(() =>
+    expect(service.cancel).toHaveBeenCalledWith(expect.anything(), "deposit_1", 1),
+  );
 });

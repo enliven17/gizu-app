@@ -320,9 +320,15 @@ class GizuStoredSignerModule : Module() {
             earnDepositJournal(activity, record).get(id)
           }
         store.selectEarnCycle(row.getInt("cycleIndex"))
+        val fresh =
+          store.load().use { record ->
+            val journal = earnDepositJournal(activity, record)
+            nativeDepositRemaining(activity, store, record, journal) { requireForeground(activity) }
+              .refresh(record, id, revision)
+          }
         val host = makeDepositHost(activity, store, walletId, id)
         depositHost = host
-        host.confirm(id, revision, true)
+        host.confirm(id, fresh.getInt("revision"), true)
       }
     }
     AsyncFunction("getEarnDepositStatus") { walletId: String, id: String, promise: Promise ->
@@ -344,9 +350,12 @@ class GizuStoredSignerModule : Module() {
                 .maxByOrNull { it.getInt("cycleIndex") }
                 ?.getString("journeyId") ?: error("No saved deposit draft")
             else if (id.startsWith("intent:"))
-              journal.all().single { it.getString("intentId") == id.removePrefix("intent:") }.getString("journeyId")
+              journal
+                .all()
+                .single { it.getString("intentId") == id.removePrefix("intent:") }
+                .getString("journeyId")
             else id
-          if (depositHost?.busy == true) promise.resolve(journal.publicSnapshot(lookupId))
+          if (depositHost?.busy == true) promise.resolve(depositHost!!.status(lookupId))
           else {
             val row = journal.get(lookupId)
             if (

@@ -61,3 +61,26 @@ test("prospective planning rejects stale data, unrelated existing funds, invalid
       planner.preview({ ...request, expectedUsdgAtoms: amount }),
     );
 });
+test("remaining previews accept only the exact attributed existing USDG and never weaken the funded planner", async () => {
+  const planner = new RobinhoodDepositPreviewPlanner(
+    { rpcUrl: "http://rpc.invalid" },
+    { ...deps, readState: async () => ({ ...state, token: 400000n }) },
+    () => 1000000,
+  );
+  const result = await planner.preview({
+    ...request,
+    startingUsdgAtoms: "400000",
+  });
+  assert.equal(result.startingUsdgAtoms, "400000");
+  assert.equal(result.executionAvailable, false);
+  await assert.rejects(
+    planner.preview({ ...request, startingUsdgAtoms: "399999" }),
+  );
+  await assert.rejects(
+    planner.preview({
+      ...request,
+      expectedUsdgAtoms: "300000",
+      startingUsdgAtoms: "400000",
+    }),
+  );
+});

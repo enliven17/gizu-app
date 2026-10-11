@@ -20,66 +20,67 @@ export function registerEarnPreviewRoutes(
   deposit: Pick<RobinhoodDepositPreviewPlanner, "preview">,
   payout: Pick<EarnPayoutPreviewGateway, "preview">,
 ) {
-  app
-    .withTypeProvider<ZodTypeProvider>()
-    .post(
-      "/v1/earn/robinhood/deposit-preview",
-      {
-        bodyLimit: 2048,
-        logLevel: "silent",
-        schema: {
-          body: z
-            .object({ ...binding, owner: addr, expectedUsdgAtoms: atoms })
-            .strict(),
-        },
+  app.withTypeProvider<ZodTypeProvider>().post(
+    "/v1/earn/robinhood/deposit-preview",
+    {
+      bodyLimit: 2048,
+      logLevel: "silent",
+      schema: {
+        body: z
+          .object({
+            ...binding,
+            owner: addr,
+            expectedUsdgAtoms: atoms,
+            startingUsdgAtoms: z
+              .string()
+              .regex(/^(0|[1-9][0-9]{0,77})$/)
+              .refine((v) => BigInt(v) < 1n << 256n)
+              .optional(),
+          })
+          .strict(),
       },
-      async (request, reply) => {
-        reply.header("Cache-Control", "no-store");
-        try {
-          return await deposit.preview(request.body);
-        } catch {
-          return reply
-            .code(503)
-            .send({
-              code: "EARN_DEPOSIT_PREVIEW_UNAVAILABLE",
-              message:
-                "Fresh deposit estimates are unavailable. No funds have moved.",
-            });
-        }
+    },
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      try {
+        return await deposit.preview(request.body);
+      } catch {
+        return reply.code(503).send({
+          code: "EARN_DEPOSIT_PREVIEW_UNAVAILABLE",
+          message:
+            "Fresh deposit estimates are unavailable. No funds have moved.",
+        });
+      }
+    },
+  );
+  app.withTypeProvider<ZodTypeProvider>().post(
+    "/v1/earn/native/payout/preview",
+    {
+      bodyLimit: 2048,
+      logLevel: "silent",
+      schema: {
+        body: z
+          .object({
+            ...binding,
+            profileChainId: z.literal(4663),
+            confidentialAccount: addr,
+            recipient: addr,
+            amountAtoms: atoms,
+            leg: z.enum(["hold", "invest"]),
+          })
+          .strict(),
       },
-    );
-  app
-    .withTypeProvider<ZodTypeProvider>()
-    .post(
-      "/v1/earn/native/payout/preview",
-      {
-        bodyLimit: 2048,
-        logLevel: "silent",
-        schema: {
-          body: z
-            .object({
-              ...binding,
-              profileChainId: z.literal(4663),
-              confidentialAccount: addr,
-              recipient: addr,
-              amountAtoms: atoms,
-              leg: z.enum(["hold", "invest"]),
-            })
-            .strict(),
-        },
-      },
-      async (request, reply) => {
-        reply.header("Cache-Control", "no-store");
-        try {
-          return await payout.preview(request.body);
-        } catch {
-          return reply
-            .code(503)
-            .send({
-              code: "EARN_DEPOSIT_PREVIEW_UNAVAILABLE",
-              message: "This USDG route is unavailable. No funds have moved.",
-            });
-        }
-      },
-    );
+    },
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      try {
+        return await payout.preview(request.body);
+      } catch {
+        return reply.code(503).send({
+          code: "EARN_DEPOSIT_PREVIEW_UNAVAILABLE",
+          message: "This USDG route is unavailable. No funds have moved.",
+        });
+      }
+    },
+  );
 }

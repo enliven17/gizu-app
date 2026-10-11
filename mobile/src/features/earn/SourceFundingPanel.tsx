@@ -212,7 +212,13 @@ function useSourceFunding(intent: EarnIntent) {
     refresh: () => run(refresh),
   };
 }
-export function SourceFundingPanel({ intent }: { intent: EarnIntent }) {
+export function SourceFundingPanel({
+  intent,
+  presentation = "deposit",
+}: {
+  intent: EarnIntent;
+  presentation?: "deposit" | "recovery";
+}) {
   const s = useSourceFunding(intent),
     hasFunding = s.operations.some((op) => op.status !== "cancelled" && op.status !== "reverted"),
     disabled =
@@ -224,29 +230,33 @@ export function SourceFundingPanel({ intent }: { intent: EarnIntent }) {
   return (
     <Surface>
       <View className="gap-3 p-5">
-        <Typography variant="heading">Fund confidential earn</Typography>
-        <Typography>
-          Choose the total Monad USDC budget. Gas is paid in USDC; retain at least 0.01 USDC. The
-          10/90 split uses the actual confirmed confidential credit.
-        </Typography>
-        <TextInput
-          accessibilityLabel="USDC funding budget"
-          placeholder="Total USDC budget"
-          placeholderTextColor={colors.fg["35"]}
-          selectionColor={colors.accent}
-          keyboardType="decimal-pad"
-          maxLength={85}
-          value={s.budget}
-          editable={!disabled}
-          onChangeText={s.setBudget}
-          className="min-h-11 rounded-2xl border border-borderSoft bg-glassSoft px-4 py-3 text-text"
-        />
-        <Button
-          label="Review USDC funding"
-          disabled={disabled}
-          loading={s.busy}
-          onPress={() => void s.review()}
-        />
+        {presentation === "deposit" && (
+          <>
+            <Typography variant="heading">Fund confidential earn</Typography>
+            <Typography>
+              Choose the total Monad USDC budget. Gas is paid in USDC; retain at least 0.01 USDC.
+              The 10/90 split uses the actual confirmed confidential credit.
+            </Typography>
+            <TextInput
+              accessibilityLabel="USDC funding budget"
+              placeholder="Total USDC budget"
+              placeholderTextColor={colors.fg["35"]}
+              selectionColor={colors.accent}
+              keyboardType="decimal-pad"
+              maxLength={85}
+              value={s.budget}
+              editable={!disabled}
+              onChangeText={s.setBudget}
+              className="min-h-11 rounded-2xl border border-borderSoft bg-glassSoft px-4 py-3 text-text"
+            />
+            <Button
+              label="Review USDC funding"
+              disabled={disabled}
+              loading={s.busy}
+              onPress={() => void s.review()}
+            />
+          </>
+        )}
         {s.message !== "" && <Typography accessibilityRole="alert">{s.message}</Typography>}
         {!s.available && !s.loading && (
           <Typography>

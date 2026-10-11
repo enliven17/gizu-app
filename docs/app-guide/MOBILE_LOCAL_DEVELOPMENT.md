@@ -22,7 +22,7 @@ transactions simulated.
    ```
 
 2. Choose the backend in `mobile/.env` using `EXPO_PUBLIC_API_URL`.
-   Use `https://gizu-backend.onrender.com` for the hosted backend. Never put provider
+   Use `https://gizu-app.onrender.com` for the hosted backend. Never put provider
    API keys in mobile environment variables.
 3. Build and install for **one** platform:
 
@@ -69,3 +69,31 @@ See [local development diagnostics](../internal/PASSKEY_TROUBLESHOOTING.md#local
 and the [mobile README](../../mobile/README.md) for deeper build instructions.
 Simulator launch is not proof that a physical device's passkey provider works.
 Expo reference: [development builds](https://docs.expo.dev/develop/development-builds/introduction/).
+
+## Standalone Android app with Render
+
+A release APK contains its JavaScript bundle. After installing it, tap **Gizu** in
+Android's app list; USB, the laptop and Metro are unnecessary. Internet and a
+compatible deployed Render backend are still required. Rebuild for new source or
+environment changes; this installation does not pull a Git branch automatically.
+
+Use the existing generated Android project and verified signing identity. Do not
+uninstall Gizu, clear its storage, run prebuild or regenerate its keystore just to
+update it. From `mobile/android`, with Node 24 on PATH, JDK 17 and the Android SDK:
+
+```sh
+NODE_ENV=production GIZU_BUILD_VARIANT=production \
+EXPO_PUBLIC_API_URL=https://gizu-app.onrender.com \
+EXPO_PUBLIC_PASSKEY_MODE=native \
+./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --console=plain
+adb install -r app/build/outputs/apk/release/app-release.apk
+adb shell am start -n com.example.gizu.dev/io.gizu.android.MainActivity
+```
+
+This checkout's existing test phone uses that package/activity and the preserved
+`mobile/.credentials/android-debug.keystore`. Verify the certificate before updating
+an existing install; a signing mismatch is not a reason to erase the wallet.
+The release native endpoint is pinned to Render. The USB backend property applies
+only to debug builds. A standalone release can coexist with Metro running, but it
+does not load code from Metro. If the backend has not deployed the new confidential
+preview routes, review remains unavailable before any funds move.

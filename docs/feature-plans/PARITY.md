@@ -306,3 +306,20 @@ their native IDs without repeating a complete owned token amount. If the aggrega
 incomplete, a fresh swap subset remains visible with its account-space label. Portfolio
 and sale/account relationships remain encrypted on the device. Native Android changes
 require an APK rebuild; this parity is not yet verified on iOS.
+
+### Guided confidential deposit
+
+Android Robinhood deposits now use Amount → Review → one bounded native passkey →
+progress → verified Invested. Review creates an unsigned fresh pair without another
+approval; multi-source funding shares Swap reservations and each source retains
+its own credit/payout journals. Progress stops at investment. Saved investment
+screens own separate withdrawal/return and funding recovery, without a new funding
+input. Leaving the deposit screen revokes remaining authority, preserving signed
+work. Resume refreshes unsigned economics before new native approval and never
+replaces paid or signed children.
+
+Ethereum uses the existing separately approved stage flow. iOS does not advertise
+the new journey capability. The new APK requires the two read-only backend preview
+routes described in [Confidential Earn](../internal/CONFIDENTIAL_EARN.md#guided-robinhood-deposit-october-11).
+Render currently lacks those routes; old deployments block before funding. Mocked
+functional/native tests do not establish funded provider or device acceptance.

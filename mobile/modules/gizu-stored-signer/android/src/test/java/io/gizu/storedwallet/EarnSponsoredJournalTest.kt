@@ -146,4 +146,53 @@ class EarnSponsoredJournalTest {
       assertThrows(IllegalStateException::class.java) { j.cancel("source-1", 2) }
     }
   }
+
+  @Test
+  fun refreshingUnsignedDepositPreservesIdentityAndCannotReplaceSignedBytes() {
+    val j = journal(File())
+    DepositFixtures.record().use { r ->
+      val p = DepositFixtures.deposit(r).getJSONObject("proposal").put("revision", 1)
+      j.create(p, JSONObject().put("sender", p.getString("expectedFrom")))
+      val fresh =
+        JSONObject(p.toString())
+          .put("revision", 2)
+          .put("amountAtoms", "860000")
+          .put("maximumTokenFeeAtoms", "15000")
+          .put("deadline", 9999)
+      val next =
+        j.refreshUnsignedDeposit(
+          "deposit1",
+          1,
+          fresh,
+          JSONObject().put("sender", p.getString("expectedFrom")),
+        )
+      assertEquals("860000", next.getJSONObject("proposal").getString("amountAtoms"))
+      assertThrows(IllegalStateException::class.java) {
+        j.refreshUnsignedDeposit(
+          "deposit1",
+          next.getInt("revision"),
+          JSONObject(fresh.toString()).put("vault", "other"),
+          JSONObject(),
+        )
+      }
+      j.saveSigned(
+        "deposit1",
+        next.getInt("revision"),
+        "hash",
+        "immutable",
+        "review",
+        "hash",
+        JSONObject(),
+      )
+      assertThrows(IllegalStateException::class.java) {
+        j.refreshUnsignedDeposit(
+          "deposit1",
+          j.get("deposit1").getInt("revision"),
+          JSONObject(fresh.toString()).put("revision", 3),
+          JSONObject(),
+        )
+      }
+      assertEquals("immutable", j.get("deposit1").getString("signedUserOperation"))
+    }
+  }
 }

@@ -17,7 +17,7 @@ internal struct MainnetPortfolio {
       try require(record.verified)
       accounts = try await Self.accounts(entropy: record.entropy, registry: registry)
     }
-    try saved.portfolio.rememberActive(saved, gateway: "https://gizu-backend.onrender.com")
+    try saved.portfolio.rememberActive(saved, gateway: "https://gizu-app.onrender.com")
     var value = try await read(walletId: walletId, registry: registry, accounts: accounts)
       .publicValue
     value["history"] = try saved.portfolio.history()

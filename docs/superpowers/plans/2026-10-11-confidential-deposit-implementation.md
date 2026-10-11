@@ -1,6 +1,6 @@
 # Confidential Deposit Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Deliver a clean vault deposit journey that creates two fresh destination wallets and invests the 90% leg through confidential routing, with one bounded passkey approval on the normal Android Robinhood path.
 
@@ -65,7 +65,7 @@ Existing engines keep their semantic checks. The new adapter joins their prepare
 
 Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, `canConfirmDeposit(snapshot: DepositSnapshot, nowMs: number): boolean` and `EarnDepositService` with `available(): Promise<boolean>`, `prepare(owner, profileId, budgetAtoms, draftId?): Promise<DepositSnapshot>`, `confirm(owner, journeyId, revision): Promise<DepositSnapshot>`, `status(owner, journeyId): Promise<DepositSnapshot>`, `resume(owner, journeyId, revision): Promise<DepositSnapshot>`, `cancel(owner, journeyId, revision): Promise<DepositSnapshot>`. `cancel` revokes local authority; it does not promise to undo submitted operations. These service methods are Task 6's contract. Status parsing preserves an expired saved review; `canConfirmDeposit` prevents confirming it.
 
-- [ ] Write `rejectsChangedOwnerAndDestination`, `rejectsNoncanonicalAmounts`, `preservesExpiredReviewButDisablesConfirm`, and `rejectsMissingMinimums` tests. Assert malformed membership/amounts fail, expired status still loads while `canConfirmDeposit` is false, and `unavailable` never parses as zero.
+- [x] Write `rejectsChangedOwnerAndDestination`, `rejectsNoncanonicalAmounts`, `preservesExpiredReviewButDisablesConfirm`, and `rejectsMissingMinimums` tests. Assert malformed membership/amounts fail, expired status still loads while `canConfirmDeposit` is false, and `unavailable` never parses as zero.
 
   ```ts
   expect(
@@ -79,10 +79,10 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   ).toThrow();
   ```
 
-- [ ] Run `cd mobile && npm test -- tests/unit/earn/depositJourney.test.ts`; expect failure because the contract is absent.
-- [ ] Implement the tagged snapshot/review types and strict parser. Add optional `earnDepositJourney` capability and exact native methods: `prepareEarnDeposit(walletId, profileId, budgetAtoms, draftId)`, `confirmEarnDeposit(walletId, journeyId, revision)`, `getEarnDepositStatus(walletId, journeyId)`, `resumeEarnDeposit(walletId, journeyId, revision)`, `cancelEarnDeposit(walletId, journeyId, revision)`; native return values stay `unknown` until parsed.
-- [ ] Run that test and `npm run typecheck`; expect pass. Existing capability absence defaults to false.
-- [ ] Commit the contract and tests as `feat: define guided deposit contract`.
+- [x] Run `cd mobile && npm test -- tests/unit/earn/depositJourney.test.ts`; expect failure because the contract is absent.
+- [x] Implement the tagged snapshot/review types and strict parser. Add optional `earnDepositJourney` capability and exact native methods: `prepareEarnDeposit(walletId, profileId, budgetAtoms, draftId)`, `confirmEarnDeposit(walletId, journeyId, revision)`, `getEarnDepositStatus(walletId, journeyId)`, `resumeEarnDeposit(walletId, journeyId, revision)`, `cancelEarnDeposit(walletId, journeyId, revision)`; native return values stay `unknown` until parsed.
+- [x] Run that test and `npm run typecheck`; expect pass. Existing capability absence defaults to false.
+- [x] Commit the contract and tests as `feat: define guided deposit contract`.
 
 ## Task 2: Add isolated previews for unfunded USDG destinations
 
@@ -90,7 +90,7 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** `RobinhoodDepositPreviewPlanner.preview({owner, expectedUsdgAtoms, operationId, revision}): Promise<RobinhoodDepositPreview>`. Add `POST /v1/earn/robinhood/deposit-preview` for this input and `POST /v1/earn/native/payout/preview` for one `{profileChainId: 4663, confidentialAccount, recipient, amountAtoms, operationId, revision, leg}`. The payout preview obtains indicative quote output and qualified fee proof without authenticated-credit assertions, signed intents, submitted funds or durable execution recovery envelopes. Both responses carry `kind: 'preview'`, `readOnly: true`, `executionAvailable: false`, observed/expiry times, immutable request/reference bindings and explicit assumptions. They contain no calldata or UserOperation. Return `503 EARN_DEPOSIT_PREVIEW_UNAVAILABLE` when dependencies/fresh safe economics are unavailable.
 
-- [ ] Write failing tests for an unfunded owner, route unavailable, too-small hold leg, stale provider data, unqualified fees, changed contracts and request overflow. Assert routes never invoke submit/sign/authenticated-settlement methods or return executable bytes. The existing real-balance planner still rejects an unfunded owner.
+- [x] Write failing tests for an unfunded owner, route unavailable, too-small hold leg, stale provider data, unqualified fees, changed contracts and request overflow. Assert routes never invoke submit/sign/authenticated-settlement methods or return executable bytes. The existing real-balance planner still rejects an unfunded owner.
 
   ```ts
   assert.equal(preview.readOnly, true);
@@ -99,10 +99,10 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   assert.equal("calldata" in preview, false);
   ```
 
-- [ ] Run `cd backend && node --experimental-transform-types --test test/adapters/earn/robinhood-preview.test.ts test/http/earn-preview.routes.test.ts`; expect missing-preview failures.
-- [ ] Implement the separate preview planner and strict routes with `Cache-Control: no-store`, bounded bodies, silent identity-sensitive request logging and the existing provider error conventions. Prospective simulation may override only the verified USDG balance storage for this owner inside the pinned isolated fork; verify the overridden balance before calls. Discover and verify storage through the current fork/debug simulation tooling; fail closed if the token layout cannot be proved. Do not guess an ERC-20 slot or weaken `simulateRobinhoodDeposit`'s real funded-state path. Reuse fee headroom and reserve calculations; a hypothetical override never enters an executable result. Register routes in `backend/src/app.ts`.
-- [ ] Run the new tests plus existing `robinhood-planner.test.ts`, `robinhood-policy.test.ts`, `earn-planning.routes.test.ts`, then `npm run typecheck`. Run prospective isolated-fork evidence only when a usable RPC is available; report it separately.
-- [ ] Commit as `feat: preview confidential deposit economics before funding`.
+- [x] Run `cd backend && node --experimental-transform-types --test test/adapters/earn/robinhood-preview.test.ts test/http/earn-preview.routes.test.ts`; expect missing-preview failures.
+- [x] Implement the separate preview planner and strict routes with `Cache-Control: no-store`, bounded bodies, silent identity-sensitive request logging and the existing provider error conventions. Prospective simulation may override only the verified USDG balance storage for this owner inside the pinned isolated fork; verify the overridden balance before calls. Discover and verify storage through the current fork/debug simulation tooling; fail closed if the token layout cannot be proved. Do not guess an ERC-20 slot or weaken `simulateRobinhoodDeposit`'s real funded-state path. Reuse fee headroom and reserve calculations; a hypothetical override never enters an executable result. Register routes in `backend/src/app.ts`.
+- [x] Run the new tests plus existing `robinhood-planner.test.ts`, `robinhood-policy.test.ts`, `earn-planning.routes.test.ts`, then `npm run typecheck`. Run prospective isolated-fork evidence only when a usable RPC is available; report it separately.
+- [x] Commit as `feat: preview confidential deposit economics before funding`.
 
 ## Task 3: Implement the native grant and durable journey record
 
@@ -112,7 +112,7 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 `EarnDepositApproval.fromReview(record: WalletRecord, review: JSONObject): EarnDepositApproval`, `approveAfterPasskey(now: Long)`, `assertPrepared(record: WalletRecord, stage: String, child: JSONObject, preparedReview: JSONObject, now: Long)`, `recordDurableSignature(stage: String, childId: String, signedHash: String)`, `invalidate()`. Bind wallet/generation/cycle/role registry, source reservation membership, fixed destinations/profile/contracts, explicit limits and stage dependencies. Keep the active grant memory-only; persisted approval metadata is evidence, never authority.
 
-- [ ] Write failing tests for grant expiry at `900000 ms`, backwards time, wrong generation/cycle/source/vault/token, fee excess, below-minimum payouts/assets/shares, changed split, forbidden withdrawal/return and duplicate budget consumption. Assert a signed child's unchanged hash can be revisited without consuming its budget again; a replacement hash fails.
+- [x] Write failing tests for grant expiry at `900000 ms`, backwards time, wrong generation/cycle/source/vault/token, fee excess, below-minimum payouts/assets/shares, changed split, forbidden withdrawal/return and duplicate budget consumption. Assert a signed child's unchanged hash can be revisited without consuming its budget again; a replacement hash fails.
 
   ```kotlin
   grant.approveAfterPasskey(1_000L)
@@ -120,10 +120,10 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   assertFails { grant.assertPrepared(record, "funding", child, review, 901_000L) }
   ```
 
-- [ ] Run from `mobile/android`: `./gradlew :gizu-stored-signer:testDebugUnitTest --tests '*EarnDepositApprovalTest' --tests '*EarnDepositJournalTest' --console=plain`; expect missing classes.
-- [ ] Implement the grant and journal. Persist child identity before any signing; derive used/reserved budgets from durable child signing evidence, not volatile counters alone. A failed write stops signing. Restart reconstructs pending/unknown signed state and requires reconciliation before cancellation, reservation release or replacement. Preserve existing journal formats and derivation versions.
-- [ ] Run new tests plus `EarnFundingBatchApprovalTest`, `FundingReservationsTest` and `WalletStoreMigrationTest`; expect pass. Include death immediately before/after each durable record boundary and corrupt-journal rejection.
-- [ ] Commit as `feat: bind deposit authority to native journal and limits`.
+- [x] Run from `mobile/android`: `./gradlew :gizu-stored-signer:testDebugUnitTest --tests '*EarnDepositApprovalTest' --tests '*EarnDepositJournalTest' --console=plain`; expect missing classes.
+- [x] Implement the grant and journal. Persist child identity before any signing; derive used/reserved budgets from durable child signing evidence, not volatile counters alone. A failed write stops signing. Restart reconstructs pending/unknown signed state and requires reconciliation before cancellation, reservation release or replacement. Preserve existing journal formats and derivation versions.
+- [x] Run new tests plus `EarnFundingBatchApprovalTest`, `FundingReservationsTest` and `WalletStoreMigrationTest`; expect pass. Include death immediately before/after each durable record boundary and corrupt-journal rejection.
+- [x] Commit as `feat: bind deposit authority to native journal and limits`.
 
 ## Task 4: Prepare and execute the journey through existing native engines
 
@@ -131,7 +131,7 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** `EarnDepositPreparer.prepare(record: WalletRecord, profile: Int, budgetAtoms: String, draftId: String?): JSONObject` consumes Tasks 2 and 3. `EarnDepositCoordinator.confirmed(journeyId: String, revision: Int, grant: EarnDepositApproval)`, `reconcile(journeyId: String): Map<String, Any>`, `resume(journeyId: String, revision: Int, grant: EarnDepositApproval)`, `cancel(journeyId: String, revision: Int)` are suspend functions. Inject engine/gateway/time dependencies for tests. `EarnDepositEngineAdapter` obtains each engine's exact prepared review, checks the grant and forwards its authority callback; it never implements a second signer.
 
-- [ ] Write failing preparation tests proving no passkey, private-history auth, signing or spend occurs during review; repeated draft edits allocate once. Preview must use selected-source budgets and qualified live bounds. Write coordinator tests with two sources, out-of-order credits and odd atoms; the existing cumulative offset must produce the correct total floor and no leg starts before complete authenticated membership.
+- [x] Write failing preparation tests proving no passkey, private-history auth, signing or spend occurs during review; repeated draft edits allocate once. Preview must use selected-source budgets and qualified live bounds. Write coordinator tests with two sources, out-of-order credits and odd atoms; the existing cumulative offset must produce the correct total floor and no leg starts before complete authenticated membership.
 
   ```kotlin
   assertEquals("700000", nativePayoutAmount("7000009", "0", "hold"))
@@ -139,12 +139,12 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   assertEquals(0, payoutSubmissionsBeforeAllCredits)
   ```
 
-- [ ] Run focused `EarnDepositPreparerTest` and `EarnDepositCoordinatorTest`; expect missing implementation.
-- [ ] Implement native preparation using existing derivation/allocation, source selection, fee rules and reservation mechanisms. Preview each source/leg separately at that source's quoted minimum confidential credit; aggregate typed amounts on device. Bind each provider's positive quoted minimum, use the existing vault slippage/share-price guard for the minimum assets/shares, and preserve current source/Robinhood fee caps without adding a new arbitrary buffer. Review expiry is the earliest source/route/simulation validity limit. Fail before funding if those terms do not yield positive net holding and investment. Invalidate/release only never-signed reservations when editing. No account directory is posted to the backend.
-- [ ] Implement coordinator order: source funding → all authenticated source credits → independent hold/invest payouts → both verified destination legs → fresh real-balance deposit plan → verified shares/receipt. Use grant-scoped read authentication instead of repeated passkey reads; exact operations retain native engine validation. Reserve simulation is never a live withdrawal. Fail closed if prerequisites or limits differ. Each child's positive minimum must satisfy both its reviewed bound and aggregate result requirements.
-- [ ] Add tests for hold paid/invest unknown, missing child journal after restore, repeated confirmation/resume, stale revisions, source failures, quote revisions outside bounds, provider outage, failed signature persistence, duplicate payout source credit and process death. Reject a deposit plan whose total budget exceeds the USDG attributable to this journey's verified wallet 2 payout receipts, even if unrelated tokens arrive meanwhile. Assert no second hold submission, no reused investment account, no withdrawn/returned operations and no premature success. Cancellation of an already invested journey revokes authority without changing its invested result. Limit selected source rereads to planner needs; never scan the whole account directory per poll.
-- [ ] Run these tests plus existing sponsored, payout, batch-offset and source-reservation tests. Assert multi-source funding uses the current shared reservation ledger and cannot race a Swap for the same funds.
-- [ ] Commit as `feat: coordinate confidential routing and USDG deposit natively`.
+- [x] Run focused `EarnDepositPreparerTest` and `EarnDepositCoordinatorTest`; expect missing implementation.
+- [x] Implement native preparation using existing derivation/allocation, source selection, fee rules and reservation mechanisms. Preview each source/leg separately at that source's quoted minimum confidential credit; aggregate typed amounts on device. Bind each provider's positive quoted minimum, use the existing vault slippage/share-price guard for the minimum assets/shares, and preserve current source/Robinhood fee caps without adding a new arbitrary buffer. Review expiry is the earliest source/route/simulation validity limit. Fail before funding if those terms do not yield positive net holding and investment. Invalidate/release only never-signed reservations when editing. No account directory is posted to the backend.
+- [x] Implement coordinator order: source funding → all authenticated source credits → independent hold/invest payouts → both verified destination legs → fresh real-balance deposit plan → verified shares/receipt. Use grant-scoped read authentication instead of repeated passkey reads; exact operations retain native engine validation. Reserve simulation is never a live withdrawal. Fail closed if prerequisites or limits differ. Each child's positive minimum must satisfy both its reviewed bound and aggregate result requirements.
+- [x] Add tests for hold paid/invest unknown, missing child journal after restore, repeated confirmation/resume, stale revisions, source failures, quote revisions outside bounds, provider outage, failed signature persistence, duplicate payout source credit and process death. Reject a deposit plan whose total budget exceeds the USDG attributable to this journey's verified wallet 2 payout receipts, even if unrelated tokens arrive meanwhile. Assert no second hold submission, no reused investment account, no withdrawn/returned operations and no premature success. Cancellation of an already invested journey revokes authority without changing its invested result. Limit selected source rereads to planner needs; never scan the whole account directory per poll.
+- [x] Run these tests plus existing sponsored, payout, batch-offset and source-reservation tests. Assert multi-source funding uses the current shared reservation ledger and cannot race a Swap for the same funds.
+- [x] Commit as `feat: coordinate confidential routing and USDG deposit natively`.
 
 ## Task 5: Expose one native ceremony with safe lifecycle and status reads
 
@@ -152,7 +152,7 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** Register Task 1's five bridge methods. `EarnDepositHost` owns the active coordinator job and native grant. `confirmEarnDeposit` presents one final semantic review, calls `PasskeyGate.authorize` with the native envelope digest, then returns a public running snapshot while the native job continues. `getEarnDepositStatus` reads public journal/progress without restarting execution or invoking a passkey. Other signing/creation operations are denied while the coordinator holds the wallet mutation lease; status reads remain available.
 
-- [ ] Write failing tests that count exactly one passkey for a full uninterrupted coordinator run, zero during prepare/status, and one more only after revoked/expired authority is explicitly resumed. Test genuine background, lock, destroy and cancellation versus bounded credential-provider focus transitions. Assert status reads remain responsive while funding settles, and a second confirm is rejected.
+- [x] Write failing tests that count exactly one passkey for a full uninterrupted coordinator run, zero during prepare/status, and one more only after revoked/expired authority is explicitly resumed. Test genuine background, lock, destroy and cancellation versus bounded credential-provider focus transitions. Assert status reads remain responsive while funding settles, and a second confirm is rejected.
 
   ```kotlin
   assertEquals(0, passkeyCallsAfterPrepare)
@@ -161,11 +161,11 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   assertEquals(0, returnCalls)
   ```
 
-- [ ] Run focused native host/coordinator tests and `cd mobile && npm test -- tests/unit/storedSignerIos.test.ts` to observe missing method/capability behavior.
-- [ ] Implement host registration without stretching the existing two-minute ordinary ceremony globally. The journey's owned job and wallet mutation lease are explicit; polling must not deadlock behind a long-held bridge promise/ceremony mutex. Preserve `withProviderUi` focus checks, revoke on genuine background/lock/destroy, cancel network work and retain signed progress. Register cancellation with the bridge queue's interrupt path so it cannot wait behind its own execution. Add `getEarnDepositStatus` to coalesced public reads.
-- [ ] Return `earnDepositJourney: true` only for the implemented Android path. iOS returns false and keeps current Earn APIs intact; no fixture fallback. Run `npm run stored-signer:check:ios` and platform capability regression tests.
-- [ ] Run native host tests plus existing ceremony/bridge queue/capability tests; expect pass, with no delegation prompt reappearing as a second passkey inside a granted sponsored stage. Required EIP-7702 disclosures remain in the single final native review.
-- [ ] Commit as `feat: expose one passkey deposit ceremony and native progress`.
+- [x] Run focused native host/coordinator tests and `cd mobile && npm test -- tests/unit/storedSignerIos.test.ts` to observe missing method/capability behavior.
+- [x] Implement host registration without stretching the existing two-minute ordinary ceremony globally. The journey's owned job and wallet mutation lease are explicit; polling must not deadlock behind a long-held bridge promise/ceremony mutex. Preserve `withProviderUi` focus checks, revoke on genuine background/lock/destroy, cancel network work and retain signed progress. Register cancellation with the bridge queue's interrupt path so it cannot wait behind its own execution. Add `getEarnDepositStatus` to coalesced public reads.
+- [x] Return `earnDepositJourney: true` only for the implemented Android path. iOS returns false and keeps current Earn APIs intact; no fixture fallback. Run `npm run stored-signer:check:ios` and platform capability regression tests.
+- [x] Run native host tests plus existing ceremony/bridge queue/capability tests; expect pass, with no delegation prompt reappearing as a second passkey inside a granted sponsored stage. Required EIP-7702 disclosures remain in the single final native review.
+- [x] Commit as `feat: expose one passkey deposit ceremony and native progress`.
 
 ## Task 6: Add the typed service and screen controller
 
@@ -173,7 +173,7 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** `createEarnDepositService(bridgeFactory = getStoredEarnDepositSigner): EarnDepositService`; add `getStoredEarnDepositSigner` to `nativeBridge.ts`. `useDepositJourney(profileId: EarnProfileId)` returns amount text, typed display state, `setAmount`, `review`, `confirm`, `resume`, `cancel`, and details visibility. It consumes Task 1 snapshots and Task 5 native methods; it does not call child signing services directly.
 
-- [ ] Write failing service tests for malformed/wrong-owner snapshots, unsupported capability, native error after possible commit, aborted/stale prepare result and duplicate confirm. Assert cancel calls the journey-specific native method and does not invent a completed rollback.
+- [x] Write failing service tests for malformed/wrong-owner snapshots, unsupported capability, native error after possible commit, aborted/stale prepare result and duplicate confirm. Assert cancel calls the journey-specific native method and does not invent a completed rollback.
 
   ```ts
   expect(native.confirmEarnDeposit).toHaveBeenCalledTimes(1);
@@ -184,11 +184,11 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   );
   ```
 
-- [ ] Run `cd mobile && npm test -- tests/unit/earn/depositJourneyService.test.ts`; expect absent service failure.
-- [ ] Implement the adapter, request-generation guard and controller. Editing invalidates review; a late result cannot replace the current amount. Before another prepare after a failed bridge result, read the saved native draft. Poll only running/paused-needing-reconciliation snapshots at `2s, 4s, 8s, 16s, 30s` then `30s`, for at most 15 minutes in one foreground screen session; stop timers on terminal state/unmount/background. Leaving the deposit screen or switching wallet sessions cancels remaining local authority through the journey-specific native cancellation method, without deleting its signed child records. A status request reconciles only the active journey under existing read rules, not all accounts.
-- [ ] Add typed copy for `quoteUnavailable`, `previewUnavailable`, `insufficientFunds`, `uneconomicAmount`, `termsChanged`, `approvalExpired`, `settlementPending`, `submissionUnknown`, `recoveryRequired` and `unsupportedCapability`. Old Render `404` preview responses become unavailable before funding, not a fallback estimate.
-- [ ] Run focused service tests, existing `sourceFundingService.test.ts` and `privatePayoutService.test.ts`, then typecheck. Confirm legacy adapters are still reachable for old journals and withdrawals.
-- [ ] Commit as `feat: connect guided deposit controller to native progress`.
+- [x] Run `cd mobile && npm test -- tests/unit/earn/depositJourneyService.test.ts`; expect absent service failure.
+- [x] Implement the adapter, request-generation guard and controller. Editing invalidates review; a late result cannot replace the current amount. Before another prepare after a failed bridge result, read the saved native draft. Poll only running/paused-needing-reconciliation snapshots at `2s, 4s, 8s, 16s, 30s` then `30s`, for at most 15 minutes in one foreground screen session; stop timers on terminal state/unmount/background. Leaving the deposit screen or switching wallet sessions cancels remaining local authority through the journey-specific native cancellation method, without deleting its signed child records. A status request reconciles only the active journey under existing read rules, not all accounts.
+- [x] Add typed copy for `quoteUnavailable`, `previewUnavailable`, `insufficientFunds`, `uneconomicAmount`, `termsChanged`, `approvalExpired`, `settlementPending`, `submissionUnknown`, `recoveryRequired` and `unsupportedCapability`. Old Render `404` preview responses become unavailable before funding, not a fallback estimate.
+- [x] Run focused service tests, existing `sourceFundingService.test.ts` and `privatePayoutService.test.ts`, then typecheck. Confirm legacy adapters are still reachable for old journals and withdrawals.
+- [x] Commit as `feat: connect guided deposit controller to native progress`.
 
 ## Task 7: Replace the deposit UI and retain investment actions
 
@@ -196,7 +196,7 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
 
 **Interfaces:** `DepositJourneyScreen({profileId, opportunityId?})` consumes Task 6's controller for Robinhood. `useLegacyEthereumDeposit(intent: EarnIntent)` maps existing native child-journal state into a presentation `{phase, activeStage, busy, message, review, primaryAction}` with `activeStage: 'funding' | 'payouts' | 'liquidity' | 'vault'`; each `primaryAction` invokes the existing validated service for that stage with its explicit approval. It never fabricates a native journey grant or marks a forecast executable. Add typed `EarnInvestment: {intentId: string}` navigation for saved cycle details, scoped to the authenticated wallet. The current catalog Deposit route selects the vault's validated profile once. It no longer renders `CatalogEarnStart` and all technical panels as the new deposit path.
 
-- [ ] Write real-screen failing tests for Amount → Review → one Confirm → progress → verified Invested. Assert protocol image/vault identity, visible net held/invested USDG, source budget, positive minimums, gas cap/reserve, and Details. No wallet setup/private-read/individual payout/withdrawal controls appear in deposit.
+- [x] Write real-screen failing tests for Amount → Review → one Confirm → progress → verified Invested. Assert protocol image/vault identity, visible net held/invested USDG, source budget, positive minimums, gas cap/reserve, and Details. No wallet setup/private-read/individual payout/withdrawal controls appear in deposit.
 
   ```ts
   expect(screen.queryByRole("button", { name: /wallet 1 payout/i })).toBeNull();
@@ -204,12 +204,12 @@ Export `parseDepositSnapshot(raw: unknown, owner: EarnOwner): DepositSnapshot`, 
   expect(native.confirmEarnDeposit).toHaveBeenCalledTimes(1);
   ```
 
-- [ ] Run `cd mobile && npm run test:functional -- tests/functional/earn/deposit-journey.functional.test.tsx`; expect missing screen behavior.
-- [ ] Compose the existing `Screen`, `Typography`, `Button`, `Surface`, vault protocol assets and amount styles. Use one primary action per state; show accessible live progress, inline reasons, keyboard-safe amount input and readable large text. Source identities/full hashes remain in expandable Details. Amount changes and expiry disable the review's confirmation. Never label a reserve as an already-paid fee.
-- [ ] Move existing withdrawal/return and legacy reconciliation controls into `EarnInvestmentScreen`; reuse execution panels with an explicit presentation mode to hide new-deposit controls where appropriate. New catalog requests use fresh drafts; View investment selects the saved intent, not a new pair. The Ethereum presentation uses existing source funding, payout, liquidity and vault services in dependency order, showing only the active stage and explicitly disclosing its separate approvals. It preserves currently supported deposits/recovery and does not substitute the Robinhood coordinator or mock flows. Existing partially funded legacy cycles expose one relevant recovery action leading to their saved details, not a new draft.
-- [ ] Extend functional tests for empty/unavailable balance, too-small budget, unavailable preview, stale amount response, quote expiry, native rejection, duplicate taps, terms changed, partially paid legs, background/unmount, restored cycle, reopened saved deposit, Ethereum capability behavior, and separate withdrawals. Verify successful exit never calls withdrawal/return. Check featured unsupported vaults remain informational and never acquire a Deposit action.
-- [ ] Run all Earn functional tests plus source/deposit controller unit tests and formatting/typecheck/lint. Update fixtures for intentional copy/layout changes, preserving financial payload assertions.
-- [ ] Commit as `feat: replace technical earn panels with guided deposit UX`.
+- [x] Run `cd mobile && npm run test:functional -- tests/functional/earn/deposit-journey.functional.test.tsx`; expect missing screen behavior.
+- [x] Compose the existing `Screen`, `Typography`, `Button`, `Surface`, vault protocol assets and amount styles. Use one primary action per state; show accessible live progress, inline reasons, keyboard-safe amount input and readable large text. Source identities/full hashes remain in expandable Details. Amount changes and expiry disable the review's confirmation. Never label a reserve as an already-paid fee.
+- [x] Move existing withdrawal/return and legacy reconciliation controls into `EarnInvestmentScreen`; reuse execution panels with an explicit presentation mode to hide new-deposit controls where appropriate. New catalog requests use fresh drafts; View investment selects the saved intent, not a new pair. The Ethereum presentation uses existing source funding, payout, liquidity and vault services in dependency order, showing only the active stage and explicitly disclosing its separate approvals. It preserves currently supported deposits/recovery and does not substitute the Robinhood coordinator or mock flows. Existing partially funded legacy cycles expose one relevant recovery action leading to their saved details, not a new draft.
+- [x] Extend functional tests for empty/unavailable balance, too-small budget, unavailable preview, stale amount response, quote expiry, native rejection, duplicate taps, terms changed, partially paid legs, background/unmount, restored cycle, reopened saved deposit, Ethereum capability behavior, and separate withdrawals. Verify successful exit never calls withdrawal/return. Check featured unsupported vaults remain informational and never acquire a Deposit action.
+- [x] Run all Earn functional tests plus source/deposit controller unit tests and formatting/typecheck/lint. Update fixtures for intentional copy/layout changes, preserving financial payload assertions.
+- [x] Commit as `feat: replace technical earn panels with guided deposit UX`.
 
 ## Task 8: Full validation and backend compatibility handoff
 
@@ -249,3 +249,12 @@ Recommended execution is **Native**: one implementer maintains the grant, coordi
 - Review focus: each of the five conditions above has an explicit regression test in its owning task.
 - Financial boundaries: no preview can execute; exact engine review validation remains mandatory; every source and leg retains its journal; no signature authority survives restart.
 - Verification scope: this is a plan, not a completion record. Runtime checks, approval counts and live mainnet acceptance are still pending implementation.
+
+## Execution evidence (October 11)
+
+Tasks 1–7 are committed with deterministic verification. Task 8 checks ran; Expo
+Doctor reports the pre-existing SDK patch mismatch and iOS native setup is missing.
+Coverage runs separately. Updated preview deployment and live prospective simulation
+remain unverified (Render 404; Robinhood probe HTTP 403). Task 9 funded acceptance
+requires deployed previews, usable providers and specific spending authorization.
+No fallback terms or automatic mainnet spend are permitted by these checkboxes.
