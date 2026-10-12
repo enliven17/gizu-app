@@ -349,3 +349,49 @@ is still checked, and executable quote validation is unchanged. Both missing-exp
 regressions failed before this correction and pass afterward. The backend suite
 passes 228 tests with three optional skips; typecheck and build pass. No signing or
 submission occurred.
+
+### October 12 confirmed runtime blockers and resolution
+
+See the [sanitized runtime diagnosis](../../research/confidential-earn/fixtures/aurora-runtime-blockers-2026-10-12.json).
+The deployed source preview now succeeds but reports fee and history qualification
+blockers. These two codes are our configured eligibility checks, not proof of a
+quote-service outage. The history flag is false, and no accepted full-profile fee
+policy has been established.
+
+A fresh empty diagnostic account authenticated successfully (HTTP 200, access token
+issued, signed payload contained zero intents). Its authenticated `account/history`
+request returned HTTP 400: `History is invite-only for now`. This independently
+confirms provider access is missing on the inspected local/portal key. No user
+wallet keys or transfer intents were used. Aurora must grant that entitlement;
+setting the flag true cannot create it. After access is granted, validate actual
+operation-specific source/payout evidence before qualifying settlement.
+
+The pinned vault's direct mainnet `previewDeposit` succeeded in 373 ms. A read-only
+relay recorded a fork dependency returning HTTP 403 with a Cloudflare HTML challenge
+on `eth_getStorageAt`. This explains the local fork failure and provides a reproduced
+cause consistent with the deployed timeout; Render's exact failing upstream request
+is not available. Later hash-string, pinned-number and EIP-1898 reads succeeded, so
+no deterministic block-selector defect is established. Use a dedicated mainnet RPC
+with reliable pinned storage access through existing `ROBINHOOD_RPC_URL`, then
+repeat the full prospective simulation. The official Alchemy demo endpoint rejects
+unlisted origins and is not a production substitute. No dedicated provider key is
+currently configured locally, and a replacement full simulation remains unverified.
+
+The fee policy requires Aurora confirmation of the observed collectors and referral
+beneficiaries. Render currently reports referral `aurora-1u3j2qzclc`, while the local
+inspected key reports `aurora-jh500bnyo9`; the operator reports the keys are the same.
+That discrepancy remains unexplained. Final rules must match the deployed key's
+verified settings rather than assuming the local referral applies everywhere.
+
+The following can be sent by the operator to Aurora; no message was sent by this task:
+
+> For our Gizu Confidential Earn key (portal key ending 059a), please enable authenticated
+> `GET /api/account/history/{apiKey}`. Authentication succeeds but history returns
+> HTTP 400, "History is invite-only for now". Also confirm the beneficiaries of
+> `widget_collect.sputnik-dao.near` (4 bps source/withdrawal, 25 bps Robinhood payout/return)
+> and `2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805`
+> (20 bps Robinhood payout/return), and whether either referral pays Gizu or an
+> integrator commission. Our portal shows zero integrator fee, no custom rules and
+> no collection address. The same reported key returns `aurora-jh500bnyo9` locally
+> and `aurora-1u3j2qzclc` from Render; please explain and confirm the intended fee
+> configuration for all four lifecycle routes.

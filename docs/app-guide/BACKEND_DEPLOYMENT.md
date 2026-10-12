@@ -50,6 +50,27 @@ Fee and history qualification are prerequisites for executable funding/return
 flows. Do not copy a sample fee policy or enable the history flag just to bypass a
 failure. Follow the [qualification requirements](../internal/BACKEND_RUNTIME.md#recovery-and-provider-qualification).
 
+### Robinhood preview RPC requirements
+
+Set `ROBINHOOD_RPC_URL` to an owned mainnet endpoint supporting reliable pinned-block
+contract storage reads. The public default can serve ordinary `eth_call` while
+intermittently rejecting the storage requests an Anvil fork needs: an October 12
+probe reproduced HTTP 403 with a Cloudflare HTML challenge on `eth_getStorageAt`,
+although the same vault's direct `previewDeposit` succeeded in 373 ms. A later
+replay succeeded with hash, number and EIP-1898 selectors; this does not establish
+a selector-format bug or qualify the public endpoint for production forks.
+
+[Robinhood's connection guide](https://docs.robinhood.com/chain/connecting/) recommends
+provider endpoints for production and archive endpoints for historical reads.
+For example, an owned Alchemy mainnet endpoint uses
+`https://robinhood-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>`. Keep that credential on
+the backend, and verify the complete prospective deposit/redemption simulation
+before a funded test. Do not use the public `docs-demo` key as a production fallback.
+
+Anvil remains an isolated mainnet-state simulator. Changing the RPC provider does
+not switch the user's investments to a local network. Increasing HTTP timeouts
+does not resolve an upstream access rejection.
+
 ## Vault catalog configuration
 
 Optional catalog settings:
