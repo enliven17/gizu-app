@@ -18,6 +18,10 @@ Deploy the backend as a Render **Node Web Service**. All commands below run from
 `build:render` installs the pinned Anvil executable, then builds TypeScript. Earn
 uses Anvil for isolated transaction simulations. Install it during the build,
 not in a pre-deploy command. The installer supports Linux x86-64 only.
+The app still sends real operations to Monad and Robinhood mainnet. Anvil creates
+a temporary, pinned copy of mainnet state for prospective deposit gas estimates
+and future withdrawal reserves; simulation transactions do not reach mainnet and
+do not withdraw the user's investment.
 For local macOS development, use `npm run build` and configure a native Anvil
 executable separately if testing Earn simulations.
 
@@ -99,6 +103,14 @@ for validation, caching and partial results.
 5. Verify provider access and simulation capacity before testing funded operations.
 
 A healthy server does not prove that quotes, signing or settlement work.
+For guided Robinhood deposits, deploying the preview routes is insufficient on its
+own: `EARN_AURORA_FEE_QUALIFICATION_JSON` must cover `source`, `payoutRobinhood`,
+`returnRobinhood` and `withdrawal`; authenticated history access must be qualified;
+and the stable recovery key and simulation executable must be configured. A source
+quote returning `EARN_AURORA_FEE_UNQUALIFIED` is a configuration/qualification
+failure, not evidence that Aurora is under maintenance. Do not qualify a collector
+or referral merely because a dry quote contains it.
+
 The API allows up to two simulation forks per process; each has a 1 GiB memory
 ceiling. Provision additional memory for Node and service overhead, and measure
 actual resource use. Quote bindings are process-local, so consider this before
