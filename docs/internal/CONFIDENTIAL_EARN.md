@@ -323,3 +323,29 @@ the same mainnet providers and returned lane zero with the correct live sequence
 Neither comparison signs or broadcasts. Deploy this backend correction as well as configuring
 the missing Earn settings. No live spending was authorized or sent during these
 probes.
+
+### October 12 Aurora fee portal inspection
+
+Read-only inspection of the signed-in Client Portal matched its key to the backend
+and research key without publishing that key. The public integrator fee is zero,
+there are no custom fee rules, and no fee collection address is configured.
+Confidential fees inherit the public configuration. No portal setting was changed.
+
+Fresh diagnostic dry quotes returned HTTP 200 for all four Robinhood lifecycle
+routes. Source and public Monad withdrawal list 4 bps to
+`widget_collect.sputnik-dao.near`. Robinhood payout and return list 25 bps to that
+collector plus 20 bps to
+`2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805`.
+All four include referral `aurora-jh500bnyo9`. These are listed quote fees, not a
+complete accounting of route costs. The portal's zero integrator fee does not
+identify those collectors' beneficiaries or the referral's commission terms.
+Those remain unqualified pending Aurora confirmation; no fee-policy registry was
+installed. See the [sanitized fee inspection](../../research/confidential-earn/fixtures/aurora-fee-inspection-2026-10-12.json).
+
+The same live responses omit `quote.deadline`, as Aurora's documented dry-response
+contract permits. Source and payout preview adapters now use only a short local
+indicative lifetime when executable expiry fields are absent. Any supplied expiry
+is still checked, and executable quote validation is unchanged. Both missing-expiry
+regressions failed before this correction and pass afterward. The backend suite
+passes 228 tests with three optional skips; typecheck and build pass. No signing or
+submission occurred.

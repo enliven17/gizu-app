@@ -53,6 +53,19 @@ test("payout preview checks the route's qualified fees and exposes only indicati
   assert.equal("signedData" in result, false);
   assert.equal("quote" in result, false);
 });
+test("documented dry quotes without executable deadlines retain only a short indicative preview expiry", async () => {
+  const gateway = new EarnPayoutPreviewGateway(
+    { auroraApiKey: "test", auroraFeeQualification: qualification },
+    fetcher({ deadline: undefined, timeWhenInactive: undefined }),
+    () => now,
+  );
+  const result = await gateway.preview(input);
+  assert.equal(result.expiresAtMs, now + 45000);
+  assert.equal(result.executionAvailable, false);
+  assert.equal(result.minimumOutputAtoms, "980000");
+  assert.equal("deadline" in result, false);
+  assert.equal("depositAddress" in result, false);
+});
 test("unqualified fees, zero outputs and changed input cannot become a payout preview", async () => {
   await assert.rejects(
     new EarnPayoutPreviewGateway(
@@ -66,6 +79,8 @@ test("unqualified fees, zero outputs and changed input cannot become a payout pr
     { amountIn: "2" },
     { minAmountOut: "999999" },
     { deadline: new Date(now - 1).toISOString() },
+    { deadline: "malformed" },
+    { timeWhenInactive: "malformed" },
   ])
     await assert.rejects(
       new EarnPayoutPreviewGateway(

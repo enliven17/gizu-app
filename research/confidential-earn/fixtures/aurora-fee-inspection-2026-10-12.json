@@ -1,0 +1,97 @@
+{
+  "scope": "Read-only dry quote fee inspection; diagnostic addresses only; no signing or submission",
+  "observedPortal": {
+    "sameConfiguredKey": true,
+    "integratorFeeBps": 0,
+    "customRules": 0,
+    "collectionAddressConfigured": false,
+    "confidentialInheritsPublic": true
+  },
+  "results": [
+    {
+      "route": "source",
+      "observedAt": "2026-10-12T15:39:23.184Z",
+      "httpStatus": 200,
+      "appFees": [
+        {
+          "recipient": "widget_collect.sputnik-dao.near",
+          "fee": 4
+        }
+      ],
+      "referral": "aurora-jh500bnyo9",
+      "amountIn": "3000000",
+      "amountOut": "2998800",
+      "minAmountOut": "2998800",
+      "requestEchoMatches": true,
+      "quoteHasDeadline": false
+    },
+    {
+      "route": "payoutRobinhood",
+      "observedAt": "2026-10-12T15:39:23.888Z",
+      "httpStatus": 200,
+      "appFees": [
+        {
+          "recipient": "widget_collect.sputnik-dao.near",
+          "fee": 25
+        },
+        {
+          "recipient": "2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805",
+          "fee": 20
+        }
+      ],
+      "referral": "aurora-jh500bnyo9",
+      "amountIn": "3000000",
+      "amountOut": "2834635",
+      "minAmountOut": "2834635",
+      "requestEchoMatches": true,
+      "quoteHasDeadline": false
+    },
+    {
+      "route": "returnRobinhood",
+      "observedAt": "2026-10-12T15:39:24.701Z",
+      "httpStatus": 200,
+      "appFees": [
+        {
+          "recipient": "widget_collect.sputnik-dao.near",
+          "fee": 25
+        },
+        {
+          "recipient": "2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805",
+          "fee": 20
+        }
+      ],
+      "referral": "aurora-jh500bnyo9",
+      "amountIn": "3000000",
+      "amountOut": "2983830",
+      "minAmountOut": "2983830",
+      "requestEchoMatches": true,
+      "quoteHasDeadline": false
+    },
+    {
+      "route": "withdrawal",
+      "observedAt": "2026-10-12T15:39:25.508Z",
+      "httpStatus": 200,
+      "appFees": [
+        {
+          "recipient": "widget_collect.sputnik-dao.near",
+          "fee": 4
+        }
+      ],
+      "referral": "aurora-jh500bnyo9",
+      "amountIn": "3000000",
+      "amountOut": "2997426",
+      "minAmountOut": "2997426",
+      "requestEchoMatches": true,
+      "quoteHasDeadline": false
+    }
+  ],
+  "qualificationStatus": "Incomplete: collector beneficiaries and referral commission terms are not verified; this is not an executable fee-policy registry.",
+  "portalObservation": {
+    "date": "2026-10-12",
+    "keyMatchesBackendAndResearch": true,
+    "configuredIntegratorFeeBps": 0,
+    "customFeeRuleCount": 0,
+    "collectionAddressConfigured": false,
+    "confidentialFeeConfiguration": "inherits-public"
+  }
+}

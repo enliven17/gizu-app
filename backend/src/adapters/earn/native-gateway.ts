@@ -319,7 +319,8 @@ export class NativeEarnGateway {
     if (input.returnAsset || input.recoveryEnvelope) throw new NativeGatewayError(400,"INVALID_NATIVE_QUOTE");
     if (!this.config.auroraApiKey) throw new NativeGatewayError(503,"EARN_NATIVE_UNAVAILABLE");
     return this.limited(client, async () => {
-      const request = {dry:true,swapType:"EXACT_INPUT",depositType:"ORIGIN_CHAIN",depositMode:"SIMPLE",confidentiality:"advanced",amount:input.amountAtoms,originAsset:monadUsdcAssetId,destinationAsset:monadUsdcAssetId,slippageTolerance:0,refundTo:input.sourceOwner.toLowerCase(),refundType:"ORIGIN_CHAIN",recipient:input.confidentialAccount.toLowerCase(),recipientType:"CONFIDENTIAL_INTENTS",deadline:new Date(this.now()+600000).toISOString()};
+      const quotedAtMs=this.now();
+      const request = {dry:true,swapType:"EXACT_INPUT",depositType:"ORIGIN_CHAIN",depositMode:"SIMPLE",confidentiality:"advanced",amount:input.amountAtoms,originAsset:monadUsdcAssetId,destinationAsset:monadUsdcAssetId,slippageTolerance:0,refundTo:input.sourceOwner.toLowerCase(),refundType:"ORIGIN_CHAIN",recipient:input.confidentialAccount.toLowerCase(),recipientType:"CONFIDENTIAL_INTENTS",deadline:new Date(quotedAtMs+600000).toISOString()};
       try {
         const body=await auroraApi(this.config.auroraApiKey!,this.fetcher,"quote/{key}",request), qr=object(body.quoteRequest), q=object(body.quote);
         for (const [k,v] of Object.entries(request)) if (typeof v === "string" && /^0x[0-9a-f]{40}$/i.test(v) ? typeof qr[k] !== "string" || !same(qr[k] as string,v) : qr[k] !== v) throw new Error("Changed preview");
@@ -333,9 +334,10 @@ export class NativeEarnGateway {
         try {qualifyAuroraFees(this.qualification,"source",qr);if(!hasAuroraProfileQualification(this.qualification,input.profileChainId)) throw new Error("Incomplete profile fees");}catch {blockers.push("EARN_AURORA_FEE_UNQUALIFIED");}
         if(!this.config.auroraHistoryQualified) blockers.push("EARN_SETTLEMENT_UNQUALIFIED");
         if(!this.recovery.configured) blockers.push("EARN_RECOVERY_UNAVAILABLE");
-        const expiresAtMs=Math.min(time(q.deadline)*1000,this.now()+60000);
+        // Dry responses omit executable expiry fields; never turn this local preview TTL into signing authority.
+        const expiresAtMs=Math.min(q.deadline==null?Infinity:time(q.deadline)*1000,q.timeWhenInactive==null?Infinity:time(q.timeWhenInactive)*1000,quotedAtMs+60000);
         if(expiresAtMs<=this.now()+15000) throw new Error("Expired preview");
-        return {quoteAvailable:true,version:"gizu-source-preview-v1",sourceOwner:input.sourceOwner,confidentialAccount:input.confidentialAccount,amountAtoms:input.amountAtoms,minimumCreditAtoms:minimum,providerFeeBps,appFees,referral,blockers,executionAvailable:false as const,quotedAtMs:this.now(),expiresAtMs};
+        return {quoteAvailable:true,version:"gizu-source-preview-v1",sourceOwner:input.sourceOwner,confidentialAccount:input.confidentialAccount,amountAtoms:input.amountAtoms,minimumCreditAtoms:minimum,providerFeeBps,appFees,referral,blockers,executionAvailable:false as const,quotedAtMs,expiresAtMs};
       }catch(error) {
         if(error instanceof AuroraRouteUnavailable) {
           const blockers:string[]=[];
