@@ -3,7 +3,7 @@ import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
 import { loadSwapTokens, swapGateway, swapSigner, type ListedToken } from "./confidentialSwap";
 
 /** Public balances only. Native storage owns discovery and native review owns every sale. */
-export function useSwapHoldings() {
+export function useSwapHoldings(onSaleSettled?: () => void) {
   const [snapshot, setSnapshot] = useState<SwapHoldingsSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<"" | "holdings">("");
@@ -96,6 +96,7 @@ export function useSwapHoldings() {
         setBusy(false);
         void refresh();
       }
+      onSaleSettled?.();
     }
   };
 

@@ -1,9 +1,12 @@
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
+import { useState } from "react";
 import { TextInput, View } from "react-native";
 import { ArrowDown } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { SwapTokenPicker } from "./SwapTokenPicker";
+import { SwapSellForm } from "./SwapSellForm";
+import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
@@ -15,6 +18,7 @@ import { useNativeSwap } from "./useNativeSwap";
 
 export function NativeSwapScreen() {
   const swap = useNativeSwap();
+  const [mode, setMode] = useState<"buy" | "sell">("buy");
   const wallet = useOptionalMainnetWallet();
   const maxAmount =
     wallet?.snapshot && wallet.snapshot.balanceComplete !== false
@@ -24,6 +28,17 @@ export function NativeSwapScreen() {
   const active =
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
   const refunded = swap.status?.phase === "PAUSED" && swap.status.pausedCode === "FUNDING_REFUNDED";
+  const flip = (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={mode === "buy" ? "Switch to selling" : "Switch to buying"}
+      disabled={swap.busy}
+      onPress={() => setMode(mode === "buy" ? "sell" : "buy")}
+      className="z-10 -my-4 h-9 w-9 items-center justify-center self-center rounded-full border border-cardEdge bg-card"
+    >
+      <ArrowDown size={16} color={colors.fg["70"]} />
+    </PressableScale>
+  );
   return (
     <Screen
       refreshing={swap.busy}
@@ -35,7 +50,9 @@ export function NativeSwapScreen() {
         <Typography variant="pageTitle" className="!text-[26px]">
           Swap
         </Typography>
-        <Typography variant="micro">Buy tokens with USDC.</Typography>
+        <Typography variant="micro">
+          {mode === "buy" ? "Buy tokens with USDC." : "Sell your tokens back to USDC."}
+        </Typography>
       </View>
       {swap.status ? (
         <Surface>
@@ -83,7 +100,10 @@ export function NativeSwapScreen() {
           Your purchased tokens are also available under Token holdings on Home.
         </Typography>
       ) : null}
-      {!active && (
+      {!active && mode === "sell" && (
+        <SwapSellForm flip={flip} onSettled={() => void swap.refresh()} />
+      )}
+      {!active && mode === "buy" && (
         <>
           <Surface>
             <View className="gap-1.5 p-2">
@@ -125,13 +145,7 @@ export function NativeSwapScreen() {
                   />
                 </View>
               </View>
-              <View
-                className="z-10 -my-4 h-9 w-9 items-center justify-center self-center rounded-full border border-cardEdge bg-card"
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              >
-                <ArrowDown size={16} color={colors.fg["70"]} />
-              </View>
+              {flip}
               <SwapTokenPicker
                 tokens={swap.tokens}
                 target={swap.target}

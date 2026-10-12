@@ -83,20 +83,21 @@ export function useNativeSwap() {
   }
 
   const atoms = sourceAtoms(amount);
-  const [estimate, setEstimate] = useState<{ text: string; loading: boolean } | null>(null);
+  const [estimate, setEstimate] = useState<{ key: string; text: string } | null>(null);
   const decimals = tokens.find((token) => token.address === target)?.decimals ?? 0;
-  const previewable = !!atoms && !!fundingAddress && /^0x[0-9a-fA-F]{40}$/.test(target);
+  const previewable =
+    !!atoms && !!fundingAddress && decimals > 0 && /^0x[0-9a-fA-F]{40}$/.test(target);
   useEffect(() => {
     if (!previewable) return;
     let live = true;
+    const key = `${atoms}:${target}`;
     const timer = setTimeout(() => {
-      setEstimate({ text: "", loading: true });
       previewSwapOut(fundingAddress, target, atoms)
         .then((out) => {
-          if (live) setEstimate({ text: formatTokenAtoms(out, decimals), loading: false });
+          if (live) setEstimate({ key, text: formatTokenAtoms(out, decimals) });
         })
         .catch(() => {
-          if (live) setEstimate(null);
+          if (live) setEstimate({ key, text: "" });
         });
     }, 500);
     return () => {
@@ -105,7 +106,14 @@ export function useNativeSwap() {
     };
   }, [previewable, atoms, fundingAddress, target, decimals]);
   return {
-    estimate: previewable ? estimate : null,
+    // Only a result for the current amount and token is shown; a failed lookup shows nothing.
+    estimate: !previewable
+      ? null
+      : estimate?.key !== `${atoms}:${target}`
+        ? { text: "", loading: true }
+        : estimate.text
+          ? { text: estimate.text, loading: false }
+          : null,
     tokens,
     target,
     setTarget,
