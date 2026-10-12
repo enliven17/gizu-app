@@ -1,7 +1,9 @@
 import type { CatalogToken } from "@/domain/tokenCatalog";
 import { useCallback, useEffect, useState } from "react";
 import {
+  formatTokenAtoms,
   loadSwapTokens,
+  previewSwapOut,
   parseSwapView,
   sourceAtoms,
   SWAP_RECOVERY_ENABLED,
@@ -81,7 +83,29 @@ export function useNativeSwap() {
   }
 
   const atoms = sourceAtoms(amount);
+  const [estimate, setEstimate] = useState<{ text: string; loading: boolean } | null>(null);
+  const decimals = tokens.find((token) => token.address === target)?.decimals ?? 0;
+  const previewable = !!atoms && !!fundingAddress && /^0x[0-9a-fA-F]{40}$/.test(target);
+  useEffect(() => {
+    if (!previewable) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      setEstimate({ text: "", loading: true });
+      previewSwapOut(fundingAddress, target, atoms)
+        .then((out) => {
+          if (live) setEstimate({ text: formatTokenAtoms(out, decimals), loading: false });
+        })
+        .catch(() => {
+          if (live) setEstimate(null);
+        });
+    }, 500);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [previewable, atoms, fundingAddress, target, decimals]);
   return {
+    estimate: previewable ? estimate : null,
     tokens,
     target,
     setTarget,

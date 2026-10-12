@@ -136,6 +136,7 @@ export function NativeSwapScreen() {
                 tokens={swap.tokens}
                 target={swap.target}
                 disabled={swap.busy}
+                estimate={swap.estimate}
                 onSelect={swap.selectToken}
               />
             </View>

@@ -90,6 +90,37 @@ export async function loadSwapTokens(fetchImpl: typeof fetch = fetch): Promise<L
   });
 }
 
+/** Market estimate of the target token received for a USDC budget (before auction slippage). */
+export async function previewSwapOut(
+  wallet: string,
+  target: string,
+  sourceAtomsValue: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const response = await fetchImpl(`${swapGateway}/v1/swap/fusion/preview`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ wallet, dstToken: target, amount: sourceAtomsValue, preset: "fast" }),
+  });
+  if (!response.ok) throw new Error("Estimate unavailable.");
+  const body = (await response.json()) as { marketOut?: unknown };
+  if (typeof body.marketOut !== "string" || !/^\d+$/.test(body.marketOut))
+    throw new Error("Estimate unavailable.");
+  return body.marketOut;
+}
+
+export function formatTokenAtoms(atoms: string, decimals: number): string {
+  const scale = 10n ** BigInt(decimals);
+  const value = BigInt(atoms);
+  const shown = Math.min(decimals, 6);
+  const fraction = (value % scale)
+    .toString()
+    .padStart(decimals, "0")
+    .slice(0, shown)
+    .replace(/0+$/, "");
+  return `${value / scale}${fraction ? `.${fraction}` : ""}`;
+}
+
 export function swapSigner() {
   const native = getStoredSwapSigner();
   if (!native) throw new Error("Confidential swap is unavailable in this build.");

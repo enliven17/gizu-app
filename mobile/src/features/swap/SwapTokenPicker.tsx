@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react-native";
+import colors from "@/theme/colors.json";
 import { Modal, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { SearchInput } from "@/components/atoms/SearchInput";
@@ -19,11 +21,13 @@ export function SwapTokenPicker({
   tokens,
   target,
   disabled,
+  estimate,
   onSelect,
 }: {
   tokens: ListedToken[];
   target: string;
   disabled: boolean;
+  estimate?: { text: string; loading: boolean } | null;
   onSelect: (token: CatalogToken) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,14 +46,30 @@ export function SwapTokenPicker({
       >
         <Typography variant="label11">You receive</Typography>
         <View className="flex-row items-center justify-between gap-3">
-          <Typography variant="rowTitle" className="flex-1 !text-[22px]">
-            {selected?.symbol ?? "Choose token"}
+          <Typography
+            variant="rowTitle"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            className={`flex-1 !text-[36px] ${estimate && !estimate.loading ? "" : "!text-fg-20"}`}
+            style={{ fontVariant: ["tabular-nums"] }}
+          >
+            {estimate && !estimate.loading ? estimate.text : estimate ? "…" : "0"}
           </Typography>
-          <Typography variant="caption" className="rounded-full bg-neon/15 px-3 py-1 !text-neon">
-            Change
-          </Typography>
+          <View className="flex-row items-center gap-2 rounded-full bg-neon/15 px-3 py-2">
+            <Typography variant="rowTitle" className="!text-neon">
+              {selected?.symbol ?? "Choose"}
+            </Typography>
+            <ChevronDown size={14} color={colors.fg["70"]} />
+          </View>
         </View>
-        {selected && <Typography variant="micro">{selected.name}</Typography>}
+        <View className="flex-row items-center justify-between gap-3">
+          <Typography variant="micro" numberOfLines={1} className="flex-1">
+            {selected?.name ?? ""}
+          </Typography>
+          {estimate && !estimate.loading ? (
+            <Typography variant="micro">Estimated at market price</Typography>
+          ) : null}
+        </View>
       </PressableScale>
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         {open && (
