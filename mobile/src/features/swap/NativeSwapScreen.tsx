@@ -28,6 +28,16 @@ export function NativeSwapScreen() {
   const active =
     swap.status !== null && swap.status.phase !== "COMPLETE" && swap.status.phase !== "CANCELLED";
   const refunded = swap.status?.phase === "PAUSED" && swap.status.pausedCode === "FUNDING_REFUNDED";
+  // A sale that stopped before any order was signed has moved nothing, so leaving it is safe even
+  // though it was approved; without this, a rejected quote would trap the screen on Resume.
+  const nothingMoved =
+    swap.status?.phase === "PAUSED" &&
+    swap.status.direction === "sell" &&
+    swap.status.ordersComplete === 0 &&
+    swap.status.payoutsSubmitted === 0 &&
+    /^(QUOTE_REJECTED|FUSION_UNAVAILABLE|PLANNING_UNAVAILABLE|TARGET_ILLIQUID|NO_HOLDINGS|NOTHING_SELLABLE|HOLDER_\d+_HOLDS_ETH)$/.test(
+      swap.status.pausedCode ?? "",
+    );
   const flip = (
     <PressableScale
       accessibilityRole="button"
@@ -170,7 +180,7 @@ export function NativeSwapScreen() {
             onPress={swap.resume}
             disabled={swap.busy}
           />
-          {swap.status?.approved && !refunded ? (
+          {swap.status?.approved && !refunded && !nothingMoved ? (
             <Typography variant="micro" className="px-1 text-center">
               Approved steps may already have moved funds, so this swap can only be resumed.
             </Typography>

@@ -184,3 +184,47 @@ test("a native HTTP failure shows actionable guidance instead of a bare code", a
   ).toBeVisible();
   expect(screen.queryByText("HTTP")).toBeNull();
 });
+
+const paused = (over: Record<string, unknown>) => ({
+  ...status,
+  phase: "PAUSED",
+  targetSymbol: "AMZN",
+  approved: true,
+  direction: "sell",
+  ordersComplete: 0,
+  payoutsSubmitted: 0,
+  pausedCode: "QUOTE_REJECTED",
+  ...over,
+});
+
+test("an approved sale that stopped before any order was signed can be cancelled", async () => {
+  readStatus.mockResolvedValue(paused({}));
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  expect(await screen.findByText("Swap paused")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Resume" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Cancel swap" })).toBeVisible();
+  expect(screen.queryByText(/can only be resumed/)).toBeNull();
+});
+
+test("an approved swap that may have moved funds still offers only Resume", async () => {
+  for (const over of [
+    { direction: "buy" },
+    { ordersComplete: 1 },
+    { payoutsSubmitted: 1 },
+    { pausedCode: "FUSION_1_UNFILLED" },
+  ]) {
+    readStatus.mockResolvedValue(paused(over));
+    const view = render(
+      <SafeAreaProvider>
+        <NativeSwapScreen />
+      </SafeAreaProvider>,
+    );
+    expect(await screen.findByText(/can only be resumed/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Cancel swap" })).toBeNull();
+    view.unmount();
+  }
+});

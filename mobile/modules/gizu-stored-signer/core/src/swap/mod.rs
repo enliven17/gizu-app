@@ -4,5 +4,6 @@ mod engine;
 pub mod evm;
 pub mod funding;
 pub mod fusion;
+pub mod legs;
 pub mod pins;
 pub use engine::{SwapOperation, SwapStep};

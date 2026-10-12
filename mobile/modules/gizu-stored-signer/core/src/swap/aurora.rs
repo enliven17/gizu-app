@@ -440,13 +440,55 @@ pub fn private_available(
 
 /// 30/30/40 without exceeding the total.
 pub fn split(total: U256) -> [U256; 3] {
-    let first = total * U256::from(3) / U256::from(10);
-    [first, first, total - first * U256::from(2)]
+    let [a, b, c]: [U256; 3] = split_weighted(total, &[3, 3, 4])
+        .try_into()
+        .expect("three weights");
+    [a, b, c]
+}
+
+/// One floor(total * weight / sum) portion per weight; the last takes the remainder, so the
+/// portions always add up to exactly `total`. Weights must be non-empty and positive.
+pub fn split_weighted(total: U256, weights: &[u32]) -> Vec<U256> {
+    let sum: u64 = weights.iter().map(|w| u64::from(*w)).sum();
+    let mut out = Vec::with_capacity(weights.len());
+    let mut used = U256::ZERO;
+    for (i, w) in weights.iter().enumerate() {
+        let part = if i + 1 == weights.len() {
+            total - used
+        } else {
+            total * U256::from(*w) / U256::from(sum)
+        };
+        used += part;
+        out.push(part);
+    }
+    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn weighted_split_adds_up_exactly_and_keeps_the_legacy_three_way_split() {
+        for total in [1u64, 7, 99, 1_000_001, 2_459_372, u64::MAX] {
+            let total = U256::from(total);
+            let legacy = split(total);
+            assert_eq!(legacy.to_vec(), split_weighted(total, &[3, 3, 4]));
+            assert_eq!(legacy[0], total * U256::from(3) / U256::from(10));
+            for weights in [
+                vec![1u32],
+                vec![1, 1],
+                vec![3, 7],
+                vec![13, 29, 58],
+                vec![1, 2, 3, 4],
+                vec![17, 1, 1, 23, 58],
+            ] {
+                let parts = split_weighted(total, &weights);
+                assert_eq!(parts.len(), weights.len());
+                assert_eq!(parts.iter().fold(U256::ZERO, |a, b| a + *b), total);
+            }
+        }
+    }
 
     fn fixture() -> serde_json::Value {
         serde_json::from_str(include_str!("../../tests/fixtures/research-mainnet.json")).unwrap()

@@ -1,6 +1,7 @@
 package io.gizu.storedwallet.swap
 
 import android.util.Log
+import io.gizu.storedwallet.BuildConfig
 import io.gizu.storedwallet.FundingReservations
 import io.gizu.storedwallet.NativeFundingPlanner
 import io.gizu.storedwallet.NativeRpcTransport
@@ -14,7 +15,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import uniffi.gizu_stored_signer_core.SwapOperation
 import uniffi.gizu_stored_signer_core.SwapStep
+import java.security.SecureRandom
 import uniffi.gizu_stored_signer_core.allocateSwapRecipients
+import uniffi.gizu_stored_signer_core.allocateSwapRecipientsN
+import uniffi.gizu_stored_signer_core.chooseBuyLegs
 import uniffi.gizu_stored_signer_core.deriveAccountAddressRange
 
 internal sealed class SwapUi {
@@ -78,7 +82,12 @@ internal class SwapEngine(
       val allocation = JSONObject(NativeFundingPlanner(saved.context, record).plan(budget, "swap"))
       reservations = fundingReservations(saved.context, record)
       try {
-        val reserved = allocateSwapRecipients(record.roleRegistry)
+        // The wallet count and shares are drawn once for the whole swap and shared by every
+        // funding child, so a restore or retry never rolls them again.
+        val choice = if (RANDOM_LEGS) chooseBuyLegs(budget, randomBytes()) else null
+        val reserved =
+          if (choice != null) allocateSwapRecipientsN(record.roleRegistry, choice.count)
+          else allocateSwapRecipients(record.roleRegistry)
         store.persistRegistry(record.id, reserved.registry)
         reservations = fundingReservations(saved.context, record)
         val children = JSONArray()
@@ -92,6 +101,7 @@ internal class SwapEngine(
               .put("sourceIndex", leg.getInt("sourceIndex"))
               .put("amountAtoms", leg.getString("budgetAtoms"))
               .put("recipientIndices", JSONArray(reserved.indices.map { it.toInt() }))
+          if (choice != null) plan.put("weights", JSONArray(choice.weights.map { it.toInt() }))
           val child =
             SwapOperation.start(plan.toString(), record.entropy, gateway, now() + index.toULong())
           try {
@@ -186,7 +196,15 @@ internal class SwapEngine(
     persist()
   }
 
-  fun startSell(record: WalletRecord, holdingId: String? = null) {
+  /**
+   * [sweepTo] switches the sale to the temporary debug sweep: each holder's proceeds are paid
+   * straight to that public address, with no Aurora step. Debug builds only.
+   */
+  fun startSell(record: WalletRecord, holdingId: String? = null, sweepTo: String? = null) {
+    if (sweepTo != null) {
+      check(BuildConfig.DEBUG) { "The debug sweep is not available in this build." }
+      check(holdingId != null && sweepTo.matches(Regex("0x[0-9a-fA-F]{40}")))
+    }
     check(record.verified && record.id == saved.walletId)
     check(operation == null)
     val existing = saved.load()
@@ -228,7 +246,24 @@ internal class SwapEngine(
         }
         plan.getString("target") to plan.getJSONArray("recipientIndices")
       }
-    val reserved = allocateSwapRecipients(record.roleRegistry)
+    if (sweepTo != null) {
+      // No return wallets are needed, so nothing is reserved; the holders are their own recipients.
+      val sweep =
+        JSONObject()
+          .put("kind", "debugSweep")
+          .put("target", target)
+          .put("holderIndices", holders)
+          .put("recipientIndices", holders)
+          .put("destination", sweepTo)
+      fundingAddress = deriveAccountAddressRange(record.entropy, 1u, 1u).single()
+      operation = SwapOperation.start(sweep.toString(), record.entropy, gateway, now())
+      persist()
+      return
+    }
+    // A sell returns to as many fresh wallets as it sells from.
+    val reserved =
+      if (RANDOM_LEGS) allocateSwapRecipientsN(record.roleRegistry, holders.length().toUInt())
+      else allocateSwapRecipients(record.roleRegistry)
     store.persistRegistry(record.id, reserved.registry)
     val next =
       JSONObject()
@@ -670,6 +705,8 @@ internal class SwapEngine(
       "ordersComplete" to status.optInt("ordersComplete"),
       "receivedTargetAtoms" to status.optString("receivedTargetAtoms"),
       "direction" to status.optString("direction", "buy"),
+      "kind" to status.optString("kind", ""),
+      "legs" to status.optInt("legs", 3),
       "approved" to status.optBoolean("approved"),
       "returnAddresses" to returnAddresses(),
       "fundingAddress" to checkNotNull(fundingAddress),
@@ -898,6 +935,14 @@ private constructor(
     approvedAt = null
   }
 }
+
+/**
+ * New swaps draw their wallet count and shares at random (buy) or return to as many wallets as
+ * they sell from (sell). Turning this off restores the fixed three-wallet 30/30/40 plan.
+ */
+private const val RANDOM_LEGS = true
+
+private fun randomBytes(): ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
 
 private fun swapBatchAtoms(value: String): java.math.BigInteger =
   if (value.startsWith("0x")) value.substring(2).toBigInteger(16) else value.toBigInteger()

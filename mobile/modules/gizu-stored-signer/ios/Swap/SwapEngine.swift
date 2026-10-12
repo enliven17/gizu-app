@@ -12,6 +12,9 @@ internal final class StoredSwapEngine {
   private let gateway: String
   private var operation: SwapOperation?
   private var fundingAddress: String?
+  /// New swaps draw their wallet count and shares at random (buy) or return to as many wallets
+  /// as they sell from (sell). Turning this off restores the fixed three-wallet 30/30/40 plan.
+  private static let randomLegs = true
 
   init(storage: WalletStorage, saved: StoredSwapFile, gateway: String) {
     self.storage = storage
@@ -34,12 +37,24 @@ internal final class StoredSwapEngine {
       try require(amountAtoms.range(of: "^[1-9][0-9]{0,8}$", options: .regularExpression) != nil)
       try require((Int(amountAtoms) ?? 0) <= 10_000_000)
     }
-    let reserved = try allocateSwapRecipients(registry: record.roleRegistry)
+    // A buy with a budget draws its wallet count and shares once, before review; a buy from the
+    // existing private balance has no budget to size from and keeps the fixed three-wallet plan.
+    var legs: SwapLegChoice?
+    if Self.randomLegs, !payout, let amountAtoms {
+      legs = try chooseBuyLegs(budgetAtoms: amountAtoms, random: randomBytes(32))
+    }
+    let reserved: RecipientAllocation
+    if let legs {
+      reserved = try allocateSwapRecipientsN(registry: record.roleRegistry, count: legs.count)
+    } else {
+      reserved = try allocateSwapRecipients(registry: record.roleRegistry)
+    }
     try storage.persistRegistry(reserved.registry, expectedId: record.id)
     var plan: [String: Any] = [
       "kind": payout ? "confidentialPayout" : "confidentialSwap", "target": target,
       "recipientIndices": reserved.indices.map { Int($0) },
     ]
+    if let legs { plan["weights"] = legs.weights.map { Int($0) } }
     if let amountAtoms { plan["amountAtoms"] = amountAtoms }
     fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1)
       .first
@@ -84,7 +99,14 @@ internal final class StoredSwapEngine {
     )
     try require(
       holders.count == 3 && Set(holders).count == 3 && holders.allSatisfy { owned.contains($0) })
-    let reserved = try allocateSwapRecipients(registry: record.roleRegistry)
+    // A sell returns to as many fresh wallets as it sells from.
+    let reserved: RecipientAllocation
+    if Self.randomLegs {
+      reserved = try allocateSwapRecipientsN(
+        registry: record.roleRegistry, count: UInt32(holders.count))
+    } else {
+      reserved = try allocateSwapRecipients(registry: record.roleRegistry)
+    }
     try storage.persistRegistry(reserved.registry, expectedId: record.id)
     let next: [String: Any] = [
       "kind": "confidentialSell", "target": target, "holderIndices": holders,

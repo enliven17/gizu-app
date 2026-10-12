@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
 import { loadSwapTokens, swapGateway, swapSigner, type ListedToken } from "./confidentialSwap";
+import { DEBUG_SWEEP_ADDRESS, DEBUG_SWEEP_ENABLED } from "./debugSweep";
 
 /** Public balances only. Native storage owns discovery and native review owns every sale. */
 export function useSwapHoldings(onSaleSettled?: () => void) {
@@ -100,7 +101,38 @@ export function useSwapHoldings(onSaleSettled?: () => void) {
     }
   };
 
+  /** Temporary debug mode: pay a holding's USDG to the fixed debug address. */
+  const sweep = async (id: string) => {
+    if (!DEBUG_SWEEP_ENABLED || running.current) return;
+    running.current = true;
+    setBusy(true);
+    setError("");
+    setSaleFailed(false);
+    setNotice("");
+    try {
+      const signer = swapSigner();
+      if (!signer.sweepSwapHolding) throw new Error("The debug sweep is not available.");
+      const status = await signer.sweepSwapHolding(id, DEBUG_SWEEP_ADDRESS, swapGateway);
+      if (alive.current)
+        setNotice(
+          status.phase === "COMPLETE"
+            ? `Swept. USDG was sent to ${DEBUG_SWEEP_ADDRESS}.`
+            : "The sweep is not complete. Check its status in Swap.",
+        );
+    } catch {
+      if (alive.current) setSaleFailed(true);
+    } finally {
+      running.current = false;
+      if (alive.current) {
+        setBusy(false);
+        void refresh();
+      }
+      onSaleSettled?.();
+    }
+  };
+
   return {
+    sweep,
     snapshot,
     busy,
     error,
