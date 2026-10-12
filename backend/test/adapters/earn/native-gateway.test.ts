@@ -617,6 +617,23 @@ test("dry preview displays fees without qualification and cannot create a signin
   assert.equal("quoteId" in preview,false);
   await assert.rejects(gateway.sourceQuote(input), {code:"EARN_AURORA_FEE_UNQUALIFIED"});
 });
+test("dry source quotes omit executable deadlines without inventing a signing binding", async () => {
+  const gateway = new NativeEarnGateway({auroraApiKey:"key"}, {
+    now:()=>now,
+    fetcher:async(_url,init)=>{
+      const request=JSON.parse(String(init?.body));
+      assert.equal(request.dry,true);
+      return Response.json({timestamp:new Date(now).toISOString(),quoteRequest:{...request,appFees:[]},quote:{amountIn:request.amount,minAmountIn:request.amount,amountOut:request.amount,minAmountOut:request.amount}});
+    },
+  });
+  const preview=await gateway.sourcePreview(input);
+  assert.equal(preview.quoteAvailable,true);
+  assert.equal(preview.executionAvailable,false);
+  assert.equal(preview.expiresAtMs,now+60000);
+  assert.equal("quoteId" in preview,false);
+  assert.equal("depositAddress" in preview,false);
+  await assert.rejects(gateway.sourceQuote(input),/EARN_AURORA_FEE_UNQUALIFIED/);
+});
 test("history qualification blocks new funding before any provider quote", async () => {
   const p=provider();
   const gateway=new NativeEarnGateway({auroraApiKey:"key",auroraFeeQualification:config,recoveryKey:"11".repeat(32)},{now:()=>now,fetcher:p.fetcher});

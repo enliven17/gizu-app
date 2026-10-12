@@ -103,7 +103,8 @@ export class EarnPayoutPreviewGateway {
     const estimatedOutputAtoms = atoms(q.amountOut),
       minimumOutputAtoms = atoms(q.minAmountOut),
       observedAt = Date.parse(String(body.timestamp)),
-      deadline = Date.parse(String(q.deadline)),
+      // Dry quotes have no executable deadline; this is only a short local preview lifetime.
+      deadline = q.deadline == null ? Infinity : Date.parse(String(q.deadline)),
       inactive =
         q.timeWhenInactive == null
           ? Infinity
