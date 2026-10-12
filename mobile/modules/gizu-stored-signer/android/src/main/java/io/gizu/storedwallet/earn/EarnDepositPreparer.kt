@@ -88,6 +88,12 @@ internal fun nativeDepositPreparer(
       fundingReservations(context, record)
         .cancelBatchUnsigned(review.getJSONObject("reservation").getString("id"))
     },
+    reportFailure = { stage, code, location ->
+      android.util.Log.w(
+        "GizuEarnDeposit",
+        "review failed: stage=$stage code=$code location=$location",
+      )
+    },
   )
 
 /** Allocation is performed once by the native owner before this unsigned preparation. */
@@ -97,6 +103,7 @@ internal class EarnDepositPreparer(
   private val selectSources: suspend (WalletRecord, String) -> DepositSourceDraft,
   private val releaseUnsigned: (JSONObject) -> Unit,
   private val now: () -> Long = System::currentTimeMillis,
+  private val reportFailure: (String, String, String) -> Unit = { _, _, _ -> },
 ) {
   suspend fun prepare(
     record: WalletRecord,
@@ -122,6 +129,7 @@ internal class EarnDepositPreparer(
         it.remove("pauseReason")
       }
     var draft: DepositSourceDraft? = null
+    var stage = "sources"
     try {
       val started = now()
       draft = selectSources(record, budgetAtoms)
@@ -157,6 +165,7 @@ internal class EarnDepositPreparer(
                 .toString(),
             )
         for ((leg, amount) in listOf("hold" to hold, "invest" to invest)) {
+          stage = "$leg-preview"
           val preview =
             gateway.payoutPreview(record, sourceId, p.getInt("revision"), leg, amount.toString())
           s.put(
@@ -177,6 +186,7 @@ internal class EarnDepositPreparer(
         offset += credit
       }
       // Establish the deposit bound against minimum receipts, not optimistic output estimates.
+      stage = "vault-preview"
       val deposit =
         gateway.depositPreview(record, id, row.getInt("revision"), minimumInvest.toString())
       expiry = minOf(expiry, deposit.getLong("expiresAtMs"))
@@ -208,9 +218,28 @@ internal class EarnDepositPreparer(
               .put("maximumFeeAtoms", deposit.getString("depositFeeBudget"))
               .put("withdrawalReserveAtoms", deposit.getString("withdrawalReserve")),
           )
+      stage = "review-validation"
       EarnDepositApproval.fromReview(record, review).invalidate()
       return journal.saveReview(id, row.getInt("revision"), review)
     } catch (failure: Exception) {
+      // Never log the exception message, request, wallet identity or financial terms.
+      val code =
+        when (failure) {
+          is EarnGatewayFailure ->
+            safeEarnGatewayFailure(JSONObject().put("code", failure.code).toString())?.code
+              ?: "GATEWAY_REJECTED"
+          is RpcFailure -> failure.code.name
+          is CancellationException -> "CANCELLED"
+          else -> "VALIDATION"
+        }
+      val frame =
+        failure.stackTrace.firstOrNull {
+          it.className.startsWith("io.gizu.storedwallet.") &&
+            it.fileName?.matches(Regex("[A-Za-z0-9_.-]+\\.kt")) == true &&
+            it.lineNumber > 0
+        }
+      val location = frame?.let { "${it.fileName}:${it.lineNumber}" } ?: "unknown"
+      runCatching { reportFailure(stage, code, location) }
       val saved = journal.get(id)
       if (!saved.has("preparationBatchId") && draft != null)
         releaseUnsigned(JSONObject().put("reservation", draft.reservation))

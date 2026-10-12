@@ -155,4 +155,67 @@ class EarnDepositPreparerTest {
       assertEquals(0, result.getJSONObject("children").length())
     }
   }
+
+  @Test
+  fun sourceFailureDiagnosticsExcludePrivateExceptionDetailsAndKeepSpendingBlocked() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val j = testDepositJournal()
+      val diagnostics = mutableListOf<List<String>>()
+      val preparer =
+        EarnDepositPreparer(
+          j,
+          EarnDepositGateway({ _, _ -> error("Should not request downstream previews") }),
+          { _, _ ->
+            throw EarnGatewayFailure("EARN_AURORA_FEE_UNQUALIFIED", "private-owner-and-secret")
+          },
+          {},
+          { 1000 },
+          reportFailure = { stage, code, location ->
+            diagnostics.add(listOf(stage, code, location))
+          },
+        )
+      val result = preparer.prepare(r, 4663, "1010000", null)
+      assertEquals("previewUnavailable", result.getString("pauseReason"))
+      assertEquals(0, result.getJSONObject("children").length())
+      assertEquals(1, diagnostics.size)
+      assertEquals("sources", diagnostics.single()[0])
+      assertEquals("EARN_AURORA_FEE_UNQUALIFIED", diagnostics.single()[1])
+      assertTrue(diagnostics.single()[2].startsWith("EarnDepositPreparerTest.kt:"))
+      assertFalse(diagnostics.toString().contains("private-owner-and-secret"))
+      assertFalse(diagnostics.toString().contains(r.id))
+    }
+  }
+
+  @Test
+  fun payoutFailureDiagnosticsIdentifyTheLegWithoutLoggingRequestData() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val j = testDepositJournal()
+      val diagnostics = mutableListOf<List<String>>()
+      val preparer =
+        EarnDepositPreparer(
+          j,
+          EarnDepositGateway({ _, _ -> throw RpcFailure(RpcFailureCode.HTTP) }, { 1000 }),
+          { _, _ ->
+            val review = DepositFixtures.review(r)
+            DepositSourceDraft(
+              review.getJSONArray("fundingRows").objects(),
+              review.getJSONObject("reservation"),
+              mapOf("source0" to "990000"),
+            )
+          },
+          {},
+          { 1000 },
+          reportFailure = { stage, code, location ->
+            diagnostics.add(listOf(stage, code, location))
+          },
+        )
+      val result = preparer.prepare(r, 4663, "1010000", null)
+      assertEquals("previewUnavailable", result.getString("pauseReason"))
+      assertFalse(result.has("review"))
+      assertEquals("hold-preview", diagnostics.single()[0])
+      assertEquals("HTTP", diagnostics.single()[1])
+      assertFalse(diagnostics.toString().contains("990000"))
+      assertFalse(diagnostics.toString().contains(cycleConfidential(r)))
+    }
+  }
 }

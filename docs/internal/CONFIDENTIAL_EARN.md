@@ -278,3 +278,48 @@ A coverage rerun hit ten test timeouts during an abnormally long 62-minute run;
 all were timing failures in previously passing suites. The fresh run with idle sleep
 prevented passed all 728 tests in 151 seconds. No timeout was increased or test
 skipped.
+
+### October 12 deployment diagnosis
+
+Both hosted preview routes now validate empty requests with HTTP 400, confirming
+the new handlers are deployed. Valid diagnostic previews return HTTP 503. The
+hosted source quote specifically returns `EARN_AURORA_FEE_UNQUALIFIED`; the operator
+reported none of the four `EARN_*` runtime/qualification settings are configured.
+See the [deployment guide](../app-guide/BACKEND_DEPLOYMENT.md) for their purposes.
+Local live Aurora dry source and USDG quotes returned HTTP 200, but no accepted
+local fee registry was configured. Public Robinhood state and Pimlico market reads
+passed; the prospective fork timed out reading vault `previewDeposit`. That local
+simulation result does not establish the deployed fork's failure reason.
+
+Android preparation diagnostics use the `GizuEarnDeposit` log tag. They record only
+the preparation stage, allowlisted gateway/transport failure code and Kotlin code
+location; never exception messages, request bodies, addresses, amounts, credentials
+or signatures. Preparation still blocks spending, releases unsigned reservations
+and preserves the existing public pause contract. Capture with:
+
+```sh
+adb logcat -v time GizuEarnDeposit:W GizuRpc:W '*:S'
+```
+
+Both diagnostics regressions and the complete 275-test Android suite pass. The
+standalone release built successfully; its existing certificate and embedded
+`https://gizu-app.onrender.com` host were verified. It updated the connected Samsung
+with `adb install -r`, preserving wallet data. After the user unlocked and reviewed
+3 USDC, the log identified `sources / VALIDATION / EarnSourceReplanner.kt:264`:
+the funding-plan nonce did not match the native EntryPoint lane-zero nonce.
+
+The installed SDK's default nonce manager selects a time-based lane when the
+backend omits an explicit nonce. Native state, signing and reconciliation use lane
+zero. Monad funding preparation now explicitly reads `account.getNonce({key: 0n})`,
+matching the existing Robinhood paymaster adapter. It does not hardcode a zero
+sequence or change native nonce validation or historical signed operations. The
+full SDK integration fixture now models EntryPoint lane bits and verifies repeated
+unsigned preparations retain a nonzero lane-zero sequence. It failed before the
+patch and passes afterward; the backend suite passes 226 tests with three optional
+skips, plus typecheck and build. A read-only live comparison against the previously
+supplied funded Monad source confirmed the deployed plan selected a nonzero lane
+and failed the native nonce comparison, while the patched local planner queried
+the same mainnet providers and returned lane zero with the correct live sequence.
+Neither comparison signs or broadcasts. Deploy this backend correction as well as configuring
+the missing Earn settings. No live spending was authorized or sent during these
+probes.
