@@ -1426,3 +1426,16 @@ test("equal bundled credits cannot be claimed for a second funding owner", async
   );
   assert.equal(f.calls.filter((path) => path.includes("/quote/")).length, 1);
 });
+test("Robinhood 10/90 payout quotes allow 5% slippage; other payouts keep exact quotes", async () => {
+  const sent: Record<string, number[]> = { 4663: [], 1: [] };
+  for (const chain of [4663, 1] as const) {
+    const f = fixture((path, _b, init) => {
+      if (path.includes("/quote/"))
+        sent[chain]!.push(JSON.parse(String(init?.body)).slippageTolerance);
+    }, chain);
+    for (const leg of ["hold", "invest"] as const)
+      await f.gateway.prepare(await input(leg, chain));
+  }
+  assert.deepEqual(sent[4663], [500, 500]);
+  assert.deepEqual(sent[1], [0, 0]);
+});

@@ -64,7 +64,9 @@ export class EarnPayoutPreviewGateway {
         amount: atoms(input.amountAtoms),
         originAsset: monadUsdcAssetId,
         destinationAsset: robinhoodUsdgAssetId,
-        slippageTolerance: 0,
+        // The approved floor is 7% below the estimate: the signing quote uses 5% (see private-payout),
+        // so its guaranteed minimum stays above this floor through ~2% of drift between review and signing.
+        slippageTolerance: 700,
         refundTo: input.confidentialAccount.toLowerCase(),
         refundType: "CONFIDENTIAL_INTENTS",
         recipient: input.recipient.toLowerCase(),

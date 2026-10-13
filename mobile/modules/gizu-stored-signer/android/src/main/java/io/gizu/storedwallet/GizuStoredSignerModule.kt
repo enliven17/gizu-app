@@ -391,7 +391,8 @@ class GizuStoredSignerModule : Module() {
       id: String,
       revision: Int,
       promise: Promise ->
-      runCeremony(promise) { activity, store ->
+      // Wait for a read-only status reconciliation instead of rejecting the user's action.
+      runCeremony(promise, wait = true) { activity, store ->
         val host = makeDepositHost(activity, store, walletId, id)
         depositHost = host
         host.confirm(id, revision, false)
@@ -402,7 +403,8 @@ class GizuStoredSignerModule : Module() {
       id: String,
       revision: Int,
       promise: Promise ->
-      runCeremony(promise) { activity, store ->
+      // Wait for a read-only status reconciliation instead of rejecting the user's action.
+      runCeremony(promise, wait = true) { activity, store ->
         val row =
           store.load().use { record ->
             check(record.id == walletId && record.verified && !record.earnRecoveryRequired)
