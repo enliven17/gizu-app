@@ -1,0 +1,530 @@
+{
+  "format": "drawio",
+  "design": "illustrated system topology",
+  "pages": [
+    {
+      "page": "01 Earn \u2014 system map",
+      "components": 15,
+      "connections": 12,
+      "embedded_pictures": 21,
+      "identity_svg_placements": [
+        {
+          "component": "Native wallet + Rust",
+          "svg": "shield",
+          "badge": "fingerprint"
+        },
+        {
+          "component": "Pimlico",
+          "svg": "pimlico_brand",
+          "badge": null
+        },
+        {
+          "component": "Aurora API",
+          "svg": "aurora_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "02 Swap \u2014 system map",
+      "components": 15,
+      "connections": 12,
+      "embedded_pictures": 20,
+      "identity_svg_placements": [
+        {
+          "component": "Native signer + Rust",
+          "svg": "shield",
+          "badge": "fingerprint"
+        },
+        {
+          "component": "Pimlico",
+          "svg": "pimlico_brand",
+          "badge": null
+        },
+        {
+          "component": "1inch Fusion",
+          "svg": "oneinch_brand",
+          "badge": null
+        },
+        {
+          "component": "1inch Fusion + LOP",
+          "svg": "oneinch_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "03 Wallet \u2014 creation systems",
+      "components": 9,
+      "connections": 9,
+      "embedded_pictures": 9,
+      "identity_svg_placements": [
+        {
+          "component": "Native passkey verifier",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "OS authenticator",
+          "svg": "fingerprint",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "04 App \u2014 system architecture",
+      "components": 11,
+      "connections": 10,
+      "embedded_pictures": 12,
+      "identity_svg_placements": [
+        {
+          "component": "Swift / Kotlin native module",
+          "svg": "shield",
+          "badge": "fingerprint"
+        },
+        {
+          "component": "OS passkey provider",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "Aurora \u00b7 Pimlico \u00b7 1inch",
+          "svg": "provider_group",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "05 Signing \u2014 native authority",
+      "components": 9,
+      "connections": 10,
+      "embedded_pictures": 9,
+      "identity_svg_placements": [
+        {
+          "component": "OS passkey credential",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "Native authorization scope",
+          "svg": "fingerprint",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "06 Earn \u2014 Robinhood systems",
+      "components": 8,
+      "connections": 8,
+      "embedded_pictures": 12,
+      "identity_svg_placements": [
+        {
+          "component": "Native destination signer",
+          "svg": "shield",
+          "badge": "fingerprint"
+        },
+        {
+          "component": "Pimlico / EntryPoint 0.8",
+          "svg": "pimlico_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "07 Earn \u2014 Ethereum systems",
+      "components": 7,
+      "connections": 7,
+      "embedded_pictures": 11,
+      "identity_svg_placements": [
+        {
+          "component": "Native destination signer",
+          "svg": "shield",
+          "badge": "fingerprint"
+        },
+        {
+          "component": "1inch Fusion bootstrap",
+          "svg": "oneinch_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "08 Trade \u2014 buy systems",
+      "components": 6,
+      "connections": 7,
+      "embedded_pictures": 8,
+      "identity_svg_placements": [
+        {
+          "component": "1inch resolver + LOP v4",
+          "svg": "oneinch_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "09 Trade \u2014 sell systems",
+      "components": 6,
+      "connections": 7,
+      "embedded_pictures": 8,
+      "identity_svg_placements": [
+        {
+          "component": "1inch resolver + LOP v4",
+          "svg": "oneinch_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "10 Earn \u2014 signature systems",
+      "components": 30,
+      "connections": 20,
+      "embedded_pictures": 30,
+      "identity_svg_placements": [
+        {
+          "component": "Original passkey",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "Native passkey verifier",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "Aurora authentication API",
+          "svg": "aurora_brand",
+          "badge": null
+        },
+        {
+          "component": "Aurora Confidential Intents",
+          "svg": "aurora_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "11 Trade \u2014 signature systems",
+      "components": 18,
+      "connections": 12,
+      "embedded_pictures": 18,
+      "identity_svg_placements": [
+        {
+          "component": "Original passkey",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "Native approval scope",
+          "svg": "fingerprint",
+          "badge": null
+        },
+        {
+          "component": "Aurora authentication API",
+          "svg": "aurora_brand",
+          "badge": null
+        },
+        {
+          "component": "1inch resolver / LOP v4",
+          "svg": "oneinch_brand",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "12 Earn \u2014 proposed exit systems",
+      "components": 7,
+      "connections": 5,
+      "embedded_pictures": 10,
+      "identity_svg_placements": [],
+      "issues": []
+    },
+    {
+      "page": "13 Recovery \u2014 journal systems",
+      "components": 7,
+      "connections": 7,
+      "embedded_pictures": 7,
+      "identity_svg_placements": [
+        {
+          "component": "Fresh passkey review",
+          "svg": "fingerprint",
+          "badge": null
+        }
+      ],
+      "issues": []
+    },
+    {
+      "page": "14 Wallet \u2014 key and role systems",
+      "components": 11,
+      "connections": 2,
+      "embedded_pictures": 13,
+      "identity_svg_placements": [],
+      "issues": []
+    }
+  ],
+  "sources": {
+    "ACCESS": {
+      "path": "mobile/src/services/wallet/storedAccess.ts",
+      "line": 52,
+      "anchor": "async request()"
+    },
+    "CREATE": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/GizuStoredSignerModule.kt",
+      "line": 2587,
+      "anchor": "private suspend fun createWallet"
+    },
+    "PASSKEY": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/PasskeyGate.kt",
+      "line": 68,
+      "anchor": "suspend fun authorize("
+    },
+    "BACKUP": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/BackupActivity.kt",
+      "line": 491,
+      "anchor": "private suspend fun verify(uri: Uri)"
+    },
+    "CODEC": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/BackupCodec.kt",
+      "line": 58,
+      "anchor": "fun encrypt(record: WalletRecord"
+    },
+    "IOS-BACKUP": {
+      "path": "mobile/modules/gizu-stored-signer/ios/Access/WalletCeremony+Backup.swift",
+      "line": 81,
+      "anchor": "func restore()"
+    },
+    "STORAGE": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/WalletStore.kt",
+      "line": 340,
+      "anchor": "fun restore(record: WalletRecord)"
+    },
+    "ROLES": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/roles.rs",
+      "line": 8,
+      "anchor": "pub const APP_ACCOUNT"
+    },
+    "PATHS": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/lib.rs",
+      "line": 226,
+      "anchor": "pub(crate) fn earn_cycle_key("
+    },
+    "ALLOC": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/roles.rs",
+      "line": 105,
+      "anchor": "pub fn allocate_earn_recipient"
+    },
+    "PROFILE": {
+      "path": "mobile/src/domain/earn/types.ts",
+      "line": 4,
+      "anchor": "export const earnProfiles"
+    },
+    "DEPOSIT-UI": {
+      "path": "mobile/src/features/earn/DepositJourneyScreen.tsx",
+      "line": 17,
+      "anchor": "const stages ="
+    },
+    "ETH-UI": {
+      "path": "mobile/src/features/earn/useLegacyEthereumDeposit.ts",
+      "line": 167,
+      "anchor": "const primaryAction ="
+    },
+    "DEPOSIT": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnDepositCoordinator.kt",
+      "line": 116,
+      "anchor": "suspend fun advance("
+    },
+    "GRANT": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnDepositApproval.kt",
+      "line": 172,
+      "anchor": "fun approveAfterPasskey("
+    },
+    "HOST": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnDepositHost.kt",
+      "line": 31,
+      "anchor": "suspend fun confirm("
+    },
+    "SPONSOR": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_sponsored.rs",
+      "line": 550,
+      "anchor": "pub fn sign("
+    },
+    "DELEGATE": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_sponsored.rs",
+      "line": 973,
+      "anchor": "fn authorization_hash("
+    },
+    "PAYOUT": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_payout.rs",
+      "line": 406,
+      "anchor": "pub fn approve("
+    },
+    "AUTH": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_auth.rs",
+      "line": 37,
+      "anchor": "pub fn authenticate_earn_cycle_read("
+    },
+    "VAULT": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_execution.rs",
+      "line": 381,
+      "anchor": "pub fn sign_next("
+    },
+    "VAULT-ENGINE": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnVaultEngine.kt",
+      "line": 270,
+      "anchor": "suspend fun execute("
+    },
+    "HOOD-VAULT": {
+      "path": "backend/src/adapters/earn/robinhood-vault.ts",
+      "line": 74,
+      "anchor": "const calls: ExactCall[]"
+    },
+    "ETH-PLAN": {
+      "path": "backend/src/adapters/earn/ethereum-deposit-planner.ts",
+      "line": 365,
+      "anchor": "async plan("
+    },
+    "LIQUIDITY": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_ethereum_liquidity.rs",
+      "line": 884,
+      "anchor": "fn permit_digest("
+    },
+    "LIQUIDITY-TX": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/earn_ethereum_liquidity.rs",
+      "line": 430,
+      "anchor": "pub fn sign("
+    },
+    "EXIT-UI": {
+      "path": "mobile/src/features/earn/RobinhoodExecutionPanel.tsx",
+      "line": 86,
+      "anchor": "plan.kind === \"hoodRedeemAll\""
+    },
+    "ETH-EXIT-UI": {
+      "path": "mobile/src/features/earn/VaultExecutionPanel.tsx",
+      "line": 189,
+      "anchor": "Withdrawal review"
+    },
+    "WITHDRAW": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnWithdrawalEngine.kt",
+      "line": 120,
+      "anchor": "internal class EarnWithdrawalEngine"
+    },
+    "SWAP": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 491,
+      "anchor": "fn next(&mut self"
+    },
+    "SWAP-SIGN": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 785,
+      "anchor": "fn sign_funding("
+    },
+    "SWAP-PERMIT": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 1495,
+      "anchor": "let permit = Permit"
+    },
+    "SWAP-ORDER": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 752,
+      "anchor": "let sig = evm::sign(&self.key(self.signer_index(index))?, hash)"
+    },
+    "SWAP-PAYOUT": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 1330,
+      "anchor": "(Step::PayoutSubmit { index }, reject)"
+    },
+    "SWAP-SELL": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 1897,
+      "anchor": "fn review_sell("
+    },
+    "SWAP-RETURN": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 657,
+      "anchor": "Step::PayoutQuote { index } =>"
+    },
+    "SWAP-CREDIT": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 1772,
+      "anchor": "fn credit("
+    },
+    "SWAP-AUTHORITY": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/engine.rs",
+      "line": 2161,
+      "anchor": "pub fn approve(&self, now_ms: u64)"
+    },
+    "SWAP-NATIVE": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/swap/SwapEngine.kt",
+      "line": 189,
+      "anchor": "fun startSell("
+    },
+    "SWAP-BATCH": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/swap/SwapEngine.kt",
+      "line": 513,
+      "anchor": "One passkey approves the listed source limits"
+    },
+    "FUSION": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/fusion.rs",
+      "line": 28,
+      "anchor": "pub struct Permit"
+    },
+    "SPLIT": {
+      "path": "mobile/modules/gizu-stored-signer/core/src/swap/aurora.rs",
+      "line": 442,
+      "anchor": "pub fn split("
+    },
+    "SWAP-JOURNAL": {
+      "path": "mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/swap/SwapEngine.kt",
+      "line": 690,
+      "anchor": "private fun persist("
+    },
+    "CAP-IOS": {
+      "path": "mobile/modules/gizu-stored-signer/ios/GizuStoredSignerModule.swift",
+      "line": 85,
+      "anchor": "AsyncFunction(\"getCapabilities\")"
+    },
+    "GATEWAY": {
+      "path": "backend/src/http/routes/earn-native.routes.ts",
+      "line": 19,
+      "anchor": "export function registerEarnNativeRoutes"
+    },
+    "INVESTMENT-UI": {
+      "path": "mobile/src/features/earn/EarnInvestmentScreen.tsx",
+      "line": 14,
+      "anchor": "export function EarnInvestmentScreen"
+    },
+    "APP": {
+      "path": "backend/src/app.ts",
+      "line": 64,
+      "anchor": "export async function buildApp"
+    },
+    "PG": {
+      "path": "backend/src/adapters/postgres/pg-cache.ts",
+      "line": 6,
+      "anchor": "export class PgCache"
+    }
+  },
+  "svg_identity_checks": {
+    "all_embedded_pictures": "SVG",
+    "raster_pictures": 0,
+    "direct_identity_placements": 29,
+    "description_or_action_logo_false_positives": 0,
+    "provenance": "assets/provenance.json",
+    "visual_review": [
+      "Earn",
+      "Swap",
+      "Wallet creation",
+      "System architecture"
+    ]
+  }
+}

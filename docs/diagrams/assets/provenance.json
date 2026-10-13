@@ -1,0 +1,29 @@
+{
+  "aurora": {
+    "source": "https://brand.aurora.dev/",
+    "asset": "Aurora Logos/AURORA/3 Icon/Aurora-logo-token-trans.svg",
+    "download": "https://brand.aurora.dev/cloudinary/brandpad/raw/upload/v1683129428/22349/aurora-logos.zip",
+    "display": "Original green sign on Aurora-black backdrop; original paths and colors retained."
+  },
+  "pimlico": {
+    "source": "https://www.pimlico.io/",
+    "download": "https://www.pimlico.io/images/brand/pimlico-logo.svg",
+    "display": "Original white SVG wordmark on dark backdrop; original paths and colors retained."
+  },
+  "oneinch": {
+    "source": "https://1inch.com/press-room",
+    "download": "https://1inch.com/assets/images/landing/press-room/assets/1inch_sign_black.svg",
+    "display": "Original black SVG sign, unmodified."
+  },
+  "morpho": {
+    "source": "https://brand.morpho.org/",
+    "download": "https://cdn.morpho.org/assets/brand-kit/morpho-logo.zip",
+    "asset": "Morpho Logos/Morpho Logos/SVG/Morpho-logo-symbol-lightmode.svg",
+    "display": "Original SVG symbol replaces the earlier PNG badge."
+  },
+  "fingerprint": {
+    "source": "Created locally for this diagram set",
+    "display": "Authentication/passkey system symbol. Derived EVM role keys retain key icons."
+  },
+  "placement_rule": "Only explicit provider/authenticator components receive identity marks. Wallets, deposit addresses, signed orders, payloads and action labels retain their semantic system icons; descriptive name mentions do not trigger branding."
+}

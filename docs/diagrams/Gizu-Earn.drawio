@@ -1,0 +1,488 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" pages="1" version="24.7.17">
+  <diagram id="gizu-systems-01" name="01 Earn — system map">
+    <mxGraphModel grid="0" page="1" pageScale="1" pageWidth="1900" pageHeight="1599" background="#FFFFFF" tooltips="1" connect="1" arrows="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="gizu-systems-01-1" parent="1" vertex="1" value="EARN · wallets, signing systems and vault contracts" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=29;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="44" y="30" width="1812" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-2" parent="1" vertex="1" value="The component view: native authority above, actual asset locations below. The return route is the requested sell-style proposal." style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44" y="80" width="1812" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-3" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#299160;strokeWidth=3;endArrow=none;endFill=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="44" y="143" as="sourcePoint" />
+            <mxPoint x="84" y="143" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-4" parent="1" vertex="1" value="ASSETS" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#299160;">
+          <mxGeometry x="94" y="132" width="230" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-5" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#4B79B7;strokeWidth=2;endArrow=none;endFill=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="354" y="143" as="sourcePoint" />
+            <mxPoint x="394" y="143" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-6" parent="1" vertex="1" value="API / DATA" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#4B79B7;">
+          <mxGeometry x="404" y="132" width="230" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-7" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#8862BB;strokeWidth=2;endArrow=none;endFill=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="664" y="143" as="sourcePoint" />
+            <mxPoint x="704" y="143" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-8" parent="1" vertex="1" value="APPROVAL / SIGNING" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#8862BB;">
+          <mxGeometry x="714" y="132" width="230" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-9" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#B58A27;strokeWidth=2;endArrow=none;endFill=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="974" y="143" as="sourcePoint" />
+            <mxPoint x="1014" y="143" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-10" parent="1" vertex="1" value="RELAY / EXECUTION" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#B58A27;">
+          <mxGeometry x="1024" y="132" width="230" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-11" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#C17C31;strokeWidth=2;endArrow=none;endFill=1;dashed=1;dashPattern=6 4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1284" y="143" as="sourcePoint" />
+            <mxPoint x="1324" y="143" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-12" parent="1" vertex="1" value="PROPOSED EXIT" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#C17C31;">
+          <mxGeometry x="1334" y="132" width="230" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-13" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#F1EDFA;strokeColor=#8268AF;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="40" y="180" width="570" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-14" parent="1" vertex="1" value="ON THE USER’S PHONE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#8268AF;">
+          <mxGeometry x="60" y="195" width="530" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-15" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#FFF4DC;strokeColor=#BB963D;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="650" y="180" width="1200" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-16" parent="1" vertex="1" value="GIZU BACKEND / PROVIDER ACCESS" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#BB963D;">
+          <mxGeometry x="670" y="195" width="1160" height="24" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-17" label="" tooltip="mobile/src/services/wallet/storedAccess.ts:52">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#8268AF;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="65" y="245" width="190" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-17-icon" parent="gizu-systems-01-17" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjI3IiB5PSIxMyIgd2lkdGg9IjQyIiBoZWlnaHQ9IjcwIiByeD0iOCIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik00MCAyMGgxNk00MSA3NWgxNCIvPjxyZWN0IHg9IjM0IiB5PSIyOSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjE4IiByeD0iNCIgZmlsbD0iI0RERUJGQyIvPjxwYXRoIGQ9Ik0zNSA1NWgyNk0zNSA2MmgxOCIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="53.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-17-title" parent="gizu-systems-01-17" vertex="1" value="Gizu mobile app" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="172" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-17-sub" parent="gizu-systems-01-17" vertex="1" value="Earn intent + public status" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="172" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-18" label="" tooltip="mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnDepositApproval.kt:172&#10;mobile/modules/gizu-stored-signer/core/src/earn_execution.rs:381">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#8268AF;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="345" y="245" width="230" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-18-icon" parent="gizu-systems-01-18" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0YxRUFGQiIvPjxnIHN0cm9rZT0iIzdCNThBNiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik00OCAxNGwyOSAxMnYyNGMwIDE2LTEyIDI2LTI5IDM0LTE3LTgtMjktMTgtMjktMzRWMjZ6IiBmaWxsPSIjREVEMkYwIi8+PHJlY3QgeD0iMzQiIHk9IjM5IiB3aWR0aD0iMjgiIGhlaWdodD0iMjQiIHJ4PSI0IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTM5IDM5di02YTkgOSAwIDAgMSAxOCAwdjZNNDggNDl2NiIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="73.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-18-badge" parent="gizu-systems-01-18" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiM2QjUwQTIiIHN0cm9rZS13aWR0aD0iMy40IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yNCAyNUMzOCAxMCA2MSAxMiA3NCAyOE0xNiA0M2MxLTE0IDE0LTI0IDMxLTI0IDE5IDAgMzMgMTMgMzMgMzEiLz48cGF0aCBkPSJNMjIgNjRjNS04IDYtMTUgNi0yMiAwLTEwIDktMTcgMjAtMTcgMTMgMCAyMyAxMCAyMyAyMyAwIDE3LTYgMjktMTMgMzciLz48cGF0aCBkPSJNMTUgNTVjMCA5LTMgMTUtNyAyME0zNSA4MGMxMC0xMSAxNS0yMiAxNS0zNk00NCA4NGMxMi0xMiAxOS0yNiAxOS00MCAwLTktNi0xNS0xNS0xNU0yOCA4NGM5LTEyIDE1LTI0IDE1LTM4IDAtNCAzLTcgNi03IDUgMCA4IDQgOCA4Ii8+PHBhdGggZD0iTTIwIDgwYzExLTEzIDE2LTI2IDE2LTM4IDAtNiA1LTExIDEyLTExTTY3IDg2YzEwLTEyIDE3LTI2IDE3LTQyIi8+PC9nPjwvc3ZnPg==;">
+          <mxGeometry x="138.0" y="60" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-18-title" parent="gizu-systems-01-18" vertex="1" value="Native wallet + Rust" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="212" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-18-sub" parent="gizu-systems-01-18" vertex="1" value="Passkey review · constrained keys" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="212" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-19" label="" tooltip="backend/src/app.ts:64&#10;backend/src/http/routes/earn-native.routes.ts:19">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#BB963D;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="735" y="245" width="250" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-19-icon" parent="gizu-systems-01-19" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0ZGRjJEMyIvPjxnIHN0cm9rZT0iI0E3ODQyRiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjIxIiB5PSIxNyIgd2lkdGg9IjU0IiBoZWlnaHQ9IjYyIiByeD0iNiIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0yMSAzOGg1NE0yMSA1OWg1NE0zNiAyN2gyNU0zNiA0OGgyNU0zNiA2OWgyNSIvPjxjaXJjbGUgY3g9IjI5IiBjeT0iMjciIHI9IjIiLz48Y2lyY2xlIGN4PSIyOSIgY3k9IjQ4IiByPSIyIi8+PGNpcmNsZSBjeD0iMjkiIGN5PSI2OSIgcj0iMiIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="83.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-19-title" parent="gizu-systems-01-19" vertex="1" value="Gizu Fastify API" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="232" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-19-sub" parent="gizu-systems-01-19" vertex="1" value="Quotes · simulation · signed relay" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="232" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-20" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/earn_sponsored.rs:550">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#BB963D;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1070" y="245" width="220" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-20-icon" parent="gizu-systems-01-20" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PD94bWwgdmVyc2lvbj0nMS4wJyBlbmNvZGluZz0ndXRmLTgnPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iOTYiIHZpZXdCb3g9IjAgMCAyMDAgOTYiPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIyMDAiIGhlaWdodD0iOTYiIHJ4PSIxMCIgZmlsbD0iIzE3MUMyNCIgLz48c3ZnIHdpZHRoPSIxNzAiIGhlaWdodD0iMjYiIHZpZXdCb3g9IjAgMCAxNzAgMjYiIGZpbGw9Im5vbmUiIHg9IjE1IiB5PSIzNSI+CjxwYXRoIGQ9Ik0yMi43NDAxIDAuMDAxNDQxOTNIMFYzLjMzMDQ5SDIxLjA3NDhWMTEuOTMxOUg3LjYzMDQxQzYuNzExMzcgMTEuOTMxOSA1Ljk2NTIzIDEyLjY3NjYgNS45NjUyMyAxMy41OTcxVjIwLjE3NzRIOS4yOTU3M1YxNS4yNjIzSDIyLjc0MDFDMjMuNjU5MiAxNS4yNjIzIDI0LjQwNTMgMTQuNTE3NiAyNC40MDUzIDEzLjU5NzFWMS42NjUyNEMyNC40MDUzIDAuNzQ2MTkgMjMuNjYwNiAwIDIyLjc0MDEgMFYwLjAwMTQ0MTkzWiIgZmlsbD0id2hpdGUiIC8+CjxwYXRoIGQ9Ik0zLjMzMDUxIDIyLjY2ODFIMTEuOTMwNVYxNy44OTg1SDE1LjI2MVYyNC4zMzQ4QzE1LjI2MSAyNS4yNTUyIDE0LjUxNDcgMjYgMTMuNTk1NiAyNkgxLjY2NTE4QzAuNzQ0NzM5IDI2IDAgMjUuMjUzOCAwIDI0LjMzNDhWNy42MzE4OUMwIDYuNzExNCAwLjc0NjE0NiA1Ljk2NjY0IDEuNjY1MTggNS45NjY2NEgxOC40NDAxVjkuMjk1N0gzLjMzMDUxVjIyLjY2ODFaIiBmaWxsPSJ3aGl0ZSIgLz4KPHBhdGggZD0iTTIyLjc0MDEgMC4wMDE0NDE5M0gwVjMuMzMwNDlIMjEuMDc0OFYxMS45MzE5SDcuNjMwNDFDNi43MTEzNyAxMS45MzE5IDUuOTY1MjMgMTIuNjc2NiA1Ljk2NTIzIDEzLjU5NzFWMjAuMTc3NEg5LjI5NTczVjE1LjI2MjNIMjIuNzQwMUMyMy42NTkyIDE1LjI2MjMgMjQuNDA1MyAxNC41MTc2IDI0LjQwNTMgMTMuNTk3MVYxLjY2NTI0QzI0LjQwNTMgMC43NDYxOSAyMy42NjA2IDAgMjIuNzQwMSAwVjAuMDAxNDQxOTNaIiBmaWxsPSJ3aGl0ZSIgLz4KPHBhdGggZD0iTTE0MC41MzUgMC4wMDI4ODM4NkgxMjEuNzExQzEyMC43OTggMC4wMDI4ODM4NiAxMjAuMDU3IDAuNzQzMzE1IDEyMC4wNTcgMS42NTY2VjI0LjMyNDdDMTIwLjA1NyAyNS4yMzggMTIwLjc5OCAyNS45Nzg0IDEyMS43MTEgMjUuOTc4NEgxNDAuNDlDMTQwLjkyOCAyNS45Nzg0IDE0MS4zNSAyNS44MDQxIDE0MS42NiAyNS40OTQ0QzE0MS45NjkgMjUuMTg0NyAxNDIuMTQ0IDI0Ljc2NCAxNDIuMTQ0IDI0LjMyNDdWMTYuODkwMUgxMzguODM2VjIyLjY3MDlIMTIzLjM2NlYzLjMxMTc2SDEzOC44ODFWNS45NDc5MkgxMjcuNjU4QzEyNi43NDQgNS45NDc5MiAxMjYuMDA0IDYuNjg4MzUgMTI2LjAwNCA3LjYwMTY0VjE4LjM3MzlDMTI2LjAwNCAxOS4yODcyIDEyNi43NDQgMjAuMDI3NiAxMjcuNjU4IDIwLjAyNzZIMTM2LjJWMTYuNzE4N0gxMjkuMzExVjkuMjUzOTJIMTQwLjUzNUMxNDEuNDQ4IDkuMjUzOTIgMTQyLjE4OCA4LjUxMzQ5IDE0Mi4xODggNy42MDAyVjEuNjU2NkMxNDIuMTg4IDAuNzQzMzE1IDE0MS40NDggMC4wMDI4ODM4NiAxNDAuNTM1IDAuMDAyODgzODZaIiBmaWxsPSJ3aGl0ZSIgLz4KPHBhdGggZD0iTTMuMzMwNTEgMjIuNjY4MUgxMS45MzA1VjE3Ljg5ODVIMTUuMjYxVjI0LjMzNDhDMTUuMjYxIDI1LjI1NTIgMTQuNTE0NyAyNiAxMy41OTU2IDI2SDEuNjY1MThDMC43NDQ3MzkgMjYgMCAyNS4yNTM4IDAgMjQuMzM0OFY3LjYzMTg5QzAgNi43MTE0IDAuNzQ2MTQ2IDUuOTY2NjQgMS42NjUxOCA1Ljk2NjY0SDE4LjQ0MDFWOS4yOTU3SDMuMzMwNTFWMjIuNjY4MVoiIGZpbGw9IndoaXRlIiAvPgo8cGF0aCBkPSJNMTE0LjMyNCAyNS45OTg2SDEwOC4zNTlDMTA3LjQ0IDI1Ljk5ODYgMTA2LjY5NCAyNS4yNTM4IDEwNi42OTQgMjQuMzMzM1YxLjY2NTI0QzEwNi42OTQgMC43NDYxOSAxMDcuNDM5IDAgMTA4LjM1OSAwSDExNS45OThWMy4zMzA0OUgxMTAuMDI0VjIyLjY2ODFIMTEyLjY2VjUuOTY2NjRIMTE1Ljk5VjI0LjMzMzNDMTE1Ljk5IDI1LjI1MjQgMTE1LjI0NSAyNS45OTg2IDExNC4zMjQgMjUuOTk4NloiIGZpbGw9IndoaXRlIiAvPgo8cGF0aCBkPSJNMjkuOTkwMiAyNS45OTg2SDM1Ljk1NTRDMzYuODc2IDI1Ljk5ODYgMzcuNjIwNyAyNS4yNTI0IDM3LjYyMDcgMjQuMzMzM1Y1Ljk2NjY0SDM0LjI5MTZWMjIuNjY4MUgzMS42NTU1VjMuMzMwNDlIMzcuNjI5M1YwSDI5Ljk5MDJDMjkuMDY5NyAwIDI4LjMyNSAwLjc0NjE5IDI4LjMyNSAxLjY2NTI0VjI0LjMzMzNDMjguMzI1IDI1LjI1MzggMjkuMDcxMSAyNS45OTg2IDI5Ljk5MDIgMjUuOTk4NloiIGZpbGw9IndoaXRlIiAvPgo8cGF0aCBkPSJNNzguMjQ2NCAxLjY2NTI0VjI0LjMzMzNDNzguMjQ2NCAyNS4yNTI0IDc3LjUwMTcgMjUuOTk4NiA3Ni41ODI2IDI1Ljk5ODZINjkuMTc1M1YyMi42NjgxSDc0LjkxNzNWMy4zMzA0OUg2Ni4xODkyTDYxLjQyOTcgMTQuNDk3NEM2MS4xNjc1IDE1LjExMTEgNjAuNTY1NCAxNS41MDg3IDU5Ljg5ODUgMTUuNTA4N0M1OS4yMzE1IDE1LjUwODcgNTguNjI5MyAxNS4xMTExIDU4LjM2NzIgMTQuNDk3NEw1My42MDc3IDMuMzMwNDlINDQuODc5NlYyMi42NjgxSDUwLjYyMTRWMjUuOTk4Nkg0My4yMTQzQzQyLjI5NTIgMjUuOTk4NiA0MS41NTA1IDI1LjI1MjQgNDEuNTUwNSAyNC4zMzMzVjEuNjY1MjRDNDEuNTUwNSAwLjc0NjE5IDQyLjI5NTIgMC4wMDE0NDE5MyA0My4yMTQzIDAuMDAxNDQxOTNINTQuNzA2OEM1NS4zNzUyIDAuMDAxNDQxOTMgNTUuOTc3NCAwLjM5OTAyOCA1Ni4yMzk1IDEuMDEyNjlMNTkuODk4NSA5LjU5ODJMNjMuNTU3MyAxLjAxMjY5QzYzLjgxOTUgMC4zOTkwMjggNjQuNDIxNiAwLjAwMTQ0MTkzIDY1LjA5MDEgMC4wMDE0NDE5M0g3Ni41ODI2Qzc3LjUwMTcgMC4wMDE0NDE5MyA3OC4yNDY0IDAuNzQ2MTkgNzguMjQ2NCAxLjY2NTI0WiIgZmlsbD0id2hpdGUiIC8+CjxwYXRoIGQ9Ik03Mi4yODEyIDIwLjAzMTlWNy42MzE4OUM3Mi4yODEyIDYuNzExNCA3MS41MzUgNS45NjY2NCA3MC42MTU5IDUuOTY2NjRINjkuMDY4OUM2OC40MDE5IDUuOTY2NjQgNjcuNzk4MyA2LjM2NDIzIDY3LjUzNzYgNi45Nzc4OUw2Mi40MjM3IDE4LjgxNzVINTcuMzczMkw1Mi4yNTkzIDYuOTc3ODlDNTEuOTk4NyA2LjM2NDIzIDUxLjM5NSA1Ljk2NjY0IDUwLjcyODEgNS45NjY2NEg0OS4xODA5QzQ4LjI2MTkgNS45NjY2NCA0Ny41MTU3IDYuNzExNCA0Ny41MTU3IDcuNjMxODlWMjAuMDMxOUg1MC42MjE0VjEwLjU2MTlMNTUuMTk1MSAyMS4xMzU0QzU1LjQ1NTkgMjEuNzQ5IDU2LjA1OTQgMjIuMTQ2NiA1Ni43MjY0IDIyLjE0NjZINjMuMDcwNEM2My43Mzc0IDIyLjE0NjYgNjQuMzQxIDIxLjc0OSA2NC42MDE3IDIxLjEzNTRMNjkuMTc1MyAxMC41NjE5VjIwLjAzMTlINzIuMjgxMloiIGZpbGw9IndoaXRlIiAvPgo8cGF0aCBkPSJNOTkuNTgwNCAyMi42NjgxSDg1LjYzNDdWNS45NjY2NEg4Mi4zMDQyVjI0LjMzMzNDODIuMzA0MiAyNS4yNTI0IDgzLjA0OSAyNS45OTg2IDgzLjk2OTQgMjUuOTk4NkgxMDEuMjQ2QzEwMi4xNjUgMjUuOTk4NiAxMDIuOTExIDI1LjI1MzggMTAyLjkxMSAyNC4zMzMzVjE2Ljc3OTJIOTkuNTgwNFYyMi42NjgxWiIgZmlsbD0id2hpdGUiIC8+CjxwYXRoIGQ9Ik04OS45MzQ2IDIwLjAzMzRDODkuMDE0MiAyMC4wMzM0IDg4LjI2OTQgMTkuMjg3MiA4OC4yNjk0IDE4LjM2ODFIODguMjY4VjMuMzMwNDlIODIuMzc3NlYwSDg5LjkzMzJDOTAuODUzNyAwIDkxLjU5ODQgMC43NDYxOSA5MS41OTg0IDEuNjY1MjRWMTYuNzA0M0g5Ni45NDQyVjIwLjAzMzRIODkuOTM0NloiIGZpbGw9IndoaXRlIiAvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTE1My43ODkgNS45NDc5MkgxNjIuMzgzQzE2My4yNzkgNS45NDc5MiAxNjQuMDA1IDYuNjczOTQgMTY0LjAwNSA3LjU2ODUxVjE4LjQxNDJDMTY0LjAwNSAxOS4zMDg4IDE2My4yNzkgMjAuMDM0OCAxNjIuMzgzIDIwLjAzNDhIMTUzLjc4OUMxNTIuODk0IDIwLjAzNDggMTUyLjE2OCAxOS4zMDg4IDE1Mi4xNjggMTguNDE0MlY3LjU2ODUxQzE1Mi4xNjggNi42NzM5NCAxNTIuODk0IDUuOTQ3OTIgMTUzLjc4OSA1Ljk0NzkyWk0xNTUuNDExIDkuMTg5MUgxNjAuNzYyVjE2Ljc5MzZIMTU1LjQxMVY5LjE4OTFaIiBmaWxsPSJ3aGl0ZSIgLz4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNjguMjcgMC4wMDI4ODM4NkgxNDcuOTAxQzE0Ni45ODggMC4wMDI4ODM4NiAxNDYuMjQ2IDAuNzQzMzE1IDE0Ni4yNDYgMS42NTY2VjI0LjMyNDdDMTQ2LjI0NiAyNS4yMzggMTQ2Ljk4OCAyNS45Nzg0IDE0Ny45MDEgMjUuOTc4NEgxNjguMjdDMTY5LjE4NCAyNS45Nzg0IDE2OS45MjQgMjUuMjM4IDE2OS45MjQgMjQuMzI0N1YxLjY1NjZDMTY5LjkyNCAwLjc0MzMxNSAxNjkuMTg0IDAuMDAyODgzODYgMTY4LjI3IDAuMDAyODgzODZaTTE2Ni42MTcgMjIuNjcwOUgxNDkuNTU1VjMuMzExNzZIMTY2LjYxN1YyMi42NzA5WiIgZmlsbD0id2hpdGUiIC8+Cjwvc3ZnPjwvc3ZnPg==;">
+          <mxGeometry x="35.0" y="8" width="150" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-20-title" parent="gizu-systems-01-20" vertex="1" value="Pimlico" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="202" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-20-sub" parent="gizu-systems-01-20" vertex="1" value="Bundler + token paymaster" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="202" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-21" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/earn_payout.rs:406">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#459367;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1400" y="245" width="230" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-21-icon" parent="gizu-systems-01-21" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PD94bWwgdmVyc2lvbj0nMS4wJyBlbmNvZGluZz0ndXRmLTgnPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHJ4PSIxMCIgZmlsbD0iIzEwMTgyMCIgLz48c3ZnIHZpZXdCb3g9IjAgMCA4MDggODA4IiB4PSIwIiB5PSIwIiB3aWR0aD0iOTYiIGhlaWdodD0iOTYiPjxkZWZzPjxzdHlsZT4uZHtmaWxsOm5vbmU7fS5le2ZpbGw6IzVkZWI1YTt9PC9zdHlsZT48L2RlZnM+PGcgaWQ9ImEiIC8+PGcgaWQ9ImIiPjxnIGlkPSJjIj48Zz48cGF0aCBjbGFzcz0iZSIgZD0iTTQwMi45MSwyMDQuOTFjMTguNjgsMCwzNS40OCwxMC4zOCw0My44NCwyNy4wOWwxMzcuODUsMjc1LjcxYzcuNjUsMTUuMzEsNi44NSwzMy4xMy0yLjE0LDQ3LjY5LTksMTQuNTYtMjQuNTgsMjMuMjUtNDEuNywyMy4yNUgyNjUuMDZjLTE3LjExLDAtMzIuNy04LjY5LTQxLjY5LTIzLjI1LTktMTQuNTYtOS44LTMyLjM4LTIuMTQtNDcuNjlMMzU5LjA3LDIzMmM4LjM2LTE2LjcxLDI1LjE2LTI3LjA5LDQzLjg0LTI3LjA5bTAtMzMuN2MtMzEuMzMsMC01OS45NywxNy43LTczLjk4LDQ1LjcyTDE5MS4wOCw0OTIuNjRjLTEyLjgyLDI1LjY0LTExLjQ1LDU2LjA5LDMuNjIsODAuNDcsMTUuMDcsMjQuMzgsNDEuNjksMzkuMjMsNzAuMzYsMzkuMjNoMjc1LjcxYzI4LjY3LDAsNTUuMjktMTQuODQsNzAuMzYtMzkuMjMsMTUuMDctMjQuMzgsMTYuNDQtNTQuODMsMy42Mi04MC40N0w0NzYuODksMjE2LjkzYy0xNC4wMS0yOC4wMi00Mi42NS00NS43Mi03My45OC00NS43MmgwWiIgLz48cmVjdCBjbGFzcz0iZCIgd2lkdGg9IjgwOCIgaGVpZ2h0PSI4MDgiIC8+PC9nPjwvZz48L2c+PC9zdmc+PC9zdmc+;">
+          <mxGeometry x="73.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-21-title" parent="gizu-systems-01-21" vertex="1" value="Aurora API" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="212" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-21-sub" parent="gizu-systems-01-21" vertex="1" value="Private routes + settlement" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="212" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-22" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#8862BB;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-17" target="gizu-systems-01-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-23" parent="1" vertex="1" value="1 · request /&#10;approve" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#8862BB;">
+          <mxGeometry x="258" y="270" width="85" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-24" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#4B79B7;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-18" target="gizu-systems-01-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-25" parent="1" vertex="1" value="2 · native HTTPS" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#4B79B7;">
+          <mxGeometry x="595" y="288" width="125" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-26" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#B58A27;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-19" target="gizu-systems-01-20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-27" parent="1" vertex="1" value="sponsored&#10;ops" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#B58A27;">
+          <mxGeometry x="990" y="285" width="80" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-30" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#4B79B7;strokeWidth=2;endArrow=block;endFill=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-19" target="gizu-systems-01-21">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="224" />
+              <mxPoint x="1515" y="224" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-31" parent="1" vertex="1" value="Aurora quotes + signed intents" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#4B79B7;">
+          <mxGeometry x="1060" y="193" width="300" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-32" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#E9F2FE;strokeColor=#527CAF;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="40" y="475" width="625" height="425" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-33" parent="1" vertex="1" value="MONAD · PUBLIC SOURCE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#527CAF;">
+          <mxGeometry x="60" y="490" width="585" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-34" parent="1" vertex="1" value="Chain 143 · funding sources 0, 1 and eligible allocated receivers" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#64748B;">
+          <mxGeometry x="60" y="517" width="585" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-35" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#E4F4EA;strokeColor=#459367;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="705" y="475" width="380" height="425" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-36" parent="1" vertex="1" value="AURORA · CONFIDENTIAL MIDDLE" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#459367;">
+          <mxGeometry x="725" y="490" width="340" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-37" parent="1" vertex="1" value="Private credit controlled by Cₑ" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#64748B;">
+          <mxGeometry x="725" y="517" width="340" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-38" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#E7F4F6;strokeColor=#40848C;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="1125" y="475" width="725" height="425" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-39" parent="1" vertex="1" value="DESTINATION · ETHEREUM / ROBINHOOD" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#40848C;">
+          <mxGeometry x="1145" y="490" width="685" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-40" parent="1" vertex="1" value="Ethereum: USDC + ETH gas · Robinhood: USDG token-paid gas" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#64748B;">
+          <mxGeometry x="1145" y="517" width="685" height="32" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-41" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/roles.rs:8&#10;mobile/src/services/wallet/storedAccess.ts:52">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#527CAF;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="90" y="620" width="220" height="175" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-41-icon" parent="gizu-systems-01-41" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMCAzMWw0Mi0xMHYxN0gyMCIgZmlsbD0iI0FDQzlFQSIvPjxyZWN0IHg9IjE3IiB5PSIzMiIgd2lkdGg9IjYzIiBoZWlnaHQ9IjQ2IiByeD0iNyIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjU1IiB5PSI0NCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjIxIiByeD0iNCIgZmlsbD0iI0I5RDJGMCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNTQiIHI9IjIiIGZpbGw9IiMzMTVFOTIiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="68.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-41-badge" parent="gizu-systems-01-41" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjQ4IiBjeT0iNDgiIHI9IjMzIiBmaWxsPSIjMjc3NUNBIiBzdHJva2U9IiMyNzc1Q0EiLz48cGF0aCBkPSJNMzkgMzFjLTEwIDItMTYgOC0xNiAxN3M2IDE1IDE2IDE4TTU3IDMxYzEwIDIgMTYgOCAxNiAxN3MtNiAxNS0xNiAxOE01NSAzNmMtMTUtMTAtMjcgMTEtNyAxMnM4IDIzLTggMTFNNDggMjl2MzgiIHN0cm9rZT0iI2ZmZiIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="133.0" y="60" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-41-title" parent="gizu-systems-01-41" vertex="1" value="Funding wallet F" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="202" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-41-sub" parent="gizu-systems-01-41" vertex="1" value="Monad USDC" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="202" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-42" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/earn_sponsored.rs:550">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#527CAF;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="420" y="620" width="210" height="175" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-42-icon" parent="gizu-systems-01-42" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0U0RjNGNSIvPjxnIHN0cm9rZT0iIzNCN0U4NSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAyMmwxNS04IDE1IDh2MThsLTE1IDgtMTUtOHpNNDcgNTdsMTUtOCAxNSA4djE4bC0xNSA4LTE1LTh6IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTIxIDIybDE1IDggMTUtOE0zNiAzMHYxOE00NyA1N2wxNSA4IDE1LThNNjIgNjV2MThNNDMgNDVsMTIgMTAiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="63.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-42-title" parent="gizu-systems-01-42" vertex="1" value="Aurora deposit address" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="192" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-42-sub" parent="gizu-systems-01-42" vertex="1" value="Quoted receiver on Monad" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="192" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-43" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/earn_auth.rs:37&#10;mobile/modules/gizu-stored-signer/core/src/earn_payout.rs:406">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#459367;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="775" y="620" width="240" height="175" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-43-icon" parent="gizu-systems-01-43" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0UyRjVFQSIvPjxnIHN0cm9rZT0iIzM1OEE1OCIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xOSAyOHYzNWMwIDE2IDQ5IDE2IDQ5IDBWMjgiIGZpbGw9IiNmZmYiLz48ZWxsaXBzZSBjeD0iNDMuNSIgY3k9IjI4IiByeD0iMjQuNSIgcnk9IjExIiBmaWxsPSIjQkNFNENDIi8+PHBhdGggZD0iTTE5IDQ1YzAgMTQgNDkgMTQgNDkgMCIvPjxyZWN0IHg9IjU1IiB5PSI1NSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjI2IiByeD0iNSIgZmlsbD0iI0QwRUNERCIvPjxwYXRoIGQ9Ik02MSA1NXYtNWE4IDggMCAwIDEgMTYgMHY1TTY5IDY2djUiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="78.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-43-title" parent="gizu-systems-01-43" vertex="1" value="Confidential credit Cₑ" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="222" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-43-sub" parent="gizu-systems-01-43" vertex="1" value="Earn cycle · role 2" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="222" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-44" label="" tooltip="mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnDepositCoordinator.kt:116">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#40848C;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1170" y="565" width="240" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-44-icon" parent="gizu-systems-01-44" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMCAzMWw0Mi0xMHYxN0gyMCIgZmlsbD0iI0FDQzlFQSIvPjxyZWN0IHg9IjE3IiB5PSIzMiIgd2lkdGg9IjYzIiBoZWlnaHQ9IjQ2IiByeD0iNyIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjU1IiB5PSI0NCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjIxIiByeD0iNCIgZmlsbD0iI0I5RDJGMCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNTQiIHI9IjIiIGZpbGw9IiMzMTVFOTIiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="78.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-44-badge" parent="gizu-systems-01-44" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0U2RjRFQiIvPjxnIHN0cm9rZT0iIzM2NkY1MSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjQ4IiBjeT0iNDgiIHI9IjMyIiBmaWxsPSIjMUI2OTRCIiBzdHJva2U9IiMxQjY5NEIiLz48cGF0aCBkPSJNNTkgMzNjLTIyLTE0LTM2IDE2LTExIDE2czE0IDI5LTEyIDEzTTQ4IDIzdjUwIiBzdHJva2U9IiNmZmYiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="143.0" y="60" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-44-title" parent="gizu-systems-01-44" vertex="1" value="Holding wallet H" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="222" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-44-sub" parent="gizu-systems-01-44" vertex="1" value="role 0 · deliberate 10%" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="222" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-45" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/lib.rs:226&#10;mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnDepositCoordinator.kt:116">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#40848C;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1170" y="740" width="240" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-45-icon" parent="gizu-systems-01-45" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMCAzMWw0Mi0xMHYxN0gyMCIgZmlsbD0iI0FDQzlFQSIvPjxyZWN0IHg9IjE3IiB5PSIzMiIgd2lkdGg9IjYzIiBoZWlnaHQ9IjQ2IiByeD0iNyIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjU1IiB5PSI0NCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjIxIiByeD0iNCIgZmlsbD0iI0I5RDJGMCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNTQiIHI9IjIiIGZpbGw9IiMzMTVFOTIiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="78.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-45-badge" parent="gizu-systems-01-45" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0U2RjRFQiIvPjxnIHN0cm9rZT0iIzM2NkY1MSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjQ4IiBjeT0iNDgiIHI9IjMyIiBmaWxsPSIjMUI2OTRCIiBzdHJva2U9IiMxQjY5NEIiLz48cGF0aCBkPSJNNTkgMzNjLTIyLTE0LTM2IDE2LTExIDE2czE0IDI5LTEyIDEzTTQ4IDIzdjUwIiBzdHJva2U9IiNmZmYiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="143.0" y="60" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-45-title" parent="gizu-systems-01-45" vertex="1" value="Investment wallet I" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="222" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-45-sub" parent="gizu-systems-01-45" vertex="1" value="role 1 · remainder 90%" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="222" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-46" label="" tooltip="backend/src/adapters/earn/robinhood-vault.ts:74&#10;mobile/modules/gizu-stored-signer/core/src/earn_execution.rs:381">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#40848C;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1580" y="740" width="225" height="145" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-46-icon" parent="gizu-systems-01-46" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0U0RjNGNSIvPjxnIHN0cm9rZT0iIzNGN0U4NSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE3IiB5PSIxNiIgd2lkdGg9IjYzIiBoZWlnaHQ9IjY1IiByeD0iOCIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjI1IiB5PSIyNCIgd2lkdGg9IjQ3IiBoZWlnaHQ9IjQ5IiByeD0iNCIgZmlsbD0iI0Q1RTlFQyIvPjxjaXJjbGUgY3g9IjQ5IiBjeT0iNDkiIHI9IjE1Ii8+PHBhdGggZD0iTTQ5IDM0djMwTTM0IDQ5aDMwTTM5IDM5bDIwIDIwTTM5IDU5bDIwLTIwTTE5IDMxaDVNMTkgNjVoNSIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="70.5" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-46-badge" parent="gizu-systems-01-46" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB3aWR0aD0iNzQiIGhlaWdodD0iNjkiIHZpZXdCb3g9IjAgMCA3NCA2OSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAwXzEzNDVfNTIxKSI+CjxwYXRoIGQ9Ik04LjY0MDY5IDQ2LjYyNTdWNjYuNDkwOEM4LjY0MDY5IDY3LjcxMzcgOS42NzU2NCA2OC4yMjEzIDkuOTk3NjIgNjguMzM2NkMxMC4zMTk2IDY4LjQ3NTEgMTEuNDAwNSA2OC43NzUgMTIuMzY2NCA2Ny44NzUyTDI3LjM5NDQgNTMuNDMzM0MyOC42NzQyIDUyLjIwMzYgMjkuOTA5MyA1MC45MTA5IDMwLjgzNzUgNDkuMzk4NEMzMS4yNzQ0IDQ4LjY4NzQgMzEuNDU1NSA0OC4yODY5IDMxLjQ1NTUgNDguMjg2OUMzMi4zNzU1IDQ2LjQxOCAzMi4zNzU1IDQ0LjYxODQgMzEuNDc4MiA0Mi44MTg3QzMwLjE0NDggNDAuMTQyNCAyNi43NDA3IDM3LjQxOTggMjEuNjExOCAzNC44MzU3TDEyLjg0OTQgMzkuNzI3MUMxMC4yNTA2IDQxLjIwMzcgOC42NDA2OSA0My44MTA5IDguNjQwNjkgNDYuNjI1N1oiIGZpbGw9IiMwMDRFQzMiLz4KPHBhdGggZD0iTTAgMi40NDIxMlYyMy4yNzY0QzAgMjUuODgzNSAxLjc0Nzk0IDI4LjE5MDcgNC4yMzE4NCAyOC45MjlDMTIuNjk1NCAzMS4zNzQ3IDI3LjQzNzUgMzYuNjM1MSAzMS4wMDI0IDQ0LjM2NDRDMzEuNDYyIDQ1LjM3OTUgMzEuNzM4MSA0Ni4zNzE3IDMxLjgzMDcgNDcuNDA5OUMzNC4xOTk0IDQzLjA5NTQgMzUuMjgwMyAzOC4xMzQ4IDM0Ljc3NDQgMzMuMTA1MUMzNC4wODQxIDI1Ljk3NTggMzAuMzEyMiAxOS40OTI1IDI0LjQyNDggMTUuMzYyNkwzLjQyNjg2IDAuNjY1NTVDMy4wNTg4MyAwLjM4ODY4MiAyLjYyMTg3IDAuMjUwMjQ0IDIuMTg0OSAwLjI1MDI0NEMxLjgxNjg4IDAuMjUwMjQ0IDEuNDk0OSAwLjMxOTQ2MyAxLjE0OTk0IDAuNTA0MDQyQzAuNDU5OTQ1IDAuODk2MjY5IDAgMS42MTE1MiAwIDIuNDQyMTJaIiBmaWxsPSIjMjQ3MEZGIi8+CjxwYXRoIGQ9Ik02NC41MzUyIDQ2LjYyNTdWNjYuNDkwOEM2NC41MzUyIDY3LjcxMzcgNjMuNTAwNiA2OC4yMjEzIDYzLjE3ODIgNjguMzM2NkM2Mi44NTY3IDY4LjQ3NTEgNjEuNzc1IDY4Ljc3NSA2MC44MDk1IDY3Ljg3NTJMNDUuNDMxNyA1My4wOTc1QzQ0LjM4NDkgNTIuMDkxMyA0My4zODUzIDUxLjAyNzMgNDIuNTk2OCA0OS44MDhDNDEuOTcyMyA0OC44NDMgNDEuNzIwNiA0OC4yODY5IDQxLjcyMDYgNDguMjg2OUM0MC44MDA1IDQ2LjQxOCA0MC44MDA1IDQ0LjYxODQgNDEuNjk3IDQyLjgxODdDNDMuMDMxMiA0MC4xNDI0IDQ2LjQzNTQgMzcuNDE5OCA1MS41NjM1IDM0LjgzNTdMNjAuMzI2MyAzOS43MjcxQzYyLjk0ODQgNDEuMjAzNyA2NC41MzUyIDQzLjgxMDkgNjQuNTM1MiA0Ni42MjU3WiIgZmlsbD0iIzAwNEVDMyIvPgo8cGF0aCBkPSJNNzMuMTkgMi40NDA2NVYyMy4yNzQ5QzczLjE5IDI1Ljg4MiA3MS40NDE2IDI4LjE4OTIgNjguOTU3NiAyOC45Mjc2QzYwLjQ5NDQgMzEuMzczMiA0NS43NTI0IDM2LjYzMzcgNDIuMTg3NSA0NC4zNjI5QzQxLjcyNzEgNDUuMzc4MSA0MS40NTEgNDYuMzcwMiA0MS4zNTkyIDQ3LjQwODVDMzguOTkwNSA0My4wOTQgMzcuOTA5NiAzOC4xMzM0IDM4LjQxNTUgMzMuMTAzN0MzOS4xMDQ5IDI1Ljk3NDMgNDIuODc2OSAxOS40OTExIDQ4Ljc2NTEgMTUuMzYxMUw2OS43NjMxIDAuNjY0MDc3QzcwLjEzMSAwLjM4NzIwOSA3MC41Njc5IDAuMjQ4Nzc5IDcxLjAwNDcgMC4yNDg3NzlDNzEuMzcyNiAwLjI0ODc3OSA3MS42OTUgMC4zMTc5OTggNzIuMDM5MyAwLjUwMjU3N0M3Mi43Mjk1IDAuODk0ODA0IDczLjE5IDEuNjEwMDUgNzMuMTkgMi40NDA2NVoiIGZpbGw9IiMyNDcwRkYiLz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xMzQ1XzUyMSI+CjxyZWN0IHdpZHRoPSI3NCIgaGVpZ2h0PSI2OSIgZmlsbD0id2hpdGUiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K;">
+          <mxGeometry x="135.5" y="60" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-46-title" parent="gizu-systems-01-46" vertex="1" value="Morpho vault + router" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="207" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-46-sub" parent="gizu-systems-01-46" vertex="1" value="I owns the vault shares" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="207" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-47" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#299160;strokeWidth=3;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-41" target="gizu-systems-01-42">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-48" parent="1" vertex="1" value="3 · USDC funding" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#299160;">
+          <mxGeometry x="315" y="658" width="100" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-49" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#299160;strokeWidth=3;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-42" target="gizu-systems-01-43">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-50" parent="1" vertex="1" value="4 · confirmed private&#10;credit" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#299160;">
+          <mxGeometry x="635" y="655" width="135" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-51" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#299160;strokeWidth=3;endArrow=block;endFill=1;exitX=1;exitY=0.25;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-43" target="gizu-systems-01-44">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1085" y="663.75" />
+              <mxPoint x="1085" y="637.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-52" parent="1" vertex="1" value="5a · hold payout" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#299160;">
+          <mxGeometry x="1030" y="566" width="135" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-53" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#299160;strokeWidth=3;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-43" target="gizu-systems-01-45">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1095" y="751.25" />
+              <mxPoint x="1095" y="812.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gizu-systems-01-54" parent="1" vertex="1" value="5b · invest payout" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#299160;">
+          <mxGeometry x="1025" y="831" width="138" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-55" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#299160;strokeWidth=3;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-45" target="gizu-systems-01-46">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-56" parent="1" vertex="1" value="6 · approve + deposit" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#299160;">
+          <mxGeometry x="1420" y="770" width="145" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-57" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#FFF0DF;strokeColor=#BC7C37;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="40" y="950" width="1810" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-58" parent="1" vertex="1" value="PROPOSED EARN EXIT · REDEEM → PRIVATE CREDIT → FRESH MONAD WALLET" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#BC7C37;">
+          <mxGeometry x="60" y="965" width="1770" height="24" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-59" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/roles.rs:105">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#BC7C37;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="90" y="1020" width="245" height="155" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-59-icon" parent="gizu-systems-01-59" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMCAzMWw0Mi0xMHYxN0gyMCIgZmlsbD0iI0FDQzlFQSIvPjxyZWN0IHg9IjE3IiB5PSIzMiIgd2lkdGg9IjYzIiBoZWlnaHQ9IjQ2IiByeD0iNyIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjU1IiB5PSI0NCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjIxIiByeD0iNCIgZmlsbD0iI0I5RDJGMCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNTQiIHI9IjIiIGZpbGw9IiMzMTVFOTIiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="80.5" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-59-badge" parent="gizu-systems-01-59" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0VBRjJGRiIvPjxnIHN0cm9rZT0iIzMxNUU5MiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjQ4IiBjeT0iNDgiIHI9IjMzIiBmaWxsPSIjMjc3NUNBIiBzdHJva2U9IiMyNzc1Q0EiLz48cGF0aCBkPSJNMzkgMzFjLTEwIDItMTYgOC0xNiAxN3M2IDE1IDE2IDE4TTU3IDMxYzEwIDIgMTYgOCAxNiAxN3MtNiAxNS0xNiAxOE01NSAzNmMtMTUtMTAtMjcgMTEtNyAxMnM4IDIzLTggMTFNNDggMjl2MzgiIHN0cm9rZT0iI2ZmZiIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="145.5" y="60" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-59-title" parent="gizu-systems-01-59" vertex="1" value="Fresh Monad receiver R" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="227" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-59-sub" parent="gizu-systems-01-59" vertex="1" value="USDC · allocated once per exit" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="227" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-60" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/earn_payout.rs:406&#10;mobile/modules/gizu-stored-signer/android/src/main/java/io/gizu/storedwallet/earn/EarnWithdrawalEngine.kt:120">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#BC7C37;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="765" y="1020" width="255" height="155" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-60-icon" parent="gizu-systems-01-60" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0UyRjVFQSIvPjxnIHN0cm9rZT0iIzM1OEE1OCIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xOSAyOHYzNWMwIDE2IDQ5IDE2IDQ5IDBWMjgiIGZpbGw9IiNmZmYiLz48ZWxsaXBzZSBjeD0iNDMuNSIgY3k9IjI4IiByeD0iMjQuNSIgcnk9IjExIiBmaWxsPSIjQkNFNENDIi8+PHBhdGggZD0iTTE5IDQ1YzAgMTQgNDkgMTQgNDkgMCIvPjxyZWN0IHg9IjU1IiB5PSI1NSIgd2lkdGg9IjI4IiBoZWlnaHQ9IjI2IiByeD0iNSIgZmlsbD0iI0QwRUNERCIvPjxwYXRoIGQ9Ik02MSA1NXYtNWE4IDggMCAwIDEgMTYgMHY1TTY5IDY2djUiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="85.5" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-60-title" parent="gizu-systems-01-60" vertex="1" value="Same cycle identity Cₑ" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="237" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-60-sub" parent="gizu-systems-01-60" vertex="1" value="Verified returned USDC credit" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="237" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-61" label="" tooltip="mobile/modules/gizu-stored-signer/core/src/earn_sponsored.rs:550&#10;mobile/modules/gizu-stored-signer/core/src/earn_ethereum_liquidity.rs:430">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#BC7C37;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1185" y="1020" width="260" height="155" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-61-icon" parent="gizu-systems-01-61" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0U0RjNGNSIvPjxnIHN0cm9rZT0iIzNCN0U4NSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAyMmwxNS04IDE1IDh2MThsLTE1IDgtMTUtOHpNNDcgNTdsMTUtOCAxNSA4djE4bC0xNSA4LTE1LTh6IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTIxIDIybDE1IDggMTUtOE0zNiAzMHYxOE00NyA1N2wxNSA4IDE1LThNNjIgNjV2MThNNDMgNDVsMTIgMTAiLz48L2c+PC9zdmc+;">
+          <mxGeometry x="88.0" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-61-title" parent="gizu-systems-01-61" vertex="1" value="Aurora return deposit" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="242" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-61-sub" parent="gizu-systems-01-61" vertex="1" value="Redeemed USDC / USDG from I" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="242" height="16" as="geometry" />
+        </mxCell>
+        <object id="gizu-systems-01-62" label="" tooltip="mobile/src/features/earn/RobinhoodExecutionPanel.tsx:86&#10;mobile/src/features/earn/VaultExecutionPanel.tsx:189">
+          <mxCell parent="1" vertex="1" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#BC7C37;strokeWidth=1;container=1;collapsible=0;recursiveResize=0;">
+            <mxGeometry x="1590" y="1020" width="225" height="155" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="gizu-systems-01-62-icon" parent="gizu-systems-01-62" vertex="1" value="" style="shape=image;imageAspect=1;aspect=fixed;connectable=0;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDk2IDk2Ij48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iOTAiIGhlaWdodD0iOTAiIHJ4PSIyMiIgZmlsbD0iI0U0RjNGNSIvPjxnIHN0cm9rZT0iIzNGN0U4NSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE3IiB5PSIxNiIgd2lkdGg9IjYzIiBoZWlnaHQ9IjY1IiByeD0iOCIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjI1IiB5PSIyNCIgd2lkdGg9IjQ3IiBoZWlnaHQ9IjQ5IiByeD0iNCIgZmlsbD0iI0Q1RTlFQyIvPjxjaXJjbGUgY3g9IjQ5IiBjeT0iNDkiIHI9IjE1Ii8+PHBhdGggZD0iTTQ5IDM0djMwTTM0IDQ5aDMwTTM5IDM5bDIwIDIwTTM5IDU5bDIwLTIwTTE5IDMxaDVNMTkgNjVoNSIvPjwvZz48L3N2Zz4=;">
+          <mxGeometry x="70.5" y="8" width="84" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-62-title" parent="gizu-systems-01-62" vertex="1" value="I’s vault position" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=16;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="9" y="99" width="207" height="19" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-62-sub" parent="gizu-systems-01-62" vertex="1" value="Separate redeem approval" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=top;spacing=0;connectable=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=0;fontColor=#617084;">
+          <mxGeometry x="9" y="121" width="207" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-63" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#C17C31;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-62" target="gizu-systems-01-61">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-64" parent="1" vertex="1" value="7 · redeem / return" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#C17C31;">
+          <mxGeometry x="1450" y="1060" width="135" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-65" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#C17C31;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-61" target="gizu-systems-01-60">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-66" parent="1" vertex="1" value="8 · route credit" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#C17C31;">
+          <mxGeometry x="1025" y="1060" width="155" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-67" parent="1" edge="1" value="" style="edgeStyle=none;html=0;rounded=0;strokeColor=#C17C31;strokeWidth=2;endArrow=block;endFill=1;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" source="gizu-systems-01-60" target="gizu-systems-01-59">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-68" parent="1" vertex="1" value="9 · signed payout into R" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#C17C31;">
+          <mxGeometry x="460" y="1060" width="235" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-69" parent="1" vertex="1" value="" style="rounded=1;arcSize=3;html=0;fillColor=#F4F6F9;strokeColor=#8996A6;strokeWidth=1.5;opacity=55;connectable=0;">
+          <mxGeometry x="40" y="1245" width="1810" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-70" parent="1" vertex="1" value="" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=1;fontColor=#8996A6;">
+          <mxGeometry x="60" y="1260" width="1770" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-71" parent="1" vertex="1" value="Native signs every spending payload; the API only prepares and relays. H stays outside I’s proposed exit. Redemption primitives exist, but the unified exit is shown as a proposal.&#10;Android has the wider Earn route. iOS currently enables Ethereum vault execution only; funding, private payouts and liquidity capabilities are disabled." style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=14;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="58" y="1259" width="1774" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-72" parent="1" vertex="1" value="CODE REFERENCES · source numbers are local to this page; component tooltips contain exact file paths" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=12;fontStyle=1;fontColor=#23354B;">
+          <mxGeometry x="44" y="1350" width="1812" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-73" parent="1" vertex="1" value="S1 · storedAccess.ts:52" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44.0" y="1380" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-74" parent="1" vertex="1" value="S2 · EarnDepositApproval.kt:172" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="648.0" y="1380" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-75" parent="1" vertex="1" value="S3 · earn_execution.rs:381" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="1252.0" y="1380" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-76" parent="1" vertex="1" value="S4 · app.ts:64" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44.0" y="1404" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-77" parent="1" vertex="1" value="S5 · earn-native.routes.ts:19" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="648.0" y="1404" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-78" parent="1" vertex="1" value="S6 · earn_sponsored.rs:550" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="1252.0" y="1404" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-79" parent="1" vertex="1" value="S7 · earn_payout.rs:406" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44.0" y="1428" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-80" parent="1" vertex="1" value="S8 · roles.rs:8" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="648.0" y="1428" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-81" parent="1" vertex="1" value="S9 · earn_auth.rs:37" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="1252.0" y="1428" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-82" parent="1" vertex="1" value="S10 · EarnDepositCoordinator.kt:116" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44.0" y="1452" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-83" parent="1" vertex="1" value="S11 · lib.rs:226" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="648.0" y="1452" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-84" parent="1" vertex="1" value="S12 · robinhood-vault.ts:74" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="1252.0" y="1452" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-85" parent="1" vertex="1" value="S13 · roles.rs:105" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44.0" y="1476" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-86" parent="1" vertex="1" value="S14 · EarnWithdrawalEngine.kt:120" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="648.0" y="1476" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-87" parent="1" vertex="1" value="S15 · earn_ethereum_liquidity.rs:430" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="1252.0" y="1476" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-88" parent="1" vertex="1" value="S16 · RobinhoodExecutionPanel.tsx:86" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44.0" y="1500" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-89" parent="1" vertex="1" value="S17 · VaultExecutionPanel.tsx:189" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="648.0" y="1500" width="588.0" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="gizu-systems-01-90" parent="1" vertex="1" value="Active native mobile app · reviewed 13 October 2026 · symbolic system illustrations, not deployment screenshots · amber dashed links describe the requested Earn exit proposal" style="text;html=0;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;strokeColor=none;fillColor=none;fontFamily=Arial;fontSize=11;fontStyle=0;fontColor=#23354B;">
+          <mxGeometry x="44" y="1544" width="1812" height="25" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
