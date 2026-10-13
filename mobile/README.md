@@ -362,6 +362,8 @@ Pendle Ecosystem USDC, Steakhouse USDG and High Yield AUSD positions. Stock sale
 use the same holdings as Swap; vault withdrawals reduce the positions displayed on Home.
 **Tokens and vault positions** automatically shows existing holdings in separate
 two-column token and vault grids, with token amounts and USDC values. **Sell** opens the existing swap review; demo vault cards offer **Withdraw**.
+Compact token cards use a square footprint and grow if larger text or balance notices need more room.
+Compact vault cards group their value directly above **Withdraw**.
 Tap a holding card to expand it across both columns at twice its compact height,
 with a chart and extra figures. Charts show a mock month of holding-value history
 in demo mode; live cards show an unavailable state until history is supported.

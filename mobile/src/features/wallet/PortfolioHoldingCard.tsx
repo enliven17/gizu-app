@@ -38,6 +38,8 @@ export function PortfolioHoldingCard({
   const vault = position && demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
   const logo = vault ? protocolLogo(vault.protocol.name, vault.protocol.id) : undefined;
   const name = vault?.name ?? asset.symbol;
+  const compactToken = !expanded && !position;
+  const compactVault = !expanded && position;
   const estimated = position && "conversionEstimated" in asset && asset.conversionEstimated;
   const amount =
     position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
@@ -48,6 +50,16 @@ export function PortfolioHoldingCard({
       : loading
         ? `Checking ${asset.symbol} balance…`
         : `${asset.symbol} balance unavailable. Refresh to retry.`;
+  const valuation = asset.valueUsdcAtoms !== null && (
+    <View className={expanded ? "shrink items-end gap-1" : "w-full items-end gap-1"}>
+      <Typography
+        variant="value"
+        className={expanded ? "text-right !text-[22px]" : "text-right !text-[18px]"}
+      >
+        {holdingAmount(asset.valueUsdcAtoms, 6)} USDC
+      </Typography>
+    </View>
+  );
 
   return (
     <Surface className="flex-1" layout={layout}>
@@ -63,9 +75,15 @@ export function PortfolioHoldingCard({
             onToggleExpanded();
           }}
           pressedScale={0.99}
-          className={`gap-3 ${expanded ? "flex-row flex-wrap items-center" : ""}`}
+          className={
+            expanded
+              ? "flex-row flex-wrap items-center gap-3"
+              : position
+                ? "gap-3"
+                : "flex-row flex-wrap items-start gap-x-2 gap-y-3"
+          }
         >
-          <View className="items-start">
+          <View className="shrink-0 items-start">
             <View
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
@@ -80,20 +98,18 @@ export function PortfolioHoldingCard({
               )}
             </View>
           </View>
-          <View className={expanded ? "min-w-0 flex-1 gap-1" : "gap-1"}>
-            <Typography variant="cardTitle" className={expanded ? "!text-[20px]" : ""}>
+          <View className={expanded || !position ? "min-w-0 flex-1 gap-1" : "gap-1"}>
+            <Typography
+              variant="cardTitle"
+              className={expanded ? "!text-[20px]" : compactToken ? "text-left" : ""}
+            >
               {name}
             </Typography>
-            <Typography variant="caption">{balance}</Typography>
-          </View>
-          {asset.valueUsdcAtoms !== null && (
-            <Typography
-              variant="value"
-              className={expanded ? "shrink !text-[22px]" : "!text-[18px]"}
-            >
-              {holdingAmount(asset.valueUsdcAtoms, 6)} USDC
+            <Typography variant="caption" className={compactToken ? "text-left" : ""}>
+              {balance}
             </Typography>
-          )}
+          </View>
+          {!compactVault && valuation}
         </PressableScale>
         {expanded && <HoldingDetails asset={asset} position={position} />}
         {swapBalance && (
@@ -119,22 +135,27 @@ export function PortfolioHoldingCard({
             height={160}
           />
         )}
-        {action && (
-          <PressableScale
-            accessibilityRole="button"
-            accessibilityLabel={`${action.label} ${name}`}
-            accessibilityState={{ disabled: action.disabled }}
-            disabled={action.disabled}
-            onPress={(event) => {
-              event?.stopPropagation();
-              action.onPress();
-            }}
-            className={`mt-auto min-h-11 items-center justify-center rounded-full px-3 ${action.disabled ? "bg-well" : "bg-neon/10"}`}
-          >
-            <Typography variant="label" className={action.disabled ? "!text-fg-35" : ""}>
-              {action.label}
-            </Typography>
-          </PressableScale>
+        {(action || compactVault) && (
+          <View className="mt-auto gap-3">
+            {compactVault && valuation}
+            {action && (
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={`${action.label} ${name}`}
+                accessibilityState={{ disabled: action.disabled }}
+                disabled={action.disabled}
+                onPress={(event) => {
+                  event?.stopPropagation();
+                  action.onPress();
+                }}
+                className={`min-h-11 items-center justify-center rounded-full px-3 ${action.disabled ? "bg-well" : "bg-neon/10"}`}
+              >
+                <Typography variant="label" className={action.disabled ? "!text-fg-35" : ""}>
+                  {action.label}
+                </Typography>
+              </PressableScale>
+            )}
+          </View>
         )}
       </Pressable>
     </Surface>
