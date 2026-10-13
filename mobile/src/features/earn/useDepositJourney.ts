@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import {
@@ -58,7 +58,9 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     ceremony = useRef(false);
   const focused = useRef(isFocused);
   const preparingBudgetRef = useRef<string | null>(null);
-  focused.current = isFocused;
+  useLayoutEffect(() => {
+    focused.current = isFocused;
+  }, [isFocused]);
   const accept = useCallback(
     (next: DepositSnapshot) => {
       if (next.profileId !== profileId)
