@@ -37,8 +37,8 @@ internal class NativeRpcTransport(
         if (
           endpoint == EARN_NATIVE_BACKEND.removeSuffix("/native") + "/robinhood/deposit-preview"
         ) {
-          readTimeout(30, TimeUnit.SECONDS)
-          callTimeout(40, TimeUnit.SECONDS)
+          readTimeout(60, TimeUnit.SECONDS)
+          callTimeout(70, TimeUnit.SECONDS)
         }
       }
       .build(),

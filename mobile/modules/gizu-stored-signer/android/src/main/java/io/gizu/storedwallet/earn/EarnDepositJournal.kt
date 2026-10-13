@@ -209,6 +209,7 @@ internal class EarnDepositJournal(
           row.getString("preparationBatchId") == review.getJSONObject("reservation").getString("id")
         )
       row.put("review", JSONObject(review.toString())).put("phase", "review")
+      row.remove("indicativeReview")
       row.remove("pauseReason")
       row.remove("message")
     }
@@ -296,6 +297,21 @@ internal class EarnDepositJournal(
         "depositTransactionHash",
       )) if (row.has(field)) public.put(field, row.get(field))
     row.optJSONObject("review")?.let { public.put("review", depositPublicReview(it)) }
+    row.optJSONObject("indicativeReview")?.let { summary ->
+      public.put(
+        "indicativeReview",
+        JSONObject().also { out ->
+          for (field in
+            listOf(
+              "quotedAtMs",
+              "sourceBudgetAtoms",
+              "holdEstimatedAtoms",
+              "investEstimatedAtoms",
+              "sourceMaximumFeeAtoms",
+            )) out.put(field, summary.get(field))
+        },
+      )
+    }
     return depositJsonMap(public)
   }
 }

@@ -35,14 +35,13 @@ internal class EarnDepositRemaining(
     val refs = root.getJSONObject("children")
     val depositRef = refs.optJSONArray("deposit")
     if (depositRef != null && deposit(depositRef.getString(0)).sponsoredSpendSaved()) return root
-    val started = now()
     val next = JSONObject(old.toString())
     val rows = JSONArray()
     val sources = JSONArray()
     var offset = BigInteger.ZERO
     var minimumInvest = BigInteger.ZERO
     var paidInvest = BigInteger.ZERO
-    var expiry = started + 45000
+    var expiry = Long.MAX_VALUE
     for (previous in old.getJSONArray("sources").objects().sortedBy { it.getInt("accountIndex") }) {
       val sourceId = previous.getString("operationId")
       val updated =
@@ -120,8 +119,8 @@ internal class EarnDepositRemaining(
     check(expiry > now())
     next
       .put("roleRegistry", JSONObject(record.roleRegistry))
-      .put("quotedAtMs", started)
-      .put("expiresAtMs", expiry)
+      .put("quotedAtMs", now())
+      .put("expiresAtMs", minOf(expiry, now() + 45000))
       .put("sources", sources)
       .put("fundingRows", rows)
       .put("reservation", reservation())

@@ -4,6 +4,8 @@ import android.content.Context
 import java.math.BigInteger
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -126,12 +128,12 @@ internal class EarnDepositPreparer(
       journal.update(id, row.getInt("revision")) {
         it.put("phase", "preparing").put("budgetAtoms", budgetAtoms)
         it.remove("review")
+        it.remove("indicativeReview")
         it.remove("pauseReason")
       }
     var draft: DepositSourceDraft? = null
     var stage = "sources"
     try {
-      val started = now()
       draft = selectSources(record, budgetAtoms)
       row = journal.get(id)
       check(row.getString("phase") == "preparing" && row.getJSONObject("children").length() == 0)
@@ -140,7 +142,37 @@ internal class EarnDepositPreparer(
       val sources = JSONArray()
       var offset = BigInteger.ZERO
       var minimumInvest = BigInteger.ZERO
-      var expiry = started + 45000
+      var sourceExpiry = Long.MAX_VALUE
+      var payoutExpiry = Long.MAX_VALUE
+      suspend fun readPayouts(s: JSONObject, revision: Int): Pair<BigInteger, Long> =
+        supervisorScope {
+          val tasks =
+            listOf("hold", "invest").associateWith { leg ->
+              async {
+                gateway.payoutPreview(
+                  record,
+                  s.getString("operationId"),
+                  revision,
+                  leg,
+                  s.getJSONObject(leg).getString("inputAtoms"),
+                )
+              }
+            }
+          var minimum = BigInteger.ZERO
+          var expiry = Long.MAX_VALUE
+          for (leg in listOf("hold", "invest")) {
+            stage = "$leg-preview"
+            val preview = tasks.getValue(leg).await()
+            s.getJSONObject(leg)
+              .put("estimatedOutputAtoms", preview.getString("estimatedOutputAtoms"))
+              .put("minimumOutputAtoms", preview.getString("minimumOutputAtoms"))
+              .put("providerFeeBps", preview.getInt("providerFeeBps"))
+            expiry = minOf(expiry, preview.getLong("expiresAtMs"))
+            if (leg == "invest")
+              minimum = depositAtoms(preview.getString("minimumOutputAtoms"), true)
+          }
+          minimum to expiry
+        }
       for (child in
         draft.rows.sortedBy { it.getJSONObject("proposal").getInt("sourceAccountIndex") }) {
         val p = child.getJSONObject("proposal")
@@ -164,33 +196,91 @@ internal class EarnDepositPreparer(
                   depositAtoms(p.getString("maximumTokenFeeAtoms")))
                 .toString(),
             )
-        for ((leg, amount) in listOf("hold" to hold, "invest" to invest)) {
-          stage = "$leg-preview"
-          val preview =
-            gateway.payoutPreview(record, sourceId, p.getInt("revision"), leg, amount.toString())
+        for ((n, leg, amount) in listOf(Triple(0, "hold", hold), Triple(1, "invest", invest))) {
           s.put(
             leg,
             JSONObject()
-              .put("recipient", preview.getString("recipient"))
-              .put("inputAtoms", amount.toString())
-              .put("estimatedOutputAtoms", preview.getString("estimatedOutputAtoms"))
-              .put("minimumOutputAtoms", preview.getString("minimumOutputAtoms"))
-              .put("providerFeeBps", preview.getInt("providerFeeBps")),
+              .put("recipient", cycleAddresses(record)[n])
+              .put("inputAtoms", amount.toString()),
           )
-          expiry = minOf(expiry, preview.getLong("expiresAtMs"))
-          if (leg == "invest")
-            minimumInvest += depositAtoms(preview.getString("minimumOutputAtoms"), true)
         }
-        expiry = minOf(expiry, Math.multiplyExact(p.getLong("deadline"), 1000))
+        val previews = readPayouts(s, p.getInt("revision"))
+        minimumInvest += previews.first
+        payoutExpiry = minOf(payoutExpiry, previews.second)
+        sourceExpiry = minOf(sourceExpiry, Math.multiplyExact(p.getLong("deadline"), 1000))
         sources.put(s)
         offset += credit
       }
+      fun publishIndicative() {
+        val saved = journal.get(id)
+        journal.update(id, saved.getInt("revision")) {
+          check(it.getString("phase") == "preparing" && it.getString("budgetAtoms") == budgetAtoms)
+          val amounts = JSONObject().put("quotedAtMs", now()).put("sourceBudgetAtoms", budgetAtoms)
+          for ((field, leg) in
+            listOf("holdEstimatedAtoms" to "hold", "investEstimatedAtoms" to "invest")) amounts.put(
+            field,
+            sources
+              .objects()
+              .fold(BigInteger.ZERO) { n, s ->
+                n + depositAtoms(s.getJSONObject(leg).getString("estimatedOutputAtoms"), true)
+              }
+              .toString(),
+          )
+          amounts.put(
+            "sourceMaximumFeeAtoms",
+            sources
+              .objects()
+              .fold(BigInteger.ZERO) { n, s ->
+                n + depositAtoms(s.getString("maximumFeeAtoms"), true)
+              }
+              .toString(),
+          )
+          it.put("indicativeReview", amounts)
+        }
+      }
+      publishIndicative()
       // Establish the deposit bound against minimum receipts, not optimistic output estimates.
-      stage = "vault-preview"
-      val deposit =
-        gateway.depositPreview(record, id, row.getInt("revision"), minimumInvest.toString())
-      expiry = minOf(expiry, deposit.getLong("expiresAtMs"))
-      check(expiry > now()) { "Deposit preview expired during preparation" }
+      var completed: JSONObject? = null
+      for (attempt in 0 until 3) {
+        val saved = journal.get(id)
+        check(saved.getString("phase") == "preparing")
+        stage = "vault-preview"
+        val preview =
+          gateway.depositPreview(record, id, saved.getInt("revision"), minimumInvest.toString())
+        if (payoutExpiry <= now() + 15000) {
+          minimumInvest = BigInteger.ZERO
+          payoutExpiry = Long.MAX_VALUE
+          for (s in sources.objects()) {
+            val p =
+              draft.rows
+                .single { it.getString("operationId") == s.getString("operationId") }
+                .getJSONObject("proposal")
+            val refreshed = readPayouts(s, p.getInt("revision"))
+            minimumInvest += refreshed.first
+            payoutExpiry = minOf(payoutExpiry, refreshed.second)
+          }
+          publishIndicative()
+        }
+        val required =
+          listOf("depositAmount", "depositFeeBudget", "withdrawalReserve").fold(BigInteger.ZERO) {
+            n,
+            field ->
+            n + depositAtoms(preview.getString(field), true)
+          }
+        if (
+          required <= minimumInvest &&
+            minOf(sourceExpiry, payoutExpiry, preview.getLong("expiresAtMs")) > now() + 15000
+        ) {
+          completed = preview
+          break
+        }
+      }
+      val deposit = checkNotNull(completed) { "Fresh deposit terms did not converge" }
+      row = journal.get(id)
+      check(row.getString("phase") == "preparing")
+      val quotedAt = now()
+      val expiry =
+        minOf(quotedAt + 45000, sourceExpiry, payoutExpiry, deposit.getLong("expiresAtMs"))
       val review =
         JSONObject()
           .put("walletId", record.id)
@@ -202,7 +292,7 @@ internal class EarnDepositPreparer(
           .put("journeyId", id)
           .put("destinations", JSONArray(cycleAddresses(record)))
           .put("policyVersion", deposit.getString("policyVersion"))
-          .put("quotedAtMs", started)
+          .put("quotedAtMs", quotedAt)
           .put("expiresAtMs", expiry)
           .put("sourceBudgetAtoms", budgetAtoms)
           .put("sources", sources)
@@ -246,7 +336,12 @@ internal class EarnDepositPreparer(
       journal.cancelUnsignedReview(id) { batchId ->
         releaseUnsigned(JSONObject().put("reservation", JSONObject().put("id", batchId)))
       }
-      journal.pause(id, "previewUnavailable")
+      journal.pause(
+        id,
+        if (saved.optString("pauseReason") in setOf("cancelled", "approvalExpired"))
+          saved.getString("pauseReason")
+        else "previewUnavailable",
+      )
       if (failure is CancellationException) throw failure
       return journal.get(id)
     }

@@ -347,7 +347,7 @@ class GizuStoredSignerModule : Module() {
       budgetAtoms: String,
       draftId: String?,
       promise: Promise ->
-      runCeremony(promise) { activity, store ->
+      runCeremony(promise, timeoutMs = 180000L) { activity, store ->
         check(profile == "robinhood-usdg") {
           "Guided native deposits currently support Robinhood USDG only"
         }
@@ -464,7 +464,7 @@ class GizuStoredSignerModule : Module() {
             val row = journal.get(lookupId)
             if (
               row.has("review") &&
-                row.getString("phase") !in setOf("review", "invested") &&
+                row.getString("phase") !in setOf("preparing", "review", "invested") &&
                 ceremony.tryLock()
             ) {
               try {

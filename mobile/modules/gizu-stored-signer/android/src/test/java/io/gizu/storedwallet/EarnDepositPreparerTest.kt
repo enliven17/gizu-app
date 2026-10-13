@@ -27,6 +27,202 @@ internal fun testDepositJournal(file: WalletFile = DepositMemoryFile()): EarnDep
 }
 
 class EarnDepositPreparerTest {
+  private fun sourceDraft(r: WalletRecord): DepositSourceDraft {
+    val review = DepositFixtures.review(r)
+    return DepositSourceDraft(
+      review.getJSONArray("fundingRows").objects(),
+      review.getJSONObject("reservation"),
+      mapOf("source0" to "990000"),
+    )
+  }
+
+  private fun previewResponse(
+    path: String,
+    b: JSONObject,
+    clock: Long,
+    expires: Long = clock + 45000,
+    reduction: Long = 0,
+  ): String {
+    val row =
+      JSONObject()
+        .put("kind", "preview")
+        .put("readOnly", true)
+        .put("executionAvailable", false)
+        .put("operationId", b.getString("operationId"))
+        .put("revision", b.getInt("revision"))
+        .put("quotedAtMs", clock)
+        .put("expiresAtMs", expires)
+    if (path == "/native/payout/preview") {
+      val output = b.getString("amountAtoms").toLong() - reduction
+      return row
+        .put("assumption", "indicative-unfunded-confidential-route")
+        .put("profileChainId", 4663)
+        .put("leg", b.getString("leg"))
+        .put("recipient", b.getString("recipient"))
+        .put("amountAtoms", b.getString("amountAtoms"))
+        .put("estimatedOutputAtoms", output.toString())
+        .put("minimumOutputAtoms", output.toString())
+        .put("feePolicy", JSONObject().put("totalFeeBps", 0))
+        .put("referenceHash", "0x" + "1".repeat(64))
+        .toString()
+    }
+    val assets = b.getString("expectedUsdgAtoms").toLong() - 21000
+    return row
+      .put("assumption", "hypothetical-USDG-funding-isolated-fork")
+      .put("profileId", "robinhood-usdg")
+      .put("chainId", 4663)
+      .put("owner", b.getString("owner"))
+      .put("token", HOOD_EARN_USDG)
+      .put("vault", HOOD_EARN_VAULT)
+      .put("expectedUsdgAtoms", b.getString("expectedUsdgAtoms"))
+      .put("startingUsdgAtoms", b.getString("startingUsdgAtoms"))
+      .put("policyVersion", "robinhood-v1")
+      .put("depositAmount", assets.toString())
+      .put("depositFeeBudget", "10000")
+      .put("withdrawalReserve", "11000")
+      .put("shareDecimals", 18)
+      .put("previewShares", assets.toString())
+      .put("maxSharePrice", "1000000000000000000000000000")
+      .toString()
+  }
+
+  @Test
+  fun independentPayoutPreviewsOverlapBeforeTheVaultRead() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val started = mutableListOf<String>()
+      val gateway =
+        EarnDepositGateway(
+          { path, text ->
+            val b = JSONObject(text)
+            if (path == "/native/payout/preview") {
+              started.add(b.getString("leg"))
+              kotlinx.coroutines.yield()
+              assertTrue(
+                "Both independent quotes should already be in flight",
+                started.containsAll(listOf("hold", "invest")),
+              )
+            }
+            previewResponse(path, b, 1000)
+          },
+          { 1000 },
+          feeValidator = { 0 },
+        )
+      val result =
+        EarnDepositPreparer(testDepositJournal(), gateway, { _, _ -> sourceDraft(r) }, {}, { 1000 })
+          .prepare(r, 4663, "1010000", null)
+      assertEquals("review", result.getString("phase"))
+      assertEquals(2, started.size)
+    }
+  }
+
+  @Test
+  fun slowVaultReadRefreshesRealExpiriesAndRecalculatesChangedPayoutMinimums() = runBlocking {
+    DepositFixtures.record().use { r ->
+      var clock = 1000L
+      var vaults = 0
+      var payouts = 0
+      val expected = mutableListOf<String>()
+      val journal = testDepositJournal()
+      val gateway =
+        EarnDepositGateway(
+          { path, text ->
+            val b = JSONObject(text)
+            if (path == "/robinhood/deposit-preview") {
+              vaults++
+              expected.add(b.getString("expectedUsdgAtoms"))
+              if (vaults == 1) clock += 50000
+              previewResponse(path, b, clock, if (vaults == 1) clock + 10000 else clock + 45000)
+            } else {
+              payouts++
+              previewResponse(
+                path,
+                b,
+                clock,
+                reduction = if (clock > 1000 && b.getString("leg") == "invest") 50000 else 0,
+              )
+            }
+          },
+          { clock },
+          feeValidator = { 0 },
+        )
+      val result =
+        EarnDepositPreparer(journal, gateway, { _, _ -> sourceDraft(r) }, {}, { clock })
+          .prepare(r, 4663, "1010000", null)
+      assertEquals("review", result.getString("phase"))
+      assertEquals(listOf("891000", "841000"), expected)
+      assertEquals(4, payouts)
+      assertEquals(51000, result.getJSONObject("review").getLong("quotedAtMs"))
+      assertEquals(96000, result.getJSONObject("review").getLong("expiresAtMs"))
+      assertEquals(
+        "820000",
+        result.getJSONObject("review").getJSONObject("deposit").getString("minimumAssetsAtoms"),
+      )
+      assertEquals(0, result.getJSONObject("children").length())
+      EarnDepositApproval.fromReview(r, result.getJSONObject("review")).invalidate()
+    }
+  }
+
+  @Test
+  fun cancellationDuringVaultCalculationCannotPublishAnAuthorizingReview() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val journal = testDepositJournal()
+      var releases = 0
+      val gateway =
+        EarnDepositGateway(
+          { path, text ->
+            if (path == "/robinhood/deposit-preview")
+              journal.pause(journal.all().single().getString("journeyId"), "cancelled")
+            previewResponse(path, JSONObject(text), 1000)
+          },
+          { 1000 },
+          feeValidator = { 0 },
+        )
+      val result =
+        EarnDepositPreparer(journal, gateway, { _, _ -> sourceDraft(r) }, { releases++ }, { 1000 })
+          .prepare(r, 4663, "1010000", null)
+      assertEquals("paused", result.getString("phase"))
+      assertEquals("cancelled", result.getString("pauseReason"))
+      assertFalse(result.has("review"))
+      assertEquals(0, result.getJSONObject("children").length())
+      assertEquals(1, releases)
+    }
+  }
+
+  @Test
+  fun continuouslyWorseningPreviewsStopAfterBoundedAttemptsWithoutSpending() = runBlocking {
+    DepositFixtures.record().use { r ->
+      var clock = 1000L
+      var vaults = 0
+      val journal = testDepositJournal()
+      val gateway =
+        EarnDepositGateway(
+          { path, text ->
+            val b = JSONObject(text)
+            if (path == "/robinhood/deposit-preview") {
+              vaults++
+              clock += 30000
+              previewResponse(path, b, clock)
+            } else
+              previewResponse(
+                path,
+                b,
+                clock,
+                reduction = if (b.getString("leg") == "invest") vaults * 50000L else 0,
+              )
+          },
+          { clock },
+          feeValidator = { 0 },
+        )
+      val result =
+        EarnDepositPreparer(journal, gateway, { _, _ -> sourceDraft(r) }, {}, { clock })
+          .prepare(r, 4663, "1010000", null)
+      assertEquals(3, vaults)
+      assertEquals("paused", result.getString("phase"))
+      assertFalse(result.has("review"))
+      assertEquals(0, result.getJSONObject("children").length())
+    }
+  }
+
   @Test
   fun reviewOnlyUsesIndividualPreviewReadsAndKeepsTheSameDraftPair() = runBlocking {
     DepositFixtures.record().use { r ->
@@ -61,6 +257,15 @@ class EarnDepositPreparerTest {
                   .toString()
               "/robinhood/deposit-preview" ->
                 JSONObject()
+                  .also {
+                    val partial = j.all().single { it.getString("phase") == "preparing" }
+                    assertFalse(partial.has("review"))
+                    val public = JSONObject(j.publicSnapshot(partial.getString("journeyId")))
+                    val indicative = public.getJSONObject("indicativeReview")
+                    assertEquals("99000", indicative.getString("holdEstimatedAtoms"))
+                    assertEquals("891000", indicative.getString("investEstimatedAtoms"))
+                    assertFalse(indicative.has("fundingRows"))
+                  }
                   .put("kind", "preview")
                   .put("readOnly", true)
                   .put("executionAvailable", false)
