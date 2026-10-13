@@ -33,7 +33,7 @@ async function runToEnd() {
 }
 
 async function buy(amount: string) {
-  await screen.findByText("Available: 250 USDC");
+  await screen.findByText("Balance 250");
   fireEvent.changeText(screen.getByLabelText("Amount in USDC"), amount);
   fireEvent.press(screen.getByRole("button", { name: "Review swap" }));
   expect(await screen.findByText("CONFIDENTIAL SWAP · MAINNET")).toBeVisible();
@@ -53,7 +53,7 @@ afterEach(() => {
 test("a demo buy reviews, approves, runs every step and lands in holdings", async () => {
   open();
   // A demo carries no demo label: it must look like the real app.
-  await screen.findByText("Available: 250 USDC");
+  await screen.findByText("Balance 250");
   expect(screen.queryByText(/demo/i)).toBeNull();
   await buy("30");
   // 30 USDC is in the 20-100 tier: two or three fresh wallets.
@@ -68,7 +68,7 @@ test("a demo buy reviews, approves, runs every step and lands in holdings", asyn
   await runToEnd();
   expect(screen.getByText(/^Bought 0\.1\d+ AMZN$/)).toBeVisible();
   fireEvent.press(screen.getByRole("button", { name: "Done" }));
-  expect(await screen.findByText("Available: 220 USDC")).toBeVisible();
+  expect(await screen.findByText("Balance 220")).toBeVisible();
   expect(screen.getByRole("button", { name: "Last swap completed" })).toBeVisible();
   expect(getStoredSwapSigner).not.toHaveBeenCalled();
 });
@@ -116,7 +116,7 @@ test("cancelling a demo review moves nothing", async () => {
   await buy("10");
   fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
   expect(await screen.findByRole("button", { name: "Last swap cancelled" })).toBeVisible();
-  expect(screen.getByText("Available: 250 USDC")).toBeVisible();
+  expect(screen.getByText("Balance 250")).toBeVisible();
 });
 
 test("demo wallet counts and shares follow the engine's rules", () => {

@@ -1,11 +1,10 @@
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { useState, useSyncExternalStore } from "react";
 import { TextInput, View } from "react-native";
-import { ArrowDown } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
 import { SwapTokenPicker } from "./SwapTokenPicker";
 import { SwapSellForm } from "./SwapSellForm";
-import { PressableScale } from "@/components/atoms/PressableScale";
+import { BalanceAside, FlipButton, SwapPanel, TokenPill } from "./components/SwapPanel";
 import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
@@ -45,16 +44,17 @@ export function NativeSwapScreen() {
       swap.status.pausedCode ?? "",
     );
   const flip = (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel={mode === "buy" ? "Switch to selling" : "Switch to buying"}
+    <FlipButton
+      label={mode === "buy" ? "Switch to selling" : "Switch to buying"}
       disabled={swap.busy}
       onPress={() => setMode(mode === "buy" ? "sell" : "buy")}
-      className="z-10 -my-4 h-9 w-9 items-center justify-center self-center rounded-full border border-cardEdge bg-card"
-    >
-      <ArrowDown size={16} color={colors.fg["70"]} />
-    </PressableScale>
+    />
   );
+  const available = demo
+    ? groupDigits(formatSwapAmount(swapDemo.usdcAtoms()))
+    : wallet?.snapshot && wallet.snapshot.balanceComplete !== false
+      ? groupDigits(formatSwapAmount(BigInt(wallet.snapshot.totalAtoms)))
+      : null;
   return (
     <Screen
       refreshing={swap.busy}
@@ -77,116 +77,105 @@ export function NativeSwapScreen() {
       {isFinished(swap.status) && showLast ? (
         <LastSwapSummary status={swap.status} canSell={swap.canSell} />
       ) : null}
-      {active && swap.status ? <ActiveSwapCard status={swap.status} /> : null}
-      {!active && mode === "sell" && (
-        <SwapSellForm flip={flip} onSettled={() => void swap.refresh()} />
-      )}
-      {!active && mode === "buy" && (
-        <>
-          <Surface>
-            <View className="gap-1.5 p-2">
-              <View className="gap-3 rounded-[20px] bg-well p-4">
-                <View className="flex-row flex-wrap items-center justify-between gap-2">
-                  <Typography variant="label11">You pay</Typography>
-                  {demo ? (
-                    <Typography variant="micro">
-                      {`Available: ${groupDigits(formatSwapAmount(swapDemo.usdcAtoms()))} USDC`}
-                    </Typography>
-                  ) : null}
-                  {!demo && wallet && (
-                    <Typography variant="micro">
-                      {wallet.snapshot && wallet.snapshot.balanceComplete !== false
-                        ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${groupDigits(formatSwapAmount(BigInt(wallet.snapshot.totalAtoms)))} USDC`
-                        : "Checking available USDC…"}
-                    </Typography>
-                  )}
-                </View>
-                <View className="flex-row items-center gap-3">
-                  <TextInput
-                    accessibilityLabel="Amount in USDC"
-                    value={swap.amount}
-                    onChangeText={swap.setAmount}
-                    editable={!swap.busy}
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                    placeholderTextColor={colors.fg["20"]}
-                    maxLength={21}
-                    className="font-sans min-h-14 flex-1 text-[36px] text-text"
-                    style={{ fontVariant: ["tabular-nums"] }}
-                  />
-                  <Typography variant="rowTitle" className="!text-fg-55">
-                    USDC
-                  </Typography>
-                  <Button
-                    label="Max"
-                    accessibilityLabel="Use maximum USDC amount"
-                    variant="quiet"
-                    disabled={swap.busy || maxAmount === null}
-                    onPress={() => {
-                      if (maxAmount !== null) swap.setAmount(maxAmount);
-                    }}
-                  />
-                </View>
+      {/* The swap itself sits in the middle of the screen, under the header. */}
+      <View className="flex-1 justify-center gap-4 pb-6">
+        {active && swap.status ? <ActiveSwapCard status={swap.status} /> : null}
+        {!active && mode === "sell" && (
+          <SwapSellForm flip={flip} onSettled={() => void swap.refresh()} />
+        )}
+        {!active && mode === "buy" && (
+          <>
+            <Surface>
+              <View className="gap-1 p-2">
+                <SwapPanel
+                  label="You pay"
+                  aside={
+                    wallet || demo ? (
+                      <BalanceAside
+                        text={available === null ? "Balance …" : `Balance ${available}`}
+                        maxDisabled={swap.busy || maxAmount === null}
+                        onMax={() => {
+                          if (maxAmount !== null) swap.setAmount(maxAmount);
+                        }}
+                      />
+                    ) : null
+                  }
+                  amount={
+                    <TextInput
+                      accessibilityLabel="Amount in USDC"
+                      value={swap.amount}
+                      onChangeText={swap.setAmount}
+                      editable={!swap.busy}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                      placeholderTextColor={colors.fg["20"]}
+                      maxLength={21}
+                      className="font-sans min-h-12 flex-1 text-[40px] text-text"
+                      style={{ fontVariant: ["tabular-nums"] }}
+                    />
+                  }
+                  token={<TokenPill symbol="USDC" />}
+                />
+                {flip}
+                <SwapTokenPicker
+                  tokens={swap.tokens}
+                  target={swap.target}
+                  disabled={swap.busy}
+                  estimate={swap.estimate}
+                  onSelect={swap.selectToken}
+                />
               </View>
-              {flip}
-              <SwapTokenPicker
-                tokens={swap.tokens}
-                target={swap.target}
+            </Surface>
+            <Button
+              label={swap.busy ? "Working" : "Review swap"}
+              onPress={swap.start}
+              disabled={!swap.canStart}
+            />
+          </>
+        )}
+        {swap.error ? <Notice message={swap.error} error /> : null}
+        {active ? (
+          <View className="gap-3">
+            <Button
+              label={swap.busy ? "Working" : "Resume"}
+              onPress={swap.resume}
+              disabled={swap.busy}
+            />
+            {swap.status?.approved && !refunded && !nothingMoved ? (
+              <Typography variant="micro" className="px-1 text-center">
+                Approved steps may already have moved funds, so this swap can only be resumed.
+              </Typography>
+            ) : (
+              <Button
+                label="Cancel swap"
+                variant="secondary"
+                onPress={swap.cancel}
                 disabled={swap.busy}
-                estimate={swap.estimate}
-                onSelect={swap.selectToken}
               />
-            </View>
-          </Surface>
-          <Button
-            label={swap.busy ? "Working" : "Review swap"}
-            onPress={swap.start}
-            disabled={!swap.canStart}
-          />
-        </>
-      )}
-      {swap.error ? <Notice message={swap.error} error /> : null}
-      {active ? (
-        <View className="gap-3">
-          <Button
-            label={swap.busy ? "Working" : "Resume"}
-            onPress={swap.resume}
-            disabled={swap.busy}
-          />
-          {swap.status?.approved && !refunded && !nothingMoved ? (
-            <Typography variant="micro" className="px-1 text-center">
-              Approved steps may already have moved funds, so this swap can only be resumed.
-            </Typography>
-          ) : (
-            <Button
-              label="Cancel swap"
-              variant="secondary"
-              onPress={swap.cancel}
-              disabled={swap.busy}
-            />
-          )}
-        </View>
-      ) : (
-        <View className="gap-3">
-          {swap.canPayout ? (
-            <Button
-              label={
-                swap.busy ? "Working" : `Buy ${selected?.symbol ?? "token"} with private balance`
-              }
-              onPress={swap.payout}
-              disabled={swap.busy}
-            />
-          ) : null}
-          {/* The demo sells from the sell form only; one Swap button, not two. */}
-          {swap.canSell && !swapDemoEnabled() ? (
-            <Button
-              label={swap.busy ? "Working" : "Sell back to Monad USDC"}
-              onPress={swap.sell}
-              disabled={swap.busy}
-            />
-          ) : null}
-        </View>
-      )}
+            )}
+          </View>
+        ) : (
+          <View className="gap-3">
+            {swap.canPayout ? (
+              <Button
+                label={
+                  swap.busy ? "Working" : `Buy ${selected?.symbol ?? "token"} with private balance`
+                }
+                onPress={swap.payout}
+                disabled={swap.busy}
+              />
+            ) : null}
+            {/* The demo sells from the sell form only; one Swap button, not two. */}
+            {swap.canSell && !swapDemoEnabled() ? (
+              <Button
+                label={swap.busy ? "Working" : "Sell back to Monad USDC"}
+                onPress={swap.sell}
+                disabled={swap.busy}
+              />
+            ) : null}
+          </View>
+        )}
+      </View>
     </Screen>
   );
 }
