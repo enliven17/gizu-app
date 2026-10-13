@@ -78,6 +78,11 @@ export type StoredSwapView = {
   /** Funds may be in flight once approved; the app pauses such operations, never cancels them. */
   approved: boolean;
   returnAddresses: string[];
+  /** How many wallets the swap spreads over; absent in states saved before it varied. */
+  legs?: number;
+  /** Holder wallets a sell sells from; differs from `legs` once a sell pools its proceeds. */
+  holders?: number;
+  kind?: string;
 };
 
 export type SwapHolding = {
@@ -184,6 +189,12 @@ export interface StoredSignerContract {
   startSwap(target: string, amountAtoms: string, gateway: string): Promise<StoredSwapView>;
   getSwapHoldings(target: string): Promise<SwapHoldingsSnapshot>;
   sellSwapHolding(holdingId: string, gateway: string): Promise<StoredSwapView>;
+  /** Temporary debug mode, debug builds only: sell a holding and pay the USDG to `destination`. */
+  sweepSwapHolding?(
+    holdingId: string,
+    destination: string,
+    gateway: string,
+  ): Promise<StoredSwapView>;
   startSell(gateway: string): Promise<StoredSwapView>;
   /** Buy `target` with the private balance C already holds; nothing is sent from Monad. */
   startPayout(target: string, gateway: string): Promise<StoredSwapView>;

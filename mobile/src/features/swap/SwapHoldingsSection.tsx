@@ -20,12 +20,14 @@ export function holdingAmount(atoms: string, decimals: number): string {
 
 export function SwapHoldingsSection({
   onReviewSale,
+  onSaleSettled,
   emptyContent,
 }: {
   onReviewSale?: () => void;
+  onSaleSettled?: () => void;
   emptyContent?: ReactNode;
 }) {
-  const holdings = useSwapHoldings();
+  const holdings = useSwapHoldings(onSaleSettled);
   const mainnet = useOptionalMainnetWallet();
   const ownedAsset = (chainId: number, token: string) =>
     mainnet?.snapshot?.ownedAssets?.find(

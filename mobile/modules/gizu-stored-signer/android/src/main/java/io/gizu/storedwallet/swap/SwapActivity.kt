@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -45,6 +46,7 @@ internal object SwapHost {
   var payout: Boolean = false
   var recovery: Boolean = false
   var holdingId: String? = null
+  var sweepTo: String? = null
 
   suspend fun open(
     activity: Activity,
@@ -56,6 +58,7 @@ internal object SwapHost {
     payout: Boolean = false,
     recovery: Boolean = false,
     holdingId: String? = null,
+    sweepTo: String? = null,
   ): Map<String, Any?> {
     try {
       return suspendCancellableCoroutine { continuation ->
@@ -69,6 +72,7 @@ internal object SwapHost {
         this.payout = payout
         this.recovery = recovery
         this.holdingId = holdingId
+        this.sweepTo = sweepTo
         completion = continuation
         continuation.invokeOnCancellation { activity.runOnUiThread { close(null) } }
         try {
@@ -193,7 +197,7 @@ class SwapActivity : Activity() {
             active.restore()
             active.retry()
           } else if (SwapHost.sell) {
-            active.startSell(record, SwapHost.holdingId)
+            active.startSell(record, SwapHost.holdingId, SwapHost.sweepTo)
           } else if (SwapHost.recovery) {
             active.startRecovery(record, checkNotNull(SwapHost.target))
           } else if (SwapHost.payout) {
@@ -226,11 +230,10 @@ class SwapActivity : Activity() {
 
   private fun progress(view: Map<String, Any?>) {
     if (stopped) return
-    val title = if (view["approved"] == true) "Swap in progress" else "Preparing the swap"
-    show(
-      title,
-      "${view["phase"]} · ${view["step"]}\nPayouts ${view["payoutsSubmitted"]}/3 · orders ${view["ordersComplete"]}/3\n\n" +
-        "Keep this screen open until it finishes. Leaving pauses the swap: nothing is cancelled and Resume continues from here.",
+    root.removeAllViews()
+    root.addView(
+      SwapScreens.progress(this, view, view["approved"] == true),
+      LinearLayout.LayoutParams(-1, 0, 1f),
     )
     root.addView(
       NativeStyle.button(this, if (approved()) "Pause and go back" else "Cancel swap", false)
@@ -253,31 +256,43 @@ class SwapActivity : Activity() {
 
   private fun show(title: String, message: String) {
     root.removeAllViews()
-    root.addView(NativeStyle.title(this, title))
-    root.addView(NativeStyle.body(this, message), NativeStyle.fullWidth(this, 12))
+    root.addView(
+      SwapScreens.preparing(this, title, message),
+      LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = NativeStyle.dp(this@SwapActivity, 64) },
+    )
   }
 
   private fun showReview(text: String, error: String? = null) {
     root.removeAllViews()
     root.addView(NativeStyle.title(this, "Review swap", 22f))
-    if (error != null) root.addView(NativeStyle.body(this, error), NativeStyle.fullWidth(this, 12))
-    val scroll = ScrollView(this)
-    scroll.addView(
-      NativeStyle.body(this, text, NativeStyle.primaryText).apply {
-        setPadding(
-          NativeStyle.dp(this@SwapActivity, 16),
-          NativeStyle.dp(this@SwapActivity, 16),
-          NativeStyle.dp(this@SwapActivity, 16),
-          NativeStyle.dp(this@SwapActivity, 16),
-        )
-      }
-    )
+    if (error != null)
+      root.addView(
+        NativeStyle.body(this, error, NativeStyle.danger).apply {
+          background = NativeStyle.rounded(this@SwapActivity, 0x16FF9B9B, 16, NativeStyle.dangerBorder)
+          setPadding(
+            NativeStyle.dp(this@SwapActivity, 14),
+            NativeStyle.dp(this@SwapActivity, 12),
+            NativeStyle.dp(this@SwapActivity, 14),
+            NativeStyle.dp(this@SwapActivity, 12),
+          )
+        },
+        NativeStyle.fullWidth(this, 12),
+      )
+    val scroll = ScrollView(this).apply { isVerticalScrollBarEnabled = false }
+    scroll.addView(SwapScreens.review(this, text))
     root.addView(
       scroll,
       LinearLayout.LayoutParams(-1, 0, 1f).apply {
         topMargin = NativeStyle.dp(this@SwapActivity, 16)
       },
     )
+    // Approval stays locked until the whole review has been scrolled through; say so.
+    val hint =
+      NativeStyle.body(this, "Scroll to the end to approve", NativeStyle.disabledText).apply {
+        textSize = 12f
+        gravity = android.view.Gravity.CENTER
+      }
+    root.addView(hint, NativeStyle.fullWidth(this, 10))
     val approve =
       NativeStyle.button(
         this,
@@ -290,17 +305,20 @@ class SwapActivity : Activity() {
       approve.isEnabled = false
       authorize(text)
     }
-    root.addView(approve, NativeStyle.fullWidth(this, 16))
+    root.addView(approve, NativeStyle.fullWidth(this, 8))
     root.addView(
       NativeStyle.button(this, if (approved()) "Not now" else "Cancel", false).apply {
         setOnClickListener { cancelOrLeave() }
       },
       NativeStyle.fullWidth(this, 10),
     )
-    scroll.viewTreeObserver.addOnScrollChangedListener {
-      approve.isEnabled = !scroll.canScrollVertically(1) && !stopped
+    fun sync() {
+      val ready = !scroll.canScrollVertically(1) && !stopped
+      approve.isEnabled = ready
+      hint.visibility = if (ready) View.GONE else View.VISIBLE
     }
-    scroll.post { approve.isEnabled = !scroll.canScrollVertically(1) && !stopped }
+    scroll.viewTreeObserver.addOnScrollChangedListener { sync() }
+    scroll.post { sync() }
   }
 
   private fun authorize(text: String) {
@@ -335,8 +353,8 @@ class SwapActivity : Activity() {
           record.close()
         }
         show(
-          "Swap in progress",
-          "Submitting the approved steps. You can leave and resume; submitted steps are not signed again.",
+          "Submitting the approved steps",
+          "You can leave and resume; submitted steps are not signed again.",
         )
         present(checkNotNull(engine).advance(::progress))
       } catch (error: CancellationException) {
@@ -362,10 +380,8 @@ class SwapActivity : Activity() {
   }
 
   private fun unlock() {
-    show(
-      "New unlock required",
-      "The 15-minute authorization ended. Unlock the same plan to continue. Nothing new is approved.",
-    )
+    root.removeAllViews()
+    root.addView(SwapScreens.unlock(this), LinearLayout.LayoutParams(-1, 0, 1f))
     root.addView(
       NativeStyle.button(this, "Unlock", true).apply { setOnClickListener { unlockPasskey() } },
       NativeStyle.fullWidth(this, 16),

@@ -73,6 +73,42 @@ The recovery variant is not generic cross-chain asset recovery. Sell holder and
 return-recipient indices are distinct, validated sets. An available token in the
 catalog is neither a route quote nor proof of Fusion liquidity.
 
+## Wallet count and payout shares
+
+A buy no longer always spreads over three wallets with a 30/30/40 split. Native code draws
+random bytes once before review and `choose_buy_legs` (Rust, `swap/legs.rs`) turns them into a
+plan that is shown in the review and persisted with the operation, so a restore or retry never
+rolls it again.
+
+| Budget (USDC)  | Wallets drawn from |
+| -------------- | ------------------ |
+| under 5        | 1                  |
+| 5 up to 20     | 2                  |
+| up to 100      | 2 or 3             |
+| up to 1,000    | 3 or 4             |
+| above 1,000    | 4 or 5             |
+
+Upper bounds are inclusive. A budget under 5 USDC stays in one wallet because Aurora rejects a
+deposit under 0.075 USDG and one rejected leg stops the whole operation. Each share is 70%–130% of an equal share, so two wallets get
+35%–65%. Shares are whole basis points and always add up exactly. The engine accepts one to
+five wallets and rejects plans outside that or with invalid weights.
+
+A sell follows the same rule. Native code reserves up to five fresh return wallets and puts
+random bytes (`legsRandom`) in the plan. Once the sale is priced, the engine draws the payout
+count from the estimated proceeds with the table above and the shares with the same band, and
+drops the reserved wallets it does not need; the review shows the result. Every holder is sold
+and credited to C first, then C's pooled balance is split over the payouts, so no sale can be
+matched to one payout. Native code never sends weights for a sell. A sell saved before this
+change has no `legsRandom` and finishes the older way: each return wallet receives the proceeds
+of the holder in the same position.
+A buy from existing private balance has no budget to size from and keeps three wallets.
+
+Allocation reserves whole blocks of three indices and uses the first `count` of them, so every
+swap starts on a block boundary. Holdings are grouped and sold in blocks of three; this keeps
+one swap's wallets from sharing a sell group with another swap's. A swap of four or five
+wallets therefore sells in two groups, and unused indices in a block are never funded. Sell
+reviews list only wallets that hold the token.
+
 ## Shared engine versus platform orchestration
 
 Both platforms consume the same `SwapOperation` through generated UniFFI bindings.

@@ -1756,6 +1756,28 @@ class GizuStoredSignerModule : Module() {
         }
       }
     }
+    // Temporary debug mode: sells a holding and pays the USDG straight to `destination`.
+    AsyncFunction("sweepSwapHolding") {
+      holdingId: String,
+      destination: String,
+      gateway: String,
+      promise: Promise ->
+      runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
+        check(BuildConfig.DEBUG) { "The debug sweep is not available in this build." }
+        withProviderUi(activity) {
+          SwapHost.open(
+            activity,
+            gateway,
+            null,
+            null,
+            false,
+            sell = true,
+            holdingId = holdingId,
+            sweepTo = destination,
+          )
+        }
+      }
+    }
     AsyncFunction("startSell") { gateway: String, promise: Promise ->
       runCeremony(promise, timeoutMs = 900_000L) { activity, _ ->
         withProviderUi(activity) { SwapHost.open(activity, gateway, null, null, false, true) }

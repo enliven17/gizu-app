@@ -10,6 +10,8 @@ pub const FUNDING_ACCOUNT: u32 = 1;
 pub const CONFIDENTIAL_ACCOUNT: u32 = 2;
 pub const FIRST_RECIPIENT: u32 = 3;
 pub const RECIPIENTS_PER_SWAP: u32 = 3;
+/// Upper bound for one swap's recipients; the engine enforces the same limit on every plan.
+pub const MAX_SWAP_RECIPIENTS: u32 = 5;
 const REGISTRY_VERSION: u32 = 1;
 const MAX_INDEX: u32 = 0x7fff_ffff;
 const MAX_RANGE: u32 = 64;
@@ -58,16 +60,33 @@ pub fn role_registry_initial() -> String {
 /// Reserves fresh recipient indices. The caller must persist `registry` before using `indices`.
 #[uniffi::export]
 pub fn allocate_swap_recipients(registry: String) -> Result<RecipientAllocation, SignerError> {
+    allocate_swap_recipients_n(registry, RECIPIENTS_PER_SWAP)
+}
+
+/// Reserves fresh indices for a swap that uses `count` (1..=MAX_SWAP_RECIPIENTS) wallets and returns
+/// those first `count`. The reservation is rounded up to whole blocks of `RECIPIENTS_PER_SWAP`
+/// so every swap still starts on a block boundary: holdings are grouped and sold by blocks of
+/// three, and a swap's wallets must never share a block with another swap's. Unused indices in
+/// the last block are skipped and never funded. Same persistence rule as above.
+#[uniffi::export]
+pub fn allocate_swap_recipients_n(
+    registry: String,
+    count: u32,
+) -> Result<RecipientAllocation, SignerError> {
+    if count == 0 || count > MAX_SWAP_RECIPIENTS {
+        return Err(SignerError::InvalidInput);
+    }
     let mut parsed = RoleRegistry::parse(&registry)?;
     let start = parsed.next_recipient;
+    let reserved = count.div_ceil(RECIPIENTS_PER_SWAP) * RECIPIENTS_PER_SWAP;
     let end = start
-        .checked_add(RECIPIENTS_PER_SWAP)
+        .checked_add(reserved)
         .filter(|end| *end <= MAX_INDEX)
         .ok_or(SignerError::InvalidInput)?;
     parsed.next_recipient = end;
     Ok(RecipientAllocation {
         registry: parsed.json(),
-        indices: (start..end).collect(),
+        indices: (start..start + count).collect(),
     })
 }
 
@@ -194,6 +213,39 @@ mod tests {
             allocate_swap_recipients(merged).unwrap().indices,
             vec![9, 10, 11]
         );
+    }
+
+    #[test]
+    fn a_swap_reserves_whole_blocks_so_every_swap_starts_on_a_block_boundary() {
+        let mut registry = role_registry_initial();
+        let mut used = std::collections::HashSet::new();
+        for count in [1u32, 2, 5, 3, 4, 3] {
+            let allocation = allocate_swap_recipients_n(registry.clone(), count).unwrap();
+            let before = RoleRegistry::parse(&registry).unwrap().next_recipient;
+            let after = RoleRegistry::parse(&allocation.registry)
+                .unwrap()
+                .next_recipient;
+            assert_eq!((before - FIRST_RECIPIENT) % RECIPIENTS_PER_SWAP, 0);
+            assert_eq!(allocation.indices.len() as u32, count);
+            assert_eq!(allocation.indices[0], before);
+            assert_eq!(
+                after - before,
+                count.div_ceil(RECIPIENTS_PER_SWAP) * RECIPIENTS_PER_SWAP
+            );
+            for index in &allocation.indices {
+                assert!(*index >= FIRST_RECIPIENT && *index < after && used.insert(*index));
+            }
+            registry = allocation.registry;
+        }
+        assert!(allocate_swap_recipients_n(registry.clone(), 0).is_err());
+        assert!(allocate_swap_recipients_n(registry.clone(), 6).is_err());
+        // Three wallets behave exactly like the original allocation.
+        let fresh = allocate_swap_recipients(role_registry_initial()).unwrap();
+        assert_eq!(fresh.indices, vec![3, 4, 5]);
+        let two = allocate_swap_recipients_n(role_registry_initial(), 2).unwrap();
+        assert_eq!(two.indices, vec![3, 4]);
+        let after_two = allocate_swap_recipients(two.registry).unwrap();
+        assert_eq!(after_two.indices, vec![6, 7, 8], "index 5 stays unused");
     }
 
     #[test]

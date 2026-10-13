@@ -1,10 +1,11 @@
 import type { CatalogToken } from "@/domain/tokenCatalog";
 import { useCallback, useEffect, useState } from "react";
 import {
+  formatTokenAtoms,
   loadSwapTokens,
+  previewSwapOut,
   parseSwapView,
   sourceAtoms,
-  SWAP_RECOVERY_ENABLED,
   swapGateway,
   swapSigner,
   type ListedToken,
@@ -12,7 +13,7 @@ import {
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 
 type SwapAction =
-  "start" | "payout" | "recover" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
+  "start" | "payout" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
 function diagnostic(action: SwapAction, outcome: "started" | "completed" | "failed") {
   if (__DEV__) console.info("[swap]", { action, outcome });
 }
@@ -81,7 +82,37 @@ export function useNativeSwap() {
   }
 
   const atoms = sourceAtoms(amount);
+  const [estimate, setEstimate] = useState<{ key: string; text: string } | null>(null);
+  const decimals = tokens.find((token) => token.address === target)?.decimals ?? 0;
+  const previewable =
+    !!atoms && !!fundingAddress && decimals > 0 && /^0x[0-9a-fA-F]{40}$/.test(target);
+  useEffect(() => {
+    if (!previewable) return;
+    let live = true;
+    const key = `${atoms}:${target}`;
+    const timer = setTimeout(() => {
+      previewSwapOut(fundingAddress, target, atoms)
+        .then((out) => {
+          if (live) setEstimate({ key, text: formatTokenAtoms(out, decimals) });
+        })
+        .catch(() => {
+          if (live) setEstimate({ key, text: "" });
+        });
+    }, 500);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [previewable, atoms, fundingAddress, target, decimals]);
   return {
+    // Only a result for the current amount and token is shown; a failed lookup shows nothing.
+    estimate: !previewable
+      ? null
+      : estimate?.key !== `${atoms}:${target}`
+        ? { text: "", loading: true }
+        : estimate.text
+          ? { text: estimate.text, loading: false }
+          : null,
     tokens,
     target,
     setTarget,
@@ -124,16 +155,6 @@ export function useNativeSwap() {
     payout: () =>
       run("payout", async () => {
         setStatus(parseSwapView(await swapSigner().startPayout(target, swapGateway)));
-      }),
-    // Temporary recovery: no active operation to resume, and a token chosen for the leftover USDG.
-    canRecover:
-      SWAP_RECOVERY_ENABLED &&
-      (status === null || status.phase === "CANCELLED" || status.phase === "COMPLETE") &&
-      /^0x[0-9a-fA-F]{40}$/.test(target) &&
-      !busy,
-    recover: () =>
-      run("recover", async () => {
-        setStatus(parseSwapView(await swapSigner().startRecovery(target, swapGateway)));
       }),
     resume: () =>
       run("resume", async () =>
