@@ -20,13 +20,19 @@ const STARTING_USDC = 250n * USDC;
 const FUNDING_ADDRESS = "0x5a1F3c9E0b7D4e2C8f6A1b3D5e7F9a0B2c4D6e8F";
 
 type DemoToken = CatalogToken & { priceCents: number };
-const stock = (address: string, symbol: string, name: string, priceCents: number): DemoToken => ({
+const stock = (
+  address: string,
+  symbol: string,
+  name: string,
+  priceCents: number,
+  domain: string,
+): DemoToken => ({
   chainId: 4663,
   address,
   symbol,
   name,
   decimals: 18,
-  logoURI: null,
+  logoURI: `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`,
   category: "rwa",
   issuer: "Robinhood",
   swapListed: true,
@@ -34,13 +40,13 @@ const stock = (address: string, symbol: string, name: string, priceCents: number
   priceCents,
 });
 export const demoTokens: DemoToken[] = [
-  stock("0x12f190a9F9d7D37a250758b26824B97CE941bF54", "AMZN", "Amazon", 23_000),
-  stock("0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", "AAPL", "Apple", 33_800),
-  stock("0x3b8E2a7C6d1F0e9A4c5B7d2E8f1A3c6B9d0E2f4A", "TSLA", "Tesla", 42_000),
-  stock("0x7c4D9e1A2b6F3a8C0d5E7b9F1a4C6e8B0d2F3a5C", "NVDA", "NVIDIA", 18_000),
-  stock("0x9e1B3d5F7a0C2e4B6d8F0a2C4e6B8d0F1a3C5e7B", "GOOGL", "Alphabet", 25_000),
-  stock("0x2d4F6a8C0e1B3d5F7a9C1e3B5d7F9a0C2e4B6d8F", "MSFT", "Microsoft", 51_000),
-  stock("0x6f8A0c2E4b6D8f0A1c3E5b7D9f1A3c5E7b9D0f2A", "COIN", "Coinbase", 33_000),
+  stock("0x12f190a9F9d7D37a250758b26824B97CE941bF54", "AMZN", "Amazon", 23_000, "amazon.com"),
+  stock("0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9", "AAPL", "Apple", 33_800, "apple.com"),
+  stock("0x3b8E2a7C6d1F0e9A4c5B7d2E8f1A3c6B9d0E2f4A", "TSLA", "Tesla", 42_000, "tesla.com"),
+  stock("0x7c4D9e1A2b6F3a8C0d5E7b9F1a4C6e8B0d2F3a5C", "NVDA", "NVIDIA", 18_000, "nvidia.com"),
+  stock("0x9e1B3d5F7a0C2e4B6d8F0a2C4e6B8d0F1a3C5e7B", "GOOGL", "Alphabet", 25_000, "google.com"),
+  stock("0x2d4F6a8C0e1B3d5F7a9C1e3B5d7F9a0C2e4B6d8F", "MSFT", "Microsoft", 51_000, "microsoft.com"),
+  stock("0x6f8A0c2E4b6D8f0A1c3E5b7D9f1A3c5E7b9D0f2A", "COIN", "Coinbase", 33_000, "coinbase.com"),
 ];
 const tokenOf = (address: string) =>
   demoTokens.find((token) => token.address.toLowerCase() === address.toLowerCase());

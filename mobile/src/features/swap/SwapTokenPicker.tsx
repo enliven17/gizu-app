@@ -10,6 +10,7 @@ import { tokenIdentity, tokenNetworks, type CatalogToken } from "@/domain/tokenC
 import { useTokenCatalog } from "./useTokenCatalog";
 import type { ListedToken } from "./confidentialSwap";
 import { SwapAmount, SwapPanel, TokenPill } from "./components/SwapPanel";
+import { TokenLogo } from "./components/TokenCard";
 
 const tokenKinds = [
   { category: "rwa", label: "Stocks" },
@@ -143,20 +144,23 @@ function TokenChoices({
             onPress={() => {
               if (selectable && !disabled) onSelect(item);
             }}
-            className={`mb-2 gap-1 rounded-2xl px-4 py-3 ${checked ? "bg-neon/10" : "bg-well"} ${!selectable ? "opacity-60" : ""}`}
+            className={`mb-2 flex-row items-center gap-3 rounded-2xl px-4 py-3 ${checked ? "bg-neon/10" : "bg-well"} ${!selectable ? "opacity-60" : ""}`}
           >
-            <View className="flex-row items-center justify-between gap-3">
-              <Typography variant="rowTitle" className={`flex-1 ${checked ? "!text-neon" : ""}`}>
-                {item.symbol}
-              </Typography>
-              <Badge
-                label={
-                  tokenNetworks.find((network) => network.chainId === item.chainId)?.name ?? ""
-                }
-              />
+            <TokenLogo key={item.logoURI} token={item} />
+            <View className="flex-1 gap-1">
+              <View className="flex-row items-center justify-between gap-3">
+                <Typography variant="rowTitle" className={`flex-1 ${checked ? "!text-neon" : ""}`}>
+                  {item.symbol}
+                </Typography>
+                <Badge
+                  label={
+                    tokenNetworks.find((network) => network.chainId === item.chainId)?.name ?? ""
+                  }
+                />
+              </View>
+              <Typography variant="micro">{item.name}</Typography>
+              {!selectable && <Typography variant="micro">Not available for swaps</Typography>}
             </View>
-            <Typography variant="micro">{item.name}</Typography>
-            {!selectable && <Typography variant="micro">Not available for swaps</Typography>}
           </PressableScale>
         );
       }}

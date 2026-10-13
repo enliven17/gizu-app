@@ -4,7 +4,6 @@ import { Button } from "@/components/atoms/Button";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
 import { ErrorNotice } from "@/components/molecules/ErrorNotice";
-import { Surface } from "@/components/molecules/Surface";
 import { formatSwapAmount } from "@/domain/swap";
 import { groupDigits } from "@/domain/wallet/amounts";
 import { holdingAmount } from "./SwapHoldingsSection";
@@ -39,45 +38,43 @@ export function SwapSellForm({ flip, onSettled }: { flip: ReactNode; onSettled: 
   const received = estimate?.key === estimateKey ? estimate.atoms : null;
   return (
     <>
-      <Surface>
-        <View className="gap-1 p-2">
-          <SwapPanel
-            label="You pay"
-            aside={
-              holding ? (
-                <BalanceAside
-                  text={`Balance ${holdingAmount(holding.balanceAtoms, holding.decimals)}`}
-                />
-              ) : null
-            }
-            amount={
-              <SwapAmount
-                value={holding ? holdingAmount(holding.balanceAtoms, holding.decimals) : "0"}
-                muted={!holding}
+      <View>
+        <SwapPanel
+          label="You pay"
+          aside={
+            holding ? (
+              <BalanceAside
+                text={`Balance ${holdingAmount(holding.balanceAtoms, holding.decimals)}`}
               />
-            }
-            token={
-              <TokenPill
-                symbol={holding?.symbol ?? null}
-                accessibilityLabel="Choose token to sell"
-                disabled={holdings.busy || list.length < 2}
-                onPress={list.length > 1 ? () => setChoosing(true) : undefined}
-              />
-            }
-          />
-          {flip}
-          <SwapPanel
-            label="You receive"
-            amount={
-              <SwapAmount
-                value={received ? groupDigits(formatSwapAmount(BigInt(received))) : "0"}
-                muted={!received}
-              />
-            }
-            token={<TokenPill symbol="USDC" />}
-          />
-        </View>
-      </Surface>
+            ) : null
+          }
+          amount={
+            <SwapAmount
+              value={holding ? holdingAmount(holding.balanceAtoms, holding.decimals) : "0"}
+              muted={!holding}
+            />
+          }
+          token={
+            <TokenPill
+              symbol={holding?.symbol ?? null}
+              accessibilityLabel="Choose token to sell"
+              disabled={holdings.busy || list.length < 2}
+              onPress={list.length > 1 ? () => setChoosing(true) : undefined}
+            />
+          }
+        />
+        {flip}
+        <SwapPanel
+          label="You receive"
+          amount={
+            <SwapAmount
+              value={received ? groupDigits(formatSwapAmount(BigInt(received))) : "0"}
+              muted={!received}
+            />
+          }
+          token={<TokenPill symbol="USDC" />}
+        />
+      </View>
       <Button
         label={
           holdings.busy
