@@ -13,7 +13,15 @@ export class EarnRecoveryEnvelope {
   get configured() {
     return this.key !== undefined;
   }
-  seal(purpose: "private-payout" | "native-quote" | "fusion-order", value: unknown): string {
+  seal(
+    purpose:
+      | "private-payout"
+      | "native-quote"
+      | "fusion-order"
+      | "private-balance"
+      | "source-credit",
+    value: unknown,
+  ): string {
     if (!this.key) throw new Error("Earn recovery key unavailable");
     const bytes = Buffer.from(JSON.stringify(value));
     if (bytes.length > 131072) throw new Error("Earn recovery body too large");
@@ -29,7 +37,15 @@ export class EarnRecoveryEnvelope {
       encrypted.toString("base64url"),
     ].join(".");
   }
-  open(purpose: "private-payout" | "native-quote" | "fusion-order", token: string): unknown {
+  open(
+    purpose:
+      | "private-payout"
+      | "native-quote"
+      | "fusion-order"
+      | "private-balance"
+      | "source-credit",
+    token: string,
+  ): unknown {
     if (!this.key || token.length > 180000)
       throw new Error("Invalid Earn recovery envelope");
     const parts = token.split(".");

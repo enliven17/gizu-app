@@ -145,10 +145,19 @@ internal class EarnDepositCoordinator(
         val sourceId = s.getString("operationId")
         val row = reconcileAndExecute("funding", sourceId, grant)
         check(row.getString("status") != "reverted") { "Source funding failed" }
-        engines.credit(row)?.let {
-          credits[sourceId] = it
-          grant?.recordCredit(sourceId, it)
+        val credit = engines.credit(row)
+        if (credit == null) {
+          saveAmounts(id) {
+            it.put(
+              "creditedAtoms",
+              credits.values.fold(BigInteger.ZERO) { n, a -> n + depositAtoms(a) }.toString(),
+            )
+          }
+          journal.pause(id, "settlementPending")
+          return
         }
+        credits[sourceId] = credit
+        grant?.recordCredit(sourceId, credit)
       }
       saveAmounts(id) {
         it.put(
@@ -186,7 +195,31 @@ internal class EarnDepositCoordinator(
         }
         val settled =
           reconcileAndExecute("payouts", child.getString("operationId"), grant, retrySavedPayouts)
-        engines.payoutReceipt(settled)?.let { atoms ->
+        val payoutAtoms = engines.payoutReceipt(settled)
+        if (payoutAtoms == null) {
+          saveAmounts(id) {
+            it
+              .put(
+                "holdReceivedAtoms",
+                sources
+                  .fold(BigInteger.ZERO) { n, s ->
+                    n + depositAtoms(receipts[s.getString("operationId") + ":hold"] ?: "0")
+                  }
+                  .toString(),
+              )
+              .put(
+                "investReceivedAtoms",
+                sources
+                  .fold(BigInteger.ZERO) { n, s ->
+                    n + depositAtoms(receipts[s.getString("operationId") + ":invest"] ?: "0")
+                  }
+                  .toString(),
+              )
+          }
+          journal.pause(id, "submissionUnknown")
+          return
+        }
+        payoutAtoms.let { atoms ->
           check(
             depositAtoms(atoms, true) >=
               depositAtoms(source.getJSONObject(leg).getString("minimumOutputAtoms"), true)

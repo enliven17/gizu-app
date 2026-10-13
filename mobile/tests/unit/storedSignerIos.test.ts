@@ -18,6 +18,7 @@ test("iOS cannot advertise or start the Android deposit journey", async () => {
       .mockResolvedValue({ contractVersion: 1, available: true, earnDepositJourney: false }),
   });
   expect((await getSignerCapabilities()).earnDepositJourney).toBe(false);
+  expect((await getSignerCapabilities()).earnBalanceDeltaSettlement).toBe(false);
   expect(getStoredEarnDepositSigner()).toBeNull();
 });
 

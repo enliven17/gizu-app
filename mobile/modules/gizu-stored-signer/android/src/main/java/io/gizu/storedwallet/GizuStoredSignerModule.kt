@@ -334,6 +334,7 @@ class GizuStoredSignerModule : Module() {
           "earnPrivatePayoutExecution" to eligible(appContext.currentActivity),
           "earnEthereumLiquidityExecution" to eligible(appContext.currentActivity),
           "earnDepositJourney" to eligible(appContext.currentActivity),
+          "earnBalanceDeltaSettlement" to eligible(appContext.currentActivity),
         )
       )
     }
@@ -1041,7 +1042,7 @@ class GizuStoredSignerModule : Module() {
         confirm(
           activity,
           "Confirm confidential funding settlement",
-          "Authenticate the private history for this exact funded route. An aggregate balance or public deposit status does not establish credit.\nOperation $id\nOrigin transaction ${expected.getString("transactionHash")}\nDeposit ${expected.getString("depositAddress")}\nMinimum private credit ${expected.getString("minimumCreditAtoms")} base units",
+          "Verify this funded route using its saved balance snapshot and authenticated private balance.\nOperation $id\nOrigin transaction ${expected.getString("transactionHash")}\nDeposit ${expected.getString("depositAddress")}\nMinimum private credit ${expected.getString("minimumCreditAtoms")} base units",
           fullReview = true,
         )
         withProviderUi(activity) {
@@ -1430,7 +1431,7 @@ class GizuStoredSignerModule : Module() {
         confirm(
           activity,
           "Review returned asset settlement",
-          "Authenticate the private history for this exact return.\nOperation $id\nOrigin transaction ${expected.getString("transactionHash")}\nDeposit ${expected.getString("depositAddress")}\nMinimum private credit ${expected.getString("minimumCreditAtoms")} atoms",
+          "Verify this return using its saved balance snapshot and authenticated private balance.\nOperation $id\nOrigin transaction ${expected.getString("transactionHash")}\nDeposit ${expected.getString("depositAddress")}\nMinimum private credit ${expected.getString("minimumCreditAtoms")} atoms",
           fullReview = true,
         )
         withProviderUi(activity) {
@@ -1945,7 +1946,7 @@ class GizuStoredSignerModule : Module() {
         "EIP-7702 may persistently delegate selected source wallets and wallet 2 to $EARN_IMPLEMENTATION. Token approvals and sponsorship use $EARN_PAYMASTER and $EARN_ENTRY_POINT. Canceling this journey does not revoke a saved delegation signature.\n\n"
       )
       append(
-        "Read-only confidential authentication for this cycle is included. Its identity is visible to the history provider: ${review.getString("confidentialAccount")}\n"
+        "Read-only confidential authentication for this cycle is included. Its identity is visible to the confidential provider: ${review.getString("confidentialAccount")}\n"
       )
       for (source in sources) append(
         "\nSource ${source.getInt("accountIndex")}: ${source.getString("address")}\nMaximum budget ${usd(source.getString("budgetAtoms"))} USDC; retained margin ${usd(source.getString("retainedAtoms"))} USDC\n"
@@ -2278,8 +2279,8 @@ class GizuStoredSignerModule : Module() {
     val started = System.currentTimeMillis()
     confirm(
       activity,
-      "Review private payout history authentication",
-      "Authenticate read-only confidential history to prepare or reconcile this funding allocation. This empty-intents authentication does not authorize an asset transfer.",
+      "Review private payout read authentication",
+      "Authenticate a read-only confidential check to prepare or reconcile this funding allocation. This empty-intents authentication does not authorize an asset transfer.",
       fullReview = true,
     )
     withProviderUi(activity) {

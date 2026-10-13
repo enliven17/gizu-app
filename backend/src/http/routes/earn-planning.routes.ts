@@ -156,6 +156,7 @@ export function registerEarnPlanningRoutes(
             .object({
               owner: address,
               confidentialAccount: address,
+              settlementMode: z.literal("balance-delta-v1").optional(),
               operationId: z
                 .string()
                 .min(1)

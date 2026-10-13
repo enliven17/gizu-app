@@ -530,7 +530,7 @@ export class RobinhoodReturnPlanner {
     private now: () => number = Date.now,
   ) {}
   async plan(
-    request: RobinhoodPlanRequest & { confidentialAccount: string },
+    request: RobinhoodPlanRequest & { confidentialAccount: string; settlementMode?: "balance-delta-v1" },
   ): Promise<RobinhoodReturnPlan> {
     validate(request);
     if (
@@ -618,6 +618,7 @@ export class RobinhoodReturnPlanner {
         sourceOwner: owner,
         confidentialAccount: getAddress(request.confidentialAccount),
         amountAtoms: amount.toString(),
+        settlementMode: request.settlementMode,
       });
       if (
         route.operationId !== request.operationId ||

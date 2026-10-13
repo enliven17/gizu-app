@@ -2,6 +2,7 @@ import { createEarnRobinhoodService } from "@/services/earn/robinhoodExecution";
 import { hoodIntent, hoodRaw } from "../../support/robinhoodEarn";
 import type { SponsoredOperation } from "@/domain/earn/sourceFunding";
 import { parseRobinhoodPlan } from "@/domain/earn/robinhoodExecution";
+import { getSignerCapabilities } from "@/services/wallet/nativeBridge";
 jest.mock("@/services/wallet/nativeBridge", () => ({
   getStoredEarnSponsoredSigner: jest.fn().mockReturnValue(null),
   getSignerCapabilities: jest.fn().mockResolvedValue({ earnSponsoredExecution: true }),
@@ -38,6 +39,38 @@ function native() {
   };
 }
 afterEach(() => jest.restoreAllMocks());
+test("returns advertise balance settlement only when the native build explicitly supports it", async () => {
+  for (const supported of [false, true]) {
+    jest
+      .mocked(getSignerCapabilities)
+      .mockResolvedValueOnce({
+        contractVersion: 1,
+        available: true,
+        walletStorage: true,
+        backup: true,
+        transfers: false,
+        swaps: false,
+        earnDepositJourney: true,
+        earnBalanceDeltaSettlement: supported,
+      });
+    const b = native();
+    jest.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.settlementMode).toBe(supported ? "balance-delta-v1" : undefined);
+      return {
+        ok: true,
+        json: async () => hoodRaw("hoodTokenReturn", now, body.operationId, body.revision),
+      } as Response;
+    });
+    await createEarnRobinhoodService(
+      "https://backend.test",
+      () => b,
+      () => now,
+    ).plan(hoodIntent, "hoodTokenReturn", new AbortController().signal);
+    expect(b.executeEarnSponsored).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
+  }
+});
 test("real HTTP planner binds one current recipient role and executes only through native sponsored boundary", async () => {
   const b = native(),
     fetcher = jest.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {

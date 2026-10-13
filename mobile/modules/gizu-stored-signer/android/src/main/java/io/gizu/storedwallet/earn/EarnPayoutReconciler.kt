@@ -89,7 +89,10 @@ internal suspend fun scanNativePayoutTransfers(
         val block = quantity(log.getString("blockNumber"))
         check(block in from..end)
         val amount = payoutTransfer(log, quote, event)
-        amount != null && amount >= quote.getString("minimumDestinationAtoms").toBigInteger()
+        amount != null &&
+          amount >= quote.getString("minimumDestinationAtoms").toBigInteger() &&
+          (!quote.has("maximumDestinationAtoms") ||
+            amount <= quote.getString("maximumDestinationAtoms").toBigInteger())
       }
       .map { earnHash(it.getString("transactionHash")) }
       .distinct()
@@ -101,8 +104,8 @@ internal suspend fun scanNativePayoutTransfers(
 }
 
 /**
- * Authenticated outgoing private history remains mandatory in the engine. This independently proves
- * the exact recipient/token/value transfer in a canonical finalized destination receipt.
+ * Independently confirms the exact recipient/token/value in a canonical finalized receipt. The
+ * engine also verifies the saved signed intent and successful route.
  */
 internal suspend fun confirmNativePayoutReceipt(
   rpc: TransferRpc,
