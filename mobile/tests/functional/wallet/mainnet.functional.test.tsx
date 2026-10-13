@@ -129,7 +129,7 @@ test("Swap shows the same total public USDC funding balance including receiving 
   await open();
   await screen.findByLabelText("3 USDC");
   fireEvent.press(screen.getByLabelText("Swap tab"));
-  expect(await screen.findByText("Available: 3 USDC")).toBeVisible();
+  expect(await screen.findByText("Balance 3")).toBeVisible();
   expect(screen.getByLabelText("Amount in USDC")).toBeVisible();
   expect(screen.queryByText(/maximum 10 USDC/)).toBeNull();
 });
