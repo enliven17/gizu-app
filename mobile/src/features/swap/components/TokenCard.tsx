@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Image, View } from "react-native";
 import { Typography } from "@/components/atoms/Typography";
 import type { CatalogToken } from "@/domain/tokenCatalog";
-function TokenLogo({ token }: { token: CatalogToken }) {
+export function TokenLogo({ token }: { token: CatalogToken }) {
   const [failed, setFailed] = useState(false);
   return token.logoURI && /^https?:\/\//i.test(token.logoURI) && !failed ? (
     <Image
