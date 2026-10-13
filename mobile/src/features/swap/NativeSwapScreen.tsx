@@ -4,10 +4,15 @@ import { TextInput, View } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { SwapTokenPicker } from "./SwapTokenPicker";
 import { SwapSellForm } from "./SwapSellForm";
-import { BalanceAside, FlipButton, SwapPanel, TokenPill } from "./components/SwapPanel";
+import {
+  BalanceAside,
+  FlipButton,
+  PercentChips,
+  SwapPanel,
+  TokenPill,
+} from "./components/SwapPanel";
 import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
-import { Surface } from "@/components/molecules/Surface";
 import { ActiveSwapCard, LastSwapButton, LastSwapSummary, isFinished } from "./SwapStatusPanel";
 import { Screen } from "@/components/templates/Screen";
 import { formatSwapAmount } from "@/domain/swap";
@@ -24,10 +29,10 @@ export function NativeSwapScreen() {
   // Demo mode spends a simulated balance; re-render whenever the simulation moves.
   const demo = swapDemoEnabled();
   useSyncExternalStore(swapDemo.subscribe, swapDemo.version);
-  const maxAmount = demo
-    ? formatSwapAmount(swapDemo.usdcAtoms())
+  const balanceAtoms = demo
+    ? swapDemo.usdcAtoms()
     : wallet?.snapshot && wallet.snapshot.balanceComplete !== false
-      ? formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))
+      ? BigInt(wallet.snapshot.totalAtoms)
       : null;
   const selected = swap.tokens.find((token) => token.address === swap.target);
   const active =
@@ -50,11 +55,7 @@ export function NativeSwapScreen() {
       onPress={() => setMode(mode === "buy" ? "sell" : "buy")}
     />
   );
-  const available = demo
-    ? groupDigits(formatSwapAmount(swapDemo.usdcAtoms()))
-    : wallet?.snapshot && wallet.snapshot.balanceComplete !== false
-      ? groupDigits(formatSwapAmount(BigInt(wallet.snapshot.totalAtoms)))
-      : null;
+  const available = balanceAtoms === null ? null : groupDigits(formatSwapAmount(balanceAtoms));
   return (
     <Screen
       refreshing={swap.busy}
@@ -85,47 +86,50 @@ export function NativeSwapScreen() {
         )}
         {!active && mode === "buy" && (
           <>
-            <Surface>
-              <View className="gap-1 p-2">
-                <SwapPanel
-                  label="You pay"
-                  aside={
-                    wallet || demo ? (
-                      <BalanceAside
-                        text={available === null ? "Balance …" : `Balance ${available}`}
-                        maxDisabled={swap.busy || maxAmount === null}
-                        onMax={() => {
-                          if (maxAmount !== null) swap.setAmount(maxAmount);
-                        }}
-                      />
-                    ) : null
-                  }
-                  amount={
-                    <TextInput
-                      accessibilityLabel="Amount in USDC"
-                      value={swap.amount}
-                      onChangeText={swap.setAmount}
-                      editable={!swap.busy}
-                      keyboardType="decimal-pad"
-                      placeholder="0"
-                      placeholderTextColor={colors.fg["20"]}
-                      maxLength={21}
-                      className="font-sans min-h-12 flex-1 text-[40px] text-text"
-                      style={{ fontVariant: ["tabular-nums"] }}
+            <View>
+              <SwapPanel
+                label="You pay"
+                aside={
+                  wallet || demo ? (
+                    <BalanceAside
+                      text={available === null ? "Balance …" : `Balance ${available}`}
                     />
-                  }
-                  token={<TokenPill symbol="USDC" />}
-                />
-                {flip}
-                <SwapTokenPicker
-                  tokens={swap.tokens}
-                  target={swap.target}
-                  disabled={swap.busy}
-                  estimate={swap.estimate}
-                  onSelect={swap.selectToken}
-                />
-              </View>
-            </Surface>
+                  ) : null
+                }
+                footer={
+                  wallet || demo ? (
+                    <PercentChips
+                      balanceAtoms={balanceAtoms}
+                      disabled={swap.busy}
+                      onPick={(atoms) => swap.setAmount(formatSwapAmount(atoms))}
+                    />
+                  ) : null
+                }
+                amount={
+                  <TextInput
+                    accessibilityLabel="Amount in USDC"
+                    value={swap.amount}
+                    onChangeText={swap.setAmount}
+                    editable={!swap.busy}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.fg["20"]}
+                    maxLength={21}
+                    className="font-sans min-h-12 flex-1 text-[40px] text-text"
+                    style={{ fontVariant: ["tabular-nums"] }}
+                  />
+                }
+                token={<TokenPill symbol="USDC" />}
+              />
+              {flip}
+              <SwapTokenPicker
+                tokens={swap.tokens}
+                target={swap.target}
+                disabled={swap.busy}
+                estimate={swap.estimate}
+                onSelect={swap.selectToken}
+              />
+            </View>
             <Button
               label={swap.busy ? "Working" : "Review swap"}
               onPress={swap.start}
