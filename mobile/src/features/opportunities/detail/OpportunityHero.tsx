@@ -8,6 +8,8 @@ import type { TvlLoad } from "../useTvlSeries";
 import { money, rate } from "../format";
 import { protocolLogo } from "../protocolLogos";
 import { TvlChart } from "./TvlChart";
+import { demoModeEnabled } from "@/config/demo";
+import { isDemoVaultId } from "@/services/demo/opportunities";
 
 const tabular = { fontVariant: ["tabular-nums" as const] };
 
@@ -29,7 +31,9 @@ export function OpportunityHero({
   const tvl = money.format(opportunity.tvl);
   const label = opportunity.rateType === "apy" ? "Net APY" : "Total APR";
   const logo = protocolLogo(opportunity.protocol.name, opportunity.protocol.id);
-  const depositAvailable = catalogEarnProfile(opportunity) !== null;
+  const depositAvailable =
+    (demoModeEnabled() && isDemoVaultId(opportunity.id)) ||
+    catalogEarnProfile(opportunity) !== null;
   const showChart =
     opportunity.tvl !== null || (history.kind === "ready" && history.series.length >= 2);
   return (
