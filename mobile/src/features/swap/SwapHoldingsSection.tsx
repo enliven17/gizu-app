@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Button } from "@/components/atoms/Button";
-import { SearchInput } from "@/components/atoms/SearchInput";
 import { Typography } from "@/components/atoms/Typography";
 import { ErrorNotice } from "@/components/molecules/ErrorNotice";
 import { Notice } from "@/components/molecules/Notice";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
 import { useSwapHoldings } from "./useSwapHoldings";
+import { SwapHoldingsTools } from "./SwapHoldingsTools";
 import { swapDemoEnabled } from "./demo/swapDemo";
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { groupDigits } from "@/domain/wallet/amounts";
@@ -42,12 +42,6 @@ export function SwapHoldingsSection({
     await holdings.refresh(target);
     if (mainnet) await mainnet.refresh();
   };
-  const query = holdings.search.trim().toLowerCase();
-  const matches = query
-    ? holdings.tokens
-        .filter((token) => `${token.symbol} ${token.name}`.toLowerCase().includes(query))
-        .slice(0, 8)
-    : [];
   // Only a successful empty read establishes that discovery should replace holdings.
   // Keep errors visible and retain existing cards while refreshing.
   if (
@@ -177,46 +171,7 @@ export function SwapHoldingsSection({
           No balances found for tracked tokens. Use Holdings tools to find an earlier purchase.
         </Typography>
       ) : null}
-      <HoldingDetails label="Holdings tools" accessibilityLabel="Holdings tools">
-        {holdings.snapshot ? (
-          <Typography variant="micro">
-            Last checked {new Date(holdings.snapshot.checkedAt).toLocaleTimeString()}
-          </Typography>
-        ) : null}
-        <Button
-          label="Refresh token holdings"
-          variant="secondary"
-          disabled={holdings.busy}
-          onPress={() => void refreshHoldings()}
-        />
-        <Button
-          label="Find an earlier purchase"
-          variant="quiet"
-          disabled={holdings.busy}
-          onPress={() => void holdings.findTokens()}
-        />
-        {holdings.tokens.length > 0 ? (
-          <>
-            <Typography variant="micro">
-              Choose the token you bought. This only checks balances; it does not start a swap.
-            </Typography>
-            <SearchInput
-              label="Find purchased token"
-              value={holdings.search}
-              onChangeText={holdings.setSearch}
-            />
-            {matches.map((token) => (
-              <Button
-                key={token.address}
-                variant="secondary"
-                label={`Check ${token.symbol} holdings`}
-                disabled={holdings.busy}
-                onPress={() => void refreshHoldings(token.address)}
-              />
-            ))}
-          </>
-        ) : null}
-      </HoldingDetails>
+      <SwapHoldingsTools holdings={holdings} onRefresh={refreshHoldings} />
     </View>
   );
 }

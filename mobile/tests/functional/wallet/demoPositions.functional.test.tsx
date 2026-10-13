@@ -23,10 +23,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-test("Home shows named sample holdings and vault positions on demand, with shared withdrawal values", async () => {
-  const network = jest
-    .spyOn(globalThis, "fetch")
-    .mockRejectedValue(new Error("Unexpected network"));
+async function openHome() {
   const ready = {
     status: "ready",
     walletId,
@@ -59,13 +56,18 @@ test("Home shows named sample holdings and vault positions on demand, with share
       }}
     />,
   );
-  await userEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
-  const toggle = await screen.findByRole("button", {
-    name: "Tokens and vault positions",
-    expanded: false,
-  });
-  expect(screen.queryByText("1.25 AMZN")).toBeNull();
-  fireEvent.press(toggle);
+  fireEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
+}
+
+test("Home automatically shows sample tokens and vault positions, with shared withdrawal values", async () => {
+  const network = jest
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected network"));
+  await openHome();
+  expect(await screen.findByText("Tokens and vault positions")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Tokens and vault positions" })).toBeNull();
+  expect(screen.queryByText("Swap holdings tools")).toBeNull();
+  expect(screen.queryByText(/^Manage swapped/)).toBeNull();
   for (const amount of ["1.25 AMZN", "0.8 AAPL", "3 NVDA"])
     expect(await screen.findByText(amount)).toBeVisible();
   for (const name of [
@@ -76,6 +78,10 @@ test("Home shows named sample holdings and vault positions on demand, with share
   ])
     expect(screen.getByText(name)).toBeVisible();
   expect(screen.queryByText(/balance unavailable/)).toBeNull();
+  for (const symbol of ["AMZN", "AAPL", "NVDA"])
+    expect(await screen.findByRole("button", { name: `Sell ${symbol}` })).toBeEnabled();
+  expect(screen.queryByText("Holding details")).toBeNull();
+  expect(screen.getAllByText("1.25 AMZN")).toHaveLength(1);
   const quote = demoVaults.review(
     { walletId, address },
     "demo-morpho-steakhouse-usdg",
@@ -86,6 +92,38 @@ test("Home shows named sample holdings and vault positions on demand, with share
     swapDemo.creditVaultWithdrawal(receipt.id, BigInt(receipt.receiveAtoms));
   });
   expect(await screen.findByText("150 USDG")).toBeVisible();
-  expect(screen.getByText("Value: 150 USDC")).toBeVisible();
+  expect(screen.getByText("150 USDC")).toBeVisible();
+  await userEvent.press(screen.getByRole("button", { name: "Withdraw Steakhouse USDG" }));
+  expect(await screen.findByText("Available: 150 USDC")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
   expect(network).not.toHaveBeenCalled();
+});
+
+test("selling from a Home token card reviews first and updates shared balances once", async () => {
+  jest.useFakeTimers();
+  const network = jest
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected network"));
+  try {
+    await openHome();
+    await screen.findByText("Tokens and vault positions");
+    const sell = await screen.findByRole("button", { name: "Sell AMZN" });
+    fireEvent.press(sell);
+    fireEvent.press(sell);
+    expect(await screen.findByText("CONFIDENTIAL SELL · MAINNET")).toBeVisible();
+    expect(swapDemo.usdcAtoms()).toBe(250000000n);
+    fireEvent.press(screen.getByRole("button", { name: "Approve for 15 minutes" }));
+    for (let i = 0; i < 80 && !screen.queryByRole("button", { name: "Done" }); i++)
+      await act(() => jest.advanceTimersByTimeAsync(1_000));
+    fireEvent.press(await screen.findByRole("button", { name: "Done" }));
+    await act(async () => {});
+    expect(screen.queryByText("1.25 AMZN")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sell AMZN" })).toBeNull();
+    expect(screen.getByText("0.8 AAPL")).toBeVisible();
+    expect(screen.getByText("3 NVDA")).toBeVisible();
+    expect(BigInt(swapDemo.usdcAtoms())).toBeGreaterThan(250000000n);
+    expect(network).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
 });

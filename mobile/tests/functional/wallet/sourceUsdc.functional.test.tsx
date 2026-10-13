@@ -229,16 +229,13 @@ test("owned token amounts and vault underlying values remain distinct when marke
     valuationComplete: false,
   });
   await open();
-  expect(
-    await screen.findByRole("button", { name: "Tokens and vault positions", expanded: false }),
-  ).toBeVisible();
-  expect(screen.queryByText("0.5 WETH")).toBeNull();
+  expect(await screen.findByText("Tokens and vault positions")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Tokens and vault positions" })).toBeNull();
   expect(screen.queryByText("Checking owned token balances and positions…")).toBeNull();
-  fireEvent.press(screen.getByRole("button", { name: "Tokens and vault positions" }));
   expect(await screen.findByText("0.5 WETH")).toBeVisible();
-  expect(screen.getByText("Vault position")).toBeVisible();
+  expect(screen.getByText("Vault position · Ethereum")).toBeVisible();
   expect(screen.getByText("Estimated underlying: 2 USDC")).toBeVisible();
-  expect(screen.getByText("Value: 2 USDC")).toBeVisible();
+  expect(screen.getByText("2 USDC")).toBeVisible();
   expect(screen.queryByText("USDC value unavailable.")).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "WETH holding details", expanded: false }));
   expect(screen.getByText("USDC value unavailable.")).toBeVisible();
@@ -288,9 +285,7 @@ test("partial vault observations use underlying units and never relabel shares a
     ownedBalanceComplete: false,
   });
   await open();
-  fireEvent.press(
-    await screen.findByRole("button", { name: "Tokens and vault positions", expanded: false }),
-  );
+  await screen.findByText("Tokens and vault positions");
   fireEvent.press(
     await screen.findByRole("button", { name: "USDC position details", expanded: false }),
   );
@@ -326,7 +321,11 @@ test.each(["ios", "android"])(
     });
     setup();
     await open();
+    await screen.findByText("Tokens and vault positions");
     expect(await screen.findByText("1.2345 GOOGL")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sell GOOGL" })).toBeDisabled();
+    fireEvent.press(screen.getByRole("button", { name: "Sell GOOGL" }));
+    expect(sellHolding).not.toHaveBeenCalled();
     expect(screen.queryByText("Confidential vaults")).toBeNull();
     expect(screen.queryByRole("button", { name: "Wallet details" })).toBeNull();
     expect(readHoldings).toHaveBeenCalledWith("");
@@ -455,15 +454,20 @@ test("Home shows aggregate USDG once while retaining native sale batches and oth
     ],
   });
   await open();
-  fireEvent.press(await screen.findByRole("button", { name: "Tokens and vault positions" }));
+  await screen.findByText("Tokens and vault positions");
   expect(await screen.findByText("10 USDG")).toBeVisible();
   expect(screen.getByText("20 USDG")).toBeVisible();
   expect(screen.queryByText("1.2345 USDG")).toBeNull();
   expect(screen.getByText("5 GOOGL")).toBeVisible();
-  fireEvent.press(await screen.findByRole("button", { name: "USDG swap tools" }));
+  expect(screen.queryByText("Swap holdings tools")).toBeNull();
+  expect(screen.queryByRole("button", { name: "USDG swap tools" })).toBeNull();
+  expect(screen.getAllByText("10 USDG")).toHaveLength(1);
   const balanceReads = portfolio.getMainnetPortfolio.mock.calls.length;
-  fireEvent.press(screen.getByRole("button", { name: "Sell USDG back to Monad USDC" }));
+  const sellButton = screen.getByRole("button", { name: "Sell USDG" });
+  fireEvent.press(sellButton);
+  fireEvent.press(sellButton);
   await act(async () => {});
+  expect(sellHolding).toHaveBeenCalledTimes(1);
   expect(sellHolding).toHaveBeenCalledWith(`${token}:6`, expect.any(String));
   expect(portfolio.getMainnetPortfolio).toHaveBeenCalledTimes(balanceReads + 1);
 });
@@ -491,7 +495,7 @@ test("private USDC retries a settled partial observation and checks only while i
   };
   portfolio.getMainnetPortfolio.mockResolvedValue(partial);
   await open();
-  fireEvent.press(await screen.findByRole("button", { name: "Tokens and vault positions" }));
+  await screen.findByText("Tokens and vault positions");
   expect(await screen.findByText("USDC balance unavailable. Refresh to retry.")).toBeVisible();
   fireEvent.press(screen.getByRole("button", { name: "USDC holding details" }));
   expect(screen.getByText("Previously observed: 2.5 USDC")).toBeVisible();
@@ -544,9 +548,10 @@ test("a successful swap balance remains visible when its owned aggregate is unav
     ],
   });
   await open();
+  await screen.findByText("Tokens and vault positions");
   expect(await screen.findByText("1.2345 USDG")).toBeVisible();
   expect(screen.getByText("Swap receiving wallets")).toBeVisible();
-  fireEvent.press(screen.getByRole("button", { name: "Tokens and vault positions" }));
+  expect(screen.getAllByRole("button", { name: "USDG holding details" })).toHaveLength(1);
   expect(screen.getByText("USDG balance unavailable. Refresh to retry.")).toBeVisible();
   expect(screen.queryByText("0 USDG")).toBeNull();
 });
@@ -575,9 +580,79 @@ test("a locked private balance explains wallet unlock without claiming a provide
     ],
   });
   await open();
-  fireEvent.press(await screen.findByRole("button", { name: "Tokens and vault positions" }));
+  await screen.findByText("Tokens and vault positions");
   expect(screen.getByText("Private USDC needs wallet unlock before refresh.")).toBeVisible();
   expect(screen.queryByText("Checking USDC (private) balance…")).toBeNull();
   expect(screen.queryByText("0 USDC (private)")).toBeNull();
   expect(screen.getByLabelText("19.990574 USDC")).toBeVisible();
+});
+
+test("Home disables an uncertain sale and directs the user to saved swap status", async () => {
+  setup();
+  const token = "0x" + "ab".repeat(20);
+  readHoldings.mockResolvedValue({
+    checkedAt: 1,
+    block: "0x123",
+    holdings: [
+      {
+        token,
+        chainId: 4663,
+        symbol: "GOOGL",
+        decimals: 6,
+        balanceAtoms: "1234500",
+        batches: [{ id: `${token}:6`, balanceAtoms: "1234500" }],
+      },
+    ],
+  });
+  sellHolding.mockRejectedValueOnce(new Error("secret-sentinel"));
+  await open();
+  await screen.findByText("Tokens and vault positions");
+  fireEvent.press(await screen.findByRole("button", { name: "Sell GOOGL" }));
+  expect(
+    await screen.findByText(
+      "Couldn’t finish the sale. Check its status in Swap before trying again.",
+    ),
+  ).toBeVisible();
+  expect(screen.queryByText(/secret-sentinel/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Sell GOOGL" })).toBeDisabled();
+  fireEvent.press(screen.getByRole("button", { name: "Sell GOOGL" }));
+  expect(sellHolding).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("1.2345 GOOGL")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Review swap" })).toBeEnabled();
+});
+
+test("Home automatically shows arriving holdings and hides the section after the final holding is gone", async () => {
+  const { portfolio } = setup();
+  await open();
+  await screen.findByText("Confidential vaults");
+  expect(screen.queryByText("Tokens and vault positions")).toBeNull();
+  portfolio.getMainnetPortfolio.mockResolvedValue({
+    ...mainnetPortfolio(walletId, address),
+    ownedAssets: [
+      {
+        assetId: "ethereum:weth",
+        chainId: 1,
+        token: "0x" + "6".repeat(40),
+        symbol: "WETH",
+        decimals: 18,
+        balanceAtoms: "500000000000000000",
+        observedAtoms: "500000000000000000",
+        complete: true,
+        stale: false,
+        checkedAt: Date.now(),
+        valueUsdcAtoms: null,
+        valuationUnavailable: true,
+      },
+    ],
+  });
+  fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
+  expect(await screen.findByText("0.5 WETH")).toBeVisible();
+  expect(screen.getByText("Tokens and vault positions")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Tokens and vault positions" })).toBeNull();
+  expect(screen.queryByText("Confidential vaults")).toBeNull();
+  portfolio.getMainnetPortfolio.mockResolvedValue(mainnetPortfolio(walletId, address));
+  fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
+  expect(await screen.findByText("Confidential vaults")).toBeVisible();
+  expect(screen.queryByText("Tokens and vault positions")).toBeNull();
+  expect(screen.queryByText("0.5 WETH")).toBeNull();
 });

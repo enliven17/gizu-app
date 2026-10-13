@@ -3,6 +3,7 @@ import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { loadSwapTokens, swapGateway, swapSigner, type ListedToken } from "./confidentialSwap";
 import { DEBUG_SWEEP_ADDRESS, DEBUG_SWEEP_ENABLED } from "./debugSweep";
+import { swapDemo, swapDemoEnabled } from "./demo/swapDemo";
 
 /** Public balances only. Native storage owns discovery and native review owns every sale. */
 export function useSwapHoldings(onSaleSettled?: () => void) {
@@ -52,11 +53,13 @@ export function useSwapHoldings(onSaleSettled?: () => void) {
 
   useEffect(() => {
     let mounted = true;
+    const unsubscribe = swapDemoEnabled() ? swapDemo.subscribe(() => void refresh()) : undefined;
     queueMicrotask(() => {
       if (mounted) void refresh();
     });
     return () => {
       mounted = false;
+      unsubscribe?.();
     };
   }, [refresh]);
 
