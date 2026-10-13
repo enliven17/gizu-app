@@ -346,6 +346,20 @@ Home holdings, Continue in background, and cancel. It starts from a simulated 25
 uses fixed stock prices and follows the real wallet-count and share rules. Nothing reaches the
 native signer or the network. The screens carry no demo label, so a demo looks like the real
 app; unset it for real swaps.
+The same flag supplies 18 local vault catalog entries: six each for Aave, Morpho,
+and Curvance. Protocol/market names are real; APY, TVL, rewards and charts are mock
+figures. Search, protocol filters, pagination, Home previews and detail pages use
+the local adapter. Fixtures carry no executable vault addresses. Demo vault deposits
+support amount (with Max) → review → confirm → result. Confirmation deducts the USDC
+budget from the shared demo cash balance and adds the net value to the selected vault.
+Deposits and withdrawals use a shared local position store; they never sign or submit a native transaction.
+Withdraw opens the selected vault directly: amount (with Max) → review → confirm → result.
+Each demo vault starts with a mock 250 USDC investment value. The simulated total fee is 0.1%;
+confirmation reduces that position and adds the net USDC to the shared Home/Swap demo balance.
+These account-scoped values stay in memory and never sign or send a transaction.
+Home starts with sample AMZN, AAPL and NVDA holdings plus Aave V3 USDC,
+Pendle Ecosystem USDC, Steakhouse USDG and High Yield AUSD positions. Stock sales
+use the same holdings as Swap; vault withdrawals reduce the positions displayed on Home.
 Release builds require an explicit HTTPS URL. The public configuration contains no
 Merkl API key; that stays on the backend.
 
