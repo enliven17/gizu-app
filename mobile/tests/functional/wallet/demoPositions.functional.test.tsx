@@ -127,3 +127,37 @@ test("selling from a Home token card reviews first and updates shared balances o
     jest.useRealTimers();
   }
 });
+
+test("each holding's Performance toggle independently opens and closes its chart", async () => {
+  const network = jest
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected network"));
+  await openHome();
+  for (const name of [
+    "AMZN",
+    "AAPL",
+    "NVDA",
+    "Aave V3 USDC",
+    "Pendle Ecosystem USDC",
+    "Steakhouse USDG",
+    "High Yield AUSD",
+  ])
+    expect(
+      await screen.findByRole("button", { name: `${name} performance`, expanded: false }),
+    ).toBeVisible();
+  expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "AMZN performance" }));
+  expect(screen.getByLabelText(/^AMZN performance chart:/)).toBeVisible();
+  expect(screen.getByRole("button", { name: "AMZN performance", expanded: true })).toBeVisible();
+  expect(screen.getByRole("button", { name: "AAPL performance", expanded: false })).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Steakhouse USDG performance" }));
+  expect(screen.getByLabelText(/^Steakhouse USDG performance chart:/)).toBeVisible();
+  expect(screen.getByRole("button", { name: "Sell AMZN" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Withdraw Steakhouse USDG" })).toBeEnabled();
+  fireEvent.press(screen.getByRole("button", { name: "AMZN performance" }));
+  expect(screen.queryByLabelText(/^AMZN performance chart:/)).toBeNull();
+  expect(screen.getByLabelText(/^Steakhouse USDG performance chart:/)).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Steakhouse USDG performance" }));
+  expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
+  expect(network).not.toHaveBeenCalled();
+});

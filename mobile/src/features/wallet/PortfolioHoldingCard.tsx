@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Image, View } from "react-native";
-import { Info, Layers } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Info, Layers } from "lucide-react-native";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
 import { Surface } from "@/components/molecules/Surface";
@@ -10,6 +10,7 @@ import { protocolLogo } from "@/features/opportunities/protocolLogos";
 import { demoModeEnabled } from "@/config/demo";
 import { demoVaultMetadata } from "@/services/demo/opportunities";
 import colors from "@/theme/colors.json";
+import { HoldingPerformance } from "./HoldingPerformance";
 
 function networkName(chainId: number) {
   return { 1: "Ethereum", 143: "Monad", 4663: "Robinhood" }[chainId] ?? `Chain ${chainId}`;
@@ -32,6 +33,7 @@ export function PortfolioHoldingCard({
   action?: { label: "Sell" | "Withdraw"; disabled: boolean; onPress: () => void };
 }) {
   const [details, setDetails] = useState(false);
+  const [performance, setPerformance] = useState(false);
   const vault = position && demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
   const logo = vault ? protocolLogo(vault.protocol.name, vault.protocol.id) : undefined;
   const name = vault?.name ?? asset.symbol;
@@ -101,6 +103,30 @@ export function PortfolioHoldingCard({
           </Typography>
         )}
         {swapOnly && <Typography variant="micro">Swap receiving wallets</Typography>}
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={`${name} performance`}
+          accessibilityState={{ expanded: performance }}
+          onPress={() => setPerformance((value) => !value)}
+          className="min-h-11 flex-row items-center justify-between gap-1 rounded-full bg-well px-3"
+        >
+          <Typography variant="caption" className="shrink !text-[12px]">
+            Performance
+          </Typography>
+          {performance ? (
+            <ChevronUp size={14} color={colors.muted} />
+          ) : (
+            <ChevronDown size={14} color={colors.muted} />
+          )}
+        </PressableScale>
+        {performance && (
+          <HoldingPerformance
+            assetId={asset.assetId}
+            valueUsdcAtoms={asset.valueUsdcAtoms}
+            position={position}
+            name={name}
+          />
+        )}
         <View className="mt-auto gap-3 border-t border-divider pt-3">
           <Typography variant="micro">
             {vault
