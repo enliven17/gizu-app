@@ -1788,6 +1788,22 @@ class GizuStoredSignerModule : Module() {
         withProviderUi(activity) { SwapHost.open(activity, gateway, null, null, true) }
       }
     }
+    // Debug builds only: where a saved swap waits and which provider route it depends on.
+    AsyncFunction("getSwapDebug") { gateway: String, promise: Promise ->
+      runCeremony(promise) { activity, store ->
+        check(BuildConfig.DEBUG) { "Swap diagnostics are not available in this build." }
+        withContext(Dispatchers.IO) {
+          store.load().use { record ->
+            val saved = SwapStore(activity.applicationContext, record)
+            if (saved.load() == null) return@use "{}"
+            SwapEngine(store, saved, gateway).use { engine ->
+              engine.restore()
+              engine.debugView()
+            }
+          }
+        }
+      }
+    }
     AsyncFunction("getSwapStatus") { gateway: String, promise: Promise ->
       runCeremony(promise) { activity, store ->
         withContext(Dispatchers.IO) {
@@ -1806,6 +1822,10 @@ class GizuStoredSignerModule : Module() {
       scope.launch {
         if (SwapHost.token != null) task?.cancel()
         runCeremony(promise, wait = true) { activity, store ->
+          // Only one engine may drive a saved swap; a background run owns it until it ends.
+          check(!io.gizu.storedwallet.swap.SwapBackground.running) {
+            "This swap is running in the background. Open it from Swap to follow it."
+          }
           withContext(Dispatchers.IO) {
             store.load().use { record ->
               SwapEngine(store, SwapStore(activity.applicationContext, record), gateway).use {

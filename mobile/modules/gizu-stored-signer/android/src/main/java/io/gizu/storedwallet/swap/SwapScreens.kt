@@ -206,7 +206,7 @@ internal object SwapScreens {
   }
 
   /** What the engine is doing right now, in words. */
-  private fun stepText(step: String, symbol: String): String =
+  internal fun stepText(step: String, symbol: String): String =
     when (step) {
       "assets" -> "Loading the supported assets"
       "sourceChain" -> "Reading your funding wallet"
@@ -319,7 +319,7 @@ internal object SwapScreens {
       text(
         context,
         if (approved)
-          "Keep this screen open until it finishes."
+          "You can leave this screen. The swap continues in the background, and Gizu notifies you when it finishes or needs you."
         else "Nothing is signed yet. Leaving now cancels this preparation.",
         13f,
       )

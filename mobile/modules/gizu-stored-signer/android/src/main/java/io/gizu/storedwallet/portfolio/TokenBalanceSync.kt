@@ -3,6 +3,9 @@ package io.gizu.storedwallet.portfolio
 import io.gizu.storedwallet.*
 import java.math.BigInteger
 import javax.crypto.SecretKey
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,8 +17,46 @@ internal interface PortfolioRpc {
     requests.map { call(it.first, it.second) }
 }
 
-internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> String)? = null) :
-  PortfolioRpc {
+/**
+ * Public RPCs cap calls per second, counting every row of a batch: Monad's endpoint answers
+ * `-32007 50/second request limit reached` (HTTP 429). A wallet with many swap accounts reads far
+ * more than that at once, so every portfolio request shares this pace per endpoint.
+ */
+internal object RpcPace {
+  const val PER_SECOND = 40
+  private val lock = Mutex()
+  private val windows = HashMap<String, Pair<Long, Int>>()
+  /** Swappable clock for tests. */
+  internal var now: () -> Long = { System.nanoTime() / 1_000_000 }
+  internal var pause: suspend (Long) -> Unit = { delay(it) }
+
+  suspend fun take(endpoint: String, units: Int) =
+    lock.withLock {
+      require(units in 1..PER_SECOND)
+      var (start, used) = windows[endpoint] ?: (now() to 0)
+      if (now() - start >= 1_000) {
+        start = now()
+        used = 0
+      }
+      if (used + units > PER_SECOND) {
+        pause(start + 1_000 - now())
+        start = now()
+        used = 0
+      }
+      windows[endpoint] = start to used + units
+    }
+
+  internal fun reset() = windows.clear()
+}
+
+/** Calls the endpoint refused for its rate limit; worth repeating after a short pause. */
+internal fun rateLimited(raw: String) =
+  raw.contains("\"code\":-32007") || raw.contains("request limit reached")
+
+internal class NativePortfolioRpc(
+  private val endpoint: String,
+  post: (suspend (String) -> String)? = null,
+) : PortfolioRpc {
   private val chainId =
     when (endpoint) {
       "https://rpc.monad.xyz" -> 143L
@@ -26,10 +67,30 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
   private val transport = NativeRpcTransport(endpoint)
   private val send: suspend (String) -> String = post ?: { transport.post(it) }
 
+  /** Sends within the endpoint's pace and repeats a request refused for its rate limit. */
+  private suspend fun paced(units: Int, body: String): String {
+    var attempt = 0
+    while (true) {
+      RpcPace.take(endpoint, units)
+      val raw =
+        try {
+          send(body)
+        } catch (failure: RpcFailure) {
+          // HTTP 429 arrives as an HTTP failure; other transport failures are not retried here.
+          if (failure.code != RpcFailureCode.HTTP || attempt >= RATE_RETRIES) throw failure
+          null
+        }
+      if (raw != null && (!rateLimited(raw) || attempt >= RATE_RETRIES)) return raw
+      attempt++
+      RpcPace.pause(RATE_BACKOFF_MS * attempt)
+    }
+  }
+
   override suspend fun call(method: String, params: JSONArray): Any {
     val response =
       JSONObject(
-        send(
+        paced(
+          1,
           JSONObject()
             .put("jsonrpc", "2.0")
             .put("id", 1)
@@ -59,7 +120,7 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
 
   override suspend fun calls(requests: List<Pair<String, JSONArray>>): List<Any> {
     require(requests.size <= 80)
-    return requests.chunked(40).flatMap { chunk ->
+    return requests.chunked(BATCH_ROWS).flatMap { chunk ->
       val body =
         JSONArray(
           chunk.mapIndexed { i, (method, params) ->
@@ -70,7 +131,7 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
               .put("params", params)
           }
         )
-      val response = JSONArray(send(body.toString()))
+      val response = JSONArray(paced(chunk.size, body.toString()))
       check(response.length() == chunk.size)
       val results = mutableMapOf<Int, Any>()
       for (i in 0 until response.length()) {
@@ -510,3 +571,8 @@ internal class TokenBalanceSync(
     private fun hex(value: BigInteger) = "0x" + value.toString(16)
   }
 }
+
+/** Rows per batch: below the pace, so one batch never exceeds a second's allowance. */
+private const val BATCH_ROWS = 30
+private const val RATE_RETRIES = 3
+private const val RATE_BACKOFF_MS = 1_100L

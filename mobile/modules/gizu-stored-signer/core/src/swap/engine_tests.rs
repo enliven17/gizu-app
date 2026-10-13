@@ -2318,3 +2318,33 @@ fn sell_plans_validate_their_randomness_and_wallet_counts() {
         SwapOperation::start(pooled_plan(RANDOM), ENTROPY.to_vec(), GATEWAY.into(), T0).is_ok()
     );
 }
+
+#[test]
+fn debug_status_names_the_route_a_waiting_step_depends_on_without_secrets() {
+    let (mut world, mut now) = (World::new(), T0);
+    let op = start(Some("2000000"));
+    review(&op, &mut world, &mut now);
+    op.approve(now).unwrap();
+    // Stop while the engine waits for Aurora to credit the funding deposit.
+    drive_until(&op, &mut world, &mut now, |url| {
+        url.contains("aurora/status")
+    });
+    let debug: Value = serde_json::from_str(&op.debug_status()).unwrap();
+    assert_eq!(debug["step"], "credit");
+    assert_eq!(debug["route"]["kind"], "funding");
+    assert_eq!(debug["route"]["provider"], "aurora");
+    assert!(
+        debug["route"]["depositAddress"]
+            .as_str()
+            .unwrap()
+            .starts_with("0x")
+    );
+    assert!(debug["route"]["deadlineMs"].as_u64().unwrap() > T0);
+    let text = op.debug_status().to_lowercase();
+    for secret in ["signature", "payload", "\"signed", "permit"] {
+        assert!(!text.contains(secret), "debug status leaks {secret}");
+    }
+    let state: Value = serde_json::from_str(&op.export_state().unwrap()).unwrap();
+    let signed = state["data"]["signedOperation"].to_string().to_lowercase();
+    assert!(!text.contains(&signed[..signed.len().min(60)]) || signed == "null");
+}

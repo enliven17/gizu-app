@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+  <!-- An approved swap continues in the background as a data-sync foreground service. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
   <application>
     <activity android:name="io.gizu.storedwallet.BackupActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
     <activity android:name="io.gizu.storedwallet.TransferActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
     <activity android:name="io.gizu.storedwallet.swap.SwapActivity" android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />
+    <service android:name="io.gizu.storedwallet.swap.SwapService" android:exported="false" android:foregroundServiceType="dataSync" />
   </application>
 </manifest>

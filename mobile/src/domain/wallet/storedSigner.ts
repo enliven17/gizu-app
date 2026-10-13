@@ -202,6 +202,8 @@ export interface StoredSignerContract {
   startRecovery(target: string, gateway: string): Promise<StoredSwapView>;
   resumeSwap(gateway: string): Promise<StoredSwapView>;
   getSwapStatus(gateway: string): Promise<StoredSwapView | { phase: "NONE" }>;
+  /** Debug builds only: JSON naming the provider route the saved swap's current step waits on. */
+  getSwapDebug?(gateway: string): Promise<string>;
   cancelSwap(gateway: string): Promise<StoredSwapView>;
   /** Native intent review, authorization and immutable public wallet pair. No signing. */
   prepareEarnIntent?(walletId: string, profile: string): Promise<unknown>;

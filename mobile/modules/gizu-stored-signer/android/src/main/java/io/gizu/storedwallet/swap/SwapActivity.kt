@@ -142,9 +142,13 @@ class SwapActivity : Activity() {
   private var engine: SwapEngine? = null
   private var providerPending = false
   private var stopped = false
+  /** Set while this screen only watches a swap that [SwapBackground] drives. */
+  private var unlisten: (() -> Unit)? = null
 
   internal fun stopWork() {
     stopped = true
+    unlisten?.invoke()
+    unlisten = null
     engine?.close()
     job.cancel()
   }
@@ -182,6 +186,11 @@ class SwapActivity : Activity() {
       "Preparing the swap",
       "Checking the funding wallet, quotes and limits. Nothing is signed yet.",
     )
+    if (SwapBackground.running) {
+      // An approved swap is already running in the background: watch it instead of starting.
+      watch()
+      return
+    }
     scope.launch {
       try {
         val gateway = checkNotNull(SwapHost.gateway)
@@ -226,7 +235,75 @@ class SwapActivity : Activity() {
   }
 
   private fun approved() =
-    runCatching { engine?.view()?.get("approved") == true }.getOrDefault(false)
+    runCatching {
+        (engine?.view() ?: SwapBackground.lastView.takeIf { unlisten != null })?.get("approved") ==
+          true
+      }
+      .getOrDefault(false)
+
+  /** The current public status, from this screen's engine or from the background run. */
+  private fun currentView() =
+    runCatching { engine?.view() }.getOrNull()
+      ?: SwapBackground.lastView.takeIf { unlisten != null }
+
+  /**
+   * After approval the swap no longer needs this screen: hand the engine (and its in-memory
+   * authority) to [SwapBackground] and keep watching while the screen stays open.
+   */
+  private fun handOff() {
+    val active = checkNotNull(engine)
+    engine = null
+    askForNotifications()
+    SwapBackground.run(applicationContext, active)
+    watch()
+  }
+
+  private fun watch() {
+    unlisten?.invoke()
+    unlisten =
+      SwapBackground.listen { event ->
+        runOnUiThread {
+          if (stopped) return@runOnUiThread
+          when (event) {
+            is SwapBackground.Event.Progress -> progress(event.view)
+            is SwapBackground.Event.NeedsUser -> {
+              unlisten?.invoke()
+              unlisten = null
+              engine = SwapBackground.takeBack()
+              present(event.ui)
+            }
+            is SwapBackground.Event.Finished -> {
+              unlisten?.invoke()
+              unlisten = null
+              SwapHost.close(event.view)
+            }
+          }
+        }
+      }
+    SwapBackground.lastView?.let { progress(it) }
+  }
+
+  /** Progress and results are notifications; ask once, never block the swap on the answer. */
+  private fun askForNotifications() {
+    if (
+      Build.VERSION.SDK_INT >= 33 &&
+        checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+          android.content.pm.PackageManager.PERMISSION_GRANTED
+    ) {
+      providerPending = true
+      requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), NOTIFY_REQUEST)
+    }
+  }
+
+  @Deprecated("Platform permission callback")
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray,
+  ) {
+    @Suppress("DEPRECATION") super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == NOTIFY_REQUEST) providerPending = false
+  }
 
   private fun progress(view: Map<String, Any?>) {
     if (stopped) return
@@ -236,7 +313,15 @@ class SwapActivity : Activity() {
       LinearLayout.LayoutParams(-1, 0, 1f),
     )
     root.addView(
-      NativeStyle.button(this, if (approved()) "Pause and go back" else "Cancel swap", false)
+      NativeStyle.button(
+          this,
+          when {
+            unlisten != null -> "Continue in background"
+            approved() -> "Pause and go back"
+            else -> "Cancel swap"
+          },
+          false,
+        )
         .apply { setOnClickListener { cancelOrLeave() } },
       NativeStyle.fullWidth(this, 16),
     )
@@ -247,7 +332,7 @@ class SwapActivity : Activity() {
    * it.
    */
   private fun leave() {
-    SwapHost.close(runCatching { engine?.view() }.getOrNull())
+    SwapHost.close(currentView())
   }
 
   private fun cancelOrLeave() {
@@ -354,9 +439,9 @@ class SwapActivity : Activity() {
         }
         show(
           "Submitting the approved steps",
-          "You can leave and resume; submitted steps are not signed again.",
+          "You can leave this screen; the swap continues in the background.",
         )
-        present(checkNotNull(engine).advance(::progress))
+        handOff()
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
@@ -417,7 +502,7 @@ class SwapActivity : Activity() {
         } finally {
           record.close()
         }
-        present(checkNotNull(engine).advance(::progress))
+        handOff()
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
@@ -428,16 +513,18 @@ class SwapActivity : Activity() {
   }
 
   private fun cancel() {
+    // A swap that failed while preparing has no operation yet; leaving must not crash on it.
     try {
-      engine?.cancel()
+      runCatching { engine?.cancel() }
     } finally {
-      SwapHost.close(engine?.view())
+      SwapHost.close(currentView())
     }
   }
 
   override fun onPause() {
     super.onPause()
-    if (!providerPending && !isFinishing) SwapHost.close(runCatching { engine?.view() }.getOrNull())
+    // Leaving never stops a background run; it only returns the current status to the app.
+    if (!providerPending && !isFinishing) SwapHost.close(currentView())
   }
 
   @Deprecated("Platform back")
@@ -452,6 +539,7 @@ class SwapActivity : Activity() {
   }
 }
 
+private const val NOTIFY_REQUEST = 4403
 private const val FOCUS_TIMEOUT_MS = 10_000L
 private const val FOCUS_POLL_INTERVAL_MS = 50L
 

@@ -2237,6 +2237,77 @@ impl Engine {
         out
     }
 
+    /// The provider route the current step depends on, so a stalled step can be checked by hand.
+    fn debug_status(&self) -> Value {
+        let d = &self.m.data;
+        let quote = |q: &Quote, kind: &str, chain: &str| {
+            json!({
+                "kind": kind,
+                "provider": "aurora",
+                "chain": chain,
+                "depositAddress": q.deposit_address,
+                "depositMemo": q.deposit_memo,
+                "amountIn": q.amount_in.to_string(),
+                "amountOut": q.amount_out.to_string(),
+                "minAmountOut": q.min_amount_out.to_string(),
+                "deadlineMs": q.deadline_ms,
+            })
+        };
+        let route = match self.m.step.clone() {
+            Step::FundingQuote { .. }
+            | Step::FundingPrepare { .. }
+            | Step::FundingSign
+            | Step::FundingSubmit
+            | Step::FundingReceipt { .. }
+            | Step::Credit
+                if !self.sell() =>
+            {
+                d.funding_quote
+                    .as_ref()
+                    .map(|q| quote(q, "funding", "monad"))
+            }
+            Step::Credit => d
+                .orders
+                .get(d.leg)
+                .and_then(|o| o.inbound.as_ref())
+                .map(|q| quote(q, "saleDeposit", "robinhood")),
+            Step::PayoutQuote { index }
+            | Step::PayoutIntent { index }
+            | Step::PayoutSubmit { index }
+            | Step::PayoutStatus { index, .. }
+            | Step::PayoutBalance { index } => d
+                .payouts
+                .get(index)
+                .and_then(|p| p.quote.as_ref())
+                .map(|q| quote(q, "payout", if self.sell() { "monad" } else { "robinhood" })),
+            Step::FusionStatus { index } | Step::FusionReceipts { index } => {
+                d.orders.get(index).map(|o| {
+                    json!({
+                        "kind": "fusionOrder",
+                        "provider": "1inch",
+                        "chain": "robinhood",
+                        "orderHash": o.order_hash.map(|h| format!("{h:#x}")),
+                        "expirationMs": o.expiration * 1000,
+                        "fills": o.fills.len(),
+                    })
+                })
+            }
+            _ => None,
+        };
+        json!({
+            "status": self.public_status(),
+            "createdMs": self.m.created_ms,
+            "approvedMs": self.m.approved_ms,
+            "authorizationUntilMs": self.m.session_until_ms,
+            "expiresAtMs": self.m.created_ms + OPERATION_MS,
+            "waitUntilMs": self.m.wait_until_ms,
+            "failures": self.m.failures,
+            "resubmits": self.m.resubmits,
+            "step": step_name(&self.m.step),
+            "route": route,
+        })
+    }
+
     fn public_status(&self) -> Value {
         let d = &self.m.data;
         let phase = if self.m.cancelled {
@@ -2625,6 +2696,15 @@ impl SwapOperation {
     pub fn export_state(&self) -> Result<String, SignerError> {
         let e = self.inner.lock().map_err(|_| SignerError::CryptoFailed)?;
         serde_json::to_string(&e.m).map_err(|_| SignerError::CryptoFailed)
+    }
+
+    /// Diagnostics for debug builds only: where the operation waits and which provider route it
+    /// watches (deposit address, amounts, deadline). Never keys, signatures or signed payloads.
+    pub fn debug_status(&self) -> String {
+        self.inner
+            .lock()
+            .map(|e| e.debug_status().to_string())
+            .unwrap_or_else(|_| "{}".into())
     }
 
     /// Public phase status for JS: no addresses, hashes or signed data.

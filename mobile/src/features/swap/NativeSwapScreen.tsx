@@ -5,6 +5,7 @@ import { ArrowDown } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
 import { SwapTokenPicker } from "./SwapTokenPicker";
 import { SwapSellForm } from "./SwapSellForm";
+import { SWAP_DEBUG_ENABLED, SwapDebugPanel } from "./SwapDebugPanel";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
@@ -73,6 +74,7 @@ export function NativeSwapScreen() {
         <LastSwapSummary status={swap.status} canSell={swap.canSell} />
       ) : null}
       {active && swap.status ? <ActiveSwapCard status={swap.status} /> : null}
+      {active && SWAP_DEBUG_ENABLED ? <SwapDebugPanel /> : null}
       {!active && mode === "sell" && (
         <SwapSellForm flip={flip} onSettled={() => void swap.refresh()} />
       )}

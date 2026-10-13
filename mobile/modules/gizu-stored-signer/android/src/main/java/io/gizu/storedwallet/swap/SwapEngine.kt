@@ -15,6 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import uniffi.gizu_stored_signer_core.SwapOperation
 import uniffi.gizu_stored_signer_core.SwapStep
+import java.math.BigInteger
 import java.security.SecureRandom
 import uniffi.gizu_stored_signer_core.allocateSwapRecipients
 import uniffi.gizu_stored_signer_core.allocateSwapRecipientsN
@@ -79,12 +80,19 @@ internal class SwapEngine(
       val budget =
         checkNotNull(amountAtoms) { "Choose an exact source budget before starting Swap." }
       check(budget.matches(Regex("[1-9][0-9]{0,19}")))
-      val allocation = JSONObject(NativeFundingPlanner(saved.context, record).plan(budget, "swap"))
+      // The wallet count and shares are drawn once for the whole swap and shared by every
+      // funding child, so a restore or retry never rolls them again.
+      val choice = if (RANDOM_LEGS) chooseBuyLegs(budget, randomBytes()) else null
+      // Each funding leg is paid out over every wallet on its own, so it must be large enough
+      // that its smallest share (70% of an equal one) still clears Aurora's payout minimum.
+      val wallets = choice?.count?.toInt() ?: 3
+      val minimumLeg =
+        (MIN_PAYOUT_ATOMS * BigInteger.valueOf(wallets.toLong()) * BigInteger.TEN + BigInteger.valueOf(6))
+          .divide(BigInteger.valueOf(7))
+      val allocation =
+        JSONObject(NativeFundingPlanner(saved.context, record).plan(budget, "swap", minimumLeg))
       reservations = fundingReservations(saved.context, record)
       try {
-        // The wallet count and shares are drawn once for the whole swap and shared by every
-        // funding child, so a restore or retry never rolls them again.
-        val choice = if (RANDOM_LEGS) chooseBuyLegs(budget, randomBytes()) else null
         val reserved =
           if (choice != null) allocateSwapRecipientsN(record.roleRegistry, choice.count)
           else allocateSwapRecipients(record.roleRegistry)
@@ -691,6 +699,12 @@ internal class SwapEngine(
     batch?.let { checkNotNull(reservations).cancelBatchUnsigned(it.id) }
   }
 
+  /** Debug builds only: the provider route the current step waits on (see `debug_status`). */
+  fun debugView(): String {
+    check(BuildConfig.DEBUG) { "Swap diagnostics are not available in this build." }
+    return checkNotNull(operation).debugStatus()
+  }
+
   fun view(): Map<String, Any?> {
     val status = aggregateStatus()
     fun text(name: String) = if (status.isNull(name)) null else status.optString(name)
@@ -944,6 +958,9 @@ private constructor(
  * they sell from (sell). Turning this off restores the fixed three-wallet 30/30/40 plan.
  */
 private const val RANDOM_LEGS = true
+
+/** Aurora refuses payouts under about 0.152 USDC; keep every planned share above this. */
+private val MIN_PAYOUT_ATOMS: BigInteger = BigInteger.valueOf(250_000)
 
 /** Most return wallets a sell may pay out to; the engine uses only as many as it draws. */
 private const val MAX_SALE_PAYOUTS = 5u

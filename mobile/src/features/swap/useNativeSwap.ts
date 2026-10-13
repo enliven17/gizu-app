@@ -18,6 +18,9 @@ function diagnostic(action: SwapAction, outcome: "started" | "completed" | "fail
   if (__DEV__) console.info("[swap]", { action, outcome });
 }
 
+/** How often a shown swap card re-reads a swap that runs in the background. */
+const STATUS_POLL_MS = 10_000;
+
 export function useNativeSwap() {
   const [tokens, setTokens] = useState<ListedToken[]>([]);
   const [target, setTarget] = useState("");
@@ -39,6 +42,28 @@ export function useNativeSwap() {
       setError("Saved swap status unavailable. Refresh before starting another operation.");
     }
   }, []);
+
+  // An approved swap continues natively in the background; keep its card current while shown.
+  const running =
+    status !== null &&
+    status.approved &&
+    !["COMPLETE", "CANCELLED", "PAUSED"].includes(status.phase);
+  useEffect(() => {
+    if (!running) return;
+    let live = true;
+    const timer = setInterval(() => {
+      swapSigner()
+        .getSwapStatus(swapGateway)
+        .then((saved) => {
+          if (live) setStatus(saved.phase === "NONE" ? null : parseSwapView(saved));
+        })
+        .catch(() => diagnostic("status", "failed"));
+    }, STATUS_POLL_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [running]);
 
   useEffect(() => {
     let live = true;

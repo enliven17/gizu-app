@@ -21,6 +21,7 @@ const coalescedReads = new Set([
   "getMainnetPortfolio",
   "getSwapHoldings",
   "getSwapStatus",
+  "getSwapDebug",
   "getEarnDepositStatus",
 ]);
 function nativeModule(): StoredSignerContract | null {
@@ -218,6 +219,7 @@ export type StoredSwapBridge = Pick<
   | "startRecovery"
   | "resumeSwap"
   | "getSwapStatus"
+  | "getSwapDebug"
   | "cancelSwap"
   | "lock"
 >;
@@ -293,6 +295,15 @@ export function getStoredSwapSigner(): StoredSwapBridge | null {
     async cancelSwap(gateway) {
       await checked(native, "swaps");
       return native.cancelSwap(gateway);
+    },
+    getSwapDebug(gateway) {
+      return readNative(async () => {
+        if (!__DEV__) throw new Error("Swap diagnostics are not available in this build.");
+        await checked(native, "swaps");
+        if (typeof native.getSwapDebug !== "function")
+          throw new Error("Swap diagnostics need an updated native build.");
+        return native.getSwapDebug(gateway);
+      });
     },
     lock: () => {
       authorizationGeneration++;

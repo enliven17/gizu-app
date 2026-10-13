@@ -6,13 +6,23 @@ import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 import uniffi.gizu_stored_signer_core.planPublicSourceAllocation
+import uniffi.gizu_stored_signer_core.planPublicSourceAllocationWithMinimum
 
 /** Fresh native state and per-owner research sponsorship caps feed the shared integer planner. */
 internal class NativeFundingPlanner(
   private val context: Context,
   private val record: WalletRecord,
 ) {
-  suspend fun plan(budgetAtoms: String, feature: String = "earn"): Map<String, Any?> {
+  /**
+   * [minimumLegAtoms] makes every funding leg deliver at least that much after its fee, and skips
+   * accounts too small to do so. A swap pays each leg out on its own and Aurora refuses payouts
+   * under its bridge minimum, so a tiny leg would stop the whole swap.
+   */
+  suspend fun plan(
+    budgetAtoms: String,
+    feature: String = "earn",
+    minimumLegAtoms: BigInteger? = null,
+  ): Map<String, Any?> {
     require(feature in setOf("swap", "earn"))
     require(budgetAtoms.matches(Regex("[1-9][0-9]{0,19}")))
     check(record.verified && !record.earnRecoveryRequired)
@@ -105,6 +115,11 @@ internal class NativeFundingPlanner(
       val cap = fees.getString("feeCap")
       check(cap.matches(Regex("[0-9]+")))
       if (free <= cap.toBigInteger() + reserve.toBigInteger() + BigInteger.TEN) continue
+      if (
+        minimumLegAtoms != null &&
+          free - cap.toBigInteger() - reserve.toBigInteger() < minimumLegAtoms
+      )
+        continue
       sources.put(
         JSONObject()
           .put("sourceIndex", index)
@@ -117,12 +132,29 @@ internal class NativeFundingPlanner(
       available += free
       if (free >= budget || available >= budget) break
     }
+    val tooSmall =
+      "Not enough USDC in accounts large enough to fund this swap. Choose a smaller amount."
     check(available >= budget) {
       if (probed >= 128) "Account discovery is still syncing. Refresh before funding."
+      else if (minimumLegAtoms != null) tooSmall
       else "Available USDC does not cover this budget after reservations"
     }
     val result =
-      JSONObject(planPublicSourceAllocation(record.roleRegistry, budgetAtoms, sources.toString()))
+      JSONObject(
+        if (minimumLegAtoms == null)
+          planPublicSourceAllocation(record.roleRegistry, budgetAtoms, sources.toString())
+        else
+          try {
+            planPublicSourceAllocationWithMinimum(
+              record.roleRegistry,
+              budgetAtoms,
+              sources.toString(),
+              minimumLegAtoms.toString(),
+            )
+          } catch (_: Exception) {
+            throw IllegalStateException(tooSmall)
+          }
+      )
     val id = "funding_" + UUID.randomUUID().toString().replace("-", "")
     val legs = result.getJSONArray("legs")
     for (i in 0 until legs.length()) {

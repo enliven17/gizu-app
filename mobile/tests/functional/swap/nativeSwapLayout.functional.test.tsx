@@ -1,6 +1,6 @@
 import { tokenCatalogService } from "@/services/tokenCatalog";
 import { catalogToken } from "../../support/tokenCatalog";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { RefreshControl } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NativeSwapScreen } from "@/features/swap/NativeSwapScreen";
@@ -373,4 +373,84 @@ test("a pooled sale reports how many wallets it sold from and how many it paid",
   expect(screen.getByText("2 wallets on Monad")).toBeVisible();
   expect(screen.getByText("Paid out")).toBeVisible();
   expect(screen.getByText("29.7 USDC")).toBeVisible();
+});
+
+test("a waiting swap's debug panel names the provider route and asks the provider directly", async () => {
+  const deposit = "0x" + "d".repeat(40);
+  readStatus.mockResolvedValue(
+    finished({
+      phase: "FUNDING",
+      step: "credit",
+      approved: true,
+      ordersComplete: 0,
+      payoutsSubmitted: 0,
+    }),
+  );
+  const getSwapDebug = jest.fn().mockResolvedValue(
+    JSON.stringify({
+      step: "credit",
+      authorizationUntilMs: Date.now() + 600_000,
+      waitUntilMs: Date.now(),
+      failures: 0,
+      resubmits: 0,
+      route: {
+        kind: "funding",
+        provider: "aurora",
+        chain: "monad",
+        depositAddress: deposit,
+        amountIn: "2096640",
+        deadlineMs: Date.now() + 300_000,
+      },
+    }),
+  );
+  jest.mocked(getStoredSwapSigner).mockReturnValue({
+    getSwapDeposit: jest.fn().mockResolvedValue({ fundingAddress: status.fundingAddress }),
+    getSwapStatus: readStatus,
+    getSwapDebug,
+    startSwap: start,
+  } as unknown as NonNullable<ReturnType<typeof getStoredSwapSigner>>);
+  const fetchMock = jest.mocked(globalThis.fetch);
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  fireEvent.press(await screen.findByRole("button", { name: "Swap debug" }));
+  fetchMock.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ status: "PROCESSING" }),
+  } as Response);
+  fireEvent.press(screen.getByRole("button", { name: "Check provider now" }));
+  expect(await screen.findByText(/PROCESSING — Aurora has the deposit/)).toBeVisible();
+  expect(screen.getByText(deposit)).toBeVisible();
+  expect(screen.getByText("2.09664 USDC")).toBeVisible();
+  expect(screen.getByText("funding · aurora · monad")).toBeVisible();
+  const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/v1/swap/aurora/status"));
+  expect(JSON.parse(String(call?.[1]?.body))).toEqual({ depositAddress: deposit });
+});
+
+test("a swap running in the background keeps its card current and stops polling once it ends", async () => {
+  jest.useFakeTimers();
+  try {
+    readStatus.mockResolvedValue(
+      finished({ phase: "FUNDING", step: "credit", approved: true, ordersComplete: 0 }),
+    );
+    render(
+      <SafeAreaProvider>
+        <NativeSwapScreen />
+      </SafeAreaProvider>,
+    );
+    expect(await screen.findByText("Swap in progress")).toBeVisible();
+    const reads = readStatus.mock.calls.length;
+    readStatus.mockResolvedValue(finished({ phase: "COMPLETE", step: "done", approved: true }));
+    await act(() => jest.advanceTimersByTimeAsync(10_000));
+    expect(readStatus.mock.calls.length).toBe(reads + 1);
+    expect(await screen.findByRole("button", { name: "Last swap completed" })).toBeVisible();
+    expect(screen.queryByText("Swap in progress")).toBeNull();
+    await act(() => jest.advanceTimersByTimeAsync(30_000));
+    expect(readStatus.mock.calls.length).toBe(reads + 1);
+  } finally {
+    jest.useRealTimers();
+  }
 });

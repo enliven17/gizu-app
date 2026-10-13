@@ -38,6 +38,32 @@ pub fn plan_public_source_allocation(
     requested_budget_atoms: String,
     sources_json: String,
 ) -> Result<String, SignerError> {
+    allocate(registry, requested_budget_atoms, sources_json, U256::ZERO)
+}
+
+/// As above, but every leg must deliver at least `minimum_amount_atoms` after its fee and reserve.
+/// A swap pays each funding leg out on its own, and Aurora refuses payouts under its bridge
+/// minimum, so a leg that is too small would stop the whole swap. Larger sources are used first
+/// so a budget needs as few legs as possible.
+#[uniffi::export]
+pub fn plan_public_source_allocation_with_minimum(
+    registry: String,
+    requested_budget_atoms: String,
+    sources_json: String,
+    minimum_amount_atoms: String,
+) -> Result<String, SignerError> {
+    let minimum = atoms(&minimum_amount_atoms)?;
+    allocate(registry, requested_budget_atoms, sources_json, minimum)
+}
+
+fn allocate(
+    registry: String,
+    requested_budget_atoms: String,
+    sources_json: String,
+    minimum: U256,
+) -> Result<String, SignerError> {
+    // Every later leg keeps at least this much beyond its own fee and reserve.
+    let floor = minimum.max(U256::from(1));
     if sources_json.len() > 131072 {
         return Err(SignerError::InvalidInput);
     }
@@ -68,15 +94,19 @@ pub fn plan_public_source_allocation(
         let fee = atoms(&source.funding_fee_atoms)?;
         let reserve = atoms(&source.execution_reserve_atoms)?;
         let overhead = fee.checked_add(reserve).ok_or(SignerError::InvalidInput)?;
-        if capacity > overhead {
+        if capacity > overhead && capacity - overhead >= minimum {
             available.push((source, capacity, fee, reserve, overhead));
         }
     }
     available.sort_by_key(|s| s.0.source_index);
+    if !minimum.is_zero() {
+        // Fewest legs: the largest sources first, the account index only breaks ties.
+        available.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.source_index.cmp(&b.0.source_index)));
+    }
     let chosen = available
         .iter()
         .enumerate()
-        .filter(|(_, s)| s.1 >= requested && requested > s.4)
+        .filter(|(_, s)| s.1 >= requested && requested > s.4 && requested - s.4 >= minimum)
         .min_by_key(|(_, s)| (s.2, s.0.source_index))
         .map(|(i, _)| i);
     let selected: Vec<_> = if let Some(i) = chosen {
@@ -89,7 +119,7 @@ pub fn plan_public_source_allocation(
             capacity = capacity.checked_add(s.1).ok_or(SignerError::InvalidInput)?;
             overhead = overhead
                 .checked_add(s.4)
-                .and_then(|v| v.checked_add(U256::from(1)))
+                .and_then(|v| v.checked_add(floor))
                 .ok_or(SignerError::InvalidInput)?;
             selected.push(s);
             if capacity >= requested {
@@ -110,7 +140,7 @@ pub fn plan_public_source_allocation(
         let tail_min = selected[i + 1..]
             .iter()
             .try_fold(U256::ZERO, |sum, t| {
-                sum.checked_add(t.4)?.checked_add(U256::from(1))
+                sum.checked_add(t.4)?.checked_add(floor)
             })
             .ok_or(SignerError::InvalidInput)?;
         let budget = s.1.min(
@@ -120,7 +150,7 @@ pub fn plan_public_source_allocation(
         );
         let amount = budget
             .checked_sub(s.4)
-            .filter(|a| !a.is_zero())
+            .filter(|a| !a.is_zero() && *a >= minimum)
             .ok_or(SignerError::InvalidInput)?;
         remaining = remaining
             .checked_sub(budget)
@@ -214,6 +244,119 @@ mod tests {
             .is_err()
         );
         assert!(plan("0", vec![source(0, "7", "1", "1")]).is_err());
+    }
+    fn plan_min(budget: &str, minimum: &str, sources: Vec<Value>) -> Result<Value, SignerError> {
+        plan_public_source_allocation_with_minimum(
+            crate::role_registry_covering(9).unwrap(),
+            budget.into(),
+            json!(sources).to_string(),
+            minimum.into(),
+        )
+        .map(|s| serde_json::from_str(&s).unwrap())
+    }
+    fn amounts(p: &Value) -> Vec<(u64, u64)> {
+        p["legs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| {
+                (
+                    l["sourceIndex"].as_u64().unwrap(),
+                    l["amountAtoms"].as_str().unwrap().parse().unwrap(),
+                )
+            })
+            .collect()
+    }
+    #[test]
+    fn a_minimum_never_leaves_a_leg_too_small_to_pay_out() {
+        // The mainnet case: a small account first by index used to become a 0.077 USDC leg.
+        let p = plan_min(
+            "2150000",
+            "300000",
+            vec![
+                source(0, "80000", "3000", "0"),
+                source(1, "1700000", "3000", "0"),
+                source(3, "500000", "3000", "0"),
+            ],
+        )
+        .unwrap();
+        // The 0.08 account is skipped; the two larger ones cover 2.15 with real legs.
+        assert_eq!(amounts(&p), vec![(1, 1_697_000), (3, 447_000)]);
+        assert!(
+            plan_min(
+                "2250000",
+                "300000",
+                vec![
+                    source(0, "80000", "3000", "0"),
+                    source(1, "1700000", "3000", "0"),
+                    source(3, "500000", "3000", "0"),
+                ],
+            )
+            .is_err(),
+            "only a too-small account could cover the rest"
+        );
+        let p = plan_min(
+            "2000000",
+            "300000",
+            vec![
+                source(0, "80000", "3000", "0"),
+                source(1, "1700000", "3000", "0"),
+                source(3, "500000", "3000", "0"),
+            ],
+        )
+        .unwrap();
+        // The 0.08 account is skipped and the larger one is used first.
+        assert_eq!(amounts(&p)[0].0, 1);
+        assert!(
+            amounts(&p).iter().all(|(i, a)| *i != 0 && *a >= 300_000),
+            "{p}"
+        );
+        assert_eq!(p["requestedBudgetAtoms"], "2000000");
+    }
+    #[test]
+    fn a_minimum_moves_value_off_the_big_leg_so_the_last_one_is_large_enough() {
+        // Greedy filling would leave 0.05 for the second account; the floor reserves 0.3.
+        let p = plan_min(
+            "2050000",
+            "300000",
+            vec![
+                source(4, "2000000", "3000", "0"),
+                source(5, "900000", "3000", "0"),
+            ],
+        )
+        .unwrap();
+        let legs = amounts(&p);
+        assert_eq!(legs.len(), 2);
+        assert!(legs.iter().all(|(_, a)| *a >= 300_000), "{legs:?}");
+    }
+    #[test]
+    fn a_single_source_still_wins_and_must_clear_the_minimum() {
+        let p = plan_min(
+            "1000000",
+            "300000",
+            vec![
+                source(0, "5000000", "3000", "0"),
+                source(1, "2000000", "3000", "0"),
+            ],
+        )
+        .unwrap();
+        assert_eq!(amounts(&p).len(), 1);
+        assert!(plan_min("200000", "300000", vec![source(0, "5000000", "3000", "0")]).is_err());
+    }
+    #[test]
+    fn without_a_minimum_the_original_allocation_is_unchanged() {
+        let sources = vec![source(1, "8", "1", "1"), source(0, "9", "1", "1")];
+        assert_eq!(
+            plan("10", sources.clone()).unwrap(),
+            plan_public_source_allocation_with_minimum(
+                crate::role_registry_covering(5).unwrap(),
+                "10".into(),
+                json!(sources).to_string(),
+                "0".into(),
+            )
+            .map(|s| serde_json::from_str::<Value>(&s).unwrap())
+            .unwrap()
+        );
     }
     #[test]
     fn allocation_avoids_a_last_leg_that_cannot_pay_its_fee() {

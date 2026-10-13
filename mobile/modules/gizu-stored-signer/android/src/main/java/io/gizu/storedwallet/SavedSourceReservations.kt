@@ -56,8 +56,7 @@ internal fun fundingReservations(context: Context, record: WalletRecord): Fundin
               raw,
               "https://gizu-app.onrender.com",
             )
-          val complete =
-            operation.use { JSONObject(it.publicStatus()).getString("phase") == "COMPLETE" }
+          val complete = operation.use { swapFundingSettled(JSONObject(it.publicStatus())) }
           if (complete) ledger.complete(state.getString("id"))
           if (!complete) {
             val index = p.optInt("sourceIndex", 1)
@@ -81,4 +80,25 @@ internal fun fundingReservations(context: Context, record: WalletRecord): Fundin
     }
   }
   return ledger
+}
+
+/**
+ * Whether a swap's signed funding transfer can no longer move the source account's USDC, so the
+ * account may fund something else. That is true once the transfer's outcome is known on chain:
+ * the swap went past waiting for its receipt (credited, refunded or failed at Aurora), or the
+ * transfer reverted. While the transfer may still be pending, the account stays locked; a swap
+ * cancelled at that point keeps its lock too, because cancelling does not stop a broadcast.
+ */
+internal fun swapFundingSettled(status: JSONObject): Boolean {
+  if (status.optString("phase") == "COMPLETE") return true
+  if (status.optString("pausedCode") == "FUNDING_REVERTED") return true
+  return status.optString("step") !in
+    setOf(
+      "sourceChain",
+      "fundingQuote",
+      "fundingPrepare",
+      "fundingSign",
+      "fundingSubmit",
+      "fundingReceipt",
+    )
 }
