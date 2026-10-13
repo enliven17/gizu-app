@@ -139,7 +139,7 @@ export function FlipButton({
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
-      className="z-10 -my-4 h-14 w-14 items-center justify-center self-center rounded-2xl border border-cardEdge bg-ink"
+      className="z-10 -my-2 h-14 w-14 items-center justify-center self-center rounded-2xl border border-cardEdge bg-ink"
     >
       <ArrowDown size={18} color={colors.neon.DEFAULT} />
     </PressableScale>
