@@ -1,6 +1,6 @@
-import { useState, type ComponentProps } from "react";
+import type { ComponentProps } from "react";
 import { Image, Pressable, View } from "react-native";
-import { ChevronDown, ChevronUp, Layers } from "lucide-react-native";
+import { Layers } from "lucide-react-native";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
 import { Surface } from "@/components/molecules/Surface";
@@ -35,7 +35,6 @@ export function PortfolioHoldingCard({
   onToggleExpanded: () => void;
   layout?: ComponentProps<typeof Surface>["layout"];
 }) {
-  const [performance, setPerformance] = useState(false);
   const vault = position && demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
   const logo = vault ? protocolLogo(vault.protocol.name, vault.protocol.id) : undefined;
   const name = vault?.name ?? asset.symbol;
@@ -43,10 +42,6 @@ export function PortfolioHoldingCard({
   const amount =
     position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
 
-  const toggleExpanded = () => {
-    setPerformance(!expanded);
-    onToggleExpanded();
-  };
   const balance =
     asset.complete && amount !== null && asset.decimals !== null
       ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
@@ -56,7 +51,7 @@ export function PortfolioHoldingCard({
 
   return (
     <Surface className="flex-1" layout={layout}>
-      <Pressable accessible={false} onPress={toggleExpanded} className="flex-1 gap-3 p-4">
+      <Pressable accessible={false} onPress={onToggleExpanded} className="flex-1 gap-3 p-4">
         <PressableScale
           accessibilityRole="button"
           accessibilityLabel={`${name} ${position ? "vault position" : "token holding"}`}
@@ -65,7 +60,7 @@ export function PortfolioHoldingCard({
           accessibilityValue={{ text: balance }}
           onPress={(event) => {
             event?.stopPropagation();
-            toggleExpanded();
+            onToggleExpanded();
           }}
           pressedScale={0.99}
           className={`gap-3 ${expanded ? "flex-row flex-wrap items-center" : ""}`}
@@ -115,32 +110,13 @@ export function PortfolioHoldingCard({
           </Typography>
         )}
         {swapOnly && <Typography variant="micro">Swap receiving wallets</Typography>}
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel={`${name} performance`}
-          accessibilityState={{ expanded: performance }}
-          onPress={(event) => {
-            event?.stopPropagation();
-            setPerformance((value) => !value);
-          }}
-          className="min-h-11 flex-row items-center justify-between gap-1 rounded-full bg-well px-3"
-        >
-          <Typography variant="caption" className="shrink !text-[12px]">
-            Performance
-          </Typography>
-          {performance ? (
-            <ChevronUp size={14} color={colors.muted} />
-          ) : (
-            <ChevronDown size={14} color={colors.muted} />
-          )}
-        </PressableScale>
-        {performance && (
+        {expanded && (
           <HoldingPerformance
             assetId={asset.assetId}
             valueUsdcAtoms={asset.valueUsdcAtoms}
             position={position}
             name={name}
-            height={expanded ? 160 : 100}
+            height={160}
           />
         )}
         {action && (
