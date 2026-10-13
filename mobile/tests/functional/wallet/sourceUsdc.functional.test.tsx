@@ -236,6 +236,9 @@ test("owned token amounts and vault underlying values remain distinct when marke
   expect(screen.getByText("Vault position · Ethereum")).toBeVisible();
   expect(screen.getByText("Estimated underlying: 2 USDC")).toBeVisible();
   expect(screen.getByText("2 USDC")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "USDC performance" }));
+  expect(screen.getByText("Performance history isn’t available yet.")).toBeVisible();
+  expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
   expect(screen.queryByText("USDC value unavailable.")).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "WETH holding details", expanded: false }));
   expect(screen.getByText("USDC value unavailable.")).toBeVisible();
