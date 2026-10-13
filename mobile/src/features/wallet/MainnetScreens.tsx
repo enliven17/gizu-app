@@ -1,4 +1,3 @@
-import type { OwnedPortfolioAsset, OwnedPortfolioPosition } from "@/domain/wallet/storedSigner";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Bell, ChevronDown, ChevronUp } from "lucide-react-native";
@@ -17,7 +16,6 @@ import { IconButton } from "@/components/atoms/IconButton";
 import { GizuLogo } from "@/components/atoms/GizuLogo";
 import { Button } from "@/components/atoms/Button";
 import { Skeleton } from "@/components/atoms/Skeleton";
-import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
 import { ErrorNotice } from "@/components/molecules/ErrorNotice";
 import { Notice } from "@/components/molecules/Notice";
@@ -25,11 +23,10 @@ import { AccountAddress } from "@/features/account/AccountAddress";
 import { clipboardService } from "@/services/clipboard";
 import { PortfolioActions } from "@/features/investments/components/PortfolioActions";
 import { VaultPreview } from "@/features/investments/components/VaultPreview";
-import { SwapHoldingsSection, holdingAmount } from "@/features/swap/SwapHoldingsSection";
+import { holdingAmount } from "@/features/swap/SwapHoldingsSection";
 import { useMainnetWallet } from "./MainnetWalletProvider";
 import { BalanceCard } from "./BalanceCard";
-import { demoModeEnabled } from "@/config/demo";
-import { demoVaultMetadata } from "@/services/demo/opportunities";
+import { PortfolioHoldingsSection } from "./PortfolioHoldingsSection";
 
 function usePortfolio() {
   const wallet = useMainnetWallet();
@@ -150,121 +147,6 @@ function ReceivingAccounts() {
   );
 }
 
-function OwnedBalanceRow({
-  asset,
-  position = false,
-  loading,
-}: {
-  loading: boolean;
-  asset: OwnedPortfolioAsset | OwnedPortfolioPosition;
-  position?: boolean;
-}) {
-  const demoVault = position && demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
-  const estimated = position && "conversionEstimated" in asset && asset.conversionEstimated;
-  const amount =
-    position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
-  const observedAmount = position
-    ? "observedUnderlyingAtoms" in asset
-      ? asset.observedUnderlyingAtoms
-      : null
-    : asset.observedAtoms;
-  return (
-    <View className="gap-2 rounded-2xl bg-well p-4">
-      <Typography variant="rowTitle">{demoVault?.name ?? asset.symbol}</Typography>
-      {position && (
-        <Typography variant="micro">
-          {demoVault ? `${demoVault.protocol.name} · ${demoVault.chain.name}` : "Vault position"}
-        </Typography>
-      )}
-      <Typography>
-        {asset.complete && amount !== null && asset.decimals !== null
-          ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
-          : loading
-            ? `Checking ${asset.symbol} balance…`
-            : `${asset.symbol} balance unavailable. Refresh to retry.`}
-      </Typography>
-      {asset.valueUsdcAtoms !== null && (
-        <Typography>Value: {holdingAmount(asset.valueUsdcAtoms, 6)} USDC</Typography>
-      )}
-      {asset.stale && (
-        <Typography variant="micro">
-          {loading ? "Cached amount awaiting refresh." : "Showing a cached observation."}
-        </Typography>
-      )}
-      <HoldingDetails
-        accessibilityLabel={`${asset.symbol} ${position ? "position" : "holding"} details`}
-      >
-        <Typography variant="micro">Chain {asset.chainId}</Typography>
-        {asset.token && (
-          <Typography variant="micro" selectable>
-            {asset.token}
-          </Typography>
-        )}
-        {!asset.complete &&
-          typeof observedAmount === "string" &&
-          observedAmount !== "0" &&
-          asset.decimals !== null && (
-            <Typography variant="micro">
-              Previously observed: {holdingAmount(observedAmount, asset.decimals)} {asset.symbol}
-            </Typography>
-          )}
-        {asset.valueUsdcAtoms === null && (
-          <Typography variant="micro">
-            {asset.valuationUnavailable || !loading
-              ? "USDC value unavailable."
-              : "Checking USDC value…"}
-          </Typography>
-        )}
-      </HoldingDetails>
-    </View>
-  );
-}
-function OwnedBalances() {
-  const { snapshot, loading, refresh } = useMainnetWallet();
-  if (!snapshot?.ownedAssets && !snapshot?.positions) return null;
-  return (
-    <Surface>
-      <View className="px-5 py-2">
-        <HoldingDetails
-          label="Tokens and vault positions"
-          accessibilityLabel="Tokens and vault positions"
-        >
-          {!loading && snapshot.confidentialReadState === "locked" && (
-            <Typography variant="micro">
-              Private USDC needs wallet unlock before refresh.
-            </Typography>
-          )}
-          {snapshot.ownedBalanceComplete === false && (
-            <Typography variant="micro">
-              {loading
-                ? "Checking owned token balances and positions…"
-                : "Some token balances or positions are unavailable. Refresh to retry."}
-            </Typography>
-          )}
-          {snapshot.ownedBalanceComplete === false && !loading && (
-            <Button
-              label="Retry token balances and positions"
-              variant="quiet"
-              onPress={() => void refresh()}
-            />
-          )}
-          {snapshot.valuationComplete === false && (
-            <Typography variant="micro">
-              Some assets have no verified USDC value. Token amounts are shown separately.
-            </Typography>
-          )}
-          {snapshot.ownedAssets?.map((asset) => (
-            <OwnedBalanceRow key={asset.assetId} asset={asset} loading={loading} />
-          ))}
-          {snapshot.positions?.map((asset) => (
-            <OwnedBalanceRow key={asset.assetId} asset={asset} position loading={loading} />
-          ))}
-        </HoldingDetails>
-      </View>
-    </Surface>
-  );
-}
-
 function BalanceSkeleton() {
   return (
     <Surface>
@@ -322,9 +204,9 @@ export function MainnetPortfolioScreen({
         actions
       )}
       {/* Home Earn shortcut is temporarily hidden; the Earn flow remains available. */}
-      <OwnedBalances />
-      <SwapHoldingsSection
+      <PortfolioHoldingsSection
         onReviewSale={() => navigation.navigate("Exchange")}
+        onWithdraw={(opportunityId) => root.navigate("VaultWithdraw", { opportunityId })}
         emptyContent={
           <VaultPreview
             onSeeAll={() => navigation.navigate("Vaults")}

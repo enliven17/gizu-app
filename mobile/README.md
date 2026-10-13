@@ -360,6 +360,9 @@ These account-scoped values stay in memory and never sign or send a transaction.
 Home starts with sample AMZN, AAPL and NVDA holdings plus Aave V3 USDC,
 Pendle Ecosystem USDC, Steakhouse USDG and High Yield AUSD positions. Stock sales
 use the same holdings as Swap; vault withdrawals reduce the positions displayed on Home.
+**Tokens and vault positions** automatically shows existing holdings in separate
+two-column token and vault grids, with token amounts and USDC values. **Sell** opens the existing swap review; demo vault cards offer **Withdraw**.
+The info icon reveals technical details. There is no separate swap-management list.
 Release builds require an explicit HTTPS URL. The public configuration contains no
 Merkl API key; that stays on the backend.
 
