@@ -90,3 +90,17 @@ test("unqualified fees, zero outputs and changed input cannot become a payout pr
       ).preview(input),
     );
 });
+test("the approval floor preview allows 7%, leaving headroom for the 5% signing quote", async () => {
+  let slippage: unknown;
+  const base = fetcher();
+  const gateway = new EarnPayoutPreviewGateway(
+    { auroraApiKey: "test", auroraFeeQualification: qualification },
+    (async (url, init) => {
+      slippage = JSON.parse(String(init?.body)).slippageTolerance;
+      return base(url, init);
+    }) as typeof fetch,
+    () => now,
+  );
+  await gateway.preview(input);
+  assert.equal(slippage, 700);
+});

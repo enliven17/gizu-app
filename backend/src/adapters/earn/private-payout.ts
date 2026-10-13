@@ -897,7 +897,9 @@ export class PrivatePayoutGateway {
             amount: amount.toString(),
             originAsset: monadUsdcAssetId,
             destinationAsset,
-            slippageTolerance: 0,
+            // Robinhood 10/90 payouts are bounded by the 7% preview floor; others keep exact quotes.
+            slippageTolerance:
+              i.profileChainId === 4663 && i.leg !== "withdrawal" ? 500 : 0,
             refundTo: i.source.confidentialAccount.toLowerCase(),
             refundType: "CONFIDENTIAL_INTENTS",
             recipient: recipient.toLowerCase(),
