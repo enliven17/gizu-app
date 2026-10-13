@@ -11,6 +11,7 @@ import {
 import type { MainnetWalletSession } from "@/services/access";
 import type { MainnetPortfolioSnapshot } from "@/domain/wallet/storedSigner";
 import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
+import { demoPortfolioSnapshot, swapDemo, swapDemoEnabled } from "@/features/swap/demo/swapDemo";
 
 export function validateMainnetPortfolio(
   value: MainnetPortfolioSnapshot,
@@ -98,6 +99,8 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
   const alive = useRef(true);
   const generation = useRef(0);
   const busy = useRef(false);
+  /** Demo mode: a change that arrived during a refresh, applied once that refresh ends. */
+  const rerun = useRef(false);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -114,7 +117,13 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
     setLoading(true);
     setError("");
     try {
-      const signer = service ?? getStoredSwapSigner();
+      // Demo mode: Home shows the simulated swaps' balance and holdings, never the real wallet.
+      const signer = swapDemoEnabled()
+        ? {
+            getMainnetPortfolio: async () =>
+              demoPortfolioSnapshot(session.walletId ?? "", session.address),
+          }
+        : (service ?? getStoredSwapSigner());
       if (!signer) throw new Error("Native mainnet portfolio is unavailable in this build.");
       const result = validateMainnetPortfolio(await signer.getMainnetPortfolio(), session.walletId);
       if (result.fundingAddress.toLowerCase() !== session.address.toLowerCase())
@@ -127,9 +136,17 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
       if (current()) {
         busy.current = false;
         setLoading(false);
+        if (rerun.current) {
+          rerun.current = false;
+          queueMicrotask(() => void again.current());
+        }
       }
     }
   }, [session.walletId, session.address, service]);
+  const again = useRef(refresh);
+  useEffect(() => {
+    again.current = refresh;
+  }, [refresh]);
   useEffect(() => {
     void Promise.resolve().then(() => {
       if (alive.current) return refresh();
@@ -137,7 +154,17 @@ function useMainnetState(session: MainnetWalletSession, service?: MainnetPortfol
     const subscription = AppState.addEventListener("change", (next) => {
       if (next === "active") void refresh();
     });
-    return () => subscription.remove();
+    // A simulated swap changes balances as it runs; follow it.
+    const demo = swapDemoEnabled()
+      ? swapDemo.subscribe(() => {
+          if (busy.current) rerun.current = true;
+          else void refresh();
+        })
+      : undefined;
+    return () => {
+      subscription.remove();
+      demo?.();
+    };
   }, [refresh]);
   return { session, snapshot, loading, error, refresh };
 }

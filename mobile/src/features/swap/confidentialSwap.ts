@@ -1,6 +1,7 @@
 import { parseSwapAmount } from "@/domain/swap";
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
+import { demoQuoteOut, demoSwapBridge, demoTokens, swapDemoEnabled } from "./demo/swapDemo";
 
 export const swapGateway =
   process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://127.0.0.1:3000" : "");
@@ -58,6 +59,14 @@ export function parseSwapView(value: unknown): StoredSwapView {
 }
 
 export async function loadSwapTokens(fetchImpl: typeof fetch = fetch): Promise<ListedToken[]> {
+  if (swapDemoEnabled())
+    return demoTokens.map(({ address, symbol, name, decimals }) => ({
+      address,
+      symbol,
+      name,
+      decimals,
+      swapListed: true,
+    }));
   const response = await fetchImpl(
     `${swapGateway}/v1/tokens?chainId=4663&category=rwa&search=&page=0&items=100`,
   );
@@ -93,6 +102,7 @@ export async function previewSwapOut(
   sourceAtomsValue: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
+  if (swapDemoEnabled()) return demoQuoteOut(target, BigInt(sourceAtomsValue)).toString();
   const response = await fetchImpl(`${swapGateway}/v1/swap/fusion/preview`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -118,6 +128,7 @@ export function formatTokenAtoms(atoms: string, decimals: number): string {
 }
 
 export function swapSigner() {
+  if (swapDemoEnabled()) return demoSwapBridge;
   const native = getStoredSwapSigner();
   if (!native) throw new Error("Confidential swap is unavailable in this build.");
   return native;

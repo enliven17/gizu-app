@@ -337,6 +337,15 @@ and `npm start`. `GET http://127.0.0.1:3000/v1/health` should return status `ok`
 Development mobile defaults to `http://127.0.0.1:3000`. With an Android phone connected
 by USB, run `adb reverse tcp:3000 tcp:3000` in addition to the Metro port forwarding.
 For other hosts, set `EXPO_PUBLIC_API_URL` to a reachable backend URL and restart Metro.
+
+### Swap demo mode
+
+Set `EXPO_PUBLIC_SWAP_DEMO=1` in `.env` and restart Metro to demo every swap flow without funds:
+buy (estimate, review, simulated passkey, step-by-step progress, result), sell from Swap or from
+Home holdings, Continue in background, and cancel. It starts from a simulated 250 USDC balance,
+uses fixed stock prices and follows the real wallet-count and share rules. Nothing reaches the
+native signer or the network. The screens carry no demo label, so a demo looks like the real
+app; unset it for real swaps.
 Release builds require an explicit HTTPS URL. The public configuration contains no
 Merkl API key; that stays on the backend.
 

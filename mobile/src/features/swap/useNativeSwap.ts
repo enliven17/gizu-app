@@ -11,6 +11,7 @@ import {
   type ListedToken,
 } from "./confidentialSwap";
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
+import { swapDemo, swapDemoEnabled } from "./demo/swapDemo";
 
 type SwapAction =
   "start" | "payout" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
@@ -38,6 +39,15 @@ export function useNativeSwap() {
       diagnostic("status", "failed");
       setError("Saved swap status unavailable. Refresh before starting another operation.");
     }
+  }, []);
+
+  // Demo mode: the simulated swap moves on its own, so follow it like a background run.
+  useEffect(() => {
+    if (!swapDemoEnabled()) return;
+    return swapDemo.subscribe(() => {
+      const current = swapDemo.status();
+      setStatus(current ? parseSwapView(current) : null);
+    });
   }, []);
 
   useEffect(() => {
