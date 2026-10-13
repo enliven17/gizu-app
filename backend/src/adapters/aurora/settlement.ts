@@ -64,6 +64,10 @@ export type SettlementDiagnostic = {
   route: string;
   credit: "routePending" | "negative" | "zero" | "below" | "met" | "aboveMax";
   entries: string[];
+  entryFields?: string[];
+  availableZero?: boolean;
+  baselineZero?: boolean;
+  baselineAtMs?: number;
 };
 export class ConfidentialSettlement {
   private occupied = new Set<string>();
@@ -227,13 +231,18 @@ export class ConfidentialSettlement {
       status: "awaitingSettlement" as const,
       verification: "balance-delta-v1" as const,
     };
-    const report = (credit: SettlementDiagnostic["credit"], entries: string[] = []) => {
+    const report = (
+      credit: SettlementDiagnostic["credit"],
+      entries: string[] = [],
+      facts: Partial<SettlementDiagnostic> = {},
+    ) => {
       try {
         this.diagnose?.({
           event: "earn.settlement",
           route: /^[A-Z_]{1,32}$/.test(String(route.status)) ? String(route.status) : "OTHER",
           credit,
           entries,
+          ...facts,
         });
       } catch {
         /* logging only */
@@ -265,6 +274,12 @@ export class ConfidentialSettlement {
               ? "below"
               : "met",
       balance.entryKinds,
+      {
+        entryFields: balance.entryFields ?? [],
+        availableZero: balance.available === "0",
+        baselineZero: baseline.available === "0",
+        baselineAtMs: baseline.timestampMs as number,
+      },
     );
     if (delta < 0n || delta > BigInt(quote.maximumCreditAtoms))
       throw new Error("Ambiguous private credit");

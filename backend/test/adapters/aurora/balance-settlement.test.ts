@@ -259,6 +259,10 @@ test("settlement checks log only route status, balance entry kinds and credit cl
       route: "SUCCESS",
       credit: "zero",
       entries: ["private:asset", "public:asset", "private:wrapped"],
+      entryFields: ["available", "source", "tokenId"],
+      availableZero: false,
+      baselineZero: false,
+      baselineAtMs: now,
     },
   ]);
   for (const secret of ["995000", "100", C, deposit, tx, "jwt", "api-key"])
