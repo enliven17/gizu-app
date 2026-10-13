@@ -140,8 +140,8 @@ class EarnDepositRemainingTest {
           .getString("signedUserOperation"),
       )
       val d = next.getJSONObject("review").getJSONObject("deposit")
-      assertEquals("15000", d.getString("maximumFeeAtoms"))
-      assertEquals("850000", d.getString("minimumAssetsAtoms"))
+      assertEquals("18750", d.getString("maximumFeeAtoms")) // 25% gas headroom.
+      assertEquals("842500", d.getString("minimumAssetsAtoms"))
       assertEquals(100000, next.getJSONObject("review").getInt("quotedAtMs"))
       EarnDepositApproval.fromRemainingReview(r, next.getJSONObject("review"), 100000)
         .approveAfterPasskey(100001)

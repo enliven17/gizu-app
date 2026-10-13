@@ -45,6 +45,8 @@ import { registerEarnExitRoutes } from "./http/routes/earn-exit.routes.ts";
 import { registerEarnPayoutRoutes } from "./http/routes/earn-payout.routes.ts";
 import { HttpMerklOpportunities } from "./adapters/merkl/http-merkl-opportunities.ts";
 import { PgCache } from "./adapters/postgres/pg-cache.ts";
+import { PgEarlyAccess } from "./adapters/postgres/pg-early-access.ts";
+import { registerEarlyAccessRoutes } from "./http/routes/early-access.routes.ts";
 import { PgDatabaseProbe } from "./adapters/postgres/pg-database-probe.ts";
 import { createPgPool } from "./adapters/postgres/pg-pool.ts";
 import type { ApiEnv } from "./env.schema.ts";
@@ -77,6 +79,8 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
 
   const app = Fastify({
     logger: loggerOptions,
+    // Render terminates public traffic at a reverse proxy.
+    trustProxy: (_address, hop) => secret.NODE_ENV === "production" && hop < 1,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
@@ -88,6 +92,7 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   );
 
   registerHealthRoutes(app, healthController);
+  registerEarlyAccessRoutes(app, new PgEarlyAccess(pgPool), secret.NODE_ENV === "local");
   registerTokenRoutes(app, new OneInchTokenCatalog(secret.ONEINCH_API_KEY));
   registerSwapRoutes(app, {
     aurora: new AuroraIntents(secret.AURORA_API_KEY, diagnosticAuroraFetch((event) => app.log.info(event, "swap provider request"))),

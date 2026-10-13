@@ -1,7 +1,31 @@
 
-## Token discovery
+# Gizu web entry
 
-The web Swap tab displays a read-only 1inch token catalog for Robinhood Chain
+The site served at gizu.io keeps the responsive landing screen and Request access
+flow as separate buttons and dialogs. **Test On Mobile** opens an email invitation
+form as the recommended first option, followed by self-testing instructions and
+links to the repository and mobile setup guide. Self-testing explains how a local
+backend/database, configuration, app/API versions, connected services and device
+signing can differ from the supported testing environment. **Request access** keeps
+its own questionnaire. Both forms
+save emails through `POST /v1/early-access`; success appears only after persistence.
+The browser entry no longer offers
+simulated passkey creation or a mock wallet/dashboard.
+
+Run locally with `npm ci` and `npm run dev` from `frontend/`. Validate with
+`npm run build` and `npm test`.
+
+Local development proxies `/v1` to the backend on port 3000. Production defaults
+to `https://gizu-app.onrender.com`; set `VITE_API_URL` at build time to override it
+(see `.env.example`). Deploy the matching backend before the frontend. The API
+allows browser requests from `https://gizu.io` and `https://www.gizu.io`.
+
+Submitting an email joins the invitation list. It does not send an email immediately;
+invitations are sent later by the team. No email delivery service is configured here.
+
+## Retained token discovery components
+
+The retained Swap UI components display a read-only 1inch token catalog for Robinhood Chain
 (4663), Ethereum (1), and Monad (143). Robinhood Stock Token contracts are
 cross-checked against Robinhood's official `/rhj/assets` API. The RWA filter on
 Ethereum and Monad uses the explicit 1inch `RWA` token tag. A token's presence
@@ -12,6 +36,6 @@ The backend serves `GET /v1/tokens` in pages with explicit `chainId`,
 The response includes `list`, `page`, `items`, and `total`. The Swap tab loads
 60 tokens per page.
 
-To load the catalog locally, put `ONEINCH_API_KEY` in `backend/.env` (see
-`backend/.env.example`), start the backend, then run `npm run dev` in
-`frontend/`. The key stays on the backend and must not use the `VITE_` prefix.
+These components are no longer mounted by the public web entry. Their backend
+integration requires `ONEINCH_API_KEY` in `backend/.env` (see
+`backend/.env.example`). The key stays on the backend and must not use the `VITE_` prefix.

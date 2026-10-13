@@ -105,4 +105,27 @@ After the Ethereum test above, the user requested funding the phone app's Monad 
 
 The exact signed intent was durably saved before a single submission in a separate ignored, permission-restricted funding journal. Expired unsigned quotes were archived without signing. The spending deadline was narrowed before signing; transfer amount, receiver and nonce were preserved. Earlier wallet 1 and the new app destination pair were not used as funding sources. No Earn or vault operation was authorized by this funding transfer.
 
-Aurora's public status later reported SUCCESS. Authenticated history for this key returned an invite-only error, so operation-specific private history is **not verified**. A missing entry in the post-transfer authenticated balance response is not asserted as zero. These limits do not change the observed finalized destination receipt, but they block native Earn settlement acceptance until the provider enables history access.
+Aurora's public status later reported SUCCESS. Authenticated history for this key returned an invite-only error, so operation-specific private history is **not verified**. A missing entry in the post-transfer authenticated balance response is not asserted as zero. These limits do not change the observed finalized destination receipt, but they block native Earn settlement acceptance until the provider enables history access. Superseded on October 13: native Earn now verifies source credit from an authenticated private-balance delta against a pre-signing snapshot, without history access (see the October 13–14 deposit below).
+
+## October 13–14 in-app guided Robinhood deposit — complete
+
+First end-to-end deposit through the Android app (one 3 USDC budget, Steakhouse USDG vault on Robinhood). It spent the September 30 funding above from the same Monad source. Wallet 1 holds the 10% payout; only wallet 2 invested.
+
+- Monad source: `0x069b3c1DD949E01504DD6Ac0a9729b730Cc87A4E` (3.079262 USDC before funding; **0.090294 USDC** retained).
+- Confidential deposit address: `0xbda541058761ec79c9e200c585e2df89d2a06ef2`; Aurora route status **SUCCESS**.
+- Wallet 1 (hold): `0x7d8463F4983e80CEc924730C00871d8636B4E587`. Wallet 2 (invest): `0x2876A1d9DCB5E57f6d0F0Ff480983A6F83eCb253`.
+- Private credit verified by authenticated balance delta (snapshot 0 at 13:49:01 UTC, six seconds before funding).
+- Wallet 1 received **0.147037 USDG** from a 10% input of about 0.2987 USDC; a fixed route fee of about 0.15 USDC dominates this small leg.
+- Wallet 2 received **2.523394 USDG**, deposited **2.340164 USDG** for **2.317044829633649623 shares**, paid **0.034941 USDG** gas and kept **0.148289 USDG** as its withdrawal reserve.
+
+| Step | Chain | Block | Time (UTC) | Amount | Transaction |
+| --- | --- | ---: | --- | --- | --- |
+| Source funding (UserOp `0xd06cf92268a516ea06b6b6a272dfc53213f6043b0b0cb084b0a05ba95f4a3699`) | Monad 143 | 113056936 | 2026-10-13 13:49:07 | 2.987344 USDC to deposit address; 0.001624 USDC gas | `0x38d14d3ca79cbdddba88b979de78eeb9fe68932c20fd87c20d867e5db37f5db9` |
+| 10% hold payout | Robinhood 4663 | 87844020 | 2026-10-13 21:47:02 | 0.147037 USDG to wallet 1 | `0x7097cba568bbf9df3f6c7b876af4dd217aa502a1a3ee61187a641bf6ab304d70` |
+| 90% invest payout | Robinhood 4663 | 87861593 | 2026-10-13 22:16:35 | 2.523394 USDG to wallet 2 | `0x18ee795a01570969dee4a301a1cef9d2bc3f99b01817058ace22a8127b75e368` |
+| Vault deposit and wallet-2 EIP-7702 delegation (UserOp `0xfa04549cc8c6d5fa52efd494748fa296c964e47988adda0176a33b0a4ff81735`) | Robinhood 4663 | 87881208 | 2026-10-13 22:49:43 | 2.340164 USDG for 2.317044829633649623 shares; 0.034941 USDG gas | `0x9c436b682f58f7f5a12949c6e2b727cddcfbf7900931755db43899df62a02166` |
+
+Both payout transactions were sent from `0x2cff890f0378a11913b6129b2e97417a2c302680` on the route's side. Both sponsored gas charges went to `0xd8baa107006c93a030d1455a2ef43261b384f21c`.
+
+Getting here required the native and backend fixes recorded in [`CONFIDENTIAL_EARN.md`](../../docs/internal/CONFIDENTIAL_EARN.md#2026-10-14--first-completed-in-app-robinhood-deposit). No duplicate funding, payout or vault transaction was sent; every retry reconciled the saved operation.
+

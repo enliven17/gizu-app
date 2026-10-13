@@ -122,6 +122,38 @@ for validation, caching and partial results.
 5. Verify provider access and simulation capacity before testing funded operations.
 
 A healthy server does not prove that quotes, signing or settlement work.
+
+### Web invitation list
+
+`POST /v1/early-access` records a validated email and optional questionnaire answers
+in PostgreSQL. The `early_access_signups` table is created on the first signup using
+the existing `DATABASE_URL` connection, following the cache's schema setup pattern.
+The database role therefore needs permission to create tables in its default schema.
+Emails are trimmed and lowercased; repeat submissions keep one row and the original
+`created_at`, merging any new questionnaire answers into `preferences`.
+
+Both public website dialogs use this endpoint. Deploy the backend before the frontend;
+otherwise the website will report a save failure. Browser access is allowed for
+`https://gizu.io` and `https://www.gizu.io`; local mode also allows port 5173 on
+localhost and 127.0.0.1. Production trusts one reverse proxy hop for client IP
+rate limiting, matching Render hosting. Signup requests are limited to ten attempts
+per minute per client IP in each server process.
+
+The success response confirms database registration, not email delivery. Invitations
+are sent separately. The team can retrieve the list through its existing database
+access:
+
+```sql
+select email, created_at, preferences
+from early_access_signups
+order by created_at;
+```
+
+For a real database integration check, set `TEST_DATABASE_URL` to a disposable local
+PostgreSQL database and run `node --experimental-transform-types --test
+test/adapters/pg-early-access.test.ts` from `backend/`. The test creates an isolated
+schema inside a transaction and rolls it back, leaving no signup rows behind.
+
 For guided Robinhood deposits, deploy the matching backend and install the new native APK. Keep the recovery key and simulation executable configured, and provide a reliable Robinhood RPC. No additional history entitlement or fee-policy JSON is needed for the checked-in policy. Changed collectors, unknown referrals or fees above the saved limits still stop new spending. Older clients without snapshot capability are rejected before funding unless legacy history admission was explicitly enabled.
 
 The API allows up to two simulation forks per process; each has a 1 GiB memory

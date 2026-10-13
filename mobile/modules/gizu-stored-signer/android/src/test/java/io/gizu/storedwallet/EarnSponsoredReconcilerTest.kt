@@ -94,13 +94,19 @@ class EarnSponsoredReconcilerTest {
     var burn = 1000
     var shares = 0
     var redeem = false
+    var deposit = false
+    var finalNumber = "0x10"
+    val stateTags = mutableListOf<String>()
 
     override suspend fun call(method: String, params: JSONArray): Any =
       when (method) {
-        "eth_chainId" -> if (redeem) "0x1237" else "0x8f"
+        "eth_chainId" -> if (redeem || deposit) "0x1237" else "0x8f"
         "eth_getUserOperationReceipt" -> receipt
         "eth_getUserOperationByHash" -> known
-        "eth_getBlockByNumber" -> JSONObject().put("number", "0x10").put("hash", canonical)
+        "eth_getBlockByNumber" ->
+          if (params.getString(0) == "finalized")
+            JSONObject().put("number", finalNumber).put("hash", canonical)
+          else JSONObject().put("number", "0x10").put("hash", canonical)
         "eth_getTransactionReceipt" -> {
           val logs =
             mutableListOf(
@@ -122,9 +128,24 @@ class EarnSponsoredReconcilerTest {
               )
             )
             logs.add(transfer(HOOD_EARN_ROUTER, owner, 900, HOOD_EARN_USDG))
+          } else if (deposit) {
+            logs.add(transfer(owner, HOOD_EARN_ROUTER, 1000, HOOD_EARN_USDG))
+            logs.add(
+              log(
+                HOOD_EARN_VAULT,
+                "Deposit(address,address,uint256,uint256)",
+                listOf(address(HOOD_EARN_ROUTER), address(owner)),
+                listOf(1000, 900),
+              )
+            )
           } else logs.add(transfer(owner, recipient, 1000))
           logs.add(
-            transfer(owner, EARN_PAYMASTER, paid, if (redeem) HOOD_EARN_USDG else MONAD_EARN_USDC)
+            transfer(
+              owner,
+              EARN_PAYMASTER,
+              paid,
+              if (redeem || deposit) HOOD_EARN_USDG else MONAD_EARN_USDC,
+            )
           )
           JSONObject()
             .put("transactionHash", transaction)
@@ -133,7 +154,10 @@ class EarnSponsoredReconcilerTest {
             .put("status", "0x1")
             .put("logs", JSONArray(logs))
         }
-        "eth_call" -> "0x" + shares.toString(16).padStart(64, '0')
+        "eth_call" -> {
+          stateTags.add(params.get(1).toString())
+          "0x" + shares.toString(16).padStart(64, '0')
+        }
         else -> error("Unexpected $method")
       }
 
@@ -215,6 +239,29 @@ class EarnSponsoredReconcilerTest {
         fail("Changed authorization must fail")
       } catch (_: IllegalStateException) {}
     }
+  }
+
+  @Test
+  fun robinhoodVaultDepositIsVerifiedFromCanonicalReceiptBeforeFinality() = runBlocking {
+    // Robinhood's finalized head (0xf) trails the deposit block (0x10) by ~17 minutes.
+    val j = setup("hoodDeposit")
+    val rpc = Rpc()
+    rpc.deposit = true
+    rpc.shares = 900
+    rpc.finalNumber = "0xf"
+    rpc.found(j)
+    reconcileEarnSponsoredOperations(j, rpc, rpc, ::topic, { error("No latest observation") })
+    assertEquals("finalized", j.get("op").getString("status"))
+    assertEquals("900", j.get("op").getString("settledShares"))
+    // Robinhood's public RPC has no historical state, so post-deposit reads use the latest block.
+    assertEquals(listOf("latest"), rpc.stateTags.distinct())
+    // Monad source funding keeps waiting for finality.
+    val source = setup()
+    val chain = Rpc()
+    chain.finalNumber = "0xf"
+    chain.found(source)
+    reconcileEarnSponsoredOperations(source, chain, chain, ::topic, { error("No latest") })
+    assertEquals("pending", source.get("op").getString("status"))
   }
 
   @Test
