@@ -46,7 +46,7 @@ export class ConfidentialBalance {
   constructor(private key?: string, private fetcher: typeof fetch = fetch, private now: () => number = Date.now, private diagnose?: (event: PrivateBalanceDiagnostic) => void) {}
 
   /** `inspect` adds coarse kinds of every listed entry (no amounts) for settlement diagnostics. */
-  async read(auth: ReadAuthentication, inspect = false): Promise<{ confidentialAddress: string; assetId: string; available: string; timestampMs: number; authenticated: true; operationScoped: false; entryKinds?: string[] }> {
+  async read(auth: ReadAuthentication, inspect = false): Promise<{ confidentialAddress: string; assetId: string; available: string; timestampMs: number; authenticated: true; operationScoped: false; entryKinds?: string[]; entryFields?: string[] }> {
     if (!this.key) throw new InfrastructureError(503,"EARN_AUTH_UNAVAILABLE","Confidential balance provider is not configured.");
     let signer: string;
     try { signer = await authenticateEarnRead(auth,this.now); }
@@ -73,12 +73,13 @@ export class ConfidentialBalance {
       if (balance && (balance.source !== "private" || balance.tokenId !== assetId)) throw new Error("Wrong private balance");
       const result = {confidentialAddress:signer,assetId,available:balance ? amount(balance.available) : "0",timestampMs:this.now(),authenticated:true as const,operationScoped:false as const};
       if (!inspect) return result;
-      let entryKinds = ["unavailable"];
+      let entryKinds = ["unavailable"], entryFields: string[] = [];
       try {
         const all = await auroraApi(this.key, this.fetcher, "account/balances/{key}",undefined,session.accessToken);
+        if (Array.isArray(all.balances)) entryFields = [...new Set(all.balances.slice(0,32).flatMap(b => Object.keys(record(b))))].filter(k => /^[A-Za-z_]{1,32}$/.test(k)).sort();
         if (Array.isArray(all.balances)) entryKinds = all.balances.slice(0,32).map(record).map(b => `${b.source === "private" || b.source === "public" ? b.source : "other"}:${b.tokenId === assetId ? "asset" : typeof b.tokenId === "string" && b.tokenId.startsWith("imt:") && b.tokenId.endsWith(":" + assetId) ? "wrapped" : "other"}`);
       } catch { /* diagnostics never change the verified read */ }
-      return {...result,entryKinds};
+      return {...result,entryKinds,entryFields};
     } catch (error) {
       try {
         this.diagnose?.({event:"earn.private-balance",stage,httpStatus,reason:error instanceof Error && knownFailures.has(error.message) ? error.message : "provider",entries});
