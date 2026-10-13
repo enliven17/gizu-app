@@ -299,16 +299,7 @@ internal class EarnDepositPreparer(
           .put("sources", sources)
           .put("fundingRows", JSONArray(draft.rows))
           .put("reservation", draft.reservation)
-          .put(
-            "deposit",
-            JSONObject()
-              .put("estimatedAssetsAtoms", deposit.getString("depositAmount"))
-              .put("minimumAssetsAtoms", deposit.getString("depositAmount"))
-              .put("minimumSharesAtoms", deposit.getString("minimumSharesAtoms"))
-              .put("shareDecimals", deposit.getInt("shareDecimals"))
-              .put("maximumFeeAtoms", deposit.getString("depositFeeBudget"))
-              .put("withdrawalReserveAtoms", deposit.getString("withdrawalReserve")),
-          )
+          .put("deposit", vaultApprovalBounds(deposit))
       stage = "review-validation"
       EarnDepositApproval.fromReview(record, review).invalidate()
       return journal.saveReview(id, row.getInt("revision"), review)

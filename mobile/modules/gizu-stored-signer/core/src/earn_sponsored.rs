@@ -446,11 +446,21 @@ impl SponsoredEarnOperation {
                 return Err(SignerError::InvalidInput);
             }
             let price = if s.p.kind == "hoodDeposit" {
-                price(
-                    amount,
-                    dec(&current.preview_deposit_shares)?,
-                    s.p.slippage_bps,
-                )?
+                // The vault accrues interest every block, so the planner's share price cannot match
+                // a later recomputation exactly. Accept it only between the live price and the
+                // live price plus the approved slippage; every other call byte stays exact.
+                let shares = dec(&current.preview_deposit_shares)?;
+                let router = decoded.last().ok_or(SignerError::InvalidInput)?;
+                if router.to != addr(HOOD_ROUTER)? {
+                    return Err(SignerError::InvalidInput);
+                }
+                let planned = read_word(&router.data, 68)?;
+                if planned < price(amount, shares, 0)?
+                    || planned > price(amount, shares, s.p.slippage_bps)?
+                {
+                    return Err(SignerError::InvalidInput);
+                }
+                planned
             } else {
                 U256::ZERO
             };
@@ -1644,6 +1654,21 @@ mod tests {
         ];
         rpc["callData"] = json!(alloy_primitives::hex::encode_prefixed(encode_calls(&calls)));
         rpc
+    }
+    #[test]
+    fn hood_deposit_accepts_a_planned_share_price_within_live_slippage() {
+        let p = hood_proposal("hoodDeposit");
+        let prepare = |shares: &str| {
+            let o = SponsoredEarnOperation::new(p.to_string(), vec![0; 32]).unwrap();
+            let mut s = state(4663);
+            s.preview_deposit_shares = shares.into();
+            o.prepare(7, hood_op(&p).to_string(), s, None, None)
+        };
+        // Planned at 1000000 shares; interest accrues before signing, so live shares fall slightly.
+        assert!(prepare("999999").is_ok());
+        // A price drop beyond the 10 bps bound, or a plan already below the live price, fails.
+        assert!(prepare("1002000").is_err());
+        assert!(prepare("998000").is_err());
     }
     #[test]
     fn hood_deposit_full_redemption_and_canonical_sdk_router_are_pinned() {

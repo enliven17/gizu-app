@@ -404,3 +404,26 @@ internal fun depositDigest(text: String): String =
     MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") {
       "%02x".format(it)
     }
+
+/**
+ * Vault approval limits shown at review and enforced at signing, built from a deposit preview. The
+ * fee cap and withdrawal reserve are both quoted from the same gas price, so exact limits fail
+ * whenever gas moves either way before signing. Allow 25% gas movement: the fee cap rises 25%, the
+ * reserve floor drops to 75%, and the asset/share minimums drop by the extra gas they permit.
+ */
+internal fun vaultApprovalBounds(preview: JSONObject): JSONObject {
+  val four = BigInteger.valueOf(4)
+  val assets = depositAtoms(preview.getString("depositAmount"), true)
+  val fee = depositAtoms(preview.getString("depositFeeBudget"), true)
+  val reserve = depositAtoms(preview.getString("withdrawalReserve"), true)
+  val shares = depositAtoms(preview.getString("minimumSharesAtoms"), true)
+  val minimumAssets = assets - (fee + reserve + BigInteger.valueOf(3)) / four
+  check(minimumAssets.signum() > 0)
+  return JSONObject()
+    .put("estimatedAssetsAtoms", assets.toString())
+    .put("minimumAssetsAtoms", minimumAssets.toString())
+    .put("minimumSharesAtoms", (shares * minimumAssets / assets).toString())
+    .put("shareDecimals", preview.getInt("shareDecimals"))
+    .put("maximumFeeAtoms", (fee + (fee + BigInteger.valueOf(3)) / four).toString())
+    .put("withdrawalReserveAtoms", (reserve * BigInteger.valueOf(3) / four).toString())
+}

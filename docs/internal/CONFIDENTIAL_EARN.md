@@ -70,7 +70,7 @@ No mainnet Earn operation has been sent during this integration. The user separa
 
 ## Recovery and platform limits
 
-Reopen Confidential earn and use the saved-progress controls before authorizing another operation. A saved source or return receipt first requires native authenticated private credit; payout delivery also requires an independently verified finalized destination transfer. Provider status alone never unlocks an uncertain spend. An expired signed Ethereum raw transaction may still confirm: use the explicit pending-cancellation review when the journal offers it and existing ETH covers the replacement gas fee. Both candidate transactions remain tracked.
+Reopen Confidential earn and use the saved-progress controls before authorizing another operation. A saved source or return receipt first requires native authenticated private credit; payout delivery also requires an independently verified destination transfer (canonical for Robinhood payouts, finalized for Ethereum payouts and withdrawals). Provider status alone never unlocks an uncertain spend. An expired signed Ethereum raw transaction may still confirm: use the explicit pending-cancellation review when the journal offers it and existing ETH covers the replacement gas fee. Both candidate transactions remain tracked.
 
 Each investment has an immutable destination pair/profile. Previous cycles remain selectable for withdrawal and recovery, and a new investment allocates a fresh cycle. Restore without native history remains gated; missing journal data is not evidence that an old operation never spent. Automatic sibling-wallet top-ups, generic replacement transactions and WETH unwrap signing remain unsupported.
 
@@ -143,7 +143,7 @@ read policy and approval constraints below record the implementation decision.
 
 All keys and the complete account/cycle graph stay in native device storage. The backend receives individual public operation proposals, never the ownership catalogue or signing keys. Existing components display the merged portfolio and per-source progress.
 
-Ordinary app openings refresh encrypted snapshots with bounded work: token synchronization uses at most 80 balance reads and eight transfer-log calls per token shard, with HTTP batches of at most 40 calls. Public Monad USDC has one shared cursor. Other token/vault groups rotate (at most six groups per opening), and native gas observations rotate (at most eight accounts). Confidential Monad USDC rotates at most four identities within the wallet-opening read session; historical identities continue on later openings. Incomplete coverage stays explicit. Metadata and vault conversions are reused per asset. Unknown prices remain unvalued rather than being treated as zero or one dollar. Cache observations never authorize spending or prove operation settlement. Robinhood’s public RPC cannot read its older finalized contract state, so its display observers use current canonical samples with separately retained log checkpoints. Those rows identify their latest-block observation finality; transaction execution and settlement finality checks remain unchanged.
+Ordinary app openings refresh encrypted snapshots with bounded work: token synchronization uses at most 80 balance reads and eight transfer-log calls per token shard, with HTTP batches of at most 40 calls. Public Monad USDC has one shared cursor. Other token/vault groups rotate (at most six groups per opening), and native gas observations rotate (at most eight accounts). Confidential Monad USDC rotates at most four identities within the wallet-opening read session; historical identities continue on later openings. Incomplete coverage stays explicit. Metadata and vault conversions are reused per asset. Unknown prices remain unvalued rather than being treated as zero or one dollar. Cache observations never authorize spending or prove operation settlement. Robinhood’s public RPC cannot read its older finalized contract state, so its display observers use current canonical samples with separately retained log checkpoints. Those rows identify their latest-block observation finality. Robinhood payouts and vault deposits verify canonical receipts and read post-receipt state at the latest block (October 14); other execution and settlement checks keep finality.
 
 The native batch approval binds the wallet, journal generation, registry, selected owners, budgets, recipients, original requests and fee caps. It is memory-only and expires after the existing 15-minute signing-session window. Native signing still verifies exact final UserOperation/paymaster terms within those limits. Separate downstream payout, investment and withdrawal actions retain their own approvals. This batches source funding approval; it does not approve an unlimited or automatic full lifecycle.
 
@@ -172,7 +172,7 @@ Funding children keep their own durable journals. All selected sources must have
 authenticated operation-specific credit before the cumulative 10/90 payouts start.
 Each source has independent hold/invest payouts. Only verified investment payout
 receipts establish wallet 2's permitted deposit budget; unrelated incoming tokens
-do not enlarge it. Success requires finalized deposit evidence and shares.
+do not enlarge it. Success requires canonical deposit evidence and minted shares.
 
 Leaving the screen, backgrounding, locking, closing or Stop remaining approval
 revokes further signing, preserving all submitted children. Explicit Resume
@@ -399,7 +399,7 @@ The following can be sent by the operator to Aurora; no message was sent by this
 
 ## 2026-10-13 — Native Earn without history invitation
 
-New native funding/return signatures save an authenticated balance baseline before submission. Each funding source waits for successful route status and a credit delta bounded by its saved quote; only then can the next source sign. Portable sealed credit attestations allow both 10/90 payouts and recovery after private funds are spent. Payout reconciliation verifies the exact saved signed intent, successful route, and finalized token-transfer receipts; the same receipt cannot fund two allocations to the same recipient. Investment still stops at the vault deposit; withdrawal remains a separate user action with fresh recipient addresses.
+New native funding/return signatures save an authenticated balance baseline before submission. Each funding source waits for successful route status and a credit delta bounded by its saved quote; only then can the next source sign. Portable sealed credit attestations allow both 10/90 payouts and recovery after private funds are spent. Payout reconciliation verifies the exact saved signed intent, successful route, and canonical token-transfer receipts (finalized outside Robinhood); the same receipt cannot fund two allocations to the same recipient. Investment still stops at the vault deposit; withdrawal remains a separate user action with fresh recipient addresses.
 
 The inspected zero-Gizu portal configuration and observed fee/referral allowlist are checked into the backend. `EARN_AURORA_FEE_QUALIFICATION_JSON` is now an optional override, and current native clients do not require `EARN_AURORA_HISTORY_QUALIFIED=true`. Legacy signed journals without baselines retain their original reconciliation requirements. Deploy the backend and install the matching APK; preserve the recovery key and configure the owned Robinhood RPC. No transactions were sent to qualify this implementation.
 
@@ -559,3 +559,54 @@ withdrawal reserves, source reservations and device-held keys are unchanged.
 Deploy this backend patch to Render before retrying the **same saved deposit**.
 No new environment variable or wallet pair is needed. The live probe did not sign
 or submit a transaction; successful sponsorship is not proof of final investment.
+
+## 2026-10-14 — First completed in-app Robinhood deposit
+
+The saved October 13 deposit completed on the phone: funding, verified private
+credit, both 10/90 payouts and the vault deposit. Transactions, amounts and blocks
+are in the [mainnet test record](../../research/confidential-earn/MAINNET-TEST.md#october-1314-in-app-guided-robinhood-deposit--complete).
+Each blocker below was reproduced from phone logs or live provider and chain reads
+before it was fixed, and each fix has a regression test that failed first.
+
+- **ByHash reconciliation.** Pimlico returns `eip7702Auth` `chainId`, `nonce` and
+  `yParity` as JSON numbers. The gateway rejected them as `-32000`, which the phone
+  reported as changed terms. The gateway now converts them to the signer's hex form,
+  and native comparison is by value.
+- **Private credit.** Aurora's `account/balances?tokenIds=` filter returned nothing for
+  a funded account whose unfiltered list held the exact private entry. The balance
+  reader now selects `source: "private"` with the exact asset id from the full list,
+  as Swap and the research runner do. Public and wrapped `imt:` entries never count.
+- **Progress display.** Each polling pass reset the phase to `funding`, so the stages
+  alternated. Passes no longer rewind live progress.
+- **Resume collisions.** Status polling held the native lock, so "Review remaining
+  steps" failed as busy. Confirm and resume now wait for the read-only check.
+- **Payout floors.** Previews and signing quotes used 0% slippage, making the floor
+  equal to the estimate. Robinhood 10/90 signing quotes now use 5%, and the approved
+  floor is the 7% preview minimum. Other payouts keep exact quotes.
+- **Payout timing.** Robinhood finality trails by about 17 minutes, longer than one
+  15-minute approval. Like Swap, both legs are signed back to back, and Robinhood
+  payouts and vault deposits count once their exact receipt is canonical. Ethereum
+  payouts, withdrawals and returns still wait for finality.
+- **Vault gas bounds.** The fee cap and withdrawal reserve both follow one gas price,
+  so exact bounds failed on any movement. Approval allows 25%: the fee cap rises
+  25%, the reserve floor is 75%, and minimum assets and shares drop by that headroom.
+- **Vault share price.** The Rust core required the planned max share price to match
+  a later recomputation byte for byte, but the vault accrues interest every block.
+  It now accepts the planned price between the live price and the live price plus
+  the approved slippage; every other call byte stays exact.
+- **Historical state.** Robinhood's public RPC rejects state reads at blocks older
+  than a few minutes. Post-receipt share, delegation-code and nonce checks use the
+  latest block there; they change only through a later operation signed by the owner.
+
+Operational notes:
+
+- Rust core changes require `npm run stored-signer:build -- android` before
+  `assembleRelease`. The `.so` in `jniLibs` is git-ignored and is otherwise reused.
+- Any window-focus loss, including the notification shade, revokes the deposit
+  approval (`requireForeground`). Keep the app in front while it runs.
+- The backend logs `earn settlement check` and `earn private balance read failed`
+  with route status, balance-entry kinds and credit class only. They contain no
+  amounts, addresses, tokens or signatures.
+- On a 3 USDC budget the 10% hold leg lost about half to a fixed route fee
+  (0.2987 USDC in, 0.147037 USDG out).
+

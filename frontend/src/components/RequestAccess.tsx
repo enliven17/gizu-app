@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { motion } from 'framer-motion'
 import { X, Check } from 'lucide-react'
 import Scramble from './Scramble'
+import { requestInvitation } from '../earlyAccess'
+import { API_URL } from '../apiUrl'
 
 const AMOUNTS = [
   'Under $500',
@@ -17,9 +19,11 @@ const PLATFORMS = ['Aave', 'Morpho', 'Pendle', 'Yearn', 'Binance or Coinbase', '
 export default function RequestAccess({
   onClose,
   variant = 'sheet',
+  returnFocusTo,
 }: {
   onClose: () => void
   variant?: 'sheet' | 'modal'
+  returnFocusTo: HTMLButtonElement | null
 }) {
   const modal = variant === 'modal'
   const [email, setEmail] = useState('')
@@ -27,26 +31,56 @@ export default function RequestAccess({
   const [platforms, setPlatforms] = useState<string[]>([])
   const [other, setOther] = useState('')
   const [sent, setSent] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current!
+    dialog.showModal()
+    return () => {
+      dialog.close()
+      returnFocusTo?.focus()
+    }
+  }, [returnFocusTo])
 
   const toggle = (p: string) =>
     setPlatforms((list) => (list.includes(p) ? list.filter((x) => x !== p) : [...list, p]))
 
-  const submit = () => {
-    setSent(true)
-    window.setTimeout(onClose, 2400)
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (submitting) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await requestInvitation({
+        email,
+        ...(amount ? { investmentRange: amount } : {}),
+        ...(platforms.length ? { platforms } : {}),
+        ...(other.trim() ? { otherPlatform: other.trim() } : {}),
+      }, API_URL)
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error && !(err instanceof TypeError) && err.name !== 'TimeoutError'
+        ? err.message : 'We couldn’t save your email. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-      className={`fixed inset-0 z-50 flex overscroll-contain bg-ink/80 backdrop-blur-md ${
-        modal ? 'items-center justify-center p-8' : 'items-end'
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="request-access-title"
+      aria-describedby="request-access-description"
+      onCancel={(event) => { event.preventDefault(); onClose() }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose() }}
+      className={`max-h-[90dvh] border-0 bg-transparent p-0 text-[#dfe8e3] backdrop:bg-ink/80 backdrop:backdrop-blur-md ${
+        modal ? 'm-auto w-[calc(100%_-_2rem)] max-w-[520px]' : 'm-0 mt-auto w-full max-w-none'
       }`}
     >
-      <motion.div
+      <motion.form
+        onSubmit={submit}
         initial={modal ? { y: 24, opacity: 0, scale: 0.98 } : { y: '100%' }}
         animate={modal ? { y: 0, opacity: 1, scale: 1 } : { y: 0 }}
         exit={modal ? { y: 24, opacity: 0, scale: 0.98 } : { y: '100%' }}
@@ -56,14 +90,17 @@ export default function RequestAccess({
           modal ? 'max-w-[520px] rounded-[32px] p-8' : 'rounded-t-[36px] px-5 pb-8 pt-5'
         }`}
       >
+        {!sent && <>
         <div className="flex shrink-0 items-start justify-between">
           <div>
-            <h2 className="text-[24px] font-medium tracking-tight">Request early access</h2>
-            <p className="mt-2 max-w-[360px] text-[13px] leading-relaxed text-white/45">
+            <h2 id="request-access-title" className="text-[24px] font-medium tracking-tight">Request early access</h2>
+            <p id="request-access-description" className="mt-2 max-w-[360px] text-[13px] leading-relaxed text-white/45">
               Help us shape Gizu. Answer three quick questions to join the early access list.
             </p>
           </div>
           <button
+            type="button"
+            aria-label="Close request access"
             onClick={onClose}
             className="glass-soft flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white/50"
           >
@@ -73,8 +110,15 @@ export default function RequestAccess({
 
         <div className="mt-6 min-h-0 flex-1 space-y-7 overflow-y-auto pr-1">
           <section>
-            <div className="text-[14px] font-medium">Where should we send your invitation?</div>
+            <label htmlFor="request-access-email" className="text-[14px] font-medium">Where should we send your invitation?</label>
             <input
+              id="request-access-email"
+              name="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              disabled={submitting}
+              aria-describedby={error ? 'request-access-error' : undefined}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -93,6 +137,7 @@ export default function RequestAccess({
             <div className="mt-3 grid grid-cols-2 gap-2">
               {AMOUNTS.map((a) => (
                 <button
+                  type="button"
                   key={a}
                   onClick={() => setAmount(a)}
                   className={`rounded-2xl px-4 py-3 text-left text-[13px] ${
@@ -115,6 +160,7 @@ export default function RequestAccess({
             <div className="mt-3 flex flex-wrap gap-2">
               {PLATFORMS.map((p) => (
                 <button
+                  type="button"
                   key={p}
                   onClick={() => toggle(p)}
                   className={`rounded-full px-4 py-2.5 text-[13px] ${
@@ -126,6 +172,8 @@ export default function RequestAccess({
               ))}
             </div>
             <input
+              aria-label="Other investment platform"
+              maxLength={500}
               value={other}
               onChange={(e) => setOther(e.target.value)}
               placeholder="Other"
@@ -134,20 +182,24 @@ export default function RequestAccess({
           </section>
         </div>
 
-        <button
-          onClick={submit}
-          className="neon-btn mt-6 flex h-15 w-full shrink-0 items-center justify-center rounded-3xl py-5 text-[15px] font-semibold"
-        >
-          Request access
-        </button>
+        {error && <p id="request-access-error" role="alert" className="mt-4 text-[13px] text-red-300">{error}</p>}
+        <p className="mt-4 text-[11px] leading-relaxed text-white/40">We’ll use your email to contact you about Gizu access. Other answers are optional.</p>
 
-        <AnimatePresence>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="neon-btn mt-4 flex h-15 w-full shrink-0 items-center justify-center rounded-3xl py-5 text-[15px] font-semibold disabled:cursor-wait disabled:opacity-60"
+        >
+          {submitting ? 'Saving…' : 'Request access'}
+        </button>
+        </>}
+
           {sent && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-ink/95 backdrop-blur-xl"
+              className="flex min-h-0 flex-col items-center overflow-y-auto py-4"
+              role="status"
             >
               <motion.div
                 initial={{ scale: 0.4, opacity: 0 }}
@@ -157,13 +209,14 @@ export default function RequestAccess({
               >
                 <Check size={38} strokeWidth={2.2} className="text-neon" />
               </motion.div>
-              <div className="mt-7 font-mono text-[11px] uppercase tracking-[0.3em] text-neon/80">
+              <h2 id="request-access-title" className="mt-7 font-mono text-[11px] uppercase tracking-[0.3em] text-neon/80">
                 <Scramble text="you are on the list" />
-              </div>
+              </h2>
+              <p id="request-access-description" className="mt-4 max-w-[320px] px-4 text-center text-[14px] leading-relaxed text-white/60">We’ll email your invitation when access is ready.</p>
+              <button type="button" autoFocus onClick={onClose} className="neon-btn mt-6 rounded-2xl px-8 py-3 text-[14px] font-semibold">Done</button>
             </motion.div>
           )}
-        </AnimatePresence>
-      </motion.div>
-    </motion.div>
+      </motion.form>
+    </dialog>
   )
 }

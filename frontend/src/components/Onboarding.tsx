@@ -1,15 +1,16 @@
 import { motion } from 'framer-motion'
+import type { MouseEventHandler } from 'react'
 import { ArrowRight } from 'lucide-react'
 import GlitchText from './GlitchText'
 import GradientWaves from './GradientWaves'
 import BubbleUpButton from './BubbleUpButton'
 
 export default function Onboarding({
-  onStart,
+  onTestMobile,
   onRequestAccess,
 }: {
-  onStart: () => void
-  onRequestAccess: () => void
+  onTestMobile: MouseEventHandler<HTMLButtonElement>
+  onRequestAccess: MouseEventHandler<HTMLButtonElement>
 }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -97,8 +98,8 @@ export default function Onboarding({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.7 }}
           >
-            <BubbleUpButton onClick={onStart}>
-              Get started
+            <BubbleUpButton onClick={onTestMobile}>
+              Test On Mobile
               <ArrowRight size={18} strokeWidth={2.6} />
             </BubbleUpButton>
           </motion.div>

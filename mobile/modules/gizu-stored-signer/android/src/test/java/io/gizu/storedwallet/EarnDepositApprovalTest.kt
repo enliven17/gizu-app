@@ -172,6 +172,43 @@ class EarnDepositApprovalTest {
   }
 
   @Test
+  fun vaultLimitsTolerateGasMovingEitherWayBetweenReviewAndSigning() {
+    DepositFixtures.record().use { r ->
+      // The review is quoted at one gas price. Fee and reserve both scale with that price.
+      val preview =
+        JSONObject()
+          .put("depositAmount", "870000")
+          .put("depositFeeBudget", "10000")
+          .put("withdrawalReserve", "11000")
+          .put("minimumSharesAtoms", "860000")
+          .put("shareDecimals", 18)
+      val review = DepositFixtures.review(r).put("deposit", vaultApprovalBounds(preview))
+      val proof = DepositFixtures.prepared().put("minimumSharesAtoms", "860000")
+      // Each case is its own approval: a prepared child's terms are frozen once checked.
+      fun sign(fee: Int, reserve: Int) {
+        val a = EarnDepositApproval.fromReview(r, review)
+        a.approveAfterPasskey(1000)
+        a.recordCredit("source0", "990000")
+        a.recordPayout("source0", "hold", "99000")
+        a.recordPayout("source0", "invest", "891000")
+        val child = DepositFixtures.deposit(r)
+        child
+          .getJSONObject("proposal")
+          .put("maximumTokenFeeAtoms", fee.toString())
+          .put("withdrawalReserveAtoms", reserve.toString())
+          .put("amountAtoms", (891000 - fee - reserve).toString())
+        a.assertPrepared(r, "deposit", child, proof, 1002)
+      }
+      // Signing re-quotes both at a gas price 1% higher, then 1% lower.
+      sign(10100, 11110)
+      sign(9900, 10890)
+      // Beyond the approved band: fee above +25%, or reserve below 75%.
+      fails { sign(12501, 11000) }
+      fails { sign(10000, 8249) }
+    }
+  }
+
+  @Test
   fun immutableSignaturesAndLogicalChildMembershipPreventBudgetReuse() {
     DepositFixtures.record().use { r ->
       val a = EarnDepositApproval.fromReview(r, DepositFixtures.review(r))

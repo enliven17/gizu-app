@@ -32,7 +32,9 @@ jobs:
           cache-dependency-path: ${{ matrix.app }}/package-lock.json
       - name: Install locked dependencies
         run: npm ci
-      # Each build script runs TypeScript before Vite; neither app has a test suite yet.
+      - name: Test web flows
+        run: npm run test --if-present
+      # Each build script runs TypeScript before Vite.
       - name: Typecheck and build
         run: npm run build
       - name: Upload static build

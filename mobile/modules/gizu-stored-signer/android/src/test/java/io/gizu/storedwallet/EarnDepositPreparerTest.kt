@@ -154,7 +154,7 @@ class EarnDepositPreparerTest {
       assertEquals(51000, result.getJSONObject("review").getLong("quotedAtMs"))
       assertEquals(96000, result.getJSONObject("review").getLong("expiresAtMs"))
       assertEquals(
-        "820000",
+        "814750", // 820000 less 25% of the 21000 fee and reserve gas.
         result.getJSONObject("review").getJSONObject("deposit").getString("minimumAssetsAtoms"),
       )
       assertEquals(0, result.getJSONObject("children").length())
@@ -327,7 +327,7 @@ class EarnDepositPreparerTest {
       assertTrue(requests.all { !it.has("accounts") && !it.has("signedData") })
       assertEquals(45000, next.getJSONObject("review").getInt("expiresAtMs"))
       assertEquals(
-        "870000",
+        "864750", // Scaled with the gas-tolerant minimum assets.
         next.getJSONObject("review").getJSONObject("deposit").getString("minimumSharesAtoms"),
       )
       assertEquals(0, next.getJSONObject("children").length())

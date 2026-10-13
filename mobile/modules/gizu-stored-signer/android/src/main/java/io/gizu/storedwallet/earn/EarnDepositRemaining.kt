@@ -125,16 +125,7 @@ internal class EarnDepositRemaining(
       .put("fundingRows", rows)
       .put("reservation", reservation())
       .put("policyVersion", preview.getString("policyVersion"))
-    next.put(
-      "deposit",
-      JSONObject()
-        .put("estimatedAssetsAtoms", preview.getString("depositAmount"))
-        .put("minimumAssetsAtoms", preview.getString("depositAmount"))
-        .put("minimumSharesAtoms", preview.getString("minimumSharesAtoms"))
-        .put("shareDecimals", preview.getInt("shareDecimals"))
-        .put("maximumFeeAtoms", preview.getString("depositFeeBudget"))
-        .put("withdrawalReserveAtoms", preview.getString("withdrawalReserve")),
-    )
+    next.put("deposit", vaultApprovalBounds(preview))
     EarnDepositApproval.fromReview(record, next).invalidate()
     return journal.saveRemainingReview(id, revision, next)
   }

@@ -113,11 +113,17 @@ internal suspend fun reconcileEarnSponsoredOperations(
       )
       val canonical =
         chainRpc.call("eth_getBlockByNumber", JSONArray().put(number).put(false)) as JSONObject
+      // Like Swap, a Robinhood vault deposit counts from its canonical receipt; Robinhood's L1
+      // finality trails by ~17 minutes. Other operations keep waiting for finalized receipts.
+      val awaitFinality = !(p.getLong("chainId") == 4663L && p.getString("kind") == "hoodDeposit")
       val final =
-        chainRpc.call("eth_getBlockByNumber", JSONArray().put("finalized").put(false)) as JSONObject
+        if (awaitFinality)
+          chainRpc.call("eth_getBlockByNumber", JSONArray().put("finalized").put(false))
+            as JSONObject
+        else null
       if (
         earnHash(canonical.getString("hash")) != blockHash ||
-          quantity(final.getString("number")) < quantity(number)
+          final != null && quantity(final.getString("number")) < quantity(number)
       )
         op.put("status", "pending")
       else {
@@ -192,6 +198,10 @@ internal suspend fun reconcileEarnSponsoredOperations(
         val paid = charged - refunded
         check(paid.signum() >= 0 && paid <= p.getString("maximumTokenFeeAtoms").toBigInteger())
         op.put("actualTokenFeeAtoms", paid.toString()).put("transactionHash", txHash)
+        // Robinhood's public RPC serves no historical state, so post-receipt reads use the latest
+        // block there. These values change only through a later operation signed by this owner.
+        val stateBlock: Any =
+          if (p.getLong("chainId") == 4663L) "latest" else earnPinnedBlock(blockHash)
         if (p.getLong("chainId") == 4663L && succeeded) {
           val observed =
             chainRpc.call(
@@ -202,7 +212,7 @@ internal suspend fun reconcileEarnSponsoredOperations(
                     .put("to", HOOD_EARN_VAULT)
                     .put("data", "0x70a08231${earnAddressWord(owner)}")
                 )
-                .put(earnPinnedBlock(blockHash)),
+                .put(stateBlock),
             ) as String
           val shares = earnAbiWord(observed)
           if (p.getString("kind") == "hoodRedeemAll") op.put("residualShares", shares.toString())
@@ -214,15 +224,11 @@ internal suspend fun reconcileEarnSponsoredOperations(
             )
         }
         if (op.has("authorization")) {
-          val code =
-            chainRpc.call("eth_getCode", JSONArray().put(owner).put(earnPinnedBlock(blockHash)))
-              as String
+          val code = chainRpc.call("eth_getCode", JSONArray().put(owner).put(stateBlock)) as String
           check(code.equals("0xef0100" + EARN_IMPLEMENTATION.drop(2), true))
           val nonce =
-            chainRpc.call(
-              "eth_getTransactionCount",
-              JSONArray().put(owner).put(earnPinnedBlock(blockHash)),
-            ) as String
+            chainRpc.call("eth_getTransactionCount", JSONArray().put(owner).put(stateBlock))
+              as String
           check(quantity(nonce) > op.getJSONObject("authorization").getLong("nonce").toBigInteger())
         }
         val checked =
