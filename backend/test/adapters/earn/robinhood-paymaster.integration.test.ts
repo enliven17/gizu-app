@@ -208,3 +208,72 @@ test("installed Robinhood SDK threads verified storage overrides and corrects to
   );
   assert.ok(!JSON.stringify(result.operation).includes("offline-secret"));
 });
+
+test("parallel SDK preparations retain their own calldata and state overrides without submitting", async (t) => {
+  const mock = rpcMock();
+  t.mock.method(globalThis, "fetch", mock.fetcher);
+  const client = createPublicClient({
+    chain: robinhoodChain,
+    transport: http("https://offline-hood.invalid", { retryCount: 0 }),
+  });
+  const provider = await createRobinhoodPaymaster(
+    client,
+    owner,
+    "offline-secret",
+  );
+  const amounts = [500000n, 750000n];
+  const calls = await Promise.all(
+    amounts.map(
+      async (amount) =>
+        (await robinhoodCalls(client, owner, "deposit", amount, 2000n)).calls,
+    ),
+  );
+  const overrides = amounts.map((_, i) => [
+    {
+      address: usdg,
+      stateDiff: [
+        {
+          slot: ("0x" + String(i + 1).repeat(64)) as `0x${string}`,
+          value: ("0x" + "a".repeat(64)) as `0x${string}`,
+        },
+      ],
+    },
+  ]);
+  const results = await Promise.all(
+    calls.map((batch, i) =>
+      provider.prepare(
+        batch,
+        { maxFeePerGas: 2n, maxPriorityFeePerGas: 0n },
+        overrides[i],
+      ),
+    ),
+  );
+  for (let i = 0; i < results.length; i++) {
+    const decoded = decodeFunctionData({
+      abi: simpleAbi,
+      data: results[i]!.operation.callData,
+    });
+    assert.equal(decoded.functionName, "executeBatch");
+    if (decoded.functionName !== "executeBatch")
+      throw new Error("Expected batch");
+    assert.deepEqual(
+      decoded.args[0].slice(-calls[i]!.length).map((c) => c.data),
+      calls[i]!.map((c) => c.data),
+    );
+    const estimates = mock.estimateRequests.filter(
+      (params) => params[0].callData === results[i]!.operation.callData,
+    );
+    assert.ok(estimates.length > 0);
+    assert.ok(
+      estimates.every((params) =>
+        JSON.stringify(params[2]).includes(
+          overrides[i]![0]!.stateDiff[0]!.slot,
+        ),
+      ),
+    );
+    assert.equal(results[i]!.operation.nonce, "0x0");
+  }
+  assert.ok(
+    mock.methods.every((m) => !m.includes("send") && !m.includes("sign")),
+  );
+});

@@ -123,7 +123,7 @@ test("post-state trace merges exact changed slots and clears deleted slots witho
     ]),
   );
 });
-test("changing provider caps cannot freeze an oscillating amount or hide simulation failures", async () => {
+test("alternating fee caps converge using the largest observed caps and conservative reserves", async () => {
   let preparations = 0;
   const changing = {
     ...deps,
@@ -138,9 +138,33 @@ test("changing provider caps cannot freeze an oscillating amount or hide simulat
     changing,
     () => 1000000,
   );
-  await assert.rejects(p.plan({ owner, revision: 1, operationId: "cycle" }), {
-    code: "EARN_ROBINHOOD_PLAN_UNAVAILABLE",
-  });
+  const result = await p.plan({ owner, revision: 1, operationId: "cycle" });
+  assert.equal(result.depositQuoteCap, "200");
+  assert.equal(result.withdrawalQuoteCap, "200");
+  assert.equal(result.depositFeeBudget, "210");
+  assert.equal(result.withdrawalReserve, "520");
+  assert.equal(result.depositAmount, "999270");
+  assert.equal(preparations, 7);
+});
+test("unbounded fee increases and simulation failures still fail closed", async () => {
+  let increasing = 100n;
+  const growing = new RobinhoodDepositPlanner(
+    { rpcUrl: "http://rpc.invalid" },
+    {
+      ...deps,
+      prepare: async () => ({
+        ...(await deps.prepare()),
+        feeCap: increasing++,
+      }),
+    },
+    () => 1000000,
+  );
+  await assert.rejects(
+    growing.plan({ owner, revision: 1, operationId: "cycle" }),
+    {
+      code: "EARN_ROBINHOOD_PLAN_UNAVAILABLE",
+    },
+  );
   const failed = new RobinhoodDepositPlanner(
     { rpcUrl: "https://server-key.invalid" },
     {
@@ -159,6 +183,24 @@ test("changing provider caps cannot freeze an oscillating amount or hide simulat
       "code" in e &&
       e.code === "EARN_ROBINHOOD_PLAN_UNAVAILABLE",
   );
+});
+test("final fee drift inside the approved headroom retains the conservative reserve basis", async () => {
+  let preparations = 0;
+  const p = new RobinhoodDepositPlanner(
+    { rpcUrl: "http://rpc.invalid" },
+    {
+      ...deps,
+      prepare: async () => ({
+        ...(await deps.prepare()),
+        feeCap: ++preparations === 5 ? 101n : 100n,
+      }),
+    },
+    () => 1000000,
+  );
+  const result = await p.plan({ owner, revision: 1, operationId: "cycle" });
+  assert.equal(result.depositQuoteCap, "100");
+  assert.equal(result.depositFeeBudget, "105");
+  assert.equal(result.depositAmount, "999635");
 });
 test("unsigned USDG proposal removes SDK signature and authorization placeholders", async () => {
   const result = await new RobinhoodDepositPlanner(

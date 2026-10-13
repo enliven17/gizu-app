@@ -18,6 +18,7 @@ private constructor(
   private val cycleIndex: Int,
   private val registry: String,
   private val entries: Map<String, Entry>,
+  private val allowUnsignedRefresh: Boolean,
 ) {
   val digest = fundingBatchDigest(manifestJson)
   private var approvedAt: Long? = null
@@ -29,6 +30,8 @@ private constructor(
     val allowed: Boolean,
     var authorization: String?,
     var signed: String?,
+    var currentProposal: String = proposal,
+    var currentUnsigned: String = unsigned,
   )
 
   companion object {
@@ -42,6 +45,7 @@ private constructor(
       batchId: String,
       roleRegistry: String,
       ledgerBatch: JSONObject,
+      allowUnsignedRefresh: Boolean = false,
     ): EarnFundingBatchApproval {
       check(
         rows.size in 1..256 && cycleIndex >= 0 && walletId.isNotBlank() && generation.isNotBlank()
@@ -176,9 +180,18 @@ private constructor(
             .put("fundingBatchId", batchId)
             .put("roleRegistry", JSONObject(registry))
             .put("children", children)
+            .put("sourceRefreshWithinLimits", allowUnsignedRefresh)
         )
       check(manifest.toByteArray(Charsets.UTF_8).size <= 3 * 1024 * 1024)
-      return EarnFundingBatchApproval(manifest, walletId, generation, cycleIndex, registry, entries)
+      return EarnFundingBatchApproval(
+        manifest,
+        walletId,
+        generation,
+        cycleIndex,
+        registry,
+        entries,
+        allowUnsignedRefresh,
+      )
     }
   }
 
@@ -217,10 +230,31 @@ private constructor(
         !row.optBoolean("signingPending") &&
         row.getString("status") !in terminalSteps
     )
-    check(
-      fundingBatchCanonical(p) == entry.proposal &&
-        fundingBatchCanonical(row.getJSONObject("unsignedUserOperation")) == entry.unsigned
-    ) {
+    val proposal = fundingBatchCanonical(p)
+    val unsigned = row.getJSONObject("unsignedUserOperation")
+    val original = fundingBatchCanonical(unsigned)
+    if (allowUnsignedRefresh && entry.signed == null && !row.sponsoredSpendSaved()) {
+      fun scope(json: JSONObject): String =
+        fundingBatchCanonical(
+          JSONObject(json.toString()).also {
+            for (field in listOf("revision", "nonce", "deadline", "quoteId", "recipient")) it
+              .remove(field)
+          }
+        )
+      check(scope(p) == scope(JSONObject(entry.proposal))) { "Approved source limits changed" }
+      check(p.getLong("revision") >= JSONObject(entry.currentProposal).getLong("revision"))
+      check(
+        unsigned.getString("sender").equals(p.getString("expectedFrom"), true) &&
+          quantity(unsigned.getString("nonce")) == quantity(p.getString("nonce"))
+      )
+      check(
+        (!unsigned.has("signature") || unsigned.getString("signature") == "0x") &&
+          !unsigned.has("eip7702Auth")
+      )
+      entry.currentProposal = proposal
+      entry.currentUnsigned = original
+    }
+    check(proposal == entry.currentProposal && original == entry.currentUnsigned) {
       "Saved funding terms changed after batch approval"
     }
     // Mutable journal revisions and delegationSaved do not change approved spending terms.

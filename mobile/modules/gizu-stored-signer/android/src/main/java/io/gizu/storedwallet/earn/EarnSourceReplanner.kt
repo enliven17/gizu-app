@@ -73,6 +73,28 @@ internal class EarnSourceReplanner(
     )
     check(old.getString("withdrawalReserveAtoms") == "10000")
     val budget = sourceAtoms(old.getString("budgetAtoms"))
+    // Only the deposit adapter supplies these limits from its in-memory passkey grant.
+    // The annotation is a private copy, never a persisted or JavaScript-provided proposal.
+    val limits = op.optJSONObject("fundingApprovalLimits")
+    if (limits != null) {
+      check(
+        limits.keys().asSequence().toSet() ==
+          setOf("amountAtoms", "maximumFeeAtoms", "minimumCreditAtoms")
+      )
+      check(
+        limits.getString("amountAtoms") == old.getString("amountAtoms") &&
+          limits.getString("maximumFeeAtoms") == old.getString("maximumTokenFeeAtoms")
+      )
+      check(
+        sourceAtoms(limits.getString("minimumCreditAtoms")) in
+          BigInteger.ONE..sourceAtoms(limits.getString("amountAtoms"))
+      )
+      check(
+        sourceAtoms(limits.getString("amountAtoms")) +
+          sourceAtoms(limits.getString("maximumFeeAtoms")) +
+          BigInteger.valueOf(10000) <= budget
+      )
+    }
     check(budget > BigInteger.valueOf(10010))
     val state = stateReader(old)
     check(state.owner.equals(owner, true) && sourceAtoms(state.tokenBalanceAtoms) >= budget)
@@ -106,7 +128,13 @@ internal class EarnSourceReplanner(
       )
     }
     val reserve = BigInteger.valueOf(10000)
-    var amount = budget - fees(confidential, "1").cap - reserve
+    val probeCap = fees(confidential, "1").cap
+    if (limits != null)
+      check(probeCap <= sourceAtoms(limits.getString("maximumFeeAtoms"))) {
+        "Funding fee exceeds the approved limit"
+      }
+    var amount =
+      limits?.let { sourceAtoms(it.getString("amountAtoms")) } ?: (budget - probeCap - reserve)
     var nextRevision = Math.addExact(old.getInt("revision"), 1)
     for (attempt in 1..4) {
       check(amount >= BigInteger.TEN) {
@@ -149,10 +177,21 @@ internal class EarnSourceReplanner(
       earnHash(quote.getString("quoteId"))
       earnAddressWord(quote.getString("recipient"))
       check(sourceAtoms(quote.getString("minimumCreditAtoms")) > BigInteger.ZERO)
+      if (limits != null)
+        check(
+          sourceAtoms(quote.getString("minimumCreditAtoms")) >=
+            sourceAtoms(limits.getString("minimumCreditAtoms"))
+        ) {
+          "Funding credit fell below the approved minimum"
+        }
       check(quote.getLong("expiresAt") > clock + 15 && quote.getLong("expiresAt") <= clock + 600)
       // Qualification is performed by NativeEarnQuoteGateway over native TLS.
       check(quote.getInt("providerFeeBps") in 0..100)
       val finalFees = fees(quote.getString("recipient"), amount.toString())
+      if (limits != null)
+        check(finalFees.cap <= sourceAtoms(limits.getString("maximumFeeAtoms"))) {
+          "Funding fee exceeds the approved limit"
+        }
       if (amount + finalFees.cap + reserve <= budget) {
         check(quote.getLong("expiresAt") > now() / 1000 + 15 && finalFees.expiresAtMs > now()) {
           "Fresh funding terms expired during preparation"
@@ -165,7 +204,10 @@ internal class EarnSourceReplanner(
             .put("refundOwner", owner)
             .put("confidentialAccount", confidential)
             .put("amountAtoms", amount.toString())
-            .put("maximumTokenFeeAtoms", finalFees.cap.toString())
+            .put(
+              "maximumTokenFeeAtoms",
+              limits?.getString("maximumFeeAtoms") ?: finalFees.cap.toString(),
+            )
             .put("nonce", finalFees.operation.getString("nonce"))
             .put("deadline", minOf(quote.getLong("expiresAt"), now() / 1000 + 180))
             .put("recipient", quote.getString("recipient"))
@@ -276,7 +318,8 @@ private fun parseSourceReplanFees(
 private fun sourceReplanFeeCap(op: JSONObject, now: Long): BigInteger {
   val raw = op.getString("paymasterData").removePrefix("0x").lowercase()
   check(
-    raw.length == 364 &&
+    // 118-byte direct-token config plus a 64-byte compact or 65-byte full signature.
+    raw.length in setOf(364, 366) &&
       raw.take(2) in setOf("02", "03") &&
       raw.substring(2, 4) == "00" &&
       ("0x" + raw.substring(28, 68)).equals(MONAD_EARN_USDC, true)

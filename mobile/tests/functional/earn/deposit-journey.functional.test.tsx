@@ -109,6 +109,45 @@ test("amount, unsigned review, one confirm and verified investment have no child
   expect(screen.getByText("0.29 USDG held")).toBeVisible();
   expect(screen.getByText("2.498 USDG invested")).toBeVisible();
 });
+test("shows the indicative 10/90 split while fees are prepared and cannot confirm it", async () => {
+  jest.useFakeTimers();
+  const pending = deferred<DepositSnapshot>();
+  const partial = {
+    ...ready(),
+    phase: "preparing",
+    review: undefined,
+    indicativeReview: {
+      quotedAtMs: Date.now(),
+      sourceBudgetAtoms: "3000000",
+      holdEstimatedAtoms: "290000",
+      investEstimatedAtoms: "2650000",
+      sourceMaximumFeeAtoms: "10000",
+    },
+  } as DepositSnapshot;
+  const view = setup({
+    prepare: jest.fn().mockReturnValue(pending.promise),
+    status: jest.fn().mockResolvedValue(partial),
+  });
+  try {
+    const user = await review();
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(screen.getByText("Estimated 10% held: 0.29 USDG")).toBeVisible();
+    expect(screen.getByText("Estimated 90% before vault fees: 2.65 USDG")).toBeVisible();
+    expect(screen.getByText(/Calculating vault fees and the withdrawal reserve/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Confirm deposit" })).toBeNull();
+    expect(view.service.confirm).not.toHaveBeenCalled();
+    await act(async () => pending.resolve(ready()));
+    expect(screen.getByText("At least 2.495 USDG invested")).toBeVisible();
+    await user.press(screen.getByRole("button", { name: "Confirm deposit" }));
+    expect(view.service.confirm).toHaveBeenCalledTimes(1);
+  } finally {
+    view.unmount();
+    pending.resolve(ready());
+    jest.useRealTimers();
+  }
+});
 test("late preparation cannot authorize an edited amount; the same draft is reused", async () => {
   const pending = deferred<DepositSnapshot>();
   const prepare = jest.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(ready());
@@ -127,6 +166,25 @@ test("late preparation cannot authorize an edited amount; the same draft is reus
     "deposit_1",
   );
 });
+test("leaving during preparation cancels its native draft before a final review returns", async () => {
+  const pending = deferred<DepositSnapshot>();
+  const partial = { ...ready(), phase: "preparing", review: undefined } as DepositSnapshot;
+  const { service, navigation, unmount } = setup({
+    prepare: jest.fn().mockReturnValue(pending.promise),
+    status: jest.fn().mockResolvedValue(partial),
+  });
+  try {
+    await review();
+    act(() => navigation.navigate("Other" as never));
+    await waitFor(() =>
+      expect(service.cancel).toHaveBeenCalledWith(expect.anything(), "deposit_1", 1),
+    );
+    expect(service.confirm).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => pending.resolve(ready()));
+    unmount();
+  }
+});
 test("unavailable preview explains why and never requests signing", async () => {
   const { service } = setup({
     prepare: jest.fn().mockResolvedValue({
@@ -140,6 +198,60 @@ test("unavailable preview explains why and never requests signing", async () => 
   expect(await screen.findByText(/fresh fee estimate is unavailable/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "Confirm deposit" })).toBeNull();
   expect(service.confirm).not.toHaveBeenCalled();
+});
+test("returning after cancelled preparation can review again using the same draft", async () => {
+  const pending = deferred<DepositSnapshot>();
+  const partial = { ...ready(), phase: "preparing", review: undefined } as DepositSnapshot;
+  const cancelled = {
+    ...partial,
+    revision: 2,
+    phase: "paused",
+    pauseReason: "cancelled",
+  } as DepositSnapshot;
+  const prepare = jest.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(ready());
+  const { service, navigation } = setup({
+    prepare,
+    status: jest.fn().mockResolvedValue(partial),
+    cancel: jest.fn().mockResolvedValue(cancelled),
+  });
+  const user = await review();
+  await waitFor(() => expect(service.status).toHaveBeenCalled(), { timeout: 2000 });
+  act(() => navigation.navigate("Other" as never));
+  await waitFor(() => expect(service.cancel).toHaveBeenCalled());
+  await act(async () => pending.resolve(cancelled));
+  act(() => navigation.goBack());
+  const retry = await screen.findByRole("button", { name: "Review deposit" });
+  expect(retry).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Review remaining steps" })).toBeNull();
+  await user.press(retry);
+  expect(prepare).toHaveBeenLastCalledWith(
+    expect.anything(),
+    "robinhood-usdg",
+    "3000000",
+    "deposit_1",
+  );
+  expect(service.resume).not.toHaveBeenCalled();
+  expect(service.confirm).not.toHaveBeenCalled();
+});
+test("an expired unsigned preparation without a review can be prepared again", async () => {
+  const row = {
+    ...ready(),
+    phase: "paused",
+    pauseReason: "approvalExpired",
+    review: undefined,
+  } as DepositSnapshot;
+  const { service } = setup({ status: jest.fn().mockResolvedValue(row) }, "deposit_1");
+  await screen.findByText(/Approval ended/);
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText("USDC deposit amount"), "3");
+  await user.press(screen.getByRole("button", { name: "Review deposit" }));
+  expect(service.prepare).toHaveBeenLastCalledWith(
+    expect.anything(),
+    "robinhood-usdg",
+    "3000000",
+    "deposit_1",
+  );
+  expect(service.resume).not.toHaveBeenCalled();
 });
 test("saved partially completed deposit resumes rather than allocating another pair", async () => {
   const row = {

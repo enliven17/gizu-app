@@ -1053,7 +1053,9 @@ fn ceil(n: U256, d: U256) -> Result<U256, SignerError> {
 }
 fn fee_cap(op: &UserOp, token: &str) -> Result<U256, SignerError> {
     let data = bytes(&op.paymaster_data, 4096)?;
-    if data.len() != 182
+    // Pimlico's 118-byte direct-token config accepts compact (64) or full (65)
+    // signatures. Preserve the complete payload when hashing/signing the UserOp.
+    if ![182, 183].contains(&data.len())
         || ![2, 3].contains(&data[0])
         || data[1] != 0
         || Address::from_slice(&data[14..34]) != addr(token)?
@@ -1696,10 +1698,34 @@ mod tests {
         }
     }
     #[test]
+    fn direct_token_paymaster_supports_compact_and_full_signatures_only() {
+        for mode in [2u8, 3] {
+            for length in [182usize, 183] {
+                let mut rpc = op();
+                let mut data =
+                    alloy_primitives::hex::decode(rpc["paymasterData"].as_str().unwrap()).unwrap();
+                data[0] = mode;
+                data.resize(length, 0);
+                rpc["paymasterData"] = json!(alloy_primitives::hex::encode_prefixed(data));
+                let parsed: UserOp = serde_json::from_value(rpc).unwrap();
+                assert!(fee_cap(&parsed, SOURCE_TOKEN).is_ok());
+            }
+        }
+        for length in [181usize, 184] {
+            let mut rpc = op();
+            let mut data =
+                alloy_primitives::hex::decode(rpc["paymasterData"].as_str().unwrap()).unwrap();
+            data.resize(length, 0);
+            rpc["paymasterData"] = json!(alloy_primitives::hex::encode_prefixed(data));
+            let parsed: UserOp = serde_json::from_value(rpc).unwrap();
+            assert!(fee_cap(&parsed, SOURCE_TOKEN).is_err());
+        }
+    }
+    #[test]
     fn paymaster_extra_bytes_and_ceil_fee_budget_fail_closed() {
         let p = proposal();
         let mut rpc = op();
-        let d = rpc["paymasterData"].as_str().unwrap().to_owned() + "00";
+        let d = rpc["paymasterData"].as_str().unwrap().to_owned() + "0000";
         rpc["paymasterData"] = json!(d);
         let o = SponsoredEarnOperation::new(p.to_string(), vec![0; 32]).unwrap();
         assert!(

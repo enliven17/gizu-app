@@ -402,3 +402,102 @@ The following can be sent by the operator to Aurora; no message was sent by this
 New native funding/return signatures save an authenticated balance baseline before submission. Each funding source waits for successful route status and a credit delta bounded by its saved quote; only then can the next source sign. Portable sealed credit attestations allow both 10/90 payouts and recovery after private funds are spent. Payout reconciliation verifies the exact saved signed intent, successful route, and finalized token-transfer receipts; the same receipt cannot fund two allocations to the same recipient. Investment still stops at the vault deposit; withdrawal remains a separate user action with fresh recipient addresses.
 
 The inspected zero-Gizu portal configuration and observed fee/referral allowlist are checked into the backend. `EARN_AURORA_FEE_QUALIFICATION_JSON` is now an optional override, and current native clients do not require `EARN_AURORA_HISTORY_QUALIFIED=true`. Legacy signed journals without baselines retain their original reconciliation requirements. Deploy the backend and install the matching APK; preserve the recovery key and configure the owned Robinhood RPC. No transactions were sent to qualify this implementation.
+
+### Source review: supported paymaster signature lengths
+
+The deployed funding plan returned HTTP 200, but phone diagnostics identified
+`sources / VALIDATION / EarnSourceReplanner.kt:278`. Its direct-token paymaster
+payload was 183 bytes; both the Android replanner and Rust Earn signer accepted
+only 182. Pimlico's [official decoder](https://github.com/pimlicolabs/singleton-paymaster/blob/master/src/base/BaseSingletonPaymaster.sol)
+supports a 118-byte configuration followed by a 64-byte compact or 65-byte full
+signature. Both Earn parsers now accept exactly 182 or 183 bytes, preserve the
+complete signature, and retain the existing mode, flags, token, expiry and fee
+checks. Unsupported lengths still fail closed. Research already accepted both
+sizes; no provider setting or fee-policy change is needed for this correction.
+
+Regression tests failed before the parser changes and pass afterward. The full
+Android suite passes 280 tests and the Rust suite passes 149 tests. The standalone
+Render-targeted APK built and was installed with `adb install -r`, preserving
+wallet data. These checks do not establish successful mainnet execution; no
+spending signature or transaction was sent.
+
+### Vault preview request timing
+
+After the operator deployed the owned Alchemy Robinhood RPC, two read-only Render
+previews returned HTTP 200 in 17.6 and 46.7 seconds. The phone's remaining failure
+was `vault-preview / TIMEOUT`, with the default native 20-second read timeout.
+The exact hosted or USB vault-preview endpoint now uses a 60-second read timeout
+and 70-second overall call timeout; ordinary RPC calls retain 20/30 seconds.
+Redirect and automatic connection retry remain disabled. Quote expiry and native
+review freshness validation are unchanged: a late response cannot authorize stale
+terms. A preview taking more than 60 seconds can still time out. Final review
+timestamps start when preparation completes and retain the earliest real provider
+expiry; aging payout and vault terms are freshly requested. No success claim for the
+full deposit lifecycle follows from these unsigned preview checks.
+
+The planner repeats complete deposit/redemption simulations while converging on
+the deposit amount and conservative fee/reserve budgets. A stable offline fixture
+requires two simulations and five paymaster preparations. Live profiling with the
+owned RPC observed 20 stub requests and 15 bundler gas estimates for those five
+preparations. Their provider round trips, repeated simulation work and additional
+convergence passes explain why this is slower than a vault view call.
+
+Deposit and redemption sponsorship preparations now overlap: both are unsigned,
+use their own exact calls/storage overrides, and share the pinned state and fee
+ceiling. The final deposit preparation, state/fee checks and reserve calculations
+remain required. A local parallel sample completed in 20.5 seconds (two simulations,
+five preparations); a subsequent sequential sample took 33.8 seconds (three
+simulations, seven preparations). Different convergence counts prevent treating
+these samples as a guaranteed speedup. The backend suite passes 240 tests with
+three optional fork tests skipped; SDK integration coverage verifies parallel
+requests retain separate calldata, overrides and lane-zero nonce without signing
+or submitting. Deploy the backend scheduling change separately from installing
+the APK's extended preview read limit. Do not extend quote/review validity merely
+to accept a one-minute provider response.
+
+### Swap-style Earn preparation
+
+Earn keeps the existing coordinator, source planner and signing engines. The
+existing deposit page now shows verified, non-authorizing indicative held and
+investment amounts while exact vault fees and reserves are prepared. Only a
+complete fresh native review enables confirmation and its single bounded passkey
+approval. No new page or coordinator is introduced; withdrawals remain a separate
+user action.
+
+Hold/invest payout reads overlap. The backend retains the maximum observed
+deposit and withdrawal fee caps during convergence, preserving the 105% deposit
+fee ceiling and 260% withdrawal reserve. Final fee preparation must fit those
+bounds. This avoids chasing alternating smaller quotes without inventing fees or
+reducing reserves. Aging payout minima trigger new quotes and a vault calculation
+using their updated amounts, with a maximum of three vault attempts.
+
+New native deposit reviews permit later unsigned funding children to refresh
+their nonce, deadline, quote ID and bridge deposit address within the exact
+reviewed source identity, amount, fee ceiling and minimum confidential credit.
+This authority lives only in the current native grant; old reviews and standalone
+funding batches retain strict canonical matching. Quote validation, native calldata
+validation and authenticated settlement remain required, and durable signed bytes
+cannot be replaced. No Swap tolerance is silently added to the reviewed limits.
+
+Preparation publishes only public progress fields through the existing native
+status method. That status read can run during preparation; signing mutations
+remain serialized. Session changes, backgrounding and navigation discard late
+progress and cancel the matching unsigned draft, including before its first poll.
+
+An unsigned live diagnostic against the owned RPC completed in 44.2 seconds with
+two simulations and five paymaster preparations. Its first fork simulation took
+24.3 seconds and its second 1.5 seconds. This later sample confirms provider
+variability; it does not establish a guaranteed improvement over the earlier
+20.5/33.8-second samples. Submission methods were blocked and no mainnet spending
+signature or transaction was sent. Deploy the backend optimization and install the
+updated native APK separately before the funded device test.
+
+Final optimization verification: 242 backend tests passed with three optional
+fork tests skipped; 287 native Android tests and the complete 736-test mobile
+suite passed. Type checks, mobile lint and the standalone release build passed.
+Independent review found an unsigned-cancellation retry dead end; navigation and
+expired-draft regressions reproduced it before the fix. Those drafts can now
+prepare again using the same pair, while deposits with saved funded progress
+retain remaining-step recovery. The Render-targeted APK was installed with
+`adb install -r` and opened on the connected phone. Backend deployment and the
+user-authorized funded execution test remain separate steps.

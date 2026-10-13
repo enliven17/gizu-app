@@ -155,6 +155,7 @@ private constructor(
           reservation.getString("id"),
           record.roleRegistry,
           reservation,
+          allowUnsignedRefresh = review.optBoolean("sourceRefreshWithinLimits", false),
         )
       return EarnDepositApproval(
         record.id,
@@ -301,11 +302,28 @@ private constructor(
     }
     val key = "$stage:$id"
     val canonical = depositCanonical(p)
-    check(proposals[key] == null || proposals[key] == canonical) {
+    check(
+      proposals[key] == null ||
+        proposals[key] == canonical ||
+        (stage == "funding" &&
+          review.optBoolean("sourceRefreshWithinLimits", false) &&
+          signatures[key] == null &&
+          !child.sponsoredSpendSaved())
+    ) {
       "Prepared deposit child terms changed"
     }
     logicalChildren[logical] = id
     proposals[key] = canonical
+  }
+
+  /** Exact original limits for refreshing unsigned source terms, never a new source allocation. */
+  fun fundingRefreshLimits(sourceId: String): JSONObject? {
+    if (!review.optBoolean("sourceRefreshWithinLimits", false)) return null
+    val source = sources.single { it.getString("operationId") == sourceId }
+    return JSONObject()
+      .put("amountAtoms", source.getString("amountAtoms"))
+      .put("maximumFeeAtoms", source.getString("maximumFeeAtoms"))
+      .put("minimumCreditAtoms", source.getString("minimumCreditAtoms"))
   }
 
   /** Called only with independently authenticated, operation-specific native journal evidence. */

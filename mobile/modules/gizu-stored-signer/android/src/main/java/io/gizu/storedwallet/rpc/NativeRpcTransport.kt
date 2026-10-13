@@ -32,6 +32,15 @@ internal class NativeRpcTransport(
       .readTimeout(20, TimeUnit.SECONDS)
       .writeTimeout(10, TimeUnit.SECONDS)
       .callTimeout(30, TimeUnit.SECONDS)
+      .apply {
+        // The read-only vault preview includes mainnet fork and paymaster calculations.
+        if (
+          endpoint == EARN_NATIVE_BACKEND.removeSuffix("/native") + "/robinhood/deposit-preview"
+        ) {
+          readTimeout(60, TimeUnit.SECONDS)
+          callTimeout(70, TimeUnit.SECONDS)
+        }
+      }
       .build(),
 ) {
   suspend fun post(payload: String): String {

@@ -5,6 +5,47 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EarnDepositApprovalTest {
+  @Test
+  fun optedInUnsignedFundingRefreshPreservesCapsAndFreezesSavedSignatures() {
+    DepositFixtures.record().use { r ->
+      val review = DepositFixtures.review(r).put("sourceRefreshWithinLimits", true)
+      val a = EarnDepositApproval.fromReview(r, review)
+      a.approveAfterPasskey(1000)
+      val old = DepositFixtures.funding(r)
+      a.assertPrepared(r, "funding", old, DepositFixtures.prepared(), 1001)
+      val refreshed = DepositFixtures.funding(r)
+      refreshed
+        .getJSONObject("proposal")
+        .put("revision", 2)
+        .put("nonce", "0x1")
+        .put("deadline", 20000)
+        .put("quoteId", "new-quote")
+        .put("recipient", "0x" + "9".repeat(40))
+      refreshed.getJSONObject("unsignedUserOperation").put("nonce", "0x1").put("callData", "0xcd")
+      a.assertPrepared(r, "funding", refreshed, DepositFixtures.prepared(), 1002)
+      for (field in
+        listOf(
+          "amountAtoms",
+          "maximumTokenFeeAtoms",
+          "expectedFrom",
+          "budgetAtoms",
+          "token",
+          "confidentialAccount",
+        )) {
+        val changed = JSONObject(refreshed.toString())
+        changed.getJSONObject("proposal").put(field, "changed")
+        fails { a.assertPrepared(r, "funding", changed, DepositFixtures.prepared(), 1003) }
+      }
+      refreshed.put("signedUserOperation", "exact-signed-bytes").put("status", "signed")
+      a.assertPrepared(r, "funding", refreshed, DepositFixtures.prepared(), 1004)
+      a.recordDurableSignature("funding", "source0", "signed-hash")
+      val changed = JSONObject(refreshed.toString())
+      changed.getJSONObject("proposal").put("revision", 3).put("deadline", 21000)
+      fails { a.assertPrepared(r, "funding", changed, DepositFixtures.prepared(), 1005) }
+      fails { a.assertPrepared(r, "funding", old, DepositFixtures.prepared(), 1005) }
+    }
+  }
+
   private fun fails(action: () -> Unit) {
     assertThrows(IllegalStateException::class.java, action)
   }

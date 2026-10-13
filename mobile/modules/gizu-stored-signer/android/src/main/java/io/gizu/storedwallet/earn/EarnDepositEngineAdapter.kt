@@ -44,6 +44,17 @@ internal class EarnDepositEngineAdapter(
       EarnSponsoredChainRpc(chain),
       EarnSponsoredBundlerRpc(chain),
       reservations = record { fundingReservations(context, it) },
+      sourceReplanner = { record, row ->
+        val annotated = JSONObject(row.toString())
+        executionGrant?.let { grant ->
+          foreground()
+          grant.assertRead(record, now())
+          grant.fundingRefreshLimits(row.getString("operationId"))?.let {
+            annotated.put("fundingApprovalLimits", it)
+          }
+        }
+        EarnSourceReplanner(earnQuoteJournal(context, record)).replan(record, annotated)
+      },
     )
 
   private fun batch(sourceId: String): List<JSONObject> {

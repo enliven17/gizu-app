@@ -3,6 +3,37 @@ import { hoodIntent } from "../../support/robinhoodEarn";
 
 const owner = { walletId: hoodIntent.walletId };
 const now = 1_800_000_000_000;
+test("indicative preparation amounts are decoded without creating signing authority", () => {
+  const raw = {
+    ...snapshot(),
+    phase: "preparing",
+    review: undefined,
+    indicativeReview: {
+      quotedAtMs: now,
+      sourceBudgetAtoms: "3000000",
+      holdEstimatedAtoms: "290000",
+      investEstimatedAtoms: "2650000",
+      sourceMaximumFeeAtoms: "10000",
+      fundingRows: ["private"],
+    },
+  };
+  const parsed = parseDepositSnapshot(raw, owner);
+  expect(parsed.indicativeReview?.holdEstimatedAtoms).toBe("290000");
+  expect(parsed.indicativeReview).not.toHaveProperty("fundingRows");
+  expect(canConfirmDeposit(parsed, now)).toBe(false);
+  expect(() =>
+    parseDepositSnapshot(
+      { ...raw, indicativeReview: { ...raw.indicativeReview, sourceBudgetAtoms: "4000000" } },
+      owner,
+    ),
+  ).toThrow();
+  expect(() =>
+    parseDepositSnapshot(
+      { ...raw, indicativeReview: { ...raw.indicativeReview, sourceMaximumFeeAtoms: "3000001" } },
+      owner,
+    ),
+  ).toThrow();
+});
 function snapshot() {
   return {
     version: 1,
