@@ -420,3 +420,36 @@ Android suite passes 280 tests and the Rust suite passes 149 tests. The standalo
 Render-targeted APK built and was installed with `adb install -r`, preserving
 wallet data. These checks do not establish successful mainnet execution; no
 spending signature or transaction was sent.
+
+### Vault preview request timing
+
+After the operator deployed the owned Alchemy Robinhood RPC, two read-only Render
+previews returned HTTP 200 in 17.6 and 46.7 seconds. The phone's remaining failure
+was `vault-preview / TIMEOUT`, with the default native 20-second read timeout.
+The exact hosted or USB vault-preview endpoint now uses a 30-second read timeout
+and 40-second overall call timeout; ordinary RPC calls retain 20/30 seconds.
+Redirect and automatic connection retry remain disabled. Quote expiry and native
+review freshness validation are unchanged: a late response cannot authorize stale
+terms. A preview taking more than 30 seconds can still time out, and preparation
+taking longer than its review window must be refreshed. No success claim for the
+full deposit lifecycle follows from these unsigned preview checks.
+
+The planner repeats complete deposit/redemption simulations while converging on
+the deposit amount and conservative fee/reserve budgets. A stable offline fixture
+requires two simulations and five paymaster preparations. Live profiling with the
+owned RPC observed 20 stub requests and 15 bundler gas estimates for those five
+preparations. Their provider round trips, repeated simulation work and additional
+convergence passes explain why this is slower than a vault view call.
+
+Deposit and redemption sponsorship preparations now overlap: both are unsigned,
+use their own exact calls/storage overrides, and share the pinned state and fee
+ceiling. The final deposit preparation, state/fee checks and reserve calculations
+remain required. A local parallel sample completed in 20.5 seconds (two simulations,
+five preparations); a subsequent sequential sample took 33.8 seconds (three
+simulations, seven preparations). Different convergence counts prevent treating
+these samples as a guaranteed speedup. The backend suite passes 240 tests with
+three optional fork tests skipped; SDK integration coverage verifies parallel
+requests retain separate calldata, overrides and lane-zero nonce without signing
+or submitting. Deploy the backend scheduling change separately from installing
+the APK's 30-second preview read limit. Do not extend quote/review validity merely
+to accept a one-minute provider response.

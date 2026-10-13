@@ -372,17 +372,20 @@ export class RobinhoodDepositPlanner {
           this.now() >= Number(state.block.timestamp) * 1000 + 60000
         )
           throw new Error("Insufficient or stale USDG budget");
-        const simulation = await providers.simulate(state, amount),
-          deposit = await providers.prepare(
+        const simulation = await providers.simulate(state, amount);
+        // Both preparations are read-only and use the same pinned simulation and fee ceiling.
+        const [deposit, withdrawal] = await Promise.all([
+          providers.prepare(
             simulation.depositCalls,
             fees,
             simulation.fundingOverride,
           ),
-          withdrawal = await providers.prepare(
+          providers.prepare(
             simulation.withdrawalCalls,
             fees,
             simulation.stateOverride,
-          );
+          ),
+        ]);
         const depositFeeBudget = ceilDiv(deposit.feeCap * 105n, 100n),
           withdrawalReserve = ceilDiv(withdrawal.feeCap * 260n, 100n),
           next = state.token - depositFeeBudget - withdrawalReserve;

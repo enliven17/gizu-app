@@ -10,6 +10,29 @@ const request = {
   operationId: "preview_1",
   revision: 1,
 };
+test("independent deposit and redemption fee estimates overlap without changing reserve math", async () => {
+  const events: string[] = [];
+  const providers = {
+    ...deps,
+    readState: async () => ({ ...state, token: 0n }),
+    prepare: async () => {
+      events.push("started");
+      await Promise.resolve();
+      events.push("finished");
+      return deps.prepare();
+    },
+  };
+  const result = await new RobinhoodDepositPreviewPlanner(
+    { rpcUrl: "http://rpc.invalid" },
+    providers,
+    () => 1000000,
+  ).preview(request);
+  assert.deepEqual(events.slice(0, 2), ["started", "started"]);
+  assert.equal(result.depositAmount, "999635");
+  assert.equal(result.depositFeeBudget, "105");
+  assert.equal(result.withdrawalReserve, "260");
+  assert.equal(events.filter((v) => v === "started").length, 5);
+});
 test("an unfunded prospective preview retains reserve math but exposes no executable operation", async () => {
   const providers = {
     ...deps,
