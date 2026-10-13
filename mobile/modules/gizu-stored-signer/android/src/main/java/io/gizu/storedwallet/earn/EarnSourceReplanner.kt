@@ -276,7 +276,8 @@ private fun parseSourceReplanFees(
 private fun sourceReplanFeeCap(op: JSONObject, now: Long): BigInteger {
   val raw = op.getString("paymasterData").removePrefix("0x").lowercase()
   check(
-    raw.length == 364 &&
+    // 118-byte direct-token config plus a 64-byte compact or 65-byte full signature.
+    raw.length in setOf(364, 366) &&
       raw.take(2) in setOf("02", "03") &&
       raw.substring(2, 4) == "00" &&
       ("0x" + raw.substring(28, 68)).equals(MONAD_EARN_USDC, true)

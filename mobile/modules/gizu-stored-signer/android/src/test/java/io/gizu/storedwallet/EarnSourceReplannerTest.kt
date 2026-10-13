@@ -75,7 +75,7 @@ class EarnSourceReplannerTest {
       "providerFeeBps" to 2,
     )
 
-  private fun fees(request: JSONObject, multiplier: Int = 1): JSONObject {
+  private fun fees(request: JSONObject, multiplier: Int = 1, signatureBytes: Int = 64): JSONObject {
     val operation =
       JSONObject()
         .put("sender", owner)
@@ -101,7 +101,7 @@ class EarnSourceReplannerTest {
         MONAD_EARN_USDC.drop(2).lowercase() +
         "64".padStart(32, '0') +
         BigInteger.TEN.pow(18).toString(16).padStart(64, '0') +
-        "00".repeat(100)
+        "00".repeat(36 + signatureBytes)
     operation.put("paymasterData", "0x$data")
     val cap = 600L * multiplier
     return JSONObject()
@@ -162,6 +162,27 @@ class EarnSourceReplannerTest {
       confidentialIdentity = { confidential },
       now = { now },
     )
+
+  @Test
+  fun supportsBothDocumentedPaymasterSignatureLengthsAndRejectsExtraData() = runBlocking {
+    for (signatureBytes in listOf(64, 65)) {
+      val plan =
+        record().use {
+          replanner(feeReader = { request -> fees(request, signatureBytes = signatureBytes) })
+            .replan(it, saved())
+        }
+      assertEquals((118 + signatureBytes) * 2 + 2, plan.second.getString("paymasterData").length)
+    }
+    for (signatureBytes in listOf(63, 66)) {
+      try {
+        record().use {
+          replanner(feeReader = { request -> fees(request, signatureBytes = signatureBytes) })
+            .replan(it, saved())
+        }
+        fail("Unsupported paymaster signature size")
+      } catch (_: IllegalStateException) {}
+    }
+  }
 
   @Test
   fun refreshRetainsExactBatchIdentityAndBudgetWithNewCoreRevisionAndNoSignedBytes() = runBlocking {

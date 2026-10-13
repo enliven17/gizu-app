@@ -402,3 +402,21 @@ The following can be sent by the operator to Aurora; no message was sent by this
 New native funding/return signatures save an authenticated balance baseline before submission. Each funding source waits for successful route status and a credit delta bounded by its saved quote; only then can the next source sign. Portable sealed credit attestations allow both 10/90 payouts and recovery after private funds are spent. Payout reconciliation verifies the exact saved signed intent, successful route, and finalized token-transfer receipts; the same receipt cannot fund two allocations to the same recipient. Investment still stops at the vault deposit; withdrawal remains a separate user action with fresh recipient addresses.
 
 The inspected zero-Gizu portal configuration and observed fee/referral allowlist are checked into the backend. `EARN_AURORA_FEE_QUALIFICATION_JSON` is now an optional override, and current native clients do not require `EARN_AURORA_HISTORY_QUALIFIED=true`. Legacy signed journals without baselines retain their original reconciliation requirements. Deploy the backend and install the matching APK; preserve the recovery key and configure the owned Robinhood RPC. No transactions were sent to qualify this implementation.
+
+### Source review: supported paymaster signature lengths
+
+The deployed funding plan returned HTTP 200, but phone diagnostics identified
+`sources / VALIDATION / EarnSourceReplanner.kt:278`. Its direct-token paymaster
+payload was 183 bytes; both the Android replanner and Rust Earn signer accepted
+only 182. Pimlico's [official decoder](https://github.com/pimlicolabs/singleton-paymaster/blob/master/src/base/BaseSingletonPaymaster.sol)
+supports a 118-byte configuration followed by a 64-byte compact or 65-byte full
+signature. Both Earn parsers now accept exactly 182 or 183 bytes, preserve the
+complete signature, and retain the existing mode, flags, token, expiry and fee
+checks. Unsupported lengths still fail closed. Research already accepted both
+sizes; no provider setting or fee-policy change is needed for this correction.
+
+Regression tests failed before the parser changes and pass afterward. The full
+Android suite passes 280 tests and the Rust suite passes 149 tests. The standalone
+Render-targeted APK built and was installed with `adb install -r`, preserving
+wallet data. These checks do not establish successful mainnet execution; no
+spending signature or transaction was sent.
