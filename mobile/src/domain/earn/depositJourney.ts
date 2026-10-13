@@ -58,6 +58,13 @@ export type DepositReview = {
     withdrawalReserveAtoms: string;
   };
 };
+export type DepositIndicativeReview = {
+  quotedAtMs: number;
+  sourceBudgetAtoms: string;
+  holdEstimatedAtoms: string;
+  investEstimatedAtoms: string;
+  sourceMaximumFeeAtoms: string;
+};
 export type DepositSnapshot = {
   version: 1;
   journeyId: string;
@@ -75,6 +82,7 @@ export type DepositSnapshot = {
   sharesAtoms: string;
   completedSteps: DepositStage[];
   review?: DepositReview;
+  indicativeReview?: DepositIndicativeReview;
   pauseReason?: DepositPauseCode;
   message?: string;
   depositTransactionHash?: string;
@@ -288,6 +296,22 @@ export function parseDepositSnapshot(value: unknown, owner: EarnOwner): DepositS
     completedSteps: row.completedSteps as DepositStage[],
   };
   if (row.review !== undefined && row.review !== null) result.review = review(row.review, result);
+  if (row.indicativeReview !== undefined && row.indicativeReview !== null) {
+    const i = object(row.indicativeReview);
+    const indicative: DepositIndicativeReview = {
+      quotedAtMs: integer(i.quotedAtMs),
+      sourceBudgetAtoms: atoms(i.sourceBudgetAtoms, true),
+      holdEstimatedAtoms: atoms(i.holdEstimatedAtoms, true),
+      investEstimatedAtoms: atoms(i.investEstimatedAtoms, true),
+      sourceMaximumFeeAtoms: atoms(i.sourceMaximumFeeAtoms),
+    };
+    if (
+      indicative.sourceBudgetAtoms !== result.budgetAtoms ||
+      BigInt(indicative.sourceMaximumFeeAtoms) >= BigInt(result.budgetAtoms)
+    )
+      fail();
+    result.indicativeReview = indicative;
+  }
   if ((result.phase === "review" || result.phase === "authorizing") && !result.review) fail();
   if (row.pauseReason !== undefined && row.pauseReason !== null) {
     if (!pauses.includes(row.pauseReason as DepositPauseCode)) fail();

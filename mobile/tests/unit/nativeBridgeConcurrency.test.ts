@@ -15,6 +15,38 @@ afterEach(() => {
 const tick = async () => {
   for (let i = 0; i < 15; i++) await Promise.resolve();
 };
+test("deposit progress reads run during preparation while other mutations stay serialized", async () => {
+  Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
+  Object.defineProperty(Platform, "Version", { configurable: true, value: 35 });
+  let finish!: (value: unknown) => void;
+  const pending = new Promise((resolve) => {
+    finish = resolve;
+  });
+  const native = {
+    getCapabilities: jest
+      .fn()
+      .mockResolvedValue({ contractVersion: 1, available: true, earnDepositJourney: true }),
+    prepareEarnDeposit: jest.fn(() => pending),
+    resumeEarnDeposit: jest.fn(),
+    confirmEarnDeposit: jest.fn().mockResolvedValue({ phase: "funding" }),
+    getEarnDepositStatus: jest.fn().mockResolvedValue({ phase: "preparing" }),
+    cancelEarnDeposit: jest.fn(),
+  };
+  jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
+  const signer = getStoredEarnDepositSigner()!;
+  const preparation = signer.prepareEarnDeposit("wallet", "robinhood-usdg", "3000000", null);
+  await tick();
+  const status = signer.getEarnDepositStatus("wallet", "journey");
+  const nextMutation = signer.confirmEarnDeposit("wallet", "journey", 2);
+  try {
+    await tick();
+    expect(native.getEarnDepositStatus).toHaveBeenCalledTimes(1);
+    expect(native.confirmEarnDeposit).not.toHaveBeenCalled();
+  } finally {
+    finish({ phase: "review" });
+    await Promise.all([preparation, status, nextMutation]);
+  }
+});
 test("deposit status coalesces and journey cancellation interrupts a pending confirmation", async () => {
   Object.defineProperty(Platform, "OS", { configurable: true, value: "android" });
   Object.defineProperty(Platform, "Version", { configurable: true, value: 35 });

@@ -100,3 +100,20 @@ test("background drops waiting actions while native code owns the active prompt"
   expect(await active).toBe(1);
   expect(next).not.toHaveBeenCalled();
 });
+
+test("background discards late public snapshots without cancelling an active native ceremony", async () => {
+  const queue = new NativeCallQueue();
+  const active = deferred<number>();
+  const observation = deferred<number>();
+  const mutation = queue.run(() => active.promise);
+  const snapshot = queue.snapshot(() => observation.promise, "deposit-status");
+  const duplicate = queue.snapshot(() => observation.promise, "deposit-status");
+  expect(snapshot).toBe(duplicate);
+  const cancelled = expect(snapshot).rejects.toThrow("cancelled");
+  await tick();
+  queue.cancelPending();
+  observation.resolve(5);
+  active.resolve(7);
+  await cancelled;
+  expect(await mutation).toBe(7);
+});

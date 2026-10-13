@@ -136,6 +136,27 @@ export function DepositJourneyScreen({
           </View>
         </Surface>
       )}
+      {row?.phase === "preparing" && row.indicativeReview && (
+        <Surface>
+          <View className="gap-3 p-5" accessibilityLiveRegion="polite">
+            <Typography variant="heading">Deposit estimate</Typography>
+            <Typography>
+              Estimated 10% held: {formatUsdc(row.indicativeReview.holdEstimatedAtoms)} USDG
+            </Typography>
+            <Typography>
+              Estimated 90% before vault fees:{" "}
+              {formatUsdc(row.indicativeReview.investEstimatedAtoms)} USDG
+            </Typography>
+            <Typography variant="caption">
+              Calculating vault fees and the withdrawal reserve…
+            </Typography>
+            <Typography variant="caption">
+              These amounts are indicative. No funds move before the final review and your device
+              approval.
+            </Typography>
+          </View>
+        </Surface>
+      )}
       {row && !unsigned && (
         <Surface>
           <View className="gap-3 p-5">

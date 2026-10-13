@@ -54,6 +54,7 @@ function nativeModule(): StoredSignerContract | null {
         const readKey = coalescedReads.has(property)
           ? JSON.stringify([property, ...args])
           : undefined;
+        if (property === "getEarnDepositStatus" && readKey) return calls.snapshot(work, readKey);
         return calls.run(work, readKey);
       };
     },

@@ -56,6 +56,9 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
     started = useRef(0),
     epoch = useRef(0),
     ceremony = useRef(false);
+  const focused = useRef(isFocused);
+  const preparingBudgetRef = useRef<string | null>(null);
+  focused.current = isFocused;
   const accept = useCallback(
     (next: DepositSnapshot) => {
       if (next.profileId !== profileId)
@@ -81,7 +84,21 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
           if (mounted.current)
             setMessage("Approval stopped. Check saved progress before continuing.");
         });
-  }, [service, owner, accept]);
+    else if (!row && preparingBudgetRef.current) {
+      const budget = preparingBudgetRef.current;
+      void service
+        .status(owner, "current-deposit")
+        .then((next) => {
+          if (
+            next.phase === "preparing" &&
+            next.profileId === profileId &&
+            next.budgetAtoms === budget
+          )
+            return service.cancel(owner, next.journeyId, next.revision);
+        })
+        .catch(() => undefined);
+    }
+  }, [service, owner, accept, profileId]);
   useEffect(() => {
     const lifecycleEpoch = ++epoch.current;
     saved.current = null;
@@ -183,13 +200,47 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       if (timer) clearTimeout(timer);
     };
   }, [journeyId, phase, pauseReason, expiresAtMs, service, owner, accept, clock, isFocused]);
-  const perform = async (task: () => Promise<DepositSnapshot>) => {
+  const perform = async (task: () => Promise<DepositSnapshot>, preparingBudget?: string) => {
     if (occupied.current || !foreground.current || !isFocused) return;
     occupied.current = true;
     setBusy(true);
     setMessage("");
     const attempt = ++request.current,
       sessionEpoch = epoch.current;
+    preparingBudgetRef.current = preparingBudget ?? null;
+    let preparing = !!preparingBudget,
+      timer: ReturnType<typeof setTimeout> | undefined,
+      polls = 0;
+    const pollPreparation = async () => {
+      if (
+        !preparing ||
+        !mounted.current ||
+        !foreground.current ||
+        !focused.current ||
+        attempt !== request.current ||
+        sessionEpoch !== epoch.current
+      )
+        return;
+      try {
+        const next = await service.status(owner, saved.current?.journeyId ?? "current-deposit");
+        if (
+          preparing &&
+          mounted.current &&
+          foreground.current &&
+          focused.current &&
+          attempt === request.current &&
+          sessionEpoch === epoch.current &&
+          next.budgetAtoms === preparingBudget &&
+          ["preparing", "review"].includes(next.phase)
+        )
+          accept(next);
+      } catch {
+        // The native draft may not exist yet; preparation owns its eventual result/error.
+      }
+      if (preparing)
+        timer = setTimeout(() => void pollPreparation(), [1000, 2000, 4000][Math.min(polls++, 2)]!);
+    };
+    if (preparing) timer = setTimeout(() => void pollPreparation(), 1000);
     try {
       const next = await task();
       if (epoch.current !== sessionEpoch) {
@@ -199,7 +250,7 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       saved.current = next;
       if (mounted.current && foreground.current && isFocused && attempt === request.current)
         accept(next);
-      else if (!mounted.current || !foreground.current)
+      else if (!mounted.current || !foreground.current || !focused.current)
         void service.cancel(owner, next.journeyId, next.revision).catch(() => undefined);
     } catch (error) {
       if (mounted.current && attempt === request.current) {
@@ -214,6 +265,9 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
         }
       }
     } finally {
+      preparing = false;
+      preparingBudgetRef.current = null;
+      if (timer) clearTimeout(timer);
       occupied.current = false;
       if (mounted.current) setBusy(false);
     }
@@ -268,7 +322,7 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
       (savedJourneyId !== undefined || snapshot.budgetAtoms === atoms),
     review: () =>
       atoms
-        ? perform(() => service.prepare(owner, profileId, atoms, saved.current?.journeyId))
+        ? perform(() => service.prepare(owner, profileId, atoms, saved.current?.journeyId), atoms)
         : Promise.resolve(),
     confirm: async () => {
       if (

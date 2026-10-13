@@ -11,7 +11,35 @@ export class NativeCallQueue {
   private active = false;
   private interrupts = 0;
   private generation = 0;
+  private snapshotGeneration = 0;
   private reads = new Map<string, Promise<unknown>>();
+
+  /** Native public journal snapshots own no signing lease and may show an active preparation. */
+  snapshot<T>(work: () => Promise<T>, key: string): Promise<T> {
+    const existing = this.reads.get(key);
+    if (existing) return existing as Promise<T>;
+    const generation = this.generation,
+      snapshotGeneration = this.snapshotGeneration;
+    const current = () =>
+      generation === this.generation &&
+      snapshotGeneration === this.snapshotGeneration &&
+      this.interrupts === 0;
+    const result = Promise.resolve()
+      .then(() => {
+        if (!current()) throw cancelled();
+        return work();
+      })
+      .then((value) => {
+        if (!current()) throw cancelled();
+        return value;
+      });
+    this.reads.set(key, result);
+    const clear = () => {
+      if (this.reads.get(key) === result) this.reads.delete(key);
+    };
+    void result.then(clear, clear);
+    return result;
+  }
 
   run<T>(work: () => Promise<T>, readKey?: string): Promise<T> {
     if (readKey === undefined) this.reads.clear();
@@ -53,6 +81,7 @@ export class NativeCallQueue {
 
   /** Backgrounding drops waiting requests, but native code owns active prompt cancellation. */
   cancelPending() {
+    this.snapshotGeneration++;
     const waiting = this.pending.splice(0);
     this.reads.clear();
     for (const item of waiting) item.reject(cancelled());
