@@ -1,11 +1,11 @@
 import { useState, type ComponentProps } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
-import { durations, easeOut, reduceMotion } from "@/theme/motion";
+import { durations, easeInOut, reduceMotion } from "@/theme/motion";
 import { PortfolioHoldingCard } from "./PortfolioHoldingCard";
 
-export const holdingLayout = LinearTransition.duration(durations.screen)
-  .easing(easeOut)
+export const holdingLayout = LinearTransition.duration(durations.holdingExpand)
+  .easing(easeInOut)
   .reduceMotion(reduceMotion);
 
 /** A two-column cell expands in the grid to two columns and two compact rows. */

@@ -7,10 +7,14 @@ export const reduceMotion = ReduceMotion.System;
 /** Frontend `ease: [0.22, 1, 0.36, 1]`. */
 export const easeOut = Easing.bezier(0.22, 1, 0.36, 1);
 
+/** Gentle acceleration and deceleration for large layout changes. */
+export const easeInOut = Easing.bezier(0.42, 0, 0.58, 1);
+
 export const durations = {
   press: 120,
   screen: 350,
   fadeIn: 450,
+  holdingExpand: 500,
 } as const;
 
 export const timing = {
