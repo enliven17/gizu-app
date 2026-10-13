@@ -308,7 +308,7 @@ class EarnDepositCoordinatorTest {
   }
 
   @Test
-  fun twoSourcesCanSettleInReverseOrderButNoPayoutStartsBeforeAllCredits() = runBlocking {
+  fun secondSourceCannotSignUntilFirstSourceCreditIsVerified() = runBlocking {
     DepositFixtures.record().use { r ->
       val review = DepositFixtures.review(r)
       val credits = listOf("7000009", "8000009")
@@ -376,7 +376,8 @@ class EarnDepositCoordinatorTest {
       val c = EarnDepositCoordinator(j, e)
       c.confirmed(id, 2, a)
       assertEquals(0, e.payoutCreates)
-      assertEquals(2, e.signed)
+      assertEquals(1, e.signed)
+      assertFalse(e.rows.getValue("source1").getString("status") == "finalized")
       e.readySources.add("source0")
       c.advance(id, a)
       assertEquals(4, e.payoutCreates)

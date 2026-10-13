@@ -54,6 +54,50 @@ class EarnSponsoredSettlementTest {
   }
 
   @Test
+  fun balanceDeltaSettlementRequiresStoredBaselineQuoteAndBoundedCredit() {
+    val expected =
+      expected()
+        .put("baselineEnvelope", "baseline")
+        .put("quoteEnvelope", "quote")
+        .put("maximumCreditAtoms", "995000")
+    val proof =
+      response().put("verification", "balance-delta-v1").put("settlementEnvelope", "sealed-credit")
+    validateSponsoredSettlement(proof.toString(), expected, 100000)
+    assertThrows(Exception::class.java) {
+      validateSponsoredSettlement(proof.put("creditedAtoms", "995001").toString(), expected, 100000)
+    }
+    assertThrows(Exception::class.java) {
+      validateSponsoredSettlement(response().toString(), expected, 100000)
+    }
+    val public =
+      sponsoredSettlementPublic(
+        response()
+          .put("verification", "balance-delta-v1")
+          .put("settlementEnvelope", "secret-envelope")
+      )
+    assertFalse(public.toString().contains("secret-envelope"))
+  }
+
+  @Test
+  fun anotherUncreditedSourceCannotShareTheCycleSnapshot() {
+    val proposal = JSONObject().put("confidentialAccount", c).put("kind", "sourceFunding")
+    val current = JSONObject().put("operationId", "second").put("proposal", proposal)
+    val other =
+      JSONObject()
+        .put("operationId", "first")
+        .put("proposal", proposal)
+        .put("signedUserOperation", "saved")
+        .put("status", "finalized")
+    assertThrows(Exception::class.java) { requireSequentialSourceCredit(listOf(other), current) }
+    other.put("settlement", JSONObject().put("status", "credited"))
+    requireSequentialSourceCredit(listOf(other), current)
+    other.put("status", "pending")
+    assertThrows(Exception::class.java) { requireSequentialSourceCredit(listOf(other), current) }
+    other.put("status", "reverted")
+    requireSequentialSourceCredit(listOf(other), current)
+  }
+
+  @Test
   fun pendingStatusNeverEstablishesConfidentialCredit() {
     val pending = response().put("status", "awaitingSettlement").put("creditedAtoms", "0")
     assertEquals(

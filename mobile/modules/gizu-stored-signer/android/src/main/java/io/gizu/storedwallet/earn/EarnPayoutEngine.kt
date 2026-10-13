@@ -101,7 +101,7 @@ internal fun nativePayoutSource(
   )
   val source = sponsoredSettlementExpected(op)
   val settlement = op.getJSONObject("settlement")
-  // The saved authenticated history revision precedes the mutable journal save.
+  // The saved authenticated settlement revision precedes the mutable journal save.
   val expected = JSONObject(source.toString()).put("revision", settlement.getInt("revision"))
   validateSponsoredSettlement(settlement.toString(), expected, settlement.getLong("timestampMs"))
   check(settlement.getString("status") == "credited")
@@ -615,7 +615,8 @@ internal class EarnPayoutEngine(
         .put("standard", "erc191")
         .put("payload", auth.payload)
         .put("signature", auth.signature)
-    val request = submission(op, signedData)
+    val request =
+      submission(op, signedData).put("submittedIntent", JSONObject(op.getString("signedData")))
     val privateQuote = gateway.decode(op.getString("preparedText"), false).reference
     var row = gateway.settlement(request)
     validateSettlement(row, p)
@@ -648,6 +649,7 @@ internal class EarnPayoutEngine(
           row.getString("receivedAtoms"),
           eventTopic,
         )
+      requireUnusedPayoutReceipt(journal.all(), op, receipt.getString("transactionHash"))
       return journal.update(id, op.getString("leg"), revision) {
         it
           .put("status", "paid")
@@ -708,5 +710,18 @@ internal class EarnPayoutEngine(
     signer?.close()
     signer = null
     displayed = null
+  }
+}
+
+internal fun requireUnusedPayoutReceipt(rows: List<JSONObject>, current: JSONObject, hash: String) {
+  val recipient = current.getJSONObject("proposal").getString("expectedRecipient")
+  check(
+    rows.none { row ->
+      row.getString("operationId") != current.getString("operationId") &&
+        row.optString("destinationTransactionHash").equals(hash, true) &&
+        row.getJSONObject("proposal").getString("expectedRecipient").equals(recipient, true)
+    }
+  ) {
+    "Payout receipt already attributed"
   }
 }

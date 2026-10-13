@@ -139,6 +139,8 @@ internal fun safeEarnGatewayFailure(body: String): EarnGatewayFailure? {
     when (code) {
       "EARN_AURORA_FEE_UNQUALIFIED" ->
         "Provider fee collectors and referral require qualification. No funds moved."
+      "EARN_NATIVE_UPGRADE_REQUIRED" ->
+        "Install the updated native Gizu build before starting this deposit or return. No funds moved."
       "EARN_SETTLEMENT_UNQUALIFIED" ->
         "Operation-specific settlement access requires qualification. No funds moved."
       "EARN_RECOVERY_UNAVAILABLE",

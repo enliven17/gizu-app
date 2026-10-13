@@ -79,6 +79,42 @@ async function input(
     },
   };
 }
+function balanceAttestedSource<T extends { quoteId: string; revision: number }>(
+  source: T,
+) {
+  const fields = Object.fromEntries(
+    Object.entries(source).filter(
+      ([k]) => !["quoteId", "revision", "routeKind"].includes(k),
+    ),
+  );
+  const binding = {
+    ...fields,
+    baselineEnvelope: "saved-baseline",
+    quoteEnvelope: "saved-quote",
+    maximumCreditAtoms: "995001",
+  };
+  const canonical = Object.fromEntries(
+    Object.entries(binding)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [
+        k,
+        typeof v === "string" && v.startsWith("0x") ? v.toLowerCase() : v,
+      ]),
+  );
+  return {
+    ...source,
+    baselineEnvelope: binding.baselineEnvelope,
+    quoteEnvelope: binding.quoteEnvelope,
+    maximumCreditAtoms: binding.maximumCreditAtoms,
+    settlementEnvelope: new EarnRecoveryEnvelope("11".repeat(32)).seal(
+      "source-credit",
+      {
+        binding: canonical,
+        proof: { status: "credited", creditedAtoms: "995001" },
+      },
+    ),
+  };
+}
 function fixture(
   mutate?: (path: string, body: any, init?: RequestInit) => void,
   profileChainId: 1 | 4663 = 1,
@@ -182,6 +218,7 @@ function fixture(
       };
     } else if (path.includes("/submit-intent/"))
       body = { intentHash: base58.encode(Buffer.alloc(32, 7)) };
+    else if (path.includes("/status/")) body = { status: "SUCCESS" };
     else throw new Error("Unexpected mocked request");
     mutate?.(path, body, init);
     return new Response(JSON.stringify(body));
@@ -475,6 +512,183 @@ test("payout delivery requires matching authenticated outgoing history and exact
     req.destinationTransactionHash,
   );
   assert.equal(JSON.stringify(result).includes("private-jwt"), false);
+});
+
+test("balance-attested payouts prepare both legs and reconcile after restart without history access", async () => {
+  const f = deliveredFixture((path, body) => {
+    if (path.includes("/account/history/"))
+      throw Error("History is invite-only for now");
+    if (path.includes("/status/")) body.status = "SUCCESS";
+  });
+  const request = await input();
+  const expected = {
+    ...request.source,
+    baselineEnvelope: "saved-baseline",
+    quoteEnvelope: "saved-quote",
+    maximumCreditAtoms: "995001",
+  };
+  const { quoteId: _quote, revision: _revision, ...binding } = expected;
+  const canonical = Object.fromEntries(
+    Object.entries(binding)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [k, v.startsWith("0x") ? v.toLowerCase() : v]),
+  );
+  const settlementEnvelope = new EarnRecoveryEnvelope("11".repeat(32)).seal(
+    "source-credit",
+    {
+      binding: canonical,
+      proof: { status: "credited", creditedAtoms: "995001" },
+    },
+  );
+  const newSource = { ...expected, settlementEnvelope };
+  const plan = await f.gateway.prepare({ ...request, source: newSource });
+  await f.gateway.prepare({ ...(await input("invest")), source: newSource });
+  const submittedIntent = {
+    ...plan.intent,
+    signature: await signature(plan.intent.payload),
+  };
+  await f.gateway.submit({
+    operationId: request.operationId,
+    revision: 1,
+    leg: "hold",
+    quoteId: plan.quote.quoteId,
+    signedData: submittedIntent,
+  });
+  const req = {
+    operationId: request.operationId,
+    revision: 1,
+    leg: "hold" as const,
+    quoteId: plan.quote.quoteId,
+    signedData: await readAuth(),
+    submittedIntent,
+    recoveryEnvelope: plan.recoveryEnvelope,
+  };
+  const restarted = f.restart();
+  const pending = await restarted.reconcile(req);
+  assert.equal(pending.status, "awaitingDestinationConfirmation");
+  const result = await restarted.reconcile({
+    ...req,
+    destinationTransactionHash: "0x" + "aa".repeat(32),
+  });
+  assert.equal(result.status, "delivered");
+  assert.equal(result.receivedAtoms, "99500");
+  await assert.rejects(
+    restarted.reconcile({
+      ...req,
+      submittedIntent: {
+        ...submittedIntent,
+        payload: submittedIntent.payload + " ",
+      },
+      destinationTransactionHash: "0x" + "aa".repeat(32),
+    }),
+  );
+  assert.equal(
+    f.calls.some((path) => path.includes("/account/history/")),
+    false,
+  );
+});
+
+test("history-free payouts reject failed routes, wrong transfers, excess values, duplicate logs and unfinalized/reorganized receipts", async () => {
+  const changes: Array<(path: string, b: any, init?: RequestInit) => void> = [
+    (path, b) => {
+      if (path.includes("/status/")) b.status = "FAILED";
+    },
+    (path, b, init) => {
+      if (
+        path === "https://ethereum.test/" &&
+        JSON.parse(String(init?.body)).method === "eth_getTransactionReceipt"
+      )
+        b.result.logs[0].address = invest;
+    },
+    (path, b, init) => {
+      if (
+        path === "https://ethereum.test/" &&
+        JSON.parse(String(init?.body)).method === "eth_getTransactionReceipt"
+      )
+        b.result.logs[0].topics[2] = "0x" + "00".repeat(32);
+    },
+    (path, b, init) => {
+      if (
+        path === "https://ethereum.test/" &&
+        JSON.parse(String(init?.body)).method === "eth_getTransactionReceipt"
+      )
+        b.result.logs[0].data = toHex(99501n, { size: 32 });
+    },
+    (path, b, init) => {
+      if (
+        path === "https://ethereum.test/" &&
+        JSON.parse(String(init?.body)).method === "eth_getTransactionReceipt"
+      )
+        b.result.logs.push({ ...b.result.logs[0], logIndex: "0x1" });
+    },
+    (path, b, init) => {
+      if (path === "https://ethereum.test/") {
+        const req = JSON.parse(String(init?.body));
+        if (
+          req.method === "eth_getBlockByNumber" &&
+          req.params[0] === "finalized"
+        )
+          b.result.number = "0x64";
+      }
+    },
+    (path, b, init) => {
+      if (
+        path === "https://ethereum.test/" &&
+        JSON.parse(String(init?.body)).method === "eth_getTransactionReceipt"
+      )
+        b.result.blockHash = "0x" + "cc".repeat(32);
+    },
+  ];
+  for (const change of changes) {
+    const f = deliveredFixture((path, b, init) => {
+      if (path.includes("/account/history/"))
+        throw Error("History unavailable");
+      change(path, b, init);
+    });
+    const request = await input(),
+      plan = await f.gateway.prepare({
+        ...request,
+        source: balanceAttestedSource(request.source),
+      });
+    const submittedIntent = {
+      ...plan.intent,
+      signature: await signature(plan.intent.payload),
+    };
+    await assert.rejects(
+      f.restart().reconcile({
+        operationId: request.operationId,
+        revision: 1,
+        leg: "hold",
+        quoteId: plan.quote.quoteId,
+        recoveryEnvelope: plan.recoveryEnvelope,
+        signedData: await readAuth(),
+        submittedIntent,
+        destinationTransactionHash: "0x" + "aa".repeat(32),
+      }),
+    );
+  }
+  const pending = deliveredFixture((path, b) => {
+    if (path.includes("/status/")) b.status = "PROCESSING";
+  });
+  const request = await input(),
+    plan = await pending.gateway.prepare({
+      ...request,
+      source: balanceAttestedSource(request.source),
+    });
+  const result = await pending.restart().reconcile({
+    operationId: request.operationId,
+    revision: 1,
+    leg: "hold",
+    quoteId: plan.quote.quoteId,
+    recoveryEnvelope: plan.recoveryEnvelope,
+    signedData: await readAuth(),
+    submittedIntent: {
+      ...plan.intent,
+      signature: await signature(plan.intent.payload),
+    },
+  });
+  assert.equal(result.status, "awaitingSettlement");
+  assert.equal(result.receivedAtoms, "0");
 });
 test("altered outgoing credit, recipient, private hash or noncanonical public transfer never prove delivery", async () => {
   for (const change of [
@@ -872,6 +1086,68 @@ function withdrawalFixture(
     change?.(path, body, init);
   });
 }
+
+test("history-free returned credit supports a fresh Monad withdrawal and finalized delivery after restart", async () => {
+  const f = deliveredFixture((path, b, init) => {
+    if (path.includes("/account/history/"))
+      throw Error("History is invite-only for now");
+    if (path === "https://ethereum.test/") {
+      const req = JSON.parse(String(init?.body));
+      if (req.method === "eth_chainId") b.result = "0x8f";
+      if (req.method === "eth_getTransactionReceipt") {
+        b.result.logs[0].address = "0x754704bc059f8c67012fed69bc8a327a5aafb603";
+        b.result.logs[0].data = toHex(995001n, { size: 32 });
+      }
+    }
+  });
+  const request = await withdrawalInput("hoodTokenReturn");
+  const {
+    quoteId: _quote,
+    revision: _revision,
+    routeKind: _route,
+    ...source
+  } = request.source;
+  const binding = {
+    ...source,
+    baselineEnvelope: "baseline",
+    quoteEnvelope: "quote",
+    maximumCreditAtoms: "995001",
+  };
+  const canonical = Object.fromEntries(
+    Object.entries(binding)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [k, v.startsWith("0x") ? v.toLowerCase() : v]),
+  );
+  const settlementEnvelope = new EarnRecoveryEnvelope("11".repeat(32)).seal(
+    "source-credit",
+    {
+      binding: canonical,
+      proof: { status: "credited", creditedAtoms: "995001" },
+    },
+  );
+  const p = await f.gateway.prepareWithdrawal({
+    ...request,
+    source: { ...request.source, ...binding, settlementEnvelope },
+  });
+  const submittedIntent = {
+    ...p.intent,
+    signature: await signature(p.intent.payload),
+  };
+  const req = {
+    operationId: request.operationId,
+    revision: 1,
+    leg: "withdrawal" as const,
+    quoteId: p.quote.quote.quoteId,
+    recoveryEnvelope: p.recoveryEnvelope,
+    signedData: await readAuth(),
+    submittedIntent,
+    destinationTransactionHash: "0x" + "aa".repeat(32),
+  };
+  const result = await f.restart().reconcileWithdrawal(req);
+  assert.equal(result.status, "delivered");
+  assert.equal(result.receivedAtoms, "995001");
+  assert.equal(result.destinationChainId, 143);
+});
 test("withdrawal prepares the entire authenticated returned credit to fresh public Monad USDC and binds the return child", async () => {
   const f = withdrawalFixture();
   const prepared = await f.gateway.prepareWithdrawal(await withdrawalInput());

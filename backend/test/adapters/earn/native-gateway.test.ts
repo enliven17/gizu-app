@@ -2,6 +2,7 @@ import test from "node:test";
 import Fastify from "fastify";
 import { registerEarnNativeRoutes } from "../../../src/http/routes/earn-native.routes.ts";
 import assert from "node:assert/strict";
+import { EarnRecoveryEnvelope } from "../../../src/adapters/earn/recovery-envelope.ts";
 import {
   NativeEarnGateway,
   parseAuroraFeeQualification,
@@ -11,6 +12,7 @@ const owner = "0x1000000000000000000000000000000000000001",
   confidential = "0x2000000000000000000000000000000000000002",
   recipient = "0x3000000000000000000000000000000000000003";
 const input = {
+  settlementMode: "balance-delta-v1" as const,
   operationId: "operation-1",
   revision: 1,
   profileChainId: 4663 as const,
@@ -613,7 +615,7 @@ test("dry preview displays fees without qualification and cannot create a signin
   assert.equal(preview.executionAvailable,false);
   assert.equal(preview.minimumCreditAtoms,"999600");
   assert.equal(preview.providerFeeBps,4);
-  assert.deepEqual(preview.blockers,["EARN_AURORA_FEE_UNQUALIFIED","EARN_SETTLEMENT_UNQUALIFIED"]);
+  assert.deepEqual(preview.blockers,["EARN_AURORA_FEE_UNQUALIFIED"]);
   assert.equal("quoteId" in preview,false);
   await assert.rejects(gateway.sourceQuote(input), {code:"EARN_AURORA_FEE_UNQUALIFIED"});
 });
@@ -634,11 +636,12 @@ test("dry source quotes omit executable deadlines without inventing a signing bi
   assert.equal("depositAddress" in preview,false);
   await assert.rejects(gateway.sourceQuote(input),/EARN_AURORA_FEE_UNQUALIFIED/);
 });
-test("history qualification blocks new funding before any provider quote", async () => {
+test("new funding does not require invitation-only history qualification", async () => {
   const p=provider();
   const gateway=new NativeEarnGateway({auroraApiKey:"key",auroraFeeQualification:config,recoveryKey:"11".repeat(32)},{now:()=>now,fetcher:p.fetcher});
-  await assert.rejects(gateway.sourceQuote(input),{code:"EARN_SETTLEMENT_UNQUALIFIED"});
-  assert.equal(p.calls,0);
+  const quote=await gateway.sourceQuote(input);
+  assert.equal(quote.maximumCreditAtoms, "999800");
+  assert.equal(p.calls,1);
 });
 
 test("firm variable fees and policy version survive recovery without a second provider quote", async()=>{
@@ -672,6 +675,24 @@ test("a provider-disabled route still reports qualification blockers without inv
  assert.equal(preview.quoteAvailable,false);
  assert.equal(preview.minimumCreditAtoms,null);
  assert.equal(preview.providerFeeBps,null);
- assert.deepEqual(preview.blockers,["EARN_AURORA_FEE_UNQUALIFIED","EARN_SETTLEMENT_UNQUALIFIED","EARN_RECOVERY_UNAVAILABLE","EARN_AURORA_ROUTE_UNAVAILABLE"]);
+ assert.deepEqual(preview.blockers,["EARN_AURORA_FEE_UNQUALIFIED","EARN_RECOVERY_UNAVAILABLE","EARN_AURORA_ROUTE_UNAVAILABLE"]);
  assert.equal("quoteId" in preview,false);
+});
+
+test("outdated clients cannot receive new executable funding routes without baseline support", async () => {
+ const p=provider();
+ const gateway=new NativeEarnGateway({auroraApiKey:"key",auroraFeeQualification:config,recoveryKey:"11".repeat(32)},{now:()=>now,fetcher:p.fetcher});
+ await assert.rejects(gateway.sourceQuote({...input,settlementMode:undefined}),{code:"EARN_NATIVE_UPGRADE_REQUIRED"});
+ await assert.rejects(gateway.returnQuote({...input,settlementMode:undefined}),{code:"EARN_NATIVE_UPGRADE_REQUIRED"});
+ assert.equal(p.calls,0);
+});
+
+test("an unsigned recovered legacy quote cannot bypass snapshot admission through quote-binding", async () => {
+  const p=provider(),key="11".repeat(32),cfg={auroraApiKey:"key",auroraFeeQualification:config,recoveryKey:key};
+  const quote=await new NativeEarnGateway(cfg,{now:()=>now,fetcher:p.fetcher}).sourceQuote(input);
+  const codec=new EarnRecoveryEnvelope(key),saved=codec.open("native-quote",quote.recoveryEnvelope!) as any;
+  delete saved.quote.maximumCreditAtoms;delete saved.settlement.maximumCreditAtoms;
+  const envelope=codec.seal("native-quote",saved);
+  const gateway=new NativeEarnGateway(cfg,{now:()=>now,fetcher:p.fetcher});
+  assert.throws(()=>gateway.quoteBinding({...binding(quote),recoveryEnvelope:envelope}),{code:"EARN_NATIVE_UPGRADE_REQUIRED"});
 });

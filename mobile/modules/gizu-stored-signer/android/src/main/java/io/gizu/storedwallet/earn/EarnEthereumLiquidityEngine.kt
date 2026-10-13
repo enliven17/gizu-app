@@ -181,6 +181,13 @@ internal class EarnLiquidityEngine(
   private val reconcile: suspend () -> Unit = {
     reconcileEarnLiquidityOperations(journal, rpc, gateway)
   },
+  private val baselineReader: suspend (JSONObject, () -> Unit) -> JSONObject =
+    { proposal, authority ->
+      readNativeSponsoredBaseline(
+        nativeCycleReadAuth(store, authority),
+        proposal.getString("confidentialAccount"),
+      )
+    },
 ) : AutoCloseable {
   private var signer: NativeLiquiditySigner? = null
   private var displayed: LiquidityReview? = null
@@ -350,6 +357,12 @@ internal class EarnLiquidityEngine(
       submitLiquiditySaved(op, rpc, gateway)
     } else {
       val p = checkNotNull(signing)
+      val baseline =
+        if (returning?.maximumCreditAtoms != null) {
+          checkNotNull(returning?.recoveryEnvelope)
+          requireSequentialSourceCredit(journal.all(), op)
+          baselineReader(p, authority).also { authority() }
+        } else null
       val state = stateReader(p)
       val permit = op.optJSONObject("permit")?.let(::restoredFusionPermit)
       signer?.close()
@@ -381,6 +394,8 @@ internal class EarnLiquidityEngine(
               .put("review", text)
               .put("reviewHash", hash)
               .put("stateBinding", liquidityStateBinding(state))
+            if (baseline != null)
+              target.getJSONObject("stateBinding").put("privateBaseline", baseline)
             if (returning != null)
               target
                 .getJSONObject("stateBinding")
@@ -473,6 +488,7 @@ internal fun storedEarnRouteProof(q: NativeEarnRouteProof) =
     .put("quoteId", q.binding.quoteId)
     .put("expiresAt", q.binding.expiresAt.toLong())
     .put("minimumCreditAtoms", q.minimumCreditAtoms)
+    .put("maximumCreditAtoms", q.maximumCreditAtoms)
     .put("originAsset", q.originAsset)
     .put("authenticatedBodyHash", q.binding.authenticatedBodyHash)
     .put("recoveryEnvelope", q.recoveryEnvelope)

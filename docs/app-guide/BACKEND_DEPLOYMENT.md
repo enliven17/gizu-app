@@ -40,15 +40,34 @@ Set production values in Render; keep provider keys out of mobile/frontend bundl
 | `ETHEREUM_RPC_URL`, `ROBINHOOD_RPC_URL` | HTTPS RPC providers with pinned-block state access for simulations.                  |
 | `EARN_ANVIL_PATH`                       | Installed simulation wrapper.                                                        |
 | `EARN_GATEWAY_RECOVERY_KEY`             | Durable recovery key: exactly 64 hexadecimal characters.                             |
-| `EARN_AURORA_FEE_QUALIFICATION_JSON`    | Operator-verified, route-specific provider fee policy.                               |
-| `EARN_AURORA_HISTORY_QUALIFIED`         | Set to `true` only after verifying authenticated, operation-specific history access. |
+| `EARN_AURORA_FEE_QUALIFICATION_JSON`    | Optional override of the checked-in Robinhood fee policy.                               |
+| `EARN_AURORA_HISTORY_QUALIFIED`         | Legacy client admission only; omit or keep false for new APKs. |
 
 **Keep the recovery key unchanged across deployments** and maintain a protected
 backup. Losing it prevents verification of existing payout recovery envelopes.
 
-Fee and history qualification are prerequisites for executable funding/return
-flows. Do not copy a sample fee policy or enable the history flag just to bypass a
-failure. Follow the [qualification requirements](../internal/BACKEND_RUNTIME.md#recovery-and-provider-qualification).
+New native Robinhood deposits use saved authenticated balance snapshots and signed-route/finalized-receipt verification; they do not require the invitation-only history API. The checked-in fee policy covers the observed Robinhood lifecycle with zero configured Gizu fee. Retain the recovery key: it now also authenticates portable credit attestations. An explicit fee-policy JSON overrides the default; a stale override can still reject current quotes. See [runtime policy](../internal/BACKEND_RUNTIME.md#recovery-and-provider-qualification).
+
+### Robinhood preview RPC requirements
+
+Set `ROBINHOOD_RPC_URL` to an owned mainnet endpoint supporting reliable pinned-block
+contract storage reads. The public default can serve ordinary `eth_call` while
+intermittently rejecting the storage requests an Anvil fork needs: an October 12
+probe reproduced HTTP 403 with a Cloudflare HTML challenge on `eth_getStorageAt`,
+although the same vault's direct `previewDeposit` succeeded in 373 ms. A later
+replay succeeded with hash, number and EIP-1898 selectors; this does not establish
+a selector-format bug or qualify the public endpoint for production forks.
+
+[Robinhood's connection guide](https://docs.robinhood.com/chain/connecting/) recommends
+provider endpoints for production and archive endpoints for historical reads.
+For example, an owned Alchemy mainnet endpoint uses
+`https://robinhood-mainnet.g.alchemy.com/v2/<YOUR_API_KEY>`. Keep that credential on
+the backend, and verify the complete prospective deposit/redemption simulation
+before a funded test. Do not use the public `docs-demo` key as a production fallback.
+
+Anvil remains an isolated mainnet-state simulator. Changing the RPC provider does
+not switch the user's investments to a local network. Increasing HTTP timeouts
+does not resolve an upstream access rejection.
 
 ## Vault catalog configuration
 
@@ -103,13 +122,7 @@ for validation, caching and partial results.
 5. Verify provider access and simulation capacity before testing funded operations.
 
 A healthy server does not prove that quotes, signing or settlement work.
-For guided Robinhood deposits, deploying the preview routes is insufficient on its
-own: `EARN_AURORA_FEE_QUALIFICATION_JSON` must cover `source`, `payoutRobinhood`,
-`returnRobinhood` and `withdrawal`; authenticated history access must be qualified;
-and the stable recovery key and simulation executable must be configured. A source
-quote returning `EARN_AURORA_FEE_UNQUALIFIED` is a configuration/qualification
-failure, not evidence that Aurora is under maintenance. Do not qualify a collector
-or referral merely because a dry quote contains it.
+For guided Robinhood deposits, deploy the matching backend and install the new native APK. Keep the recovery key and simulation executable configured, and provide a reliable Robinhood RPC. No additional history entitlement or fee-policy JSON is needed for the checked-in policy. Changed collectors, unknown referrals or fees above the saved limits still stop new spending. Older clients without snapshot capability are rejected before funding unless legacy history admission was explicitly enabled.
 
 The API allows up to two simulation forks per process; each has a 1 GiB memory
 ceiling. Provision additional memory for Node and service overhead, and measure

@@ -32,10 +32,11 @@ const rule = z
       .min(1)
       .max(8),
     maximumTotalBps: bps,
-    referral: identity.nullable(),
+    referral: z.union([identity, z.array(identity).min(1).max(8)]).nullable(),
     integratorFeeBps: z.literal(0),
     applicationFeeAtoms: z.literal("0"),
-    // Operator evidence of provider ownership and zero Gizu commission, never inferred from a quote.
+    // Evidence for the configured integrator charge and observed service-fee limits.
+    // A quote does not establish the ultimate beneficiary of a service collector.
     qualificationReference: identity,
   })
   .strict()
@@ -109,7 +110,9 @@ export function qualifyAuroraFees(
     if (
       !r ||
       totalBps > r.maximumTotalBps ||
-      (q.referral ?? null) !== r.referral ||
+      !(Array.isArray(r.referral)
+        ? r.referral.includes(q.referral ?? "")
+        : (q.referral ?? null) === r.referral) ||
       fees.some(
         (f) =>
           !r.collectors.some(
@@ -129,6 +132,47 @@ export function qualifyAuroraFees(
     applicationFeeAtoms: "0",
   });
 }
+
+/** Inspected Gizu portal: zero integrator fee, no collection address/custom rules,
+ * confidential settings inherit public settings. These are observed Aurora service
+ * charges, not a claim about collector ownership. Explicit env policies override it. */
+export const observedAuroraFeeQualification = parseAuroraFeeQualification(
+  JSON.stringify({
+    version: "gizu-portal-zero-2026-10-12",
+    routes: Object.fromEntries(
+      [
+        ["source", 4, false],
+        ["withdrawal", 4, false],
+        ["payoutRobinhood", 45, true],
+        ["returnRobinhood", 45, true],
+      ].map(([route, maximumTotalBps, hood]) => [
+        route,
+        {
+          collectors: [
+            {
+              recipient: "widget_collect.sputnik-dao.near",
+              maximumBps: hood ? 25 : 4,
+            },
+            ...(hood
+              ? [
+                  {
+                    recipient:
+                      "2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805",
+                    maximumBps: 20,
+                  },
+                ]
+              : []),
+          ],
+          maximumTotalBps,
+          referral: ["aurora-jh500bnyo9", "aurora-1u3j2qzclc"],
+          integratorFeeBps: 0,
+          applicationFeeAtoms: "0",
+          qualificationReference: "portal-059a-zero-and-quotes-2026-10-12",
+        },
+      ]),
+    ),
+  }),
+);
 
 /** Require configured policies for the chosen profile's entire lifecycle before source funding. */
 export function hasAuroraProfileQualification(

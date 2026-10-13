@@ -88,6 +88,8 @@ export async function getSignerCapabilities(): Promise<StoredSignerCapabilities>
       earnSponsoredExecution: result.earnSponsoredExecution === true,
       earnEthereumLiquidityExecution: result.earnEthereumLiquidityExecution === true,
       earnPrivatePayoutExecution: result.earnPrivatePayoutExecution === true,
+      earnBalanceDeltaSettlement:
+        Platform.OS === "android" && result.earnBalanceDeltaSettlement === true,
       earnDepositJourney: Platform.OS === "android" && result.earnDepositJourney === true,
     };
   } catch {

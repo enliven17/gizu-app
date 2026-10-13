@@ -60,6 +60,19 @@ class EarnPayoutReconcilerTest {
     }
 
   @Test
+  fun paidReceiptCannotBeAttributedTwiceToTheSameRecipient() {
+    val p = JSONObject().put("expectedRecipient", f.recipient)
+    val current = JSONObject().put("operationId", "second").put("proposal", p)
+    val old =
+      JSONObject()
+        .put("operationId", "first")
+        .put("proposal", p)
+        .put("destinationTransactionHash", f.hash)
+    assertThrows(Exception::class.java) { requireUnusedPayoutReceipt(listOf(old), current, f.hash) }
+    requireUnusedPayoutReceipt(listOf(old), current, "0x" + "e".repeat(64))
+  }
+
+  @Test
   fun authenticatedHistoryStillRequiresExactFinalCanonicalTokenTransfer() = runBlocking {
     val row =
       confirmNativePayoutReceipt(

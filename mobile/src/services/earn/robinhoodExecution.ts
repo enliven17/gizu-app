@@ -76,7 +76,12 @@ export function createEarnRobinhoodService(
                 operationId,
                 revision,
                 ...(kind === "hoodTokenReturn"
-                  ? { confidentialAccount: intent.confidentialAddress }
+                  ? {
+                      confidentialAccount: intent.confidentialAddress,
+                      ...((await getSignerCapabilities()).earnBalanceDeltaSettlement === true
+                        ? { settlementMode: "balance-delta-v1" }
+                        : {}),
+                    }
                   : {}),
               }),
               signal: controller.signal,

@@ -89,6 +89,9 @@ export function createEarnLiquidityService(
             operationId,
             revision,
             returnAsset: asset,
+            ...((await getSignerCapabilities()).earnBalanceDeltaSettlement === true
+              ? { settlementMode: "balance-delta-v1" }
+              : {}),
           }),
           signal: controller.signal,
         });

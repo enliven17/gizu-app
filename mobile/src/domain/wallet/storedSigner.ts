@@ -29,6 +29,7 @@ export type StoredSignerCapabilities = {
   earnEthereumLiquidityExecution?: boolean;
   earnPrivatePayoutExecution?: boolean;
   earnDepositJourney?: boolean;
+  earnBalanceDeltaSettlement?: boolean;
   reason?: "notImplemented" | "unsupportedPlatform" | "unsupportedProvider";
 };
 export type StoredTransferProposal = {

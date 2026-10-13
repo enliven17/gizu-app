@@ -29,6 +29,7 @@ const apiEnvSchema = z
       .string()
       .regex(/^[0-9a-f]{64}$/i)
       .optional(),
+    // Legacy client admission only; new native settlement uses balance snapshots.
     EARN_AURORA_HISTORY_QUALIFIED: z.enum(["true", "false"]).optional(),
     EARN_ANVIL_PATH: z.string().min(1).optional(),
     EARN_AURORA_FEE_QUALIFICATION_JSON: z.string().min(1).max(16384).optional(),

@@ -63,6 +63,7 @@ export const nativeQuoteInput = z
     confidentialAccount: address,
     amountAtoms: decimal,
     returnAsset: z.enum(["usdc", "native"]).optional(),
+    settlementMode: z.literal("balance-delta-v1").optional(),
     recoveryEnvelope: recoveryEnvelope.optional(),
   })
   .strict();
@@ -95,6 +96,7 @@ export interface NativeVerifiedQuote {
   readonly expiresAt: number;
   readonly authenticatedBodyHash: Hex;
   readonly minimumCreditAtoms: string;
+  readonly maximumCreditAtoms?: string;
   readonly providerFeeBps: number;
   readonly feePolicy?: AuroraFeeProof;
   readonly originAsset: string;
@@ -105,9 +107,8 @@ export interface NativeSettlementQuote extends NativeVerifiedQuote {
   readonly destinationAsset: string;
   readonly quoteCreatedAt: number;
 }
-/** Qualification requires an operator-verified Aurora provider collector,
- * route-specific bounded fees, verified referral and zero Gizu/integrator fee.
- * An integrator collector must never be entered as the provider recipient. */
+/** Fee admission binds observed route-specific service charges and the configured
+ * zero Gizu/integrator fee. It does not infer collector ownership from a quote. */
 export interface NativeGatewayConfiguration {
   recoveryKey?: string;
   pimlicoApiKey?: string;
@@ -242,7 +243,7 @@ const recoveredQuote = z.object({
   operationId, revision, quoteId: hash.transform(v => v as Hex), recipient: address, amountAtoms: decimal,
   chainId: z.union([z.literal(1),z.literal(143),z.literal(4663)]), token: address,
   confidentialAccount: address, refundOwner: address, expiresAt: z.number().int().positive(),
-  authenticatedBodyHash: hash.transform(v => v as Hex), minimumCreditAtoms: decimal, providerFeeBps: z.number().int().min(0).max(100),
+  authenticatedBodyHash: hash.transform(v => v as Hex), minimumCreditAtoms: decimal, maximumCreditAtoms: decimal.optional(), providerFeeBps: z.number().int().min(0).max(100),
   feePolicy: auroraFeeProofSchema.optional(),
   originAsset: z.string().min(1).max(200),
 }).strict();
@@ -332,7 +333,6 @@ export class NativeEarnGateway {
         if(q.amountIn!==input.amountAtoms || q.minAmountIn!==input.amountAtoms || BigInt(minimum)>BigInt(out)||BigInt(out)>BigInt(input.amountAtoms)) throw new Error("Invalid preview amount");
         const blockers:string[]=[];
         try {qualifyAuroraFees(this.qualification,"source",qr);if(!hasAuroraProfileQualification(this.qualification,input.profileChainId)) throw new Error("Incomplete profile fees");}catch {blockers.push("EARN_AURORA_FEE_UNQUALIFIED");}
-        if(!this.config.auroraHistoryQualified) blockers.push("EARN_SETTLEMENT_UNQUALIFIED");
         if(!this.recovery.configured) blockers.push("EARN_RECOVERY_UNAVAILABLE");
         // Dry responses omit executable expiry fields; never turn this local preview TTL into signing authority.
         const expiresAtMs=Math.min(q.deadline==null?Infinity:time(q.deadline)*1000,q.timeWhenInactive==null?Infinity:time(q.timeWhenInactive)*1000,quotedAtMs+60000);
@@ -342,7 +342,6 @@ export class NativeEarnGateway {
         if(error instanceof AuroraRouteUnavailable) {
           const blockers:string[]=[];
           if(!hasAuroraProfileQualification(this.qualification,input.profileChainId))blockers.push("EARN_AURORA_FEE_UNQUALIFIED");
-          if(!this.config.auroraHistoryQualified)blockers.push("EARN_SETTLEMENT_UNQUALIFIED");
           if(!this.recovery.configured)blockers.push("EARN_RECOVERY_UNAVAILABLE");
           blockers.push("EARN_AURORA_ROUTE_UNAVAILABLE");
           const quotedAtMs=this.now();
@@ -376,7 +375,7 @@ export class NativeEarnGateway {
     )
       throw new NativeGatewayError(400, "INVALID_NATIVE_QUOTE");
     if (!this.config.auroraApiKey || !this.qualification || (kind === "source" && !hasAuroraProfileQualification(this.qualification,input.profileChainId))) throw new NativeGatewayError(503,"EARN_AURORA_FEE_UNQUALIFIED");
-    if (!this.config.auroraHistoryQualified) throw new NativeGatewayError(503,"EARN_SETTLEMENT_UNQUALIFIED");
+    if(input.settlementMode !== "balance-delta-v1" && !this.config.auroraHistoryQualified) throw new NativeGatewayError(503,"EARN_NATIVE_UPGRADE_REQUIRED");
     const { recoveryEnvelope: envelope, ...originalInput } = input;
     const fingerprint = JSON.stringify({ kind, ...originalInput }),
       key = this.key(input.operationId, input.revision);
@@ -533,6 +532,7 @@ export class NativeEarnGateway {
           expiresAt,
           authenticatedBodyHash,
           minimumCreditAtoms: minimum.toString(),
+          maximumCreditAtoms: out.toString(),
           providerFeeBps: feePolicy.totalBps,
           feePolicy,
           originAsset,
@@ -589,7 +589,6 @@ export class NativeEarnGateway {
     }
   }
   quoteBinding(value: NativeQuoteBindingInput): NativeVerifiedQuote {
-    if (!this.config.auroraHistoryQualified) throw new NativeGatewayError(503,"EARN_SETTLEMENT_UNQUALIFIED");
     let input: z.output<typeof nativeQuoteBindingInput>;
     try {
       input = nativeQuoteBindingInput.parse(value);
@@ -604,6 +603,7 @@ export class NativeEarnGateway {
       cached.quote.expiresAt <= this.now() / 1000
     )
       throw new NativeGatewayError(409, "EARN_QUOTE_UNKNOWN_OR_EXPIRED");
+    if (!cached.quote.maximumCreditAtoms && !this.config.auroraHistoryQualified) throw new NativeGatewayError(503,"EARN_NATIVE_UPGRADE_REQUIRED");
     for (const [k, v] of Object.entries(input)) {
       if (k === "recoveryEnvelope") continue;
       const expected = cached.quote[k as keyof NativeVerifiedQuote];

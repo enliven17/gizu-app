@@ -1,0 +1,65 @@
+{
+  "observedDate": "2026-10-12",
+  "scope": "Read-only provider and disposable-fork diagnosis. History authentication used a newly generated empty diagnostic account with zero intents; no user wallet keys were loaded, no asset-transfer signature or mainnet transaction was sent.",
+  "deployedSourcePreview": {
+    "httpStatus": 200,
+    "quoteAvailable": true,
+    "providerFeeBps": 4,
+    "referral": "aurora-1u3j2qzclc",
+    "blockers": [
+      "EARN_AURORA_FEE_UNQUALIFIED",
+      "EARN_SETTLEMENT_UNQUALIFIED"
+    ]
+  },
+  "historyEntitlement": {
+    "localKeyMatchesInspectedPortal": true,
+    "authenticateHttpStatus": 200,
+    "accessTokenIssued": true,
+    "emptyIntents": true,
+    "historyHttpStatus": 400,
+    "historyMessage": "History is invite-only for now",
+    "qualified": false
+  },
+  "forkRpc": {
+    "endpointHost": "rpc.mainnet.chain.robinhood.com",
+    "directPinnedPreviewDeposit": {
+      "success": true,
+      "elapsedMs": 373,
+      "positiveShares": true
+    },
+    "forkFailure": {
+      "method": "eth_getStorageAt",
+      "httpStatus": 403,
+      "responseType": "text/html; charset=UTF-8",
+      "htmlTitle": "Just a moment...",
+      "effects": "Anvil could not load required contract storage; the preview failed."
+    },
+    "laterSelectorComparison": {
+      "hashStringHttpStatus": 200,
+      "pinnedNumberHttpStatus": 200,
+      "eip1898HashObjectHttpStatus": 200,
+      "interpretation": "Intermittent public-endpoint rejection; no deterministic selector-format defect established."
+    },
+    "dedicatedProviderRequired": true,
+    "privateProviderAvailableInLocalConfiguration": false,
+    "replacementForkNotYetVerified": true
+  },
+  "feeQualification": {
+    "portalIntegratorFeeBps": 0,
+    "customFeeRules": 0,
+    "collectionAddressConfigured": false,
+    "providerCollectorBeneficiariesVerified": false,
+    "referralCommissionTermsVerified": false,
+    "policyInstalled": false,
+    "reference": "aurora-fee-inspection-2026-10-12.json"
+  },
+  "solutions": {
+    "history": "Ask Aurora to enable authenticated account/history for the deployed key, then retest operation-specific evidence before setting EARN_AURORA_HISTORY_QUALIFIED=true.",
+    "feePolicy": "Obtain provider collector and referral beneficiary confirmation, then install exact bounded rules for all four lifecycle routes; do not whitelist an unverified collector.",
+    "simulation": "Configure an owned Robinhood mainnet RPC with reliable pinned-block storage reads in ROBINHOOD_RPC_URL; validate the complete isolated deposit/redemption preview. Retain mainnet execution and freshness/nonce/receipt checks."
+  },
+  "sources": [
+    "https://docs.intents.aurora.dev/api-reference/confidential-swaps-api-reference/get-transaction-history.md",
+    "https://docs.robinhood.com/chain/connecting/"
+  ]
+}
