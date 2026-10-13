@@ -376,3 +376,17 @@ test("navigating away while the deposit remains mounted revokes its approval", a
     expect(service.cancel).toHaveBeenCalledWith(expect.anything(), "deposit_1", 1),
   );
 });
+
+test("a saved sponsorship failure identifies gas sponsorship and resumes the same deposit", async () => {
+  const row = {
+    ...ready(),
+    phase: "paused",
+    pauseReason: "sponsorshipUnavailable",
+  } as DepositSnapshot;
+  const { service } = setup({ status: jest.fn().mockResolvedValue(row) }, "deposit_1");
+  expect(await screen.findByText(/Gas sponsorship is unavailable/)).toBeVisible();
+  expect(screen.queryByText(/Waiting for verified confidential credit/)).toBeNull();
+  await userEvent.press(screen.getByRole("button", { name: "Review remaining steps" }));
+  expect(service.resume).toHaveBeenCalledWith(expect.anything(), "deposit_1", 1);
+  expect(service.prepare).not.toHaveBeenCalled();
+});

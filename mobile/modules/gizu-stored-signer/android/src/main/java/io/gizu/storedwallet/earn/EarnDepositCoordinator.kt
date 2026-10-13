@@ -40,6 +40,7 @@ internal interface EarnDepositEngines {
 internal class EarnDepositCoordinator(
   private val journal: EarnDepositJournal,
   private val engines: EarnDepositEngines,
+  private val reportFailure: (String, String) -> Unit = { _, _ -> },
 ) {
   private var activeGrant: EarnDepositApproval? = null
 
@@ -307,8 +308,17 @@ internal class EarnDepositCoordinator(
       engines.useGrant(null)
     } catch (failure: Exception) {
       if (failure is CancellationException) throw failure
+      val diagnostic = depositFailureDiagnostic(failure)
+      runCatching { reportFailure(diagnostic.first, diagnostic.second) }
       val missing = failure.message?.contains("Missing child journal") == true
-      journal.pause(id, if (missing) "recoveryRequired" else "termsChanged")
+      val reason =
+        when {
+          missing -> "recoveryRequired"
+          failure is EarnRpcRejection && failure.method == "pm_getPaymasterData" ->
+            "sponsorshipUnavailable"
+          else -> "termsChanged"
+        }
+      journal.pause(id, reason)
       grant?.invalidate()
       activeGrant = null
       engines.useGrant(null)
@@ -317,7 +327,22 @@ internal class EarnDepositCoordinator(
 
   suspend fun reconcile(journeyId: String): Map<String, Any> {
     check(activeGrant == null) { "Read public progress while the native job owns reconciliation" }
+    val before = journal.get(journeyId)
+    val stoppedReason =
+      before.optString("pauseReason").takeIf {
+        before.getString("phase") == "paused" &&
+          it.isNotEmpty() &&
+          it !in setOf("settlementPending", "submissionUnknown")
+      }
     advance(journeyId, null)
+    val after = journal.get(journeyId)
+    if (
+      stoppedReason != null &&
+        after.getString("phase") == "paused" &&
+        after.optString("pauseReason") in
+          setOf("settlementPending", "submissionUnknown", "approvalExpired")
+    )
+      journal.pause(journeyId, stoppedReason)
     return journal.publicSnapshot(journeyId)
   }
 
@@ -328,4 +353,29 @@ internal class EarnDepositCoordinator(
     engines.useGrant(null)
     journal.pause(journeyId, "cancelled")
   }
+}
+
+/** Fixed error classification and code location only; never exception text or operation data. */
+internal fun depositFailureDiagnostic(failure: Exception): Pair<String, String> {
+  val code =
+    when (failure) {
+      is EarnRpcRejection -> {
+        val method =
+          failure.method.takeIf { it.matches(Regex("[A-Za-z][A-Za-z0-9_]{0,63}")) } ?: "REQUEST"
+        val hint = failure.hint.takeIf { it.matches(Regex("[A-Z0-9_]{1,64}")) } ?: "REJECTED"
+        "RPC_${method}_${failure.rpcCode}_$hint"
+      }
+      is RpcFailure -> failure.code.name
+      is EarnGatewayFailure ->
+        failure.code.takeIf { it.matches(Regex("[A-Z_]{1,64}")) } ?: "GATEWAY_REJECTED"
+      else ->
+        failure.javaClass.simpleName.takeIf { it.matches(Regex("[A-Za-z]{1,64}")) } ?: "VALIDATION"
+    }
+  val frame =
+    failure.stackTrace.firstOrNull {
+      it.className.startsWith("io.gizu.storedwallet.") &&
+        it.fileName?.matches(Regex("[A-Za-z0-9_.-]+\\.kt")) == true &&
+        it.lineNumber > 0
+    }
+  return code to (frame?.let { "${it.fileName}:${it.lineNumber}" } ?: "unknown")
 }

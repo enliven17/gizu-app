@@ -1,12 +1,61 @@
 package io.gizu.storedwallet
 
 import kotlinx.coroutines.runBlocking
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 class EarnSponsoredRpcTest {
+  @Test
+  fun diagnosticRetainsOnlySafeCodeAndNativeSourceLocation() {
+    val failure = EarnRpcRejection("pm_getPaymasterData", -32000, "REJECTED")
+    failure.stackTrace =
+      arrayOf(
+        StackTraceElement(
+          "io.gizu.storedwallet.earn.EarnSponsoredRpc",
+          "call",
+          "EarnSponsoredRpc.kt",
+          90,
+        )
+      )
+    assertEquals(
+      "RPC_pm_getPaymasterData_-32000_REJECTED" to "EarnSponsoredRpc.kt:90",
+      depositFailureDiagnostic(failure),
+    )
+  }
+
+  @Test
+  fun rpcRejectionRetainsSafeMethodAndCodeWithoutProviderContents() = runBlocking {
+    val client =
+      okhttp3.OkHttpClient.Builder()
+        .addInterceptor { chain ->
+          okhttp3.Response.Builder()
+            .request(chain.request())
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body(
+              """{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"rate limit exceeded SECRET_SIGNATURE_AND_ADDRESS"}}"""
+                .toResponseBody()
+            )
+            .build()
+        }
+        .build()
+    try {
+      nativeEarnRpc(NativeRpcTransport("http://127.0.0.1:8080/", client), "eth_call", JSONArray())
+      fail("Provider errors must not become successful reads")
+    } catch (failure: EarnRpcRejection) {
+      assertEquals("eth_call", failure.method)
+      assertEquals(-32005L, failure.rpcCode)
+      assertEquals("RATE_LIMITED", failure.hint)
+      assertFalse(failure.message!!.contains("SECRET"))
+    } finally {
+      client.dispatcher.executorService.shutdown()
+    }
+  }
+
   private val owner = "0x" + "ab".repeat(20)
   private val confidential = "0x" + "cd".repeat(20)
   private val recipient = "0x" + "ef".repeat(20)

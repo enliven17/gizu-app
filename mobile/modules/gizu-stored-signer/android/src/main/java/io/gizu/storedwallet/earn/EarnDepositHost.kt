@@ -13,6 +13,7 @@ internal class EarnDepositHost(
   private val now: () -> Long = System::currentTimeMillis,
   private val wait: suspend (Long) -> Unit = { delay(it) },
   private val releaseUnsigned: (String) -> Unit = {},
+  private val reportFailure: (String, String) -> Unit = { _, _ -> },
 ) {
   private var ownedId: String? = null
   private var grant: EarnDepositApproval? = null
@@ -90,7 +91,9 @@ internal class EarnDepositHost(
           } catch (_: CancellationException) {
             if (journal.get(id).optString("pauseReason") !in setOf("cancelled", "approvalExpired"))
               runCatching { journal.pause(id, "approvalExpired") }
-          } catch (_: Exception) {
+          } catch (failure: Exception) {
+            val diagnostic = depositFailureDiagnostic(failure)
+            runCatching { reportFailure(diagnostic.first, diagnostic.second) }
             runCatching { journal.pause(id, "approvalExpired") }
           } finally {
             authority.invalidate()

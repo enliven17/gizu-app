@@ -530,3 +530,32 @@ Swap's current core also contains a route-success/quoted-minimum fallback if its
 authenticated balance endpoint returns 401. Earn retains its operation-scoped
 authenticated settlement evidence rather than copying that different financial
 policy. This change corrects live progress reporting, not provider settlement speed.
+
+### Final sponsorship failure found on October 13
+
+The phone's native execution log identified `pm_getPaymasterData` returning the
+Earn gateway's generic `-32000` error. This happens before the source UserOperation
+is signed/submitted; reporting it as a confidential-credit wait was incorrect.
+Read-only reconciliation now preserves the real stop reason, and sponsorship RPC
+rejections display a separate gas-sponsorship message. Native diagnostics retain
+only the RPC method, numeric code, allowlisted classification and source location.
+They do not log request bodies, provider messages, wallet addresses or signatures.
+
+An authorized live **unsigned** Pimlico probe reproduced `AA23` with the empty
+UserOperation signature. Changing only that field to the installed Simple7702
+SDK's 65-byte simulation signature succeeded. The successful final response had
+only `paymaster` and `paymasterData`; the gateway previously required both gas-limit
+fields too. Swap's SDK already uses that simulation signature and merges final
+sponsorship fields into the estimated operation.
+
+The Earn gateway now validates the phone's unsigned packet first, uses the SDK
+simulation signature only in the outgoing `pm_getPaymasterData` request, and
+retains estimated paymaster gas limits when the final provider response omits them.
+The merged final operation is validated again. The placeholder is never returned
+as signing authority or accepted for submission; signed operations and native
+EIP-7702 authorizations retain their existing validation. The 10/90 split, fee caps,
+withdrawal reserves, source reservations and device-held keys are unchanged.
+
+Deploy this backend patch to Render before retrying the **same saved deposit**.
+No new environment variable or wallet pair is needed. The live probe did not sign
+or submit a transaction; successful sponsorship is not proof of final investment.

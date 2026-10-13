@@ -395,6 +395,56 @@ test("native signed cold and already delegated 7702 operations forward exact JSO
     assert.equal(count, 1);
   }
 });
+test("final sponsorship uses a simulation signature and preserves estimated gas when provider omits it", async () => {
+  const op = unsignedOperation();
+  const snapshot = JSON.stringify(op);
+  const stub =
+    "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c";
+  let forwarded = false;
+  const gateway = new NativeEarnGateway(
+    { pimlicoApiKey: "key" },
+    {
+      now: () => now,
+      fetcher: async (_url, init) => {
+        const request = JSON.parse(String(init?.body));
+        assert.deepEqual(request.params[0], { ...op, signature: stub });
+        forwarded = true;
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 3,
+            result: {
+              paymaster: tokenPaymaster,
+              paymasterData: op.paymasterData,
+            },
+          }),
+        );
+      },
+    },
+  );
+  const response = await gateway.bundler(143, {
+    jsonrpc: "2.0",
+    id: 3,
+    method: "pm_getPaymasterData",
+    params: [op, entryPoint08Address, "0x8f", { token: monadUsdc }],
+  });
+  assert.equal(forwarded, true);
+  assert.deepEqual(response.result, {
+    paymaster: tokenPaymaster,
+    paymasterData: op.paymasterData,
+    paymasterPostOpGasLimit: op.paymasterPostOpGasLimit,
+    paymasterVerificationGasLimit: op.paymasterVerificationGasLimit,
+  });
+  assert.equal(JSON.stringify(op), snapshot);
+  await assert.rejects(
+    gateway.bundler(143, {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "eth_sendUserOperation",
+      params: [{ ...op, signature: stub }, entryPoint08Address],
+    }),
+  );
+});
 test("unsigned final paymaster request pins token and canonical quantities, including five gas terms", async () => {
   const op = unsignedOperation();
   let count = 0;
