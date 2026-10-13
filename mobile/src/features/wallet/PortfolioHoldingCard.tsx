@@ -9,8 +9,9 @@ import { holdingAmount } from "@/features/swap/SwapHoldingsSection";
 import { protocolLogo } from "@/features/opportunities/protocolLogos";
 import { demoModeEnabled } from "@/config/demo";
 import { demoVaultMetadata } from "@/services/demo/opportunities";
+import { demoHoldingPerformance } from "@/services/demo/holdingPerformance";
 import colors from "@/theme/colors.json";
-import { HoldingPerformance } from "./HoldingPerformance";
+import { HoldingChange, HoldingPerformance, formatHoldingChange } from "./HoldingPerformance";
 import { HoldingDetails } from "./HoldingDetails";
 
 /** Public portfolio display only; the owner provides every financial action. */
@@ -40,6 +41,7 @@ export function PortfolioHoldingCard({
   const name = vault?.name ?? asset.symbol;
   const compactToken = !expanded && !position;
   const compactVault = !expanded && position;
+  const history = demoHoldingPerformance(asset.assetId, asset.valueUsdcAtoms, position);
   const estimated = position && "conversionEstimated" in asset && asset.conversionEstimated;
   const amount =
     position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
@@ -58,6 +60,7 @@ export function PortfolioHoldingCard({
       >
         {holdingAmount(asset.valueUsdcAtoms, 6)} USDC
       </Typography>
+      {history && <HoldingChange name={name} percent={history.percent} />}
     </View>
   );
 
@@ -69,7 +72,11 @@ export function PortfolioHoldingCard({
           accessibilityLabel={`${name} ${position ? "vault position" : "token holding"}`}
           accessibilityHint={expanded ? "Collapse holding details" : "Expand holding details"}
           accessibilityState={{ expanded }}
-          accessibilityValue={{ text: balance }}
+          accessibilityValue={{
+            text: history
+              ? `${balance}. ${formatHoldingChange(history.percent)} over the past month.`
+              : balance,
+          }}
           onPress={(event) => {
             event?.stopPropagation();
             onToggleExpanded();
@@ -127,13 +134,7 @@ export function PortfolioHoldingCard({
         )}
         {swapOnly && <Typography variant="micro">Swap receiving wallets</Typography>}
         {expanded && (
-          <HoldingPerformance
-            assetId={asset.assetId}
-            valueUsdcAtoms={asset.valueUsdcAtoms}
-            position={position}
-            name={name}
-            height={160}
-          />
+          <HoldingPerformance assetId={asset.assetId} history={history} name={name} height={160} />
         )}
         {(action || compactVault) && (
           <View className="mt-auto gap-3">

@@ -72,6 +72,15 @@ test("Home automatically shows sample tokens and vault positions, with shared wi
   expect(screen.queryByText(/^Manage swapped/)).toBeNull();
   for (const amount of ["1.25 AMZN", "0.8 AAPL", "3 NVDA"])
     expect(await screen.findByText(amount)).toBeVisible();
+  expect(screen.getByLabelText("AMZN change: +6.8% over the past month")).toHaveTextContent(
+    "+6.8% · 1M",
+  );
+  expect(screen.getByLabelText("AAPL change: -2.6% over the past month")).toHaveTextContent(
+    "-2.6% · 1M",
+  );
+  expect(
+    screen.getByLabelText("Steakhouse USDG change: +0.42% over the past month"),
+  ).toHaveTextContent("+0.42% · 1M");
   for (const name of [
     "Aave V3 USDC",
     "Pendle Ecosystem USDC",
@@ -157,6 +166,7 @@ test("holding cards show one chart at a time across tokens and vaults without Pe
   expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "AMZN token holding" }));
   expect(screen.getByLabelText(/^AMZN performance chart:/)).toBeVisible();
+  expect(screen.getByLabelText("AMZN change: +6.8% over the past month")).toBeVisible();
   expect(screen.getByRole("button", { name: "AMZN token holding", expanded: true })).toBeVisible();
   expect(screen.getByRole("button", { name: "AAPL token holding", expanded: false })).toBeVisible();
   fireEvent.press(screen.getByRole("button", { name: "Steakhouse USDG vault position" }));

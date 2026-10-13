@@ -363,10 +363,12 @@ use the same holdings as Swap; vault withdrawals reduce the positions displayed 
 **Tokens and vault positions** automatically shows existing holdings in separate
 two-column token and vault grids, with token amounts and USDC values. **Sell** opens the existing swap review; demo vault cards offer **Withdraw**.
 Compact token cards use a square footprint and grow if larger text or balance notices need more room.
-Compact vault cards group their value directly above **Withdraw**.
 Tap a holding card to expand it across both columns at twice its compact height,
 with a chart and extra figures. Charts show a mock month of holding-value history
 in demo mode; live cards show an unavailable state until history is supported.
+Demo cards show the same signed monthly change below their USDC value, with a 1M label;
+gains are green and losses are red. Live cards omit the percentage until history is supported.
+Compact vault cards group their value and monthly change directly above **Withdraw**.
 Tap again to collapse. Card resizing and grid movement share a gentle 500 ms
 ease-in-out transition that respects reduced motion; action buttons operate independently.
 Expanding a right-column card moves it ahead of its left neighbor, which slides
