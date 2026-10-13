@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Image, View } from "react-native";
+import { useState, type ComponentProps } from "react";
+import { Image, Pressable, View } from "react-native";
 import { ChevronDown, ChevronUp, Layers } from "lucide-react-native";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
@@ -11,6 +11,7 @@ import { demoModeEnabled } from "@/config/demo";
 import { demoVaultMetadata } from "@/services/demo/opportunities";
 import colors from "@/theme/colors.json";
 import { HoldingPerformance } from "./HoldingPerformance";
+import { HoldingDetails } from "./HoldingDetails";
 
 /** Public portfolio display only; the owner provides every financial action. */
 export function PortfolioHoldingCard({
@@ -20,6 +21,9 @@ export function PortfolioHoldingCard({
   swapOnly = false,
   swapBalance,
   action,
+  expanded,
+  onToggleExpanded,
+  layout,
 }: {
   asset: OwnedPortfolioAsset | OwnedPortfolioPosition;
   position?: boolean;
@@ -27,6 +31,9 @@ export function PortfolioHoldingCard({
   swapOnly?: boolean;
   swapBalance?: { atoms: string; decimals: number };
   action?: { label: "Sell" | "Withdraw"; disabled: boolean; onPress: () => void };
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  layout?: ComponentProps<typeof Surface>["layout"];
 }) {
   const [performance, setPerformance] = useState(false);
   const vault = position && demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
@@ -36,39 +43,64 @@ export function PortfolioHoldingCard({
   const amount =
     position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
 
+  const toggleExpanded = () => {
+    setPerformance(!expanded);
+    onToggleExpanded();
+  };
+  const balance =
+    asset.complete && amount !== null && asset.decimals !== null
+      ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
+      : loading
+        ? `Checking ${asset.symbol} balance…`
+        : `${asset.symbol} balance unavailable. Refresh to retry.`;
+
   return (
-    <Surface className="flex-1">
-      <View className="flex-1 gap-3 p-4">
-        <View className="items-start">
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            className="h-11 w-11 items-center justify-center rounded-2xl bg-neon/10"
-          >
-            {logo ? (
-              <Image source={logo} className="h-7 w-7" resizeMode="contain" />
-            ) : position ? (
-              <Layers size={20} color={colors.accent} />
-            ) : (
-              <Typography variant="label">{asset.symbol.slice(0, 2)}</Typography>
-            )}
+    <Surface className="flex-1" layout={layout}>
+      <Pressable accessible={false} onPress={toggleExpanded} className="flex-1 gap-3 p-4">
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={`${name} ${position ? "vault position" : "token holding"}`}
+          accessibilityHint={expanded ? "Collapse holding details" : "Expand holding details"}
+          accessibilityState={{ expanded }}
+          accessibilityValue={{ text: balance }}
+          onPress={(event) => {
+            event?.stopPropagation();
+            toggleExpanded();
+          }}
+          pressedScale={0.99}
+          className={`gap-3 ${expanded ? "flex-row flex-wrap items-center" : ""}`}
+        >
+          <View className="items-start">
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              className="h-11 w-11 items-center justify-center rounded-2xl bg-neon/10"
+            >
+              {logo ? (
+                <Image source={logo} className="h-7 w-7" resizeMode="contain" />
+              ) : position ? (
+                <Layers size={20} color={colors.accent} />
+              ) : (
+                <Typography variant="label">{asset.symbol.slice(0, 2)}</Typography>
+              )}
+            </View>
           </View>
-        </View>
-        <View className="gap-1">
-          <Typography variant="cardTitle">{name}</Typography>
-          <Typography variant="caption">
-            {asset.complete && amount !== null && asset.decimals !== null
-              ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
-              : loading
-                ? `Checking ${asset.symbol} balance…`
-                : `${asset.symbol} balance unavailable. Refresh to retry.`}
-          </Typography>
-        </View>
-        {asset.valueUsdcAtoms !== null && (
-          <Typography variant="value" className="!text-[18px]">
-            {holdingAmount(asset.valueUsdcAtoms, 6)} USDC
-          </Typography>
-        )}
+          <View className={expanded ? "min-w-0 flex-1 gap-1" : "gap-1"}>
+            <Typography variant="cardTitle" className={expanded ? "!text-[20px]" : ""}>
+              {name}
+            </Typography>
+            <Typography variant="caption">{balance}</Typography>
+          </View>
+          {asset.valueUsdcAtoms !== null && (
+            <Typography
+              variant="value"
+              className={expanded ? "shrink !text-[22px]" : "!text-[18px]"}
+            >
+              {holdingAmount(asset.valueUsdcAtoms, 6)} USDC
+            </Typography>
+          )}
+        </PressableScale>
+        {expanded && <HoldingDetails asset={asset} position={position} />}
         {swapBalance && (
           <View className="gap-1">
             <Typography variant="micro">Swap receiving wallets</Typography>
@@ -87,7 +119,10 @@ export function PortfolioHoldingCard({
           accessibilityRole="button"
           accessibilityLabel={`${name} performance`}
           accessibilityState={{ expanded: performance }}
-          onPress={() => setPerformance((value) => !value)}
+          onPress={(event) => {
+            event?.stopPropagation();
+            setPerformance((value) => !value);
+          }}
           className="min-h-11 flex-row items-center justify-between gap-1 rounded-full bg-well px-3"
         >
           <Typography variant="caption" className="shrink !text-[12px]">
@@ -105,6 +140,7 @@ export function PortfolioHoldingCard({
             valueUsdcAtoms={asset.valueUsdcAtoms}
             position={position}
             name={name}
+            height={expanded ? 160 : 100}
           />
         )}
         {action && (
@@ -113,7 +149,10 @@ export function PortfolioHoldingCard({
             accessibilityLabel={`${action.label} ${name}`}
             accessibilityState={{ disabled: action.disabled }}
             disabled={action.disabled}
-            onPress={action.onPress}
+            onPress={(event) => {
+              event?.stopPropagation();
+              action.onPress();
+            }}
             className={`mt-auto min-h-11 items-center justify-center rounded-full px-3 ${action.disabled ? "bg-well" : "bg-neon/10"}`}
           >
             <Typography variant="label" className={action.disabled ? "!text-fg-35" : ""}>
@@ -121,7 +160,7 @@ export function PortfolioHoldingCard({
             </Typography>
           </PressableScale>
         )}
-      </View>
+      </Pressable>
     </Surface>
   );
 }

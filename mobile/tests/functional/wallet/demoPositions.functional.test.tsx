@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
+import { useReducedMotion } from "react-native-reanimated";
 import { AppRoot } from "@/application/AppRoot";
 import { createStoredWalletAccess } from "@/services/wallet/storedAccess";
 import { defaultPreferences } from "@/domain/preferences";
@@ -20,6 +21,7 @@ afterEach(() => {
   demoVaults.reset();
   if (originalFlag === undefined) delete process.env.EXPO_PUBLIC_SWAP_DEMO;
   else process.env.EXPO_PUBLIC_SWAP_DEMO = originalFlag;
+  jest.mocked(useReducedMotion).mockReturnValue(false);
   jest.restoreAllMocks();
 });
 
@@ -93,6 +95,10 @@ test("Home automatically shows sample tokens and vault positions, with shared wi
   });
   expect(await screen.findByText("150 USDG")).toBeVisible();
   expect(screen.getByText("150 USDC")).toBeVisible();
+  await userEvent.press(screen.getByRole("button", { name: "Steakhouse USDG vault position" }));
+  expect(
+    screen.getByRole("button", { name: "Steakhouse USDG vault position", expanded: true }),
+  ).toBeVisible();
   await userEvent.press(screen.getByRole("button", { name: "Withdraw Steakhouse USDG" }));
   expect(await screen.findByText("Available: 150 USDC")).toBeVisible();
   expect(screen.getByRole("button", { name: "Review withdrawal" })).toBeDisabled();
@@ -107,6 +113,10 @@ test("selling from a Home token card reviews first and updates shared balances o
   try {
     await openHome();
     await screen.findByText("Tokens and vault positions");
+    fireEvent.press(await screen.findByRole("button", { name: "AMZN token holding" }));
+    expect(
+      screen.getByRole("button", { name: "AMZN token holding", expanded: true }),
+    ).toBeVisible();
     const sell = await screen.findByRole("button", { name: "Sell AMZN" });
     fireEvent.press(sell);
     fireEvent.press(sell);
@@ -161,3 +171,52 @@ test("each holding's Performance toggle independently opens and closes its chart
   expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
   expect(network).not.toHaveBeenCalled();
 });
+
+test.each([false, true])(
+  "holdings expand and collapse with independent action buttons (reduced motion: %s)",
+  async (reduced) => {
+    jest.mocked(useReducedMotion).mockReturnValue(reduced);
+    const network = jest
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("Unexpected network"));
+    await openHome();
+    const token = await screen.findByRole("button", {
+      name: "AMZN token holding",
+      expanded: false,
+    });
+    expect(screen.queryByLabelText("Value per token: 230 USDC")).toBeNull();
+    await userEvent.press(token);
+    expect(
+      screen.getByRole("button", { name: "AMZN token holding", expanded: true }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Value per token: 230 USDC")).toBeVisible();
+    expect(screen.getByLabelText(/^AMZN performance chart:/)).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "AAPL token holding", expanded: false }),
+    ).toBeVisible();
+    await userEvent.press(screen.getByRole("button", { name: "AMZN performance" }));
+    expect(screen.queryByLabelText(/^AMZN performance chart:/)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "AMZN token holding", expanded: true }),
+    ).toBeVisible();
+    await userEvent.press(screen.getByRole("button", { name: "AMZN token holding" }));
+    expect(
+      screen.getByRole("button", { name: "AMZN token holding", expanded: false }),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Value per token: 230 USDC")).toBeNull();
+    await userEvent.press(screen.getByRole("button", { name: "Steakhouse USDG vault position" }));
+    expect(
+      screen.getByRole("button", { name: "Steakhouse USDG vault position", expanded: true }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Net APY: 5.17%")).toBeVisible();
+    expect(screen.getByLabelText("Protocol: Morpho")).toBeVisible();
+    expect(screen.getByLabelText(/^Steakhouse USDG performance chart:/)).toBeVisible();
+    await userEvent.press(screen.getByRole("button", { name: "Steakhouse USDG vault position" }));
+    expect(
+      screen.getByRole("button", { name: "Steakhouse USDG vault position", expanded: false }),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Net APY: 5.17%")).toBeNull();
+    expect(screen.getByRole("button", { name: "Withdraw Steakhouse USDG" })).toBeEnabled();
+    expect(network).not.toHaveBeenCalled();
+  },
+);

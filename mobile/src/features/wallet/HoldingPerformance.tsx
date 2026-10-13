@@ -17,11 +17,13 @@ export function HoldingPerformance({
   valueUsdcAtoms,
   position,
   name,
+  height = 100,
 }: {
   assetId: string;
   valueUsdcAtoms: string | null;
   position: boolean;
   name: string;
+  height?: number;
 }) {
   const history = demoHoldingPerformance(assetId, valueUsdcAtoms, position);
   if (!history) {
@@ -43,7 +45,7 @@ export function HoldingPerformance({
       >
         <LineChart
           series={history.series}
-          height={100}
+          height={height}
           up={up}
           revealKey={assetId}
           format={formatValue}

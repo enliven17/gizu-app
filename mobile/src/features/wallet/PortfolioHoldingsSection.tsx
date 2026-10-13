@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Animated from "react-native-reanimated";
 import { View } from "react-native";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
@@ -10,7 +11,7 @@ import { useSwapHoldings } from "@/features/swap/useSwapHoldings";
 import { SwapHoldingsTools } from "@/features/swap/SwapHoldingsTools";
 import { demoVaultMetadata } from "@/services/demo/opportunities";
 import { useMainnetWallet } from "./MainnetWalletProvider";
-import { PortfolioHoldingCard } from "./PortfolioHoldingCard";
+import { PortfolioHoldingCell, holdingLayout } from "./PortfolioHoldingCell";
 
 /** One portfolio list; native aggregates own balances and saved swap batches own sales. */
 export function PortfolioHoldingsSection({
@@ -69,7 +70,7 @@ export function PortfolioHoldingsSection({
   };
 
   return (
-    <View className="gap-3">
+    <Animated.View layout={holdingLayout} className="gap-3">
       {holdings.error && (
         <ErrorNotice
           kind="holdings"
@@ -108,7 +109,7 @@ export function PortfolioHoldingsSection({
               {positions.length === 1 ? "vault" : "vaults"}
             </Typography>
           </View>
-          <View className="gap-3">
+          <Animated.View layout={holdingLayout} className="gap-3">
             {snapshot?.confidentialReadState === "locked" && !wallet.loading && (
               <Typography variant="micro">
                 Private USDC needs wallet unlock before refresh.
@@ -137,44 +138,40 @@ export function PortfolioHoldingsSection({
             )}
             {tokens.length > 0 && <Typography variant="eyebrow">Tokens</Typography>}
             {tokens.length > 0 && (
-              <View className="-mx-1.5 flex-row flex-wrap">
+              <Animated.View layout={holdingLayout} className="-mx-1.5 flex-row flex-wrap">
                 {tokens.map(({ asset, swapOnly }) => {
                   const holding = match(asset);
                   const batch = holding?.batches[0];
                   return (
-                    <View key={asset.assetId} className="w-1/2 px-1.5 pb-3">
-                      <PortfolioHoldingCard
-                        asset={asset}
-                        swapOnly={swapOnly}
-                        swapBalance={
-                          !asset.complete && holding
-                            ? {
-                                atoms: holding.balanceAtoms,
-                                decimals: holding.decimals,
-                              }
-                            : undefined
-                        }
-                        loading={wallet.loading}
-                        action={
-                          holding
-                            ? {
-                                label: "Sell",
-                                disabled:
-                                  holdings.busy ||
-                                  !!holdings.error ||
-                                  holdings.saleFailed ||
-                                  !batch,
-                                onPress: () => {
-                                  if (batch) void holdings.sell(batch.id);
-                                },
-                              }
-                            : undefined
-                        }
-                      />
-                    </View>
+                    <PortfolioHoldingCell
+                      key={asset.assetId}
+                      asset={asset}
+                      swapOnly={swapOnly}
+                      swapBalance={
+                        !asset.complete && holding
+                          ? {
+                              atoms: holding.balanceAtoms,
+                              decimals: holding.decimals,
+                            }
+                          : undefined
+                      }
+                      loading={wallet.loading}
+                      action={
+                        holding
+                          ? {
+                              label: "Sell",
+                              disabled:
+                                holdings.busy || !!holdings.error || holdings.saleFailed || !batch,
+                              onPress: () => {
+                                if (batch) void holdings.sell(batch.id);
+                              },
+                            }
+                          : undefined
+                      }
+                    />
                   );
                 })}
-              </View>
+              </Animated.View>
             )}
             {positions.length > 0 && (
               <Typography variant="eyebrow" className="pt-2">
@@ -182,36 +179,35 @@ export function PortfolioHoldingsSection({
               </Typography>
             )}
             {positions.length > 0 && (
-              <View className="-mx-1.5 flex-row flex-wrap">
+              <Animated.View layout={holdingLayout} className="-mx-1.5 flex-row flex-wrap">
                 {positions.map((asset) => {
                   const vault = demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
                   return (
-                    <View key={asset.assetId} className="w-1/2 px-1.5 pb-3">
-                      <PortfolioHoldingCard
-                        asset={asset}
-                        position
-                        loading={wallet.loading}
-                        action={
-                          vault
-                            ? {
-                                label: "Withdraw",
-                                disabled:
-                                  !asset.complete || asset.stale || wallet.loading || holdings.busy,
-                                onPress: () => onWithdraw(vault.id),
-                              }
-                            : undefined
-                        }
-                      />
-                    </View>
+                    <PortfolioHoldingCell
+                      key={asset.assetId}
+                      asset={asset}
+                      position
+                      loading={wallet.loading}
+                      action={
+                        vault
+                          ? {
+                              label: "Withdraw",
+                              disabled:
+                                !asset.complete || asset.stale || wallet.loading || holdings.busy,
+                              onPress: () => onWithdraw(vault.id),
+                            }
+                          : undefined
+                      }
+                    />
                   );
                 })}
-              </View>
+              </Animated.View>
             )}
             {!demoModeEnabled() && <SwapHoldingsTools holdings={holdings} onRefresh={refresh} />}
-          </View>
+          </Animated.View>
         </>
       )}
       {!hasEntries && holdings.snapshot && !holdings.error && !holdings.saleFailed && emptyContent}
-    </View>
+    </Animated.View>
   );
 }
