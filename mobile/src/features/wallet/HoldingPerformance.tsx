@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Typography } from "@/components/atoms/Typography";
 import { LineChart } from "@/components/molecules/chart/LineChart";
-import { demoHoldingPerformance } from "@/services/demo/holdingPerformance";
+import type { demoHoldingPerformance } from "@/services/demo/holdingPerformance";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -10,27 +10,39 @@ const money = new Intl.NumberFormat("en-US", {
 });
 const percent = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const formatValue = (value: number) => money.format(value);
+export const formatHoldingChange = (value: number) =>
+  `${value >= 0 ? "+" : ""}${percent.format(value)}%`;
 
-/** Mounted only when this card's Performance control is open. */
+export function HoldingChange({ name, percent }: { name: string; percent: number }) {
+  const change = formatHoldingChange(percent);
+  return (
+    <Typography
+      variant="label"
+      accessibilityLabel={`${name} change: ${change} over the past month`}
+      className={percent >= 0 ? "!text-[11px]" : "!text-[11px] !text-rose"}
+    >
+      {change} · 1M
+    </Typography>
+  );
+}
+
+/** Mounted only while the holding card is expanded. */
 export function HoldingPerformance({
   assetId,
-  valueUsdcAtoms,
-  position,
+  history,
   name,
   height = 100,
 }: {
   assetId: string;
-  valueUsdcAtoms: string | null;
-  position: boolean;
+  history: ReturnType<typeof demoHoldingPerformance>;
   name: string;
   height?: number;
 }) {
-  const history = demoHoldingPerformance(assetId, valueUsdcAtoms, position);
   if (!history) {
     return <Typography variant="micro">Performance history isn’t available yet.</Typography>;
   }
   const up = history.percent >= 0;
-  const change = `${up ? "+" : ""}${percent.format(history.percent)}%`;
+  const change = formatHoldingChange(history.percent);
   return (
     <View className="gap-3">
       <View className="flex-row flex-wrap items-center justify-between gap-1">

@@ -236,6 +236,7 @@ test("owned token amounts and vault underlying values remain distinct when marke
   expect(screen.queryByText("Vault position · Ethereum")).toBeNull();
   expect(screen.getByText("Estimated underlying: 2 USDC")).toBeVisible();
   expect(screen.getByText("2 USDC")).toBeVisible();
+  expect(screen.queryByLabelText(/ change: .* over the past month$/)).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "USDC vault position" }));
   expect(screen.getByText("Performance history isn’t available yet.")).toBeVisible();
   expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
