@@ -12,13 +12,17 @@ export const holdingLayout = LinearTransition.duration(durations.holdingExpand)
 export function PortfolioHoldingCell(
   props: Omit<ComponentProps<typeof PortfolioHoldingCard>, "layout">,
 ) {
-  const { expanded } = props;
-  const [compactHeight, setCompactHeight] = useState(0);
+  const { expanded, position } = props;
+  const [compactSize, setCompactSize] = useState({ width: 0, height: 0 });
   const reduced = useReducedMotion();
   const measureCompact = (event: LayoutChangeEvent) => {
     if (expanded) return;
+    const width = event.nativeEvent.layout.width;
     const height = Math.ceil(event.nativeEvent.layout.height);
-    if (height > 0) setCompactHeight((current) => (current === height ? current : height));
+    if (width > 0 && height > 0)
+      setCompactSize((current) =>
+        current.width === width && current.height === height ? current : { width, height },
+      );
   };
   return (
     <Animated.View
@@ -31,7 +35,13 @@ export function PortfolioHoldingCell(
         collapsable={false}
         onLayout={measureCompact}
         className="flex-1"
-        style={expanded && compactHeight > 0 ? { minHeight: compactHeight * 2 } : undefined}
+        style={
+          expanded && compactSize.height > 0
+            ? { minHeight: compactSize.height * 2 }
+            : !position && compactSize.width > 0
+              ? { minHeight: compactSize.width }
+              : undefined
+        }
       >
         <PortfolioHoldingCard {...props} layout={holdingLayout} />
       </Animated.View>
