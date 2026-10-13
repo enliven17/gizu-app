@@ -199,6 +199,60 @@ test("unavailable preview explains why and never requests signing", async () => 
   expect(screen.queryByRole("button", { name: "Confirm deposit" })).toBeNull();
   expect(service.confirm).not.toHaveBeenCalled();
 });
+test("returning after cancelled preparation can review again using the same draft", async () => {
+  const pending = deferred<DepositSnapshot>();
+  const partial = { ...ready(), phase: "preparing", review: undefined } as DepositSnapshot;
+  const cancelled = {
+    ...partial,
+    revision: 2,
+    phase: "paused",
+    pauseReason: "cancelled",
+  } as DepositSnapshot;
+  const prepare = jest.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(ready());
+  const { service, navigation } = setup({
+    prepare,
+    status: jest.fn().mockResolvedValue(partial),
+    cancel: jest.fn().mockResolvedValue(cancelled),
+  });
+  const user = await review();
+  await waitFor(() => expect(service.status).toHaveBeenCalled(), { timeout: 2000 });
+  act(() => navigation.navigate("Other" as never));
+  await waitFor(() => expect(service.cancel).toHaveBeenCalled());
+  await act(async () => pending.resolve(cancelled));
+  act(() => navigation.goBack());
+  const retry = await screen.findByRole("button", { name: "Review deposit" });
+  expect(retry).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Review remaining steps" })).toBeNull();
+  await user.press(retry);
+  expect(prepare).toHaveBeenLastCalledWith(
+    expect.anything(),
+    "robinhood-usdg",
+    "3000000",
+    "deposit_1",
+  );
+  expect(service.resume).not.toHaveBeenCalled();
+  expect(service.confirm).not.toHaveBeenCalled();
+});
+test("an expired unsigned preparation without a review can be prepared again", async () => {
+  const row = {
+    ...ready(),
+    phase: "paused",
+    pauseReason: "approvalExpired",
+    review: undefined,
+  } as DepositSnapshot;
+  const { service } = setup({ status: jest.fn().mockResolvedValue(row) }, "deposit_1");
+  await screen.findByText(/Approval ended/);
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText("USDC deposit amount"), "3");
+  await user.press(screen.getByRole("button", { name: "Review deposit" }));
+  expect(service.prepare).toHaveBeenLastCalledWith(
+    expect.anything(),
+    "robinhood-usdg",
+    "3000000",
+    "deposit_1",
+  );
+  expect(service.resume).not.toHaveBeenCalled();
+});
 test("saved partially completed deposit resumes rather than allocating another pair", async () => {
   const row = {
     ...ready(),

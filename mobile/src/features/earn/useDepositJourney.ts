@@ -282,12 +282,14 @@ export function useDepositJourney(profileId: EarnProfileId, savedJourneyId?: str
         (snapshot.phase === "paused" &&
           !snapshot.completedSteps.length &&
           snapshot.creditedAtoms === "0" &&
-          [
+          ([
             "previewUnavailable",
             "quoteUnavailable",
             "insufficientFunds",
             "uneconomicAmount",
-          ].includes(snapshot.pauseReason ?? "")));
+          ].includes(snapshot.pauseReason ?? "") ||
+            (!snapshot.review &&
+              ["cancelled", "approvalExpired"].includes(snapshot.pauseReason ?? "")))));
   return {
     amount,
     snapshot,

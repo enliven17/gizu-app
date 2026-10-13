@@ -491,3 +491,13 @@ variability; it does not establish a guaranteed improvement over the earlier
 20.5/33.8-second samples. Submission methods were blocked and no mainnet spending
 signature or transaction was sent. Deploy the backend optimization and install the
 updated native APK separately before the funded device test.
+
+Final optimization verification: 242 backend tests passed with three optional
+fork tests skipped; 287 native Android tests and the complete 736-test mobile
+suite passed. Type checks, mobile lint and the standalone release build passed.
+Independent review found an unsigned-cancellation retry dead end; navigation and
+expired-draft regressions reproduced it before the fix. Those drafts can now
+prepare again using the same pair, while deposits with saved funded progress
+retain remaining-step recovery. The Render-targeted APK was installed with
+`adb install -r` and opened on the connected phone. Backend deployment and the
+user-authorized funded execution test remain separate steps.
