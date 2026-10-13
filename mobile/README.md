@@ -362,11 +362,15 @@ Pendle Ecosystem USDC, Steakhouse USDG and High Yield AUSD positions. Stock sale
 use the same holdings as Swap; vault withdrawals reduce the positions displayed on Home.
 **Tokens and vault positions** automatically shows existing holdings in separate
 two-column token and vault grids, with token amounts and USDC values. **Sell** opens the existing swap review; demo vault cards offer **Withdraw**.
-Each card’s **Performance** button expands a mock month of holding-value history
-in demo mode; live cards show an unavailable state until history is supported.
 Tap a holding card to expand it across both columns at twice its compact height,
-with a larger chart and extra figures. Tap again to collapse. Grid movement is
-animated and respects reduced motion; action buttons operate independently.
+with a chart and extra figures. Charts show a mock month of holding-value history
+in demo mode; live cards show an unavailable state until history is supported.
+Tap again to collapse. Card resizing and grid movement share a gentle 500 ms
+ease-in-out transition that respects reduced motion; action buttons operate independently.
+Expanding a right-column card moves it ahead of its left neighbor, which slides
+below it. Collapsing restores the normal order within that grid.
+Only one holding card is expanded at a time across tokens and vault positions;
+tapping another card collapses the previous one and expands the selected card.
 There is no separate swap-management list.
 Release builds require an explicit HTTPS URL. The public configuration contains no
 Merkl API key; that stays on the backend.

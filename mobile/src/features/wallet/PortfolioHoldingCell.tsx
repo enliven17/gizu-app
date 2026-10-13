@@ -10,12 +10,9 @@ export const holdingLayout = LinearTransition.duration(durations.holdingExpand)
 
 /** A two-column cell expands in the grid to two columns and two compact rows. */
 export function PortfolioHoldingCell(
-  props: Omit<
-    ComponentProps<typeof PortfolioHoldingCard>,
-    "expanded" | "onToggleExpanded" | "layout"
-  >,
+  props: Omit<ComponentProps<typeof PortfolioHoldingCard>, "layout">,
 ) {
-  const [expanded, setExpanded] = useState(false);
+  const { expanded } = props;
   const [compactHeight, setCompactHeight] = useState(0);
   const reduced = useReducedMotion();
   const measureCompact = (event: LayoutChangeEvent) => {
@@ -36,12 +33,7 @@ export function PortfolioHoldingCell(
         className="flex-1"
         style={expanded && compactHeight > 0 ? { minHeight: compactHeight * 2 } : undefined}
       >
-        <PortfolioHoldingCard
-          {...props}
-          expanded={expanded}
-          layout={holdingLayout}
-          onToggleExpanded={() => setExpanded((value) => !value)}
-        />
+        <PortfolioHoldingCard {...props} layout={holdingLayout} />
       </Animated.View>
     </Animated.View>
   );

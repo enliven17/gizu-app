@@ -138,11 +138,12 @@ test("selling from a Home token card reviews first and updates shared balances o
   }
 });
 
-test("each holding's Performance toggle independently opens and closes its chart", async () => {
+test("holding cards show one chart at a time across tokens and vaults without Performance buttons", async () => {
   const network = jest
     .spyOn(globalThis, "fetch")
     .mockRejectedValue(new Error("Unexpected network"));
   await openHome();
+  await screen.findByText("Tokens and vault positions");
   for (const name of [
     "AMZN",
     "AAPL",
@@ -152,25 +153,91 @@ test("each holding's Performance toggle independently opens and closes its chart
     "Steakhouse USDG",
     "High Yield AUSD",
   ])
-    expect(
-      await screen.findByRole("button", { name: `${name} performance`, expanded: false }),
-    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: `${name} performance` })).toBeNull();
   expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
-  fireEvent.press(screen.getByRole("button", { name: "AMZN performance" }));
+  fireEvent.press(screen.getByRole("button", { name: "AMZN token holding" }));
   expect(screen.getByLabelText(/^AMZN performance chart:/)).toBeVisible();
-  expect(screen.getByRole("button", { name: "AMZN performance", expanded: true })).toBeVisible();
-  expect(screen.getByRole("button", { name: "AAPL performance", expanded: false })).toBeVisible();
-  fireEvent.press(screen.getByRole("button", { name: "Steakhouse USDG performance" }));
+  expect(screen.getByRole("button", { name: "AMZN token holding", expanded: true })).toBeVisible();
+  expect(screen.getByRole("button", { name: "AAPL token holding", expanded: false })).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Steakhouse USDG vault position" }));
+  expect(screen.getByRole("button", { name: "AMZN token holding", expanded: false })).toBeVisible();
+  expect(screen.queryByLabelText(/^AMZN performance chart:/)).toBeNull();
   expect(screen.getByLabelText(/^Steakhouse USDG performance chart:/)).toBeVisible();
   expect(screen.getByRole("button", { name: "Sell AMZN" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Withdraw Steakhouse USDG" })).toBeEnabled();
-  fireEvent.press(screen.getByRole("button", { name: "AMZN performance" }));
-  expect(screen.queryByLabelText(/^AMZN performance chart:/)).toBeNull();
-  expect(screen.getByLabelText(/^Steakhouse USDG performance chart:/)).toBeVisible();
-  fireEvent.press(screen.getByRole("button", { name: "Steakhouse USDG performance" }));
+  fireEvent.press(screen.getByRole("button", { name: "AMZN token holding" }));
+  expect(screen.getByLabelText(/^AMZN performance chart:/)).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Steakhouse USDG vault position", expanded: false }),
+  ).toBeVisible();
+  expect(screen.queryByLabelText(/^Steakhouse USDG performance chart:/)).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "AMZN token holding" }));
   expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
   expect(network).not.toHaveBeenCalled();
 });
+
+test.each([false, true])(
+  "right-column holdings expand before their left neighbor and restore order (reduced motion: %s)",
+  async (reduced) => {
+    jest.mocked(useReducedMotion).mockReturnValue(reduced);
+    await openHome();
+    await screen.findByText("Tokens and vault positions");
+    const expectOrder = (kind: "token holding" | "vault position", names: readonly string[]) => {
+      expect(screen.getAllByRole("button", { name: new RegExp(`${kind}$`) })).toEqual(
+        names.map((name) => screen.getByRole("button", { name: `${name} ${kind}` })),
+      );
+    };
+    expectOrder("token holding", ["AMZN", "AAPL", "NVDA"]);
+    await userEvent.press(screen.getByRole("button", { name: "AAPL token holding" }));
+    expectOrder("token holding", ["AAPL", "AMZN", "NVDA"]);
+    expect(
+      screen.getByRole("button", { name: "AAPL token holding", expanded: true }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "AMZN token holding", expanded: false }),
+    ).toBeVisible();
+    expect(screen.getByLabelText(/^AAPL performance chart:/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sell AAPL" })).toBeEnabled();
+
+    // Switching cards collapses the previous card and restores its normal position.
+    await userEvent.press(screen.getByRole("button", { name: "NVDA token holding" }));
+    expectOrder("token holding", ["AMZN", "AAPL", "NVDA"]);
+    expect(
+      screen.getByRole("button", { name: "AAPL token holding", expanded: false }),
+    ).toBeVisible();
+    expect(screen.queryByLabelText(/^AAPL performance chart:/)).toBeNull();
+    expect(screen.getByLabelText(/^NVDA performance chart:/)).toBeVisible();
+    expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(1);
+    await userEvent.press(screen.getByRole("button", { name: "NVDA token holding" }));
+    expectOrder("token holding", ["AMZN", "AAPL", "NVDA"]);
+    expect(screen.queryByLabelText(/^NVDA performance chart:/)).toBeNull();
+
+    const vaultNames = [
+      "Aave V3 USDC",
+      "Pendle Ecosystem USDC",
+      "Steakhouse USDG",
+      "High Yield AUSD",
+    ] as const;
+    expectOrder("vault position", vaultNames);
+    await userEvent.press(screen.getByRole("button", { name: "AAPL token holding" }));
+    await userEvent.press(
+      screen.getByRole("button", { name: "Pendle Ecosystem USDC vault position" }),
+    );
+    expectOrder("token holding", ["AMZN", "AAPL", "NVDA"]);
+    expect(screen.queryByLabelText(/^AAPL performance chart:/)).toBeNull();
+    expectOrder("vault position", [vaultNames[1], vaultNames[0], ...vaultNames.slice(2)]);
+    expect(screen.getByLabelText(/^Pendle Ecosystem USDC performance chart:/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Withdraw Pendle Ecosystem USDC" })).toBeEnabled();
+    await userEvent.press(screen.getByRole("button", { name: "High Yield AUSD vault position" }));
+    expectOrder("vault position", [vaultNames[0], vaultNames[1], vaultNames[3], vaultNames[2]]);
+    expect(screen.queryByLabelText(/^Pendle Ecosystem USDC performance chart:/)).toBeNull();
+    expect(screen.getByLabelText(/^High Yield AUSD performance chart:/)).toBeVisible();
+    expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(1);
+    await userEvent.press(screen.getByRole("button", { name: "High Yield AUSD vault position" }));
+    expectOrder("vault position", vaultNames);
+    expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
+  },
+);
 
 test.each([false, true])(
   "holdings expand and collapse with independent action buttons (reduced motion: %s)",
@@ -194,16 +261,12 @@ test.each([false, true])(
     expect(
       screen.getByRole("button", { name: "AAPL token holding", expanded: false }),
     ).toBeVisible();
-    await userEvent.press(screen.getByRole("button", { name: "AMZN performance" }));
-    expect(screen.queryByLabelText(/^AMZN performance chart:/)).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "AMZN token holding", expanded: true }),
-    ).toBeVisible();
     await userEvent.press(screen.getByRole("button", { name: "AMZN token holding" }));
     expect(
       screen.getByRole("button", { name: "AMZN token holding", expanded: false }),
     ).toBeVisible();
     expect(screen.queryByLabelText("Value per token: 230 USDC")).toBeNull();
+    expect(screen.queryByLabelText(/^AMZN performance chart:/)).toBeNull();
     await userEvent.press(screen.getByRole("button", { name: "Steakhouse USDG vault position" }));
     expect(
       screen.getByRole("button", { name: "Steakhouse USDG vault position", expanded: true }),

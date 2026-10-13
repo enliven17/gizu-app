@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Animated from "react-native-reanimated";
 import { View } from "react-native";
 import { Typography } from "@/components/atoms/Typography";
@@ -11,7 +11,8 @@ import { useSwapHoldings } from "@/features/swap/useSwapHoldings";
 import { SwapHoldingsTools } from "@/features/swap/SwapHoldingsTools";
 import { demoVaultMetadata } from "@/services/demo/opportunities";
 import { useMainnetWallet } from "./MainnetWalletProvider";
-import { PortfolioHoldingCell, holdingLayout } from "./PortfolioHoldingCell";
+import { holdingLayout } from "./PortfolioHoldingCell";
+import { PortfolioHoldingsGrid } from "./PortfolioHoldingsGrid";
 
 /** One portfolio list; native aggregates own balances and saved swap batches own sales. */
 export function PortfolioHoldingsSection({
@@ -25,6 +26,15 @@ export function PortfolioHoldingsSection({
 }) {
   const wallet = useMainnetWallet();
   const holdings = useSwapHoldings();
+  const [expandedHolding, setExpandedHolding] = useState<{
+    section: "tokens" | "vaults";
+    assetId: string;
+  } | null>(null);
+  const toggleHolding = (section: "tokens" | "vaults", assetId: string) => {
+    setExpandedHolding((current) =>
+      current?.section === section && current.assetId === assetId ? null : { section, assetId },
+    );
+  };
   const snapshot = wallet.snapshot;
   const owned = snapshot?.ownedAssets ?? [];
   const positions = snapshot?.positions ?? [];
@@ -138,40 +148,36 @@ export function PortfolioHoldingsSection({
             )}
             {tokens.length > 0 && <Typography variant="eyebrow">Tokens</Typography>}
             {tokens.length > 0 && (
-              <Animated.View layout={holdingLayout} className="-mx-1.5 flex-row flex-wrap">
-                {tokens.map(({ asset, swapOnly }) => {
+              <PortfolioHoldingsGrid
+                expandedId={expandedHolding?.section === "tokens" ? expandedHolding.assetId : null}
+                onToggle={(id) => toggleHolding("tokens", id)}
+                items={tokens.map(({ asset, swapOnly }) => {
                   const holding = match(asset);
                   const batch = holding?.batches[0];
-                  return (
-                    <PortfolioHoldingCell
-                      key={asset.assetId}
-                      asset={asset}
-                      swapOnly={swapOnly}
-                      swapBalance={
-                        !asset.complete && holding
-                          ? {
-                              atoms: holding.balanceAtoms,
-                              decimals: holding.decimals,
-                            }
-                          : undefined
-                      }
-                      loading={wallet.loading}
-                      action={
-                        holding
-                          ? {
-                              label: "Sell",
-                              disabled:
-                                holdings.busy || !!holdings.error || holdings.saleFailed || !batch,
-                              onPress: () => {
-                                if (batch) void holdings.sell(batch.id);
-                              },
-                            }
-                          : undefined
-                      }
-                    />
-                  );
+                  return {
+                    asset,
+                    swapOnly,
+                    swapBalance:
+                      !asset.complete && holding
+                        ? {
+                            atoms: holding.balanceAtoms,
+                            decimals: holding.decimals,
+                          }
+                        : undefined,
+                    loading: wallet.loading,
+                    action: holding
+                      ? {
+                          label: "Sell",
+                          disabled:
+                            holdings.busy || !!holdings.error || holdings.saleFailed || !batch,
+                          onPress: () => {
+                            if (batch) void holdings.sell(batch.id);
+                          },
+                        }
+                      : undefined,
+                  };
                 })}
-              </Animated.View>
+              />
             )}
             {positions.length > 0 && (
               <Typography variant="eyebrow" className="pt-2">
@@ -179,29 +185,26 @@ export function PortfolioHoldingsSection({
               </Typography>
             )}
             {positions.length > 0 && (
-              <Animated.View layout={holdingLayout} className="-mx-1.5 flex-row flex-wrap">
-                {positions.map((asset) => {
+              <PortfolioHoldingsGrid
+                expandedId={expandedHolding?.section === "vaults" ? expandedHolding.assetId : null}
+                onToggle={(id) => toggleHolding("vaults", id)}
+                items={positions.map((asset) => {
                   const vault = demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
-                  return (
-                    <PortfolioHoldingCell
-                      key={asset.assetId}
-                      asset={asset}
-                      position
-                      loading={wallet.loading}
-                      action={
-                        vault
-                          ? {
-                              label: "Withdraw",
-                              disabled:
-                                !asset.complete || asset.stale || wallet.loading || holdings.busy,
-                              onPress: () => onWithdraw(vault.id),
-                            }
-                          : undefined
-                      }
-                    />
-                  );
+                  return {
+                    asset,
+                    position: true,
+                    loading: wallet.loading,
+                    action: vault
+                      ? {
+                          label: "Withdraw",
+                          disabled:
+                            !asset.complete || asset.stale || wallet.loading || holdings.busy,
+                          onPress: () => onWithdraw(vault.id),
+                        }
+                      : undefined,
+                  };
                 })}
-              </Animated.View>
+              />
             )}
             {!demoModeEnabled() && <SwapHoldingsTools holdings={holdings} onRefresh={refresh} />}
           </Animated.View>
