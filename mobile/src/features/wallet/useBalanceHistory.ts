@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import type { MainnetPortfolioSnapshot } from "@/domain/wallet/storedSigner";
 import { appendBalancePoint, type BalancePoint } from "@/domain/wallet/balanceHistory";
 import { balanceHistoryStore } from "@/storage/balanceHistory";
+import { swapDemoEnabled } from "@/features/swap/demo/swapDemo";
 
 /** Loads this wallet's observed balances and records each complete, fresh snapshot. */
 export function useBalanceHistory(snapshot: MainnetPortfolioSnapshot | null) {
-  const walletId = snapshot?.walletId;
+  // Demo balances keep their own history, so a demo never shows up in the real chart.
+  const walletId =
+    snapshot?.walletId && swapDemoEnabled() ? `${snapshot.walletId}:swap-demo` : snapshot?.walletId;
   const [state, setState] = useState<{ walletId?: string; history: BalancePoint[] }>({
     history: [],
   });

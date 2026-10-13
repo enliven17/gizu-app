@@ -2,7 +2,13 @@ import { createContext, useCallback, useContext, useState } from "react";
 import { tokenIdentity, type TokenCatalogService, type TokenQuery } from "@/domain/tokenCatalog";
 import { tokenCatalogService } from "@/services/tokenCatalog";
 import { useInfiniteList } from "@/hooks/useInfiniteList";
-export const TokenCatalogContext = createContext<TokenCatalogService>(tokenCatalogService);
+import { demoCatalogService, swapDemoEnabled } from "./demo/swapDemo";
+/** The real catalog, or the swap demo's fixed one while demo mode is on. */
+const defaultCatalog: TokenCatalogService = {
+  list: (query, signal) =>
+    (swapDemoEnabled() ? demoCatalogService : tokenCatalogService).list(query, signal),
+};
+export const TokenCatalogContext = createContext<TokenCatalogService>(defaultCatalog);
 export function useTokenCatalog(initial: Partial<Omit<TokenQuery, "page">> = {}) {
   const service = useContext(TokenCatalogContext);
   const [query, setQuery] = useState<Omit<TokenQuery, "page">>({

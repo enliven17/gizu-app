@@ -5,4 +5,5 @@
  * before a passkey approval. Remove once no old balances remain.
  */
 export const DEBUG_SWEEP_ADDRESS = "0x4b4FC9122E79C06e279FD8E3c612056ea61c856F";
-export const DEBUG_SWEEP_ENABLED = __DEV__;
+/** Off in swap demo mode: a demo shows only what users get. */
+export const DEBUG_SWEEP_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_SWAP_DEMO !== "1";

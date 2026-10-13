@@ -8,6 +8,7 @@ import { Notice } from "@/components/molecules/Notice";
 import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { Surface } from "@/components/molecules/Surface";
 import { useSwapHoldings } from "./useSwapHoldings";
+import { swapDemoEnabled } from "./demo/swapDemo";
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { groupDigits } from "@/domain/wallet/amounts";
 
@@ -148,7 +149,7 @@ export function SwapHoldingsSection({
                   </Typography>
                 ) : null}
                 <Button
-                  label={`Sell ${holding.symbol} back to Monad USDC`}
+                  label={swapDemoEnabled() ? "Swap" : `Sell ${holding.symbol} back to Monad USDC`}
                   disabled={
                     holdings.busy ||
                     !!holdings.error ||

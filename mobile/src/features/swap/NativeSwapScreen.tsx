@@ -1,5 +1,5 @@
 import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { TextInput, View } from "react-native";
 import { ArrowDown } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
@@ -15,14 +15,19 @@ import { formatSwapAmount } from "@/domain/swap";
 import { groupDigits } from "@/domain/wallet/amounts";
 import colors from "@/theme/colors.json";
 import { useNativeSwap } from "./useNativeSwap";
+import { swapDemo, swapDemoEnabled } from "./demo/swapDemo";
 
 export function NativeSwapScreen() {
   const swap = useNativeSwap();
   const [mode, setMode] = useState<"buy" | "sell">("buy");
   const [showLast, setShowLast] = useState(false);
   const wallet = useOptionalMainnetWallet();
-  const maxAmount =
-    wallet?.snapshot && wallet.snapshot.balanceComplete !== false
+  // Demo mode spends a simulated balance; re-render whenever the simulation moves.
+  const demo = swapDemoEnabled();
+  useSyncExternalStore(swapDemo.subscribe, swapDemo.version);
+  const maxAmount = demo
+    ? formatSwapAmount(swapDemo.usdcAtoms())
+    : wallet?.snapshot && wallet.snapshot.balanceComplete !== false
       ? formatSwapAmount(BigInt(wallet.snapshot.totalAtoms))
       : null;
   const selected = swap.tokens.find((token) => token.address === swap.target);
@@ -83,7 +88,12 @@ export function NativeSwapScreen() {
               <View className="gap-3 rounded-[20px] bg-well p-4">
                 <View className="flex-row flex-wrap items-center justify-between gap-2">
                   <Typography variant="label11">You pay</Typography>
-                  {wallet && (
+                  {demo ? (
+                    <Typography variant="micro">
+                      {`Available: ${groupDigits(formatSwapAmount(swapDemo.usdcAtoms()))} USDC`}
+                    </Typography>
+                  ) : null}
+                  {!demo && wallet && (
                     <Typography variant="micro">
                       {wallet.snapshot && wallet.snapshot.balanceComplete !== false
                         ? `Available${wallet.error || wallet.snapshot.stale ? " (cached)" : ""}: ${groupDigits(formatSwapAmount(BigInt(wallet.snapshot.totalAtoms)))} USDC`
@@ -167,7 +177,8 @@ export function NativeSwapScreen() {
               disabled={swap.busy}
             />
           ) : null}
-          {swap.canSell ? (
+          {/* The demo sells from the sell form only; one Swap button, not two. */}
+          {swap.canSell && !swapDemoEnabled() ? (
             <Button
               label={swap.busy ? "Working" : "Sell back to Monad USDC"}
               onPress={swap.sell}

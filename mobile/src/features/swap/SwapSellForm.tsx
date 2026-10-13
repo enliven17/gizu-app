@@ -10,6 +10,7 @@ import { Surface } from "@/components/molecules/Surface";
 import colors from "@/theme/colors.json";
 import { holdingAmount } from "./SwapHoldingsSection";
 import { DEBUG_SWEEP_ADDRESS, DEBUG_SWEEP_ENABLED } from "./debugSweep";
+import { swapDemoEnabled } from "./demo/swapDemo";
 import { useSwapHoldings } from "./useSwapHoldings";
 
 /** Sells a held token back to Monad USDC, the only destination the sale route supports. */
@@ -115,13 +116,19 @@ export function SwapSellForm({ flip, onSettled }: { flip: ReactNode; onSettled: 
         </Typography>
       ) : null}
       <Button
-        label={holdings.busy ? "Working" : `Sell ${holding?.symbol ?? "token"} for USDC`}
+        label={
+          holdings.busy
+            ? "Working"
+            : swapDemoEnabled()
+              ? "Swap"
+              : `Sell ${holding?.symbol ?? "token"} for USDC`
+        }
         disabled={holdings.busy || !!holdings.error || holdings.saleFailed || !batch}
         onPress={() => {
           if (batch) void holdings.sell(batch.id);
         }}
       />
-      {DEBUG_SWEEP_ENABLED ? (
+      {DEBUG_SWEEP_ENABLED && !swapDemoEnabled() ? (
         <Button
           label={`Debug: send ${holding?.symbol ?? "token"} proceeds to ${DEBUG_SWEEP_ADDRESS.slice(0, 6)}…${DEBUG_SWEEP_ADDRESS.slice(-4)}`}
           variant="secondary"
