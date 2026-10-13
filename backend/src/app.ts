@@ -94,10 +94,10 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
     funding: new PimlicoMonadFunding(secret.PIMLICO_API_KEY),
     fusion: new OneInchFusion(secret.ONEINCH_API_KEY),
   });
-  registerEarnRoutes(app, new EarnPreflight(), new ConfidentialBalance(secret.AURORA_API_KEY));
+  registerEarnRoutes(app, new EarnPreflight(), new ConfidentialBalance(secret.AURORA_API_KEY,fetch,Date.now,(event)=>app.log.info(event,"earn private balance read failed")));
   const ethereumPlannerConfig={rpcUrl:secret.ETHEREUM_RPC_URL??"https://ethereum-rpc.publicnode.com",oneInchApiKey:secret.ONEINCH_API_KEY,anvilPath:secret.EARN_ANVIL_PATH};
   const auroraFeeQualification=secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):observedAuroraFeeQualification;
-  registerEarnSettlementRoutes(app,new ConfidentialSettlement(secret.AURORA_API_KEY,fetch,Date.now,secret.EARN_GATEWAY_RECOVERY_KEY));
+  registerEarnSettlementRoutes(app,new ConfidentialSettlement(secret.AURORA_API_KEY,fetch,Date.now,secret.EARN_GATEWAY_RECOVERY_KEY,(event)=>app.log.info(event,"earn settlement check")));
   const nativeGateway=new NativeEarnGateway({auroraHistoryQualified:secret.EARN_AURORA_HISTORY_QUALIFIED==="true",recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,pimlicoApiKey:secret.PIMLICO_API_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:auroraFeeQualification});
   const hoodConfig={rpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com",pimlicoApiKey:secret.PIMLICO_API_KEY,anvilPath:secret.EARN_ANVIL_PATH,auroraApiKey:secret.AURORA_API_KEY};
   registerEarnPreviewRoutes(app,new RobinhoodDepositPreviewPlanner(hoodConfig),new EarnPayoutPreviewGateway({auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:auroraFeeQualification}));

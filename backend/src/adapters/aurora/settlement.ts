@@ -2,6 +2,7 @@ import { InfrastructureError } from "../../domain/errors/infrastructure-error.ts
 import {
   ConfidentialBalance,
   authenticateEarnRead,
+  type PrivateBalanceDiagnostic,
   type ReadAuthentication,
 } from "./confidential-balance.ts";
 import {
@@ -57,6 +58,13 @@ function decimalAtoms(value: unknown, decimals: number): bigint {
 /** Native journals bind finalized origin receipts, saved quotes and pre-spend snapshots.
  * Route SUCCESS alone is insufficient: a bounded authenticated balance delta is required.
  * Legacy journals without snapshots retain history reconciliation. */
+/** Sanitized settlement observation: no amounts, addresses, tokens or signed data. */
+export type SettlementDiagnostic = {
+  event: "earn.settlement";
+  route: string;
+  credit: "routePending" | "negative" | "zero" | "below" | "met" | "aboveMax";
+  entries: string[];
+};
 export class ConfidentialSettlement {
   private occupied = new Set<string>();
   private recovery: EarnRecoveryEnvelope;
@@ -66,9 +74,12 @@ export class ConfidentialSettlement {
     private fetcher: typeof fetch = fetch,
     private now: () => number = Date.now,
     recoveryKey?: string,
+    private diagnose?: (
+      event: SettlementDiagnostic | PrivateBalanceDiagnostic,
+    ) => void,
   ) {
     this.recovery = new EarnRecoveryEnvelope(recoveryKey);
-    this.balances = new ConfidentialBalance(key, fetcher, now);
+    this.balances = new ConfidentialBalance(key, fetcher, now, diagnose);
   }
   async baseline(auth: ReadAuthentication) {
     if (!this.recovery.configured)
@@ -216,7 +227,20 @@ export class ConfidentialSettlement {
       status: "awaitingSettlement" as const,
       verification: "balance-delta-v1" as const,
     };
+    const report = (credit: SettlementDiagnostic["credit"], entries: string[] = []) => {
+      try {
+        this.diagnose?.({
+          event: "earn.settlement",
+          route: /^[A-Z_]{1,32}$/.test(String(route.status)) ? String(route.status) : "OTHER",
+          credit,
+          entries,
+        });
+      } catch {
+        /* logging only */
+      }
+    };
     if (route.status !== "SUCCESS") {
+      report("routePending");
       if (
         ![
           "KNOWN_DEPOSIT_TX",
@@ -228,8 +252,20 @@ export class ConfidentialSettlement {
         throw new Error("Funding route failed");
       return pending;
     }
-    const balance = await this.balances.read(auth);
+    const balance = await this.balances.read(auth, this.diagnose !== undefined);
     const delta = BigInt(balance.available) - BigInt(baseline.available);
+    report(
+      delta < 0n
+        ? "negative"
+        : delta > BigInt(quote.maximumCreditAtoms)
+          ? "aboveMax"
+          : delta === 0n
+            ? "zero"
+            : delta < BigInt(expected.minimumCreditAtoms)
+              ? "below"
+              : "met",
+      balance.entryKinds,
+    );
     if (delta < 0n || delta > BigInt(quote.maximumCreditAtoms))
       throw new Error("Ambiguous private credit");
     if (delta < BigInt(expected.minimumCreditAtoms)) return pending;

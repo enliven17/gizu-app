@@ -92,6 +92,7 @@ class EarnDepositCoordinatorTest {
     var failedPayoutRead = false
     val readySources = mutableSetOf<String>()
     var now = 1002L
+    var onReconcile: (() -> Unit)? = null
 
     override suspend fun registerFunding(row: JSONObject) =
       row.also { rows[it.getString("operationId")] = it }
@@ -174,6 +175,7 @@ class EarnDepositCoordinatorTest {
       id: String,
       grant: EarnDepositApproval?,
     ): JSONObject {
+      onReconcile?.invoke()
       if (failedPayoutRead && stage == "payouts" && child(stage, id).getString("status") == "paid")
         error("Provider unavailable during receipt refresh")
       return child(stage, id)
@@ -234,6 +236,28 @@ class EarnDepositCoordinatorTest {
       coordinator.reconcile(id)
       assertEquals(4, engines.signed)
       assertEquals(1, engines.depositCreates)
+    }
+  }
+
+  @Test
+  fun creditWaitPassesNeverRewindPublishedPhaseToFunding() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val j = testDepositJournal()
+      val draft = j.loadOrCreate(r, 4663, null)
+      val id = draft.getString("journeyId")
+      val review = DepositFixtures.review(r).put("journeyId", id)
+      j.saveReview(id, 1, review)
+      val a = EarnDepositApproval.fromReview(r, review)
+      a.approveAfterPasskey(1000)
+      val engines = Engines(r)
+      val coordinator = EarnDepositCoordinator(j, engines)
+      coordinator.confirmed(id, 2, a)
+      assertEquals("settlingCredit", j.publicSnapshot(id)["phase"])
+      val observed = mutableListOf<Any?>()
+      engines.onReconcile = { observed.add(j.publicSnapshot(id)["phase"]) }
+      repeat(3) { coordinator.advance(id, a) }
+      assertEquals(listOf("settlingCredit"), observed.distinct())
+      assertEquals("settlingCredit", j.publicSnapshot(id)["phase"])
     }
   }
 

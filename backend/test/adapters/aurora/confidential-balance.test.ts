@@ -50,3 +50,25 @@ test("missing credentials, duplicate assets, wrong balance source and invalid am
     (p:string,r:Record<string,unknown>)=>{if(p.includes("balances")) r.balances=[{source:"private",tokenId:assetId,available:"1e6"}];},
   ]) await assert.rejects(setup(change).adapter.read(auth));
 });
+test("failed reads report only stage, status, allowlisted reason and entry shapes",async()=>{
+  const auth=await authentication();
+  const cases: [(p:string,r:Record<string,unknown>)=>void, Record<string,unknown>][]=[
+    [(p,r)=>{if(p.includes("balances")) r.balances=[{source:"public",tokenId:assetId,available:"2987344"},{source:"private",tokenId:assetId,available:"2.987344"}];},
+      {event:"earn.private-balance",stage:"parse",httpStatus:200,reason:"Ambiguous balance",entries:["public:asset:integer","private:asset:decimal"]}],
+    [(p,r)=>{if(p.includes("balances")) r.balances=[{source:"private",tokenId:"imt:"+"ab".repeat(32)+":"+assetId,available:2987344}];},
+      {event:"earn.private-balance",stage:"parse",httpStatus:200,reason:"Wrong private balance",entries:["private:wrapped:number"]}],
+  ];
+  for (const [change,expected] of cases) {
+    const events: unknown[]=[];
+    const {calls}=setup(change);
+    const fetcher=async(url: string | URL | Request,init?:RequestInit)=>{const path=new URL(String(url)).pathname;const result: Record<string,unknown>=path.includes("authenticate")?{accessToken:"private-token"}:path.includes("tokens")?{tokens:[{assetId,blockchain:"monad",symbol:"USDC",decimals:6,contractAddress:"0x754704Bc059F8C67012fEd69BC8A327a5aafb603"}]}:{balances:[]};change(path,result);calls.push({url:String(url),init});return new Response(JSON.stringify(result),{status:200});};
+    await assert.rejects(new ConfidentialBalance("test-provider-key",fetcher,()=>now,e=>events.push(e)).read(auth));
+    assert.deepEqual(events,[expected]);
+    for (const secret of ["2987344","2.987344","private-token","test-provider-key",account.address.toLowerCase()]) assert.ok(!JSON.stringify(events).includes(secret));
+  }
+  const events: unknown[]=[];
+  const failing=async(url: string | URL | Request)=>new Response(JSON.stringify(String(url).includes("authenticate")?{accessToken:"t"}:{message:"denied"}),{status:String(url).includes("balances")?401:200});
+  const tokensOk=async(url: string | URL | Request,init?:RequestInit)=>String(url).includes("tokens")?new Response(JSON.stringify({tokens:[{assetId,blockchain:"monad",symbol:"USDC",decimals:6,contractAddress:"0x754704Bc059F8C67012fEd69BC8A327a5aafb603"}]})):failing(url);
+  await assert.rejects(new ConfidentialBalance("test-provider-key",tokensOk,()=>now,e=>events.push(e)).read(auth));
+  assert.deepEqual(events,[{event:"earn.private-balance",stage:"balances",httpStatus:401,reason:"provider",entries:[]}]);
+});

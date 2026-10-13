@@ -212,3 +212,55 @@ test("wrong-owner snapshots, mismatched saved quotes and manufactured late basel
     f.service().read(signed, { ...expected, baselineEnvelope: late }),
   );
 });
+
+test("settlement checks log only route status, balance entry kinds and credit class", async () => {
+  const f = setup(),
+    signed = await auth(),
+    baseline = await f.service().baseline(signed),
+    expected = { ...f.expected, baselineEnvelope: baseline.baselineEnvelope };
+  const wrapped = "imt:" + "ab".repeat(32) + ":" + monadUsdcAssetId;
+  const fetcher: typeof fetch = async (url) => {
+    const path = String(url);
+    const body = path.includes("authenticate")
+      ? { accessToken: "jwt" }
+      : path.includes("/status/")
+        ? { status: "SUCCESS" }
+        : path.includes("/account/balances/")
+          ? {
+              balances: path.includes("tokenIds=")
+                ? [{ source: "private", tokenId: monadUsdcAssetId, available: "100" }]
+                : [
+                    { source: "private", tokenId: monadUsdcAssetId, available: "100" },
+                    { source: "public", tokenId: monadUsdcAssetId, available: "995000" },
+                    { source: "private", tokenId: wrapped, available: "995000" },
+                  ],
+            }
+          : {
+              tokens: [
+                {
+                  assetId: monadUsdcAssetId,
+                  blockchain: "monad",
+                  symbol: "USDC",
+                  decimals: 6,
+                  contractAddress: "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+                },
+              ],
+            };
+    return new Response(JSON.stringify(body));
+  };
+  const events: unknown[] = [];
+  const proof = await new ConfidentialSettlement("api-key", fetcher, () => now, key, (e) =>
+    events.push(e),
+  ).read(signed, expected);
+  assert.equal(proof.status, "awaitingSettlement");
+  assert.deepEqual(events, [
+    {
+      event: "earn.settlement",
+      route: "SUCCESS",
+      credit: "zero",
+      entries: ["private:asset", "public:asset", "private:wrapped"],
+    },
+  ]);
+  for (const secret of ["995000", "100", C, deposit, tx, "jwt", "api-key"])
+    assert.ok(!JSON.stringify(events).includes(secret));
+});
