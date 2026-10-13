@@ -66,8 +66,9 @@ export function OpportunityDetailScreen({
               opportunity={load.opportunity}
               history={history}
               onDeposit={() => navigation.navigate("Earn", { opportunityId: load.opportunity.id })}
-              // Withdrawals run from existing earn positions, not a fresh deposit cycle.
-              onWithdraw={() => navigation.navigate("Earn")}
+              onWithdraw={() =>
+                navigation.navigate("VaultWithdraw", { opportunityId: load.opportunity.id })
+              }
             />
           </FadeIn>
           <FadeIn delay={sectionDelay(2)}>

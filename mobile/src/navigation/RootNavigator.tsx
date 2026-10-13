@@ -12,6 +12,7 @@ import { useSession } from "@/application/SessionProvider";
 import { WelcomeScreen } from "@/features/access/WelcomeScreen";
 import { MainTabs } from "./MainTabs";
 import { EarnScreen } from "@/features/earn/EarnScreen";
+import { VaultWithdrawScreen } from "@/features/earn/VaultWithdrawScreen";
 import type { RootStackParamList } from "./types";
 import { durations } from "@/theme/motion";
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +41,10 @@ export function RootNavigator() {
           <Stack.Screen
             name="EarnInvestment"
             component={native && session.chainId === 143 ? EarnInvestmentScreen : UnavailableScreen}
+          />
+          <Stack.Screen
+            name="VaultWithdraw"
+            component={native && session.chainId === 143 ? VaultWithdrawScreen : UnavailableScreen}
           />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen

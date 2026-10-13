@@ -24,6 +24,9 @@ import { SourceFundingPanel } from "./SourceFundingPanel";
 import type { RootStackParamList } from "@/navigation/types";
 import { useOpportunityDetail } from "@/features/opportunities/useOpportunityDetail";
 import { catalogEarnProfile } from "@/domain/earn/catalog";
+import { demoModeEnabled } from "@/config/demo";
+import { DemoDepositScreen } from "./demo/DemoDepositScreen";
+import { isDemoVaultId } from "@/services/demo/opportunities";
 
 export function EarnScreen({ route }: NativeStackScreenProps<RootStackParamList, "Earn">) {
   return route.params?.opportunityId ? (
@@ -51,7 +54,16 @@ function CatalogEarnEntry({ opportunityId }: { opportunityId: string }) {
       </Screen>
     );
   const vault = load.opportunity;
+  if (demoModeEnabled() && isDemoVaultId(vault.id))
+    return (
+      <DemoDepositScreen
+        vaultId={vault.id}
+        vaultName={vault.name}
+        protocolName={vault.protocol.name}
+      />
+    );
   const profile = catalogEarnProfile(vault);
+  if (demoModeEnabled() && profile) return <DepositJourneyScreen profileId={profile} />;
   if (profile === "robinhood-usdg") return <DepositJourneyScreen profileId={profile} />;
   if (profile) return <CatalogEarnStart profile={profile} />;
   return (
