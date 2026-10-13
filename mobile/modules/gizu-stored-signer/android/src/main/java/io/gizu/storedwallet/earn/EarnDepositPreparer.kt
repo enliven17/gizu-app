@@ -292,6 +292,7 @@ internal class EarnDepositPreparer(
           .put("journeyId", id)
           .put("destinations", JSONArray(cycleAddresses(record)))
           .put("policyVersion", deposit.getString("policyVersion"))
+          .put("sourceRefreshWithinLimits", true)
           .put("quotedAtMs", quotedAt)
           .put("expiresAtMs", expiry)
           .put("sourceBudgetAtoms", budgetAtoms)

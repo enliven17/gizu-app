@@ -8,6 +8,63 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EarnSourceReplannerTest {
+  @Test
+  fun depositApprovalRefreshKeepsTheExactReviewedAmountAndFeeCeiling() = runBlocking {
+    val old =
+      saved()
+        .put(
+          "fundingApprovalLimits",
+          JSONObject()
+            .put("amountAtoms", "989000")
+            .put("maximumFeeAtoms", "1000")
+            .put("minimumCreditAtoms", "989000"),
+        )
+    val next = record().use { replanner().replan(it, old) }
+    assertEquals("989000", next.first.getString("amountAtoms"))
+    assertEquals("1000", next.first.getString("maximumTokenFeeAtoms"))
+    assertTrue(next.first.getLong("deadline") > now / 1000)
+    assertEquals("0x4", next.first.getString("nonce"))
+    try {
+      record().use {
+        replanner(feeReader = { request -> fees(request, multiplier = 2) }).replan(it, old)
+      }
+      fail("A refresh cannot increase an approved fee cap")
+    } catch (_: IllegalStateException) {}
+  }
+
+  @Test
+  fun depositRefreshRejectsLowerCreditAndInvalidApprovedHeadroom() = runBlocking {
+    fun bounded() =
+      saved()
+        .put(
+          "fundingApprovalLimits",
+          JSONObject()
+            .put("amountAtoms", "989000")
+            .put("maximumFeeAtoms", "1000")
+            .put("minimumCreditAtoms", "989000"),
+        )
+    try {
+      record().use {
+        replanner(
+            quoteReader = { _, _, revision, _, _, amount ->
+              quote(revision, amount) + ("minimumCreditAtoms" to "988999")
+            }
+          )
+          .replan(it, bounded())
+      }
+      fail("A refresh cannot reduce approved private credit")
+    } catch (_: IllegalStateException) {}
+    val overBudget =
+      bounded().also {
+        it.getJSONObject("proposal").put("amountAtoms", "989400")
+        it.getJSONObject("fundingApprovalLimits").put("amountAtoms", "989400")
+      }
+    try {
+      record().use { replanner().replan(it, overBudget) }
+      fail("The approved maximum must fit beside the exact amount and reserve")
+    } catch (_: IllegalStateException) {}
+  }
+
   private val wallet = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12"
   private val owner = "0x" + "1".repeat(40)
   private val confidential = "0x" + "2".repeat(40)
