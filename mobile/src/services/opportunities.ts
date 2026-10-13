@@ -1,6 +1,8 @@
 import { getJson } from "./http";
 import { catalogEarnProfile } from "@/domain/earn/catalog";
 import { earnProfiles } from "@/domain/earn/types";
+import { demoModeEnabled } from "@/config/demo";
+import { demoOpportunityService } from "./demo/opportunities";
 import type {
   Opportunity,
   OpportunityCampaign,
@@ -234,6 +236,13 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
   };
 }
 // USB development uses adb reverse tcp:3000 tcp:3000. Release builds require an explicit URL.
-export const opportunityService = createOpportunityService(
+const liveOpportunityService = createOpportunityService(
   process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://127.0.0.1:3000" : ""),
 );
+const selectedService = () => (demoModeEnabled() ? demoOpportunityService : liveOpportunityService);
+export const opportunityService: OpportunityService = {
+  chains: (signal) => selectedService().chains!(signal),
+  list: (query, signal) => selectedService().list(query, signal),
+  detail: (id, signal) => selectedService().detail(id, signal),
+  tvlRecords: (id, signal) => selectedService().tvlRecords(id, signal),
+};
