@@ -426,12 +426,13 @@ spending signature or transaction was sent.
 After the operator deployed the owned Alchemy Robinhood RPC, two read-only Render
 previews returned HTTP 200 in 17.6 and 46.7 seconds. The phone's remaining failure
 was `vault-preview / TIMEOUT`, with the default native 20-second read timeout.
-The exact hosted or USB vault-preview endpoint now uses a 30-second read timeout
-and 40-second overall call timeout; ordinary RPC calls retain 20/30 seconds.
+The exact hosted or USB vault-preview endpoint now uses a 60-second read timeout
+and 70-second overall call timeout; ordinary RPC calls retain 20/30 seconds.
 Redirect and automatic connection retry remain disabled. Quote expiry and native
 review freshness validation are unchanged: a late response cannot authorize stale
-terms. A preview taking more than 30 seconds can still time out, and preparation
-taking longer than its review window must be refreshed. No success claim for the
+terms. A preview taking more than 60 seconds can still time out. Final review
+timestamps start when preparation completes and retain the earliest real provider
+expiry; aging payout and vault terms are freshly requested. No success claim for the
 full deposit lifecycle follows from these unsigned preview checks.
 
 The planner repeats complete deposit/redemption simulations while converging on
@@ -451,5 +452,42 @@ these samples as a guaranteed speedup. The backend suite passes 240 tests with
 three optional fork tests skipped; SDK integration coverage verifies parallel
 requests retain separate calldata, overrides and lane-zero nonce without signing
 or submitting. Deploy the backend scheduling change separately from installing
-the APK's 30-second preview read limit. Do not extend quote/review validity merely
+the APK's extended preview read limit. Do not extend quote/review validity merely
 to accept a one-minute provider response.
+
+### Swap-style Earn preparation
+
+Earn keeps the existing coordinator, source planner and signing engines. The
+existing deposit page now shows verified, non-authorizing indicative held and
+investment amounts while exact vault fees and reserves are prepared. Only a
+complete fresh native review enables confirmation and its single bounded passkey
+approval. No new page or coordinator is introduced; withdrawals remain a separate
+user action.
+
+Hold/invest payout reads overlap. The backend retains the maximum observed
+deposit and withdrawal fee caps during convergence, preserving the 105% deposit
+fee ceiling and 260% withdrawal reserve. Final fee preparation must fit those
+bounds. This avoids chasing alternating smaller quotes without inventing fees or
+reducing reserves. Aging payout minima trigger new quotes and a vault calculation
+using their updated amounts, with a maximum of three vault attempts.
+
+New native deposit reviews permit later unsigned funding children to refresh
+their nonce, deadline, quote ID and bridge deposit address within the exact
+reviewed source identity, amount, fee ceiling and minimum confidential credit.
+This authority lives only in the current native grant; old reviews and standalone
+funding batches retain strict canonical matching. Quote validation, native calldata
+validation and authenticated settlement remain required, and durable signed bytes
+cannot be replaced. No Swap tolerance is silently added to the reviewed limits.
+
+Preparation publishes only public progress fields through the existing native
+status method. That status read can run during preparation; signing mutations
+remain serialized. Session changes, backgrounding and navigation discard late
+progress and cancel the matching unsigned draft, including before its first poll.
+
+An unsigned live diagnostic against the owned RPC completed in 44.2 seconds with
+two simulations and five paymaster preparations. Its first fork simulation took
+24.3 seconds and its second 1.5 seconds. This later sample confirms provider
+variability; it does not establish a guaranteed improvement over the earlier
+20.5/33.8-second samples. Submission methods were blocked and no mainnet spending
+signature or transaction was sent. Deploy the backend optimization and install the
+updated native APK separately before the funded device test.
