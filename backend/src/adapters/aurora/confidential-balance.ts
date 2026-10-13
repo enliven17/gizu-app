@@ -65,21 +65,19 @@ export class ConfidentialBalance {
       if (matches.length !== 1 || typeof matches[0]!.assetId !== "string" || matches[0]!.assetId !== monadUsdcAssetId) throw new Error("Ambiguous private asset");
       const assetId = matches[0]!.assetId;
       stage = "balances";
-      const response = await auroraApi(this.key, fetcher, `account/balances/{key}?tokenIds=${encodeURIComponent(assetId)}`,undefined,session.accessToken);
+      // Aurora's tokenIds filter omitted a funded private entry on October 13, 2026, so select locally
+      // from the full list (as Swap and the research runner do). Public entries never count as credit.
+      const response = await auroraApi(this.key, fetcher, "account/balances/{key}",undefined,session.accessToken);
       stage = "parse";
-      if (Array.isArray(response.balances)) entries = response.balances.slice(0,32).map(b => entryShape(assetId, b));
-      if (!Array.isArray(response.balances) || response.balances.length > 1) throw new Error("Ambiguous balance");
-      const balance = response.balances[0] === undefined ? null : record(response.balances[0]);
-      if (balance && (balance.source !== "private" || balance.tokenId !== assetId)) throw new Error("Wrong private balance");
-      const result = {confidentialAddress:signer,assetId,available:balance ? amount(balance.available) : "0",timestampMs:this.now(),authenticated:true as const,operationScoped:false as const};
+      if (!Array.isArray(response.balances) || response.balances.length > 256) throw new Error("Ambiguous balance");
+      const rows = response.balances;
+      entries = rows.slice(0,32).map(b => entryShape(assetId, b));
+      const owned = rows.map(record).filter(b => b.source === "private" && b.tokenId === assetId);
+      if (owned.length > 1) throw new Error("Ambiguous balance");
+      const result = {confidentialAddress:signer,assetId,available:owned[0] ? amount(owned[0].available) : "0",timestampMs:this.now(),authenticated:true as const,operationScoped:false as const};
       if (!inspect) return result;
-      let entryKinds = ["unavailable"], entryFields: string[] = [];
-      try {
-        const all = await auroraApi(this.key, this.fetcher, "account/balances/{key}",undefined,session.accessToken);
-        if (Array.isArray(all.balances)) entryFields = [...new Set(all.balances.slice(0,32).flatMap(b => Object.keys(record(b))))].filter(k => /^[A-Za-z_]{1,32}$/.test(k)).sort();
-        if (Array.isArray(all.balances)) entryKinds = all.balances.slice(0,32).map(record).map(b => `${b.source === "private" || b.source === "public" ? b.source : "other"}:${b.tokenId === assetId ? "asset" : typeof b.tokenId === "string" && b.tokenId.startsWith("imt:") && b.tokenId.endsWith(":" + assetId) ? "wrapped" : "other"}`);
-      } catch { /* diagnostics never change the verified read */ }
-      return {...result,entryKinds,entryFields};
+      const entryFields = [...new Set(rows.slice(0,32).flatMap(b => Object.keys(record(b))))].filter(k => /^[A-Za-z_]{1,32}$/.test(k)).sort();
+      return {...result,entryKinds:entries.map(e => e.split(":").slice(0,2).join(":")),entryFields};
     } catch (error) {
       try {
         this.diagnose?.({event:"earn.private-balance",stage,httpStatus,reason:error instanceof Error && knownFailures.has(error.message) ? error.message : "provider",entries});

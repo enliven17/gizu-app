@@ -32,7 +32,7 @@ test("read authenticates the signature, keeps tokens server-side and marks balan
   assert.deepEqual(result,{confidentialAddress:account.address.toLowerCase(),assetId,available:"1234567",timestampMs:now,authenticated:true,operationScoped:false});
   assert.equal(calls.length,3);
   const balanceCall=calls.find(c=>c.url.includes("balances"));
-  assert.ok(balanceCall?.url.includes("tokenIds="+encodeURIComponent(assetId)));
+  assert.ok(!balanceCall?.url.includes("tokenIds="));
   assert.equal((balanceCall?.init?.headers as Record<string,string>).Authorization,"Bearer private-token");
   assert.ok(!JSON.stringify(result).includes("private-token"));
 });
@@ -46,17 +46,19 @@ test("missing credentials, duplicate assets, wrong balance source and invalid am
   const auth=await authentication(); await assert.rejects(new ConfidentialBalance().read(auth));
   for (const change of [
     (p:string,r:Record<string,unknown>)=>{if(p.includes("tokens")) r.tokens=[...(r.tokens as unknown[]),...(r.tokens as unknown[])];},
-    (p:string,r:Record<string,unknown>)=>{if(p.includes("balances")) r.balances=[{source:"public",tokenId:assetId,available:"1"}];},
     (p:string,r:Record<string,unknown>)=>{if(p.includes("balances")) r.balances=[{source:"private",tokenId:assetId,available:"1e6"}];},
   ]) await assert.rejects(setup(change).adapter.read(auth));
+  // A public or wrapped entry is never private credit for this asset.
+  const publicOnly=setup((p,r)=>{if(p.includes("balances")) r.balances=[{source:"public",tokenId:assetId,available:"1"},{source:"private",tokenId:"imt:"+"ab".repeat(32)+":"+assetId,available:"1"}];});
+  assert.equal((await publicOnly.adapter.read(auth)).available,"0");
 });
 test("failed reads report only stage, status, allowlisted reason and entry shapes",async()=>{
   const auth=await authentication();
   const cases: [(p:string,r:Record<string,unknown>)=>void, Record<string,unknown>][]=[
     [(p,r)=>{if(p.includes("balances")) r.balances=[{source:"public",tokenId:assetId,available:"2987344"},{source:"private",tokenId:assetId,available:"2.987344"}];},
-      {event:"earn.private-balance",stage:"parse",httpStatus:200,reason:"Ambiguous balance",entries:["public:asset:integer","private:asset:decimal"]}],
-    [(p,r)=>{if(p.includes("balances")) r.balances=[{source:"private",tokenId:"imt:"+"ab".repeat(32)+":"+assetId,available:2987344}];},
-      {event:"earn.private-balance",stage:"parse",httpStatus:200,reason:"Wrong private balance",entries:["private:wrapped:number"]}],
+      {event:"earn.private-balance",stage:"parse",httpStatus:200,reason:"Invalid balance",entries:["public:asset:integer","private:asset:decimal"]}],
+    [(p,r)=>{if(p.includes("balances")) r.balances=[{source:"private",tokenId:assetId,available:"2987344"},{source:"private",tokenId:assetId,available:2987344}];},
+      {event:"earn.private-balance",stage:"parse",httpStatus:200,reason:"Ambiguous balance",entries:["private:asset:integer","private:asset:number"]}],
   ];
   for (const [change,expected] of cases) {
     const events: unknown[]=[];
@@ -71,4 +73,21 @@ test("failed reads report only stage, status, allowlisted reason and entry shape
   const tokensOk=async(url: string | URL | Request,init?:RequestInit)=>String(url).includes("tokens")?new Response(JSON.stringify({tokens:[{assetId,blockchain:"monad",symbol:"USDC",decimals:6,contractAddress:"0x754704Bc059F8C67012fEd69BC8A327a5aafb603"}]})):failing(url);
   await assert.rejects(new ConfidentialBalance("test-provider-key",tokensOk,()=>now,e=>events.push(e)).read(auth));
   assert.deepEqual(events,[{event:"earn.private-balance",stage:"balances",httpStatus:401,reason:"provider",entries:[]}]);
+});
+test("private credit is selected from the full balance list because Aurora's tokenIds filter omits it",async()=>{
+  const auth=await authentication();
+  const full=[
+    {source:"public",tokenId:assetId,available:"5"},
+    {source:"private",tokenId:"imt:"+"ab".repeat(32)+":"+assetId,available:"7"},
+    {source:"private",tokenId:"nep141:other.near",available:"9"},
+    {source:"private",tokenId:assetId,available:"2987344"},
+  ];
+  // Live behavior on October 13: the filtered query was empty while the full list held the credit.
+  const {adapter,calls}=setup((p,r)=>{if(p.includes("balances")) r.balances=full;});
+  const live=async(url: string | URL | Request,init?:RequestInit)=>String(url).includes("tokenIds=")?new Response(JSON.stringify({balances:[]})):(adapter as unknown as {fetcher:typeof fetch}).fetcher(url,init);
+  const result=await new ConfidentialBalance("test-provider-key",live,()=>now).read(auth);
+  assert.equal(result.available,"2987344");
+  assert.ok(!calls.some(c=>c.url.includes("tokenIds=")));
+  const twice=setup((p,r)=>{if(p.includes("balances")) r.balances=[...full,{source:"private",tokenId:assetId,available:"1"}];});
+  await assert.rejects(twice.adapter.read(auth));
 });
