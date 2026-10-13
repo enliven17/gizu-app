@@ -154,4 +154,70 @@ class EarnPayoutReconcilerTest {
       fail("Ambiguous destination")
     } catch (_: IllegalStateException) {}
   }
+
+  private fun hood(final: String, latest: String) =
+    object : TransferRpc {
+      var filter: JSONObject? = null
+
+      override suspend fun call(method: String, params: JSONArray): Any =
+        when (method) {
+          "eth_chainId" -> "0x1237"
+          "eth_getTransactionReceipt" ->
+            receipt().also {
+              it.getJSONArray("logs").getJSONObject(0).put("address", HOOD_EARN_USDG)
+            }
+          "eth_getBlockByNumber" ->
+            when (params.getString(0)) {
+              "0xa" -> JSONObject().put("number", "0xa").put("hash", f.hash)
+              "finalized" -> JSONObject().put("number", final).put("hash", f.hash)
+              "latest" -> JSONObject().put("number", latest).put("hash", f.hash)
+              "0xb" ->
+                JSONObject().put("number", "0xb").put("hash", blockHash).put("timestamp", "0x3e8")
+              else -> error("Unexpected block")
+            }
+          "eth_getLogs" -> {
+            filter = params.getJSONObject(0)
+            JSONArray()
+              .put(
+                receipt()
+                  .getJSONArray("logs")
+                  .getJSONObject(0)
+                  .put("address", HOOD_EARN_USDG)
+                  .put("blockNumber", "0xb")
+                  .put("transactionHash", f.hash)
+              )
+          }
+          else -> error("Unexpected $method")
+        }
+    }
+
+  private fun hoodQuote() =
+    f.prepared()
+      .getJSONObject("quote")
+      .put("destinationChainId", 4663)
+      .put("destinationToken", HOOD_EARN_USDG)
+
+  @Test
+  fun robinhoodPayoutCountsFromCanonicalReceiptBeforeFinalityLikeSwap() = runBlocking {
+    // Finalized head 0xa trails the payout block 0xb, as Robinhood's ~17 minute L1 finality does.
+    val chain = hood("0xa", "0xc")
+    val scan = scanNativePayoutTransfers(chain, hoodQuote(), "11") { topic }
+    assertEquals(f.hash, scan.transactionHash)
+    assertEquals("0xc", chain.filter!!.getString("toBlock"))
+    val row = confirmNativePayoutReceipt(chain, hoodQuote(), f.hash, "100") { topic }
+    assertEquals("100", row.getString("receivedAtoms"))
+    val ethereum =
+      object : TransferRpc {
+        override suspend fun call(method: String, params: JSONArray): Any =
+          if (method == "eth_getBlockByNumber" && params.getString(0) == "finalized")
+            JSONObject().put("number", "0xa").put("hash", f.hash)
+          else rpc(receipt()).call(method, params)
+      }
+    try {
+      confirmNativePayoutReceipt(ethereum, f.prepared().getJSONObject("quote"), f.hash, "100") {
+        topic
+      }
+      fail("Ethereum payouts still require finality")
+    } catch (_: IllegalStateException) {}
+  }
 }
