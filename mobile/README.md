@@ -364,6 +364,9 @@ use the same holdings as Swap; vault withdrawals reduce the positions displayed 
 two-column token and vault grids, with token amounts and USDC values. **Sell** opens the existing swap review; demo vault cards offer **Withdraw**.
 Each card’s **Performance** button expands a mock month of holding-value history
 in demo mode; live cards show an unavailable state until history is supported.
+Tap a holding card to expand it across both columns at twice its compact height,
+with a larger chart and extra figures. Tap again to collapse. Grid movement is
+animated and respects reduced motion; action buttons operate independently.
 There is no separate swap-management list.
 Release builds require an explicit HTTPS URL. The public configuration contains no
 Merkl API key; that stays on the backend.
