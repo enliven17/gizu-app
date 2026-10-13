@@ -365,7 +365,9 @@ export class RobinhoodDepositPlanner {
             100n,
           ),
         };
-      let amount = state.token / 2n;
+      let amount = state.token / 2n,
+        depositQuoteCap = 0n,
+        withdrawalQuoteCap = 0n;
       for (let attempt = 0; attempt < 8; attempt++) {
         if (
           amount <= 0n ||
@@ -386,8 +388,15 @@ export class RobinhoodDepositPlanner {
             simulation.stateOverride,
           ),
         ]);
-        const depositFeeBudget = ceilDiv(deposit.feeCap * 105n, 100n),
-          withdrawalReserve = ceilDiv(withdrawal.feeCap * 260n, 100n),
+        // Keep a conservative feasible budget instead of chasing smaller moving quotes.
+        depositQuoteCap =
+          deposit.feeCap > depositQuoteCap ? deposit.feeCap : depositQuoteCap;
+        withdrawalQuoteCap =
+          withdrawal.feeCap > withdrawalQuoteCap
+            ? withdrawal.feeCap
+            : withdrawalQuoteCap;
+        const depositFeeBudget = ceilDiv(depositQuoteCap * 105n, 100n),
+          withdrawalReserve = ceilDiv(withdrawalQuoteCap * 260n, 100n),
           next = state.token - depositFeeBudget - withdrawalReserve;
         if (next <= 0n) throw new Error("Insufficient USDG gas reserve");
         if (next !== amount) {
@@ -446,9 +455,9 @@ export class RobinhoodDepositPlanner {
           },
           depositAmount: String(amount),
           depositFeeBudget: String(depositFeeBudget),
-          depositQuoteCap: String(final.feeCap),
+          depositQuoteCap: String(depositQuoteCap),
           withdrawalReserve: String(withdrawalReserve),
-          withdrawalQuoteCap: String(withdrawal.feeCap),
+          withdrawalQuoteCap: String(withdrawalQuoteCap),
           retainedLiquidUsdg: String(state.token - amount),
           previewShares: String(simulation.previewShares),
           maxSharePrice: String(simulation.maxSharePrice),
