@@ -29,33 +29,60 @@ export async function authenticateEarnRead(auth: ReadAuthentication, clock: () =
     return signer;
 
 }
+/** Sanitized failure observation: no amounts, addresses, tokens, URLs or provider text. */
+export type PrivateBalanceDiagnostic = { event: "earn.private-balance"; stage: "authenticate" | "registry" | "balances" | "parse"; httpStatus: number; reason: string; entries: string[] };
+const knownFailures = new Set(["Invalid session","Missing registry","Ambiguous private asset","Ambiguous balance","Wrong private balance","Invalid balance"]);
+function entryShape(assetId: string, value: unknown): string {
+  const b = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const source = b.source === "private" || b.source === "public" ? b.source : "other";
+  const token = b.tokenId === assetId ? "asset" : typeof b.tokenId === "string" && b.tokenId.startsWith("imt:") && b.tokenId.endsWith(":" + assetId) ? "wrapped" : "other";
+  const amount = typeof b.available === "number" ? "number" : typeof b.available !== "string" ? "other" : /^(0|[1-9][0-9]*)$/.test(b.available) ? "integer" : /^[0-9]+\.[0-9]+$/.test(b.available) ? "decimal" : "other";
+  return `${source}:${token}:${amount}`;
+}
 /** Aggregate private balance is authenticated, but cannot establish credit to an
  * operation. Only a separate operation-scoped settlement adapter can do that. */
 export class ConfidentialBalance {
   private occupied = new Set<string>();
-  constructor(private key?: string, private fetcher: typeof fetch = fetch, private now: () => number = Date.now) {}
+  constructor(private key?: string, private fetcher: typeof fetch = fetch, private now: () => number = Date.now, private diagnose?: (event: PrivateBalanceDiagnostic) => void) {}
 
-  async read(auth: ReadAuthentication): Promise<{ confidentialAddress: string; assetId: string; available: string; timestampMs: number; authenticated: true; operationScoped: false }> {
+  /** `inspect` adds coarse kinds of every listed entry (no amounts) for settlement diagnostics. */
+  async read(auth: ReadAuthentication, inspect = false): Promise<{ confidentialAddress: string; assetId: string; available: string; timestampMs: number; authenticated: true; operationScoped: false; entryKinds?: string[] }> {
     if (!this.key) throw new InfrastructureError(503,"EARN_AUTH_UNAVAILABLE","Confidential balance provider is not configured.");
     let signer: string;
     try { signer = await authenticateEarnRead(auth,this.now); }
     catch { throw new InfrastructureError(400,"INVALID_EARN_AUTH","A fresh native read-only authentication is required."); }
     if (this.occupied.has(signer) || this.occupied.size >= 32) throw new InfrastructureError(429,"EARN_AUTH_BUSY","Confidential balance check already in progress. Retry later.");
     this.occupied.add(signer);
+    let stage: PrivateBalanceDiagnostic["stage"] = "authenticate", httpStatus = 0, entries: string[] = [];
+    const fetcher: typeof fetch = async (input, init) => { const response = await this.fetcher(input, init); httpStatus = response.status; return response; };
     try {
-      const session = await auroraApi(this.key, this.fetcher, "auth/authenticate/{key}",{signedData:auth});
+      const session = await auroraApi(this.key, fetcher, "auth/authenticate/{key}",{signedData:auth});
       if (typeof session.accessToken !== "string" || !session.accessToken || session.accessToken.length > 8192) throw new Error("Invalid session");
-      const registry = await auroraApi(this.key, this.fetcher, "tokens/{key}");
+      stage = "registry";
+      const registry = await auroraApi(this.key, fetcher, "tokens/{key}");
       if (!Array.isArray(registry.tokens)) throw new Error("Missing registry");
       const matches = registry.tokens.map(record).filter(t => t.blockchain === "monad" && t.symbol === "USDC" && t.decimals === 6 && typeof t.contractAddress === "string" && t.contractAddress.toLowerCase() === "0x754704bc059f8c67012fed69bc8a327a5aafb603");
       if (matches.length !== 1 || typeof matches[0]!.assetId !== "string" || matches[0]!.assetId !== monadUsdcAssetId) throw new Error("Ambiguous private asset");
       const assetId = matches[0]!.assetId;
-      const response = await auroraApi(this.key, this.fetcher, `account/balances/{key}?tokenIds=${encodeURIComponent(assetId)}`,undefined,session.accessToken);
+      stage = "balances";
+      const response = await auroraApi(this.key, fetcher, `account/balances/{key}?tokenIds=${encodeURIComponent(assetId)}`,undefined,session.accessToken);
+      stage = "parse";
+      if (Array.isArray(response.balances)) entries = response.balances.slice(0,32).map(b => entryShape(assetId, b));
       if (!Array.isArray(response.balances) || response.balances.length > 1) throw new Error("Ambiguous balance");
       const balance = response.balances[0] === undefined ? null : record(response.balances[0]);
       if (balance && (balance.source !== "private" || balance.tokenId !== assetId)) throw new Error("Wrong private balance");
-      return {confidentialAddress:signer,assetId,available:balance ? amount(balance.available) : "0",timestampMs:this.now(),authenticated:true,operationScoped:false};
-    } catch {
+      const result = {confidentialAddress:signer,assetId,available:balance ? amount(balance.available) : "0",timestampMs:this.now(),authenticated:true as const,operationScoped:false as const};
+      if (!inspect) return result;
+      let entryKinds = ["unavailable"];
+      try {
+        const all = await auroraApi(this.key, this.fetcher, "account/balances/{key}",undefined,session.accessToken);
+        if (Array.isArray(all.balances)) entryKinds = all.balances.slice(0,32).map(record).map(b => `${b.source === "private" || b.source === "public" ? b.source : "other"}:${b.tokenId === assetId ? "asset" : typeof b.tokenId === "string" && b.tokenId.startsWith("imt:") && b.tokenId.endsWith(":" + assetId) ? "wrapped" : "other"}`);
+      } catch { /* diagnostics never change the verified read */ }
+      return {...result,entryKinds};
+    } catch (error) {
+      try {
+        this.diagnose?.({event:"earn.private-balance",stage,httpStatus,reason:error instanceof Error && knownFailures.has(error.message) ? error.message : "provider",entries});
+      } catch { /* logging only */ }
       // No session token, raw provider response, signed payload or key-bearing URL in errors.
       throw new InfrastructureError(502,"EARN_PRIVATE_BALANCE_UNAVAILABLE","Could not verify the confidential USDC balance. No settlement is confirmed.");
     } finally { this.occupied.delete(signer); }

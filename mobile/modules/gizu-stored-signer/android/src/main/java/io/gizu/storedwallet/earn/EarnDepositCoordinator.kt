@@ -73,6 +73,7 @@ internal class EarnDepositCoordinator(
 
   private fun setPhase(id: String, phase: String) {
     val row = journal.get(id)
+    if (row.getString("phase") == phase && !row.has("pauseReason")) return
     journal.update(id, row.getInt("revision")) {
       it.put("phase", phase)
       it.remove("pauseReason")
@@ -121,7 +122,9 @@ internal class EarnDepositCoordinator(
       val review = start.getJSONObject("review")
       val sources = review.getJSONArray("sources").objects().sortedBy { it.getInt("accountIndex") }
       val originalRows = review.getJSONArray("fundingRows").objects()
-      setPhase(id, "funding")
+      // Each polling pass re-verifies from the first source; it must not rewind live progress.
+      if (start.getString("phase") !in setOf("settlingCredit", "payouts", "depositing"))
+        setPhase(id, "funding")
       val credits = linkedMapOf<String, String>()
       for (s in sources) {
         val sourceId = s.getString("operationId")
