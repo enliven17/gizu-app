@@ -15,9 +15,11 @@ import { ExitCompletionPanel } from "./ExitCompletionPanel";
 export function RobinhoodExecutionPanel({
   intent,
   service,
+  presentation = "legacy",
 }: {
   intent: EarnIntent;
   service: EarnRobinhoodService;
+  presentation?: "legacy" | "investment";
 }) {
   const v = useEarnJournal(intent, service),
     [plan, setPlan] = useState<RobinhoodPlan | null>(null),
@@ -61,11 +63,13 @@ export function RobinhoodExecutionPanel({
           Gas is paid in USDG through the paymaster. Approvals and signing remain in the native
           authorization dialog.
         </Typography>
-        <Button
-          label="Review USDG investment"
-          disabled={disabled || invested || residual || returned}
-          onPress={() => review("hoodDeposit")}
-        />
+        {presentation === "legacy" && (
+          <Button
+            label="Review USDG investment"
+            disabled={disabled || invested || residual || returned}
+            onPress={() => review("hoodDeposit")}
+          />
+        )}
         {plan && (
           <>
             {plan.kind === "hoodDeposit" ? (

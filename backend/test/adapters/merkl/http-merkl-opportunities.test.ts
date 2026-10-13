@@ -95,3 +95,27 @@ test("rejects malformed vendor JSON as an upstream failure", async () => {
     },
   );
 });
+
+test("missing or null public metrics remain unknown in Merkl list and detail", async () => {
+  const row = {
+    id: "vault", name: "Vault", status: "LIVE", chainId: 143,
+    chain: { id: 143, name: "Monad" }, protocol: { id: "morpho", name: "Morpho" },
+    apr: null, description: "", action: "LEND", type: "ERC20LOGPROCESSOR",
+    explorerAddress: "0x1111111111111111111111111111111111111111",
+    howToSteps: [], depositUrl: "", identifier: "vault", tags: [], tokens: [{
+      id: "asset", name: "USDC", symbol: "USDC", address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603", decimals: 6,
+    }], campaigns: [],
+  };
+  const adapter = new HttpMerklOpportunities("https://api.merkl.xyz", "test-key", async (input) => {
+    const url = new URL(String(input));
+    return Response.json(url.pathname.endsWith("count") ? 1 : url.pathname.endsWith("vault") ? row : [row]);
+  });
+  const detail = await adapter.getById("vault");
+  assert.equal(detail.nativeApr, null);
+  assert.equal(detail.dailyRewards, null);
+  assert.equal(detail.totalApr, null);
+  assert.equal(detail.tvl, null);
+  assert.equal(detail.tokens[0]?.price, null);
+  const page = await adapter.list({ protocol: "all", search: "", page: 0, items: 20, chainId: 143 });
+  assert.equal(page.list[0]?.totalApr, null);
+});

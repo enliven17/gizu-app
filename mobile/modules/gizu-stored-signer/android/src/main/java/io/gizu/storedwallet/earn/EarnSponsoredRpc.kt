@@ -81,6 +81,7 @@ internal data class NativeEarnRouteProof(
   val minimumCreditAtoms: String,
   val originAsset: String,
   val recoveryEnvelope: String? = null,
+  val maximumCreditAtoms: String? = null,
 )
 
 /**
@@ -135,6 +136,7 @@ internal class NativeEarnQuoteGateway(
         .put("sourceOwner", owner)
         .put("confidentialAccount", confidential)
         .put("amountAtoms", amount)
+        .put("settlementMode", "balance-delta-v1")
     if (returning && chain == 1) body.put("returnAsset", returnAsset)
     val saved = quotes?.get(operationId, revision)
     val response =
@@ -297,6 +299,7 @@ internal class NativeEarnQuoteGateway(
       minimum,
       origin,
       response.optString("recoveryEnvelope").takeIf { it.isNotEmpty() },
+      response.optString("maximumCreditAtoms").takeIf { it.isNotEmpty() },
     )
   }
 }

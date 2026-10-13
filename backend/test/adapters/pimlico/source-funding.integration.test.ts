@@ -21,9 +21,10 @@ const simpleAbi = parseAbi([
   "function executeBatch((address target,uint256 value,bytes data)[] calls)",
   "function execute(address target,uint256 value,bytes data)",
 ]);
-function rpcMock(changedNonce = false) {
+function rpcMock(changedNonce = false, entryPointSequence = 0n) {
   const methods: string[] = [],
-    sponsorOperations: any[] = [];
+    sponsorOperations: any[] = [],
+    nonceKeys: bigint[] = [];
   let estimates = 0,
     nonceReads = 0;
   const fetcher: typeof fetch = async (_url, init) => {
@@ -73,9 +74,18 @@ function rpcMock(changedNonce = false) {
           const selector = String(params[0].data).slice(0, 10);
           if (selector === "0x70a08231") result = word(1000n);
           else if (selector === "0x313ce567") result = word(6n);
-          else if (selector === "0xdd62ed3e" || selector === "0x35567e1a")
-            result = word(0n);
-          else throw new Error("Unexpected eth_call selector " + selector);
+          else if (selector === "0xdd62ed3e") result = word(0n);
+          else if (selector === "0x35567e1a") {
+            const decoded = decodeFunctionData({
+              abi: parseAbi([
+                "function getNonce(address,uint192) view returns(uint256)",
+              ]),
+              data: params[0].data,
+            });
+            const key = decoded.args[1];
+            nonceKeys.push(key);
+            result = word((key << 64n) | entryPointSequence);
+          } else throw new Error("Unexpected eth_call selector " + selector);
           break;
         }
         case "eth_supportedEntryPoints":
@@ -140,6 +150,7 @@ function rpcMock(changedNonce = false) {
     fetcher,
     methods,
     sponsorOperations,
+    nonceKeys,
     get estimates() {
       return estimates;
     },
@@ -207,6 +218,35 @@ test("full installed SDK unsigned source preparation supports cold 7702 and corr
     }),
   );
   assert.ok(!JSON.stringify(result).includes("offline-secret"));
+});
+test("repeated unsigned funding previews retain native lane zero and its nonzero sequence", async (t) => {
+  const mock = rpcMock(false, 7n);
+  t.mock.method(globalThis, "fetch", mock.fetcher);
+  const planner = new MonadFundingPlanner(
+    "offline-secret",
+    "https://offline-monad.invalid",
+    () => 1000000,
+  );
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = await planner.prepare({
+      owner,
+      recipient,
+      amount: "100",
+      budget: "1000",
+    });
+    assert.equal(result.operation.nonce, "0x7");
+    assert.equal(result.authorizationNonce, "0");
+  }
+  assert.ok(mock.nonceKeys.length >= 2);
+  assert.ok(mock.nonceKeys.every((key) => key === 0n));
+  assert.ok(
+    mock.sponsorOperations.every((operation) => operation.nonce === "0x7"),
+  );
+  assert.ok(
+    mock.methods.every(
+      (method) => !method.includes("send") && !method.includes("sign"),
+    ),
+  );
 });
 test("full SDK source preparation rejects an EOA nonce change before returning approval", async (t) => {
   const mock = rpcMock(true);

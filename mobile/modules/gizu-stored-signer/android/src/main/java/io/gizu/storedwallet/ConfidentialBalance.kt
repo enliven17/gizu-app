@@ -1,5 +1,6 @@
 package io.gizu.storedwallet
 
+import io.gizu.storedwallet.portfolio.PortfolioDiagnostics
 import java.math.BigInteger
 import org.json.JSONObject
 import uniffi.gizu_stored_signer_core.EarnReadAuthentication
@@ -21,7 +22,26 @@ internal class ConfidentialBalance {
             .put("method_name", "current_salt")
             .put("args_base64", ""),
         )
-    return parseSalt(NativeRpcTransport("https://rpc.mainnet.near.org").post(request.toString()))
+    PortfolioDiagnostics.event(
+      PortfolioDiagnostics.Stage.PRIVATE_SALT,
+      PortfolioDiagnostics.Reason.STARTED,
+    )
+    try {
+      return parseSalt(NativeRpcTransport("https://rpc.mainnet.near.org").post(request.toString()))
+        .also {
+          PortfolioDiagnostics.event(
+            PortfolioDiagnostics.Stage.PRIVATE_SALT,
+            PortfolioDiagnostics.Reason.READY,
+          )
+        }
+    } catch (failure: Exception) {
+      PortfolioDiagnostics.event(
+        PortfolioDiagnostics.Stage.PRIVATE_SALT,
+        PortfolioDiagnostics.Reason.UNAVAILABLE,
+        failure = failure,
+      )
+      throw failure
+    }
   }
 
   suspend fun read(auth: EarnReadAuthentication, address: String): Map<String, Any> {
@@ -34,11 +54,38 @@ internal class ConfidentialBalance {
             .put("payload", auth.payload)
             .put("signature", auth.signature),
         )
-    val response = NativeRpcTransport(EARN_PRIVATE_BALANCE_BACKEND).post(body.toString())
-    return publicBalance(response, address, System.currentTimeMillis())
+    PortfolioDiagnostics.event(
+      PortfolioDiagnostics.Stage.PRIVATE_READ,
+      PortfolioDiagnostics.Reason.STARTED,
+      143L,
+    )
+    try {
+      val response = NativeRpcTransport(EARN_PRIVATE_BALANCE_BACKEND).post(body.toString())
+      return publicBalance(response, address, System.currentTimeMillis()).also {
+        PortfolioDiagnostics.event(
+          PortfolioDiagnostics.Stage.PRIVATE_READ,
+          PortfolioDiagnostics.Reason.READY,
+          143L,
+        )
+      }
+    } catch (failure: Exception) {
+      PortfolioDiagnostics.event(
+        PortfolioDiagnostics.Stage.PRIVATE_READ,
+        PortfolioDiagnostics.Reason.UNAVAILABLE,
+        143L,
+        failure = failure,
+      )
+      throw failure
+    }
   }
 
   companion object {
+    private fun validate(valid: Boolean, reason: PortfolioDiagnostics.Reason) {
+      if (!valid)
+        PortfolioDiagnostics.event(PortfolioDiagnostics.Stage.PRIVATE_VALIDATION, reason, 143L)
+      check(valid) { reason.name }
+    }
+
     fun parseSalt(text: String): ByteArray {
       val response = JSONObject(text)
       check(
@@ -62,23 +109,40 @@ internal class ConfidentialBalance {
     fun publicBalance(text: String, address: String, now: Long): Map<String, Any> {
       val row = JSONObject(text)
       val received = row.getString("confidentialAddress")
-      check(Regex("^0x[0-9a-fA-F]{40}$").matches(received) && received.equals(address, true))
-      check(row.get("authenticated") == true && row.get("operationScoped") == false)
+      validate(
+        Regex("^0x[0-9a-fA-F]{40}$").matches(received) && received.equals(address, true),
+        PortfolioDiagnostics.Reason.ADDRESS_BINDING_INVALID,
+      )
+      validate(
+        row.get("authenticated") == true && row.get("operationScoped") == false,
+        PortfolioDiagnostics.Reason.AUTH_FLAGS_INVALID,
+      )
       val asset = row.getString("assetId")
-      check(asset == "nep245:v2_1.omni.hot.tg:143_2dmLwYWkCQKyTjeUPAsGJuiVLbFx")
-      check(
+      validate(
+        asset == "nep245:v2_1.omni.hot.tg:143_2dmLwYWkCQKyTjeUPAsGJuiVLbFx",
+        PortfolioDiagnostics.Reason.ASSET_INVALID,
+      )
+      validate(
         row.get("available") is String &&
           row.get("assetId") is String &&
-          row.get("confidentialAddress") is String
+          row.get("confidentialAddress") is String,
+        PortfolioDiagnostics.Reason.AMOUNT_TYPE_INVALID,
       )
       val available = row.getString("available")
-      check(
+      validate(
         Regex("^(0|[1-9][0-9]{0,77})$").matches(available) &&
-          BigInteger(available).bitLength() <= 256
+          BigInteger(available).bitLength() <= 256,
+        PortfolioDiagnostics.Reason.AMOUNT_INVALID,
       )
-      check(row.get("timestampMs") is Long || row.get("timestampMs") is Int)
+      validate(
+        row.get("timestampMs") is Long || row.get("timestampMs") is Int,
+        PortfolioDiagnostics.Reason.TIMESTAMP_TYPE_INVALID,
+      )
       val timestamp = row.getLong("timestampMs")
-      check(timestamp >= 0 && now - timestamp in -5000L..60000L)
+      validate(
+        timestamp >= 0 && now - timestamp in -5000L..60000L,
+        PortfolioDiagnostics.Reason.TIMESTAMP_INVALID,
+      )
       return mapOf(
         "confidentialAddress" to address,
         "assetId" to asset,

@@ -8,19 +8,19 @@ The supplied `research/confidential-earn/APP-INTEGRATION-HANDOVER.md` is the pro
 
 Funding uses Circle USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` (six decimals) on Monad mainnet 143. Swap and Earn share native source selection across accounts 0, 1 and allocated public receiving accounts, with fresh balances and shared reservations. A sufficient single account is preferred; a larger budget can span multiple sources. One combined native review and passkey assertion authorizes the selected source funding operations. Each source retains its own fees, transaction and recovery journal. Changed terms or an interrupted/expired approval require a fresh review of the remaining sources.
 
-After native intent authorization, each investment cycle derives a fresh holding wallet, investment wallet and confidential identity. Payouts wait for authenticated credit from every source in the batch. Across those credits, wallet 1 receives floor(total confirmed private input / 10); wallet 2 receives the rest, before their independent payout fees. Wallet 1's deliberate holdings do not count as wallet 2's exit dust and must not be swept to complete that exit.
+After an explicit investment intent, native code derives a fresh holding wallet, investment wallet and confidential identity. Each new funding source waits for the previous source's verified credit, using saved authenticated balance snapshots and successful route status. Payouts wait for verified credit from every source in the batch. Across those credits, wallet 1 receives floor(total confirmed private input / 10); wallet 2 receives the rest, before their independent payout fees. Wallet 1's deliberate holdings do not count as wallet 2's exit dust and must not be swept to complete that exit.
 
 ## Implementation map
 
 - `src/services/wallet/usdcBalance.ts`: pinned chain/token balance reads, exact base-unit strings, timeouts and malformed-response rejection.
-- `src/services/wallet/earnWallets.ts` and native stored signer: immutable profile/pair preparation after passkey approval, backup-compatible derivation, restore reconciliation gate.
+- `src/services/wallet/earnWallets.ts` and native stored signer: immutable profile/pair preparation after user intent, backup-compatible derivation, restore reconciliation gate.
 - `src/domain/earn/policy.ts` and `lifecycle.ts`: integer fee/reserve formulas, split conservation, cost ledger, uncertain-operation and exit policies.
-- `src/services/earn/`: real read-only readiness, authenticated private balance, independent native quotes and final exit snapshots. An aggregate private balance is not operation-scoped settlement evidence.
+- `src/services/earn/`: real read-only readiness, authenticated private balance, independent native quotes and final exit snapshots. An aggregate private balance alone is not operation-scoped settlement evidence; new native journals bind a pre-spend snapshot, exact route and bounded delta.
 - Backend `adapters/earn/`: dynamic isolated fork simulation and unsigned destination deposit planning. Backend `adapters/pimlico/source-funding.ts`: address-only source sponsorship preparation, conservative ceiling fee cap, bounded approval and fresh-state validation. No preview signs or broadcasts.
 - Native `core/src/earn_execution.rs`: constrained Ethereum allowance/deposit/full-redemption transactions. The core derives only the investment role, constructs canonical pinned Morpho SDK router calldata, binds native review and revision, and requires fresh native state before signing.
 - Native Rust `earn_sponsored.rs`, `earn_ethereum_liquidity.rs`, and `earn_payout.rs`: source/Robinhood token sponsorship; exact native USDC permit/Fusion order; constrained USDC/native ETH returns; exact independent confidential payouts. No generic digest, calldata, key or signature authority is available to JavaScript.
 - Android native engines/journals: passkey-bound review; encrypted signed-before-submit records; exact saved-byte recovery; canonical receipt/finality checks; authenticated operation-specific credit. Pending Ethereum liquidity transactions support separately reviewed same-nonce cancellations and retain every candidate until the finalized winner is known.
-- `features/earn/`: source funding, two independently authorized payout roles, Ethereum funding/investment/exit and Robinhood token-sponsored investment/exit progress. All default execution adapters are real native/provider adapters; functional tests inject services only at those boundaries.
+- `features/earn/`: guided Robinhood deposit, staged Ethereum deposit, saved investment/recovery and separately approved exits. All default execution adapters are real native/provider adapters; functional tests inject services only at those boundaries.
 
 The initial destination namespaces are `m/44'/60'/143'/destinationChain'/role`, with role 0 holding and role 1 investing. The separate confidential identity is role 2. Cycle zero keeps that historical derivation. New cycles use a monotonically allocated native cycle index. Each requested exit allocates a new public receiving address, saved before execution and reused on retries; it never returns to the original funding account. The encrypted catalogue and backup retain cycle/receiver relationships. Restore never clears the spending gate merely because local history is missing.
 
@@ -52,11 +52,11 @@ The frontend service builds from `frontend` with `npm ci && npm run build`, publ
 
 ## Provider qualification and remaining gates
 
-Aurora's normal provider service fees are permitted by the handover; an application fee recipient is not. The inspected key returned a 4-basis-point `appFees` entry and referral metadata. Its beneficiary/commission policy is not yet qualified, so routing rejects it rather than treating an unknown collector as a permitted provider. This does not mean Aurora must provide a zero-fee service. See [Aurora API keys and fees](https://docs.intents.aurora.dev/getting-started/api-keys-and-fees.md).
+Aurora's normal service fees are permitted by the handover; Gizu adds no application fee. The inspected portal configures zero integrator fee and no collection address/custom rules. The checked-in Robinhood policy bounds the actual observed collectors and two referrals; it does not assert the collectors' ultimate beneficiaries. Unknown identities or higher fees stop new spending. See [Aurora API keys and fees](https://docs.intents.aurora.dev/getting-started/api-keys-and-fees.md).
 
 The Android paths now include source funding and authenticated private credit, two independent payouts, Fusion permit/order execution, both destination vaults, and separately requested withdrawal/returns. Execution fails closed when provider qualification, simulation, gas, current native state or passkey association is missing. Publish the backend and verify the Android association before trying the deployed journey; a local implementation is not a live deployment.
 
-Configure `EARN_AURORA_FEE_QUALIFICATION_JSON` with versioned route-specific provider collectors, fee bounds and explicitly verified referral terms, with zero Gizu/integrator commission. A legacy exact-2-bps/no-referral configuration remains supported. The inspected research key is not qualified. Also configure a durable 32-byte hex `EARN_GATEWAY_RECOVERY_KEY` on the server. Its AES-GCM envelopes recover the exact prepared quote/payout across server restarts and remain inside encrypted native storage. Keep the same key when restarting or deploying; changing it prevents recovery of outstanding preparations. No key is shipped in the APK.
+`EARN_AURORA_FEE_QUALIFICATION_JSON` optionally overrides the checked-in Robinhood lifecycle policy. Ethereum routes still require their own explicit qualified policy; legacy exact-2-bps/no-referral configurations remain supported. Retain the durable 32-byte hex `EARN_GATEWAY_RECOVERY_KEY`: its AES-GCM envelopes authenticate prepared quotes, balance snapshots and portable credit attestations across restarts. They remain inside encrypted native storage. Keep the same key when restarting/deploying; no recovery key is shipped in the APK. New native deposits do not require Aurora's history invitation; previously signed journals without snapshots retain their original reconciliation requirement.
 
 Unsigned payout reviews may refresh authenticated evidence and, only after native proof that no signature exists, replace an expired quote within the same funding-role reservation. Signed or uncertain submissions retain their exact payload and nonce. Cancelling an unsigned payout review retains its original role reservation; explicitly refreshing that saved child enables a new native review, without allocating the role again. An expired sponsorship preparation may be explicitly discarded before any spending UserOperation is signed. Saved delegation authorization remains encrypted; discard does not revoke that authorization or broadcast it. Closing a screen locks authorization and discards late UI results; it does not cancel an external transaction.
 
@@ -148,3 +148,257 @@ Ordinary app openings refresh encrypted snapshots with bounded work: token synch
 The native batch approval binds the wallet, journal generation, registry, selected owners, budgets, recipients, original requests and fee caps. It is memory-only and expires after the existing 15-minute signing-session window. Native signing still verifies exact final UserOperation/paymaster terms within those limits. Separate downstream payout, investment and withdrawal actions retain their own approvals. This batches source funding approval; it does not approve an unlimited or automatic full lifecycle.
 
 The scalability bounds currently cover up to 8,192 public accounts and 256 Earn cycles per device. A cold/restored catalogue is synchronized incrementally. Funding review probes fresh candidate balances separately with a bounded search; an incomplete portfolio is not a promise that every account has been searched. Confidential valuation currently covers the configured Monad USDC asset only. Full iOS execution and live provider/device acceptance remain separate verification gates.
+
+## Guided Robinhood deposit (October 11)
+
+The catalog Deposit action opens Amount → Review → native approval → progress →
+Invested. Review allocates exactly two fresh destinations and a cycle confidential
+identity in encrypted native storage, with no signing, transfer or extra passkey.
+Editing or retrying an unsigned draft reuses that pair. Source selection uses the
+existing multi-account planner and shared Swap/Earn reservations. The amount is a
+USDC budget including source gas and the retained 0.01-USDC margin.
+
+On Android, `earnDepositJourney` exposes five native methods: prepare, confirm,
+status, resume and cancel. A normal uninterrupted Robinhood deposit receives one
+final native semantic review/passkey. Its memory-only grant binds owner, journal
+generation, cycle, source membership/reservations, both destinations, fixed
+contracts, source budgets, minimum payout/deposit/share amounts and gas/reserve
+bounds. The grant lasts at most 15 minutes while foregrounded; quote deadlines
+remain shorter. All exact children still pass the existing Rust/native checks.
+It grants no withdrawal or return authority. EIP-7702 delegation and provider
+identity disclosures remain in the final native review.
+
+Funding children keep their own durable journals. All selected sources must have
+authenticated operation-specific credit before the cumulative 10/90 payouts start.
+Each source has independent hold/invest payouts. Only verified investment payout
+receipts establish wallet 2's permitted deposit budget; unrelated incoming tokens
+do not enlarge it. Success requires finalized deposit evidence and shares.
+
+Leaving the screen, backgrounding, locking, closing or Stop remaining approval
+revokes further signing, preserving all submitted children. Explicit Resume
+refreshes only unsigned remaining terms before a fresh native approval. Paid
+payouts and durably signed bytes remain unchanged. Missing child history fails
+closed. The prospective refresh may include verified USDG already delivered to
+wallet 2, and requires the real balance to equal that starting amount. A signed
+vault child uses its saved bounds and reconciliation rather than replacement.
+
+Saved investment details retain existing withdrawal/return and funding recovery
+controls, without a new source-funding amount. Exits still allocate fresh receiving
+addresses. Ethereum keeps its existing separately approved funding, payouts,
+liquidity and vault stages; this branch does not claim one-passkey Ethereum.
+iOS advertises `earnDepositJourney: false` and preserves existing vault APIs.
+
+### Teammate deployment checklist
+
+Deploy this branch's backend before testing the new APK's review. In addition to
+the existing executable routes it must serve these **read-only** POST endpoints:
+
+- `/v1/earn/native/payout/preview`: per-source Robinhood USDG route estimate;
+  dry quote only, with qualified provider fee proof and a short expiry.
+- `/v1/earn/robinhood/deposit-preview`: isolated prospective simulation for the
+  pinned USDG/Steakhouse contracts; expected USDG and optional verified starting
+  USDG, without executable calldata or UserOperation fields.
+
+Keep the existing provider keys, qualified `EARN_AURORA_FEE_QUALIFICATION_JSON`,
+`EARN_AURORA_HISTORY_QUALIFIED`, stable `EARN_GATEWAY_RECOVERY_KEY` and RPC
+configuration. `EARN_ANVIL_PATH` must identify the pinned runnable Anvil on Render;
+this preview additionally needs fork/debug access to prove the USDG balance slot.
+Wrong/reverting storage candidates are restored and rejected, never guessed.
+The hypothetical override and fork-only ETH donor cannot authorize live execution.
+Missing qualification or simulation support produces an unavailable review.
+Do not rotate recovery keys during deployment or print them in compatibility logs.
+
+Run backend typecheck/test/build, deploy through the existing teammate workflow,
+then probe both public endpoints with an invalid empty body: the deployed strict
+routes should return 400 rather than 404. Follow with valid unsigned previews
+before requesting a funded phone approval. JavaScript and native release endpoints
+both use `https://gizu-app.onrender.com`; an old backend's 404 blocks before funding.
+
+### Current verification boundary
+
+Deterministic checks pass for source/credit ordering, odd-atom splits, bound grants,
+crash journals, uncertain submissions, paid-child preservation, unsigned remaining
+refresh, stale amount results, screen exit and saved investment ownership. The
+JavaScript suite passed 728 tests across 90 suites with coverage. Backend
+checks passed 225 tests with three optional skips, typecheck and build. Rust passed
+148 tests. All 273 Android signer tests and Kotlin formatting passed.
+
+The aggregate mobile check stops at Expo Doctor: network-enabled Doctor passed
+20/21 checks, with installed Expo 57.0.26 versus expected ~57.0.27. Types, lint,
+formatting and coverage were run separately; the aggregate is not reported as
+passing. Native iOS checks are unavailable on this checkout because Pods support
+files and a simulator runtime are absent. No iPhone acceptance is claimed.
+
+The hosted new deposit-preview route returned 404 during the October 11 probe.
+A separate live Robinhood RPC/fork probe returned HTTP 403 before simulation; the
+new prospective fork path is therefore not live-qualified by this test. These
+are deployment/provider gates, not permission to use fallback executable terms.
+No new mainnet Earn spending or funded one-passkey phone acceptance has occurred.
+
+### Final review and phone check
+
+A fresh whole-branch review found five Important recovery/lifecycle gaps; the fix
+pass reproduced and addressed them: exact-byte payout retry on explicit Resume
+only; authenticated receipt reconciliation before remaining preview; screen-off
+and Home/Recents revocation during credential UI; unsigned-review reservation
+release; and journaled reservation ownership before sticky source binding.
+Public polling never rebroadcasts. Missing child records and signing uncertainty
+continue to block reservation release. Any registered child set is conservatively
+retained for existing explicit recovery/discard actions.
+
+Pre-review reconciliation uses only the existing native owner/generation-bound
+login read permission (two minutes). It signs empty-intents authentication, never
+asset-transfer authority. An expired permission requires unlocking the wallet
+again; the feature does not renew it silently or ask for a spending approval to
+obtain unknown remaining economics. Historical signed children remain immutable.
+
+Android lifecycle wiring uses screen-off and system Home/Recents events, plus
+interactive/keyguard checks on activity pause and the user-leave callback. Legitimate
+credential focus loss remains bounded; an intervening departure cancels the pending
+ceremony permanently. The receiver observes system broadcasts listed in the
+[Android platform reference](https://developer.android.com/about/versions/12/reference/broadcast-intents-31);
+it does not send the deprecated close-dialog action. Physical credential-focus and
+lock acceptance still requires the deployed review/provider path.
+
+The initial guided standalone release built and updated the Samsung phone using `adb install -r`.
+Its package and SHA-256 certificate matched the existing installation; wallet data
+was preserved. The embedded bundle contains the new Render host and guided native
+bridge, and no old backend host. The user unlocked the wallet. The phone deposit
+hierarchy showed Morpho/Steakhouse USDG, an entered 3-USDC budget, available USDC,
+Review deposit and Details, and the correct unavailable-preview alert with no
+Confirm action. Both required public preview routes returned 404. No spending was
+approved. Prospective review, one-passkey funded execution and live interruption
+recovery remain incomplete until backend deployment and usable providers.
+
+The final recovery-fix release rebuilt successfully with all 273 Android signer
+tests passing. Its certificate and Render bundle endpoint were verified again.
+USB disconnected before that last update, so the phone currently retains the
+initial guided build. The final APK is ready for a preserving `adb install -r`.
+A coverage rerun hit ten test timeouts during an abnormally long 62-minute run;
+all were timing failures in previously passing suites. The fresh run with idle sleep
+prevented passed all 728 tests in 151 seconds. No timeout was increased or test
+skipped.
+
+### October 12 deployment diagnosis
+
+Both hosted preview routes now validate empty requests with HTTP 400, confirming
+the new handlers are deployed. Valid diagnostic previews return HTTP 503. The
+hosted source quote specifically returns `EARN_AURORA_FEE_UNQUALIFIED`; the operator
+reported none of the four `EARN_*` runtime/qualification settings are configured.
+See the [deployment guide](../app-guide/BACKEND_DEPLOYMENT.md) for their purposes.
+Local live Aurora dry source and USDG quotes returned HTTP 200, but no accepted
+local fee registry was configured. Public Robinhood state and Pimlico market reads
+passed; the prospective fork timed out reading vault `previewDeposit`. That local
+simulation result does not establish the deployed fork's failure reason.
+
+Android preparation diagnostics use the `GizuEarnDeposit` log tag. They record only
+the preparation stage, allowlisted gateway/transport failure code and Kotlin code
+location; never exception messages, request bodies, addresses, amounts, credentials
+or signatures. Preparation still blocks spending, releases unsigned reservations
+and preserves the existing public pause contract. Capture with:
+
+```sh
+adb logcat -v time GizuEarnDeposit:W GizuRpc:W '*:S'
+```
+
+Both diagnostics regressions and the complete 275-test Android suite pass. The
+standalone release built successfully; its existing certificate and embedded
+`https://gizu-app.onrender.com` host were verified. It updated the connected Samsung
+with `adb install -r`, preserving wallet data. After the user unlocked and reviewed
+3 USDC, the log identified `sources / VALIDATION / EarnSourceReplanner.kt:264`:
+the funding-plan nonce did not match the native EntryPoint lane-zero nonce.
+
+The installed SDK's default nonce manager selects a time-based lane when the
+backend omits an explicit nonce. Native state, signing and reconciliation use lane
+zero. Monad funding preparation now explicitly reads `account.getNonce({key: 0n})`,
+matching the existing Robinhood paymaster adapter. It does not hardcode a zero
+sequence or change native nonce validation or historical signed operations. The
+full SDK integration fixture now models EntryPoint lane bits and verifies repeated
+unsigned preparations retain a nonzero lane-zero sequence. It failed before the
+patch and passes afterward; the backend suite passes 226 tests with three optional
+skips, plus typecheck and build. A read-only live comparison against the previously
+supplied funded Monad source confirmed the deployed plan selected a nonzero lane
+and failed the native nonce comparison, while the patched local planner queried
+the same mainnet providers and returned lane zero with the correct live sequence.
+Neither comparison signs or broadcasts. Deploy this backend correction as well as configuring
+the missing Earn settings. No live spending was authorized or sent during these
+probes.
+
+### October 12 Aurora fee portal inspection
+
+Read-only inspection of the signed-in Client Portal matched its key to the backend
+and research key without publishing that key. The public integrator fee is zero,
+there are no custom fee rules, and no fee collection address is configured.
+Confidential fees inherit the public configuration. No portal setting was changed.
+
+Fresh diagnostic dry quotes returned HTTP 200 for all four Robinhood lifecycle
+routes. Source and public Monad withdrawal list 4 bps to
+`widget_collect.sputnik-dao.near`. Robinhood payout and return list 25 bps to that
+collector plus 20 bps to
+`2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805`.
+All four include referral `aurora-jh500bnyo9`. These are listed quote fees, not a
+complete accounting of route costs. The portal's zero integrator fee does not
+identify those collectors' beneficiaries or the referral's commission terms.
+Those remain unqualified pending Aurora confirmation; no fee-policy registry was
+installed. See the [sanitized fee inspection](../../research/confidential-earn/fixtures/aurora-fee-inspection-2026-10-12.json).
+
+The same live responses omit `quote.deadline`, as Aurora's documented dry-response
+contract permits. Source and payout preview adapters now use only a short local
+indicative lifetime when executable expiry fields are absent. Any supplied expiry
+is still checked, and executable quote validation is unchanged. Both missing-expiry
+regressions failed before this correction and pass afterward. The backend suite
+passes 228 tests with three optional skips; typecheck and build pass. No signing or
+submission occurred.
+
+### October 12 confirmed runtime blockers and resolution
+
+See the [sanitized runtime diagnosis](../../research/confidential-earn/fixtures/aurora-runtime-blockers-2026-10-12.json).
+The deployed source preview now succeeds but reports fee and history qualification
+blockers. These two codes are our configured eligibility checks, not proof of a
+quote-service outage. The history flag is false, and no accepted full-profile fee
+policy has been established.
+
+A fresh empty diagnostic account authenticated successfully (HTTP 200, access token
+issued, signed payload contained zero intents). Its authenticated `account/history`
+request returned HTTP 400: `History is invite-only for now`. This independently
+confirms provider access is missing on the inspected local/portal key. No user
+wallet keys or transfer intents were used. Aurora must grant that entitlement;
+setting the flag true cannot create it. After access is granted, validate actual
+operation-specific source/payout evidence before qualifying settlement.
+
+The pinned vault's direct mainnet `previewDeposit` succeeded in 373 ms. A read-only
+relay recorded a fork dependency returning HTTP 403 with a Cloudflare HTML challenge
+on `eth_getStorageAt`. This explains the local fork failure and provides a reproduced
+cause consistent with the deployed timeout; Render's exact failing upstream request
+is not available. Later hash-string, pinned-number and EIP-1898 reads succeeded, so
+no deterministic block-selector defect is established. Use a dedicated mainnet RPC
+with reliable pinned storage access through existing `ROBINHOOD_RPC_URL`, then
+repeat the full prospective simulation. The official Alchemy demo endpoint rejects
+unlisted origins and is not a production substitute. No dedicated provider key is
+currently configured locally, and a replacement full simulation remains unverified.
+
+The fee policy requires Aurora confirmation of the observed collectors and referral
+beneficiaries. Render currently reports referral `aurora-1u3j2qzclc`, while the local
+inspected key reports `aurora-jh500bnyo9`; the operator reports the keys are the same.
+That discrepancy remains unexplained. Final rules must match the deployed key's
+verified settings rather than assuming the local referral applies everywhere.
+
+The following can be sent by the operator to Aurora; no message was sent by this task:
+
+> For our Gizu Confidential Earn key (portal key ending 059a), please enable authenticated
+> `GET /api/account/history/{apiKey}`. Authentication succeeds but history returns
+> HTTP 400, "History is invite-only for now". Also confirm the beneficiaries of
+> `widget_collect.sputnik-dao.near` (4 bps source/withdrawal, 25 bps Robinhood payout/return)
+> and `2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805`
+> (20 bps Robinhood payout/return), and whether either referral pays Gizu or an
+> integrator commission. Our portal shows zero integrator fee, no custom rules and
+> no collection address. The same reported key returns `aurora-jh500bnyo9` locally
+> and `aurora-1u3j2qzclc` from Render; please explain and confirm the intended fee
+> configuration for all four lifecycle routes.
+
+
+## 2026-10-13 — Native Earn without history invitation
+
+New native funding/return signatures save an authenticated balance baseline before submission. Each funding source waits for successful route status and a credit delta bounded by its saved quote; only then can the next source sign. Portable sealed credit attestations allow both 10/90 payouts and recovery after private funds are spent. Payout reconciliation verifies the exact saved signed intent, successful route, and finalized token-transfer receipts; the same receipt cannot fund two allocations to the same recipient. Investment still stops at the vault deposit; withdrawal remains a separate user action with fresh recipient addresses.
+
+The inspected zero-Gizu portal configuration and observed fee/referral allowlist are checked into the backend. `EARN_AURORA_FEE_QUALIFICATION_JSON` is now an optional override, and current native clients do not require `EARN_AURORA_HISTORY_QUALIFIED=true`. Legacy signed journals without baselines retain their original reconciliation requirements. Deploy the backend and install the matching APK; preserve the recovery key and configure the owned Robinhood RPC. No transactions were sent to qualify this implementation.

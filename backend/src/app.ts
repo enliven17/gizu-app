@@ -1,9 +1,10 @@
+import { observedAuroraFeeQualification } from "./adapters/earn/fee-policy.ts";
 import Fastify, {
   type FastifyInstance,
   type FastifyServerOptions,
 } from "fastify";
 import { createHash } from "node:crypto";
-import { legacyCatalogChains } from "./domain/catalog.ts";
+import { resolveCatalogChains, resolveCatalogVaults } from "./domain/catalog.ts";
 import { ConfiguredOpportunities } from "./adapters/catalog/configured-opportunities.ts";
 import { MorphoVaults } from "./adapters/catalog/morpho-vaults.ts";
 import {
@@ -22,6 +23,9 @@ import { ConfidentialBalance } from "./adapters/aurora/confidential-balance.ts";
 import { EarnPreflight } from "./adapters/evm/earn-preflight.ts";
 import { registerEarnRoutes } from "./http/routes/earn.routes.ts";
 import { registerEarnPlanningRoutes } from "./http/routes/earn-planning.routes.ts";
+import { registerEarnPreviewRoutes } from "./http/routes/earn-preview.routes.ts";
+import { RobinhoodDepositPreviewPlanner } from "./adapters/earn/robinhood-deposit-preview.ts";
+import { EarnPayoutPreviewGateway } from "./adapters/earn/payout-preview.ts";
 import { EthereumDepositPlanner } from "./adapters/earn/ethereum-deposit-planner.ts";
 import { MonadFundingPlanner } from "./adapters/pimlico/source-funding.ts";
 import { EthereumWithdrawalPlanner } from "./adapters/earn/ethereum-withdrawal-planner.ts";
@@ -92,18 +96,20 @@ export async function buildApp(secret: ApiEnv): Promise<FastifyInstance> {
   });
   registerEarnRoutes(app, new EarnPreflight(), new ConfidentialBalance(secret.AURORA_API_KEY));
   const ethereumPlannerConfig={rpcUrl:secret.ETHEREUM_RPC_URL??"https://ethereum-rpc.publicnode.com",oneInchApiKey:secret.ONEINCH_API_KEY,anvilPath:secret.EARN_ANVIL_PATH};
-  registerEarnSettlementRoutes(app,new ConfidentialSettlement(secret.AURORA_API_KEY));
-  const nativeGateway=new NativeEarnGateway({auroraHistoryQualified:secret.EARN_AURORA_HISTORY_QUALIFIED==="true",recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,pimlicoApiKey:secret.PIMLICO_API_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined});
+  const auroraFeeQualification=secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):observedAuroraFeeQualification;
+  registerEarnSettlementRoutes(app,new ConfidentialSettlement(secret.AURORA_API_KEY,fetch,Date.now,secret.EARN_GATEWAY_RECOVERY_KEY));
+  const nativeGateway=new NativeEarnGateway({auroraHistoryQualified:secret.EARN_AURORA_HISTORY_QUALIFIED==="true",recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,pimlicoApiKey:secret.PIMLICO_API_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:auroraFeeQualification});
   const hoodConfig={rpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com",pimlicoApiKey:secret.PIMLICO_API_KEY,anvilPath:secret.EARN_ANVIL_PATH,auroraApiKey:secret.AURORA_API_KEY};
+  registerEarnPreviewRoutes(app,new RobinhoodDepositPreviewPlanner(hoodConfig),new EarnPayoutPreviewGateway({auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:auroraFeeQualification}));
   registerEarnPlanningRoutes(app,new EthereumDepositPlanner(ethereumPlannerConfig),new MonadFundingPlanner(secret.PIMLICO_API_KEY),new EthereumWithdrawalPlanner(ethereumPlannerConfig),new RobinhoodDepositPlanner(hoodConfig),new RobinhoodWithdrawalPlanner(hoodConfig),new RobinhoodReturnPlanner(hoodConfig,nativeGateway));
   registerEarnNativeRoutes(app,nativeGateway);
   registerEarnReturnRoutes(app,new EthereumReturnPlanner(ethereumPlannerConfig,{quote:r=>nativeGateway.returnQuote(r)}));
   registerEarnFusionRoutes(app,new FusionNativeGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,apiKey:secret.ONEINCH_API_KEY,rpcUrl:ethereumPlannerConfig.rpcUrl}));
   registerEarnExitRoutes(app, new EarnExitSnapshot({ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL,auroraApiKey:secret.AURORA_API_KEY}));
-  registerEarnPayoutRoutes(app,new PrivatePayoutGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:secret.EARN_AURORA_FEE_QUALIFICATION_JSON?parseAuroraFeeQualification(secret.EARN_AURORA_FEE_QUALIFICATION_JSON):undefined,ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com"}));
-  const chains = secret.CATALOG_CHAINS_JSON ?? legacyCatalogChains;
-  const vaults = secret.CATALOG_VAULTS_JSON ?? [];
-  const namespace = `catalog:v1:${createHash("sha256")
+  registerEarnPayoutRoutes(app,new PrivatePayoutGateway({recoveryKey:secret.EARN_GATEWAY_RECOVERY_KEY,auroraApiKey:secret.AURORA_API_KEY,auroraFeeQualification:auroraFeeQualification,ethereumRpcUrl:ethereumPlannerConfig.rpcUrl,robinhoodRpcUrl:secret.ROBINHOOD_RPC_URL??"https://rpc.mainnet.chain.robinhood.com"}));
+  const chains = resolveCatalogChains(secret);
+  const vaults = resolveCatalogVaults(secret, chains);
+  const namespace = `catalog:v4:${createHash("sha256")
     .update(JSON.stringify({ chains, vaults, morpho: secret.MORPHO_API_URL, merkl: secret.MERKL_API_URL }))
     .digest("hex")}`;
   const opportunities = new ConfiguredOpportunities(

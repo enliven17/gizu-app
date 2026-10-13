@@ -1,4 +1,6 @@
 import { getJson } from "./http";
+import { catalogEarnProfile } from "@/domain/earn/catalog";
+import { earnProfiles } from "@/domain/earn/types";
 import type {
   Opportunity,
   OpportunityCampaign,
@@ -25,6 +27,19 @@ function isStringArray(value: unknown): value is string[] {
 function isMetric(value: unknown): value is number | null {
   return value === null || isFiniteNumber(value);
 }
+function isAsset(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.address === "string" &&
+    /^0x[0-9a-f]{40}$/i.test(value.address) &&
+    typeof value.name === "string" &&
+    typeof value.symbol === "string" &&
+    typeof value.decimals === "number" &&
+    Number.isInteger(value.decimals) &&
+    value.decimals >= 0 &&
+    value.decimals <= 36
+  );
+}
 function hasOpportunityFields(value: Record<string, unknown>): boolean {
   return (
     typeof value.id === "string" &&
@@ -34,9 +49,11 @@ function hasOpportunityFields(value: Record<string, unknown>): boolean {
     typeof value.chainId === "number" &&
     Number.isSafeInteger(value.chainId) &&
     value.chainId > 0 &&
+    (value.asset === undefined || isAsset(value.asset)) &&
     (value.vaultAddress === undefined ||
       (typeof value.vaultAddress === "string" && /^0x[0-9a-f]{40}$/i.test(value.vaultAddress))) &&
     (value.rateType === undefined || value.rateType === "apr" || value.rateType === "apy") &&
+    (value.featured === undefined || typeof value.featured === "boolean") &&
     isRecord(value.protocol) &&
     typeof value.protocol.id === "string" &&
     typeof value.protocol.name === "string" &&
@@ -103,7 +120,10 @@ function isTvlRecord(value: unknown): value is TvlRecord {
 
 export function createOpportunityService(baseUrl: string): OpportunityService {
   const root = baseUrl.replace(/\/$/, "");
-  let enabledChains = new Set([143]);
+  let enabledChains = new Set<number>([
+    143,
+    ...Object.values(earnProfiles).map((profile) => profile.chainId),
+  ]);
   let hasChainCatalog = false;
   function configured() {
     if (!baseUrl) throw new Error("Vault catalog is not configured.");
@@ -164,7 +184,16 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
         throw new Error("Invalid vault catalog response.");
       }
       enabledChains.add(chainId);
-      return body as OpportunityPage;
+      const list = body.list.filter(
+        (row) => row.featured === true || catalogEarnProfile(row) !== null,
+      );
+      // Featured entries can span multiple pages. Older broad investment catalogs
+      // still omit unsupported rows and their unusable pagination cursor.
+      const total =
+        list.some((row) => row.featured === true) && list.length === body.list.length
+          ? body.total
+          : query.page * 8 + list.length;
+      return { ...body, list, total } as OpportunityPage;
     },
     async detail(id, signal) {
       configured();
@@ -181,6 +210,8 @@ export function createOpportunityService(baseUrl: string): OpportunityService {
       ) {
         throw new Error("Invalid vault response.");
       }
+      if (body.opportunity.featured !== true && catalogEarnProfile(body.opportunity) === null)
+        throw new Error("Deposits to this vault are not available in Gizu yet.");
       return body.opportunity;
     },
     async tvlRecords(id, signal) {

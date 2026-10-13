@@ -1,12 +1,14 @@
 import { z } from "zod";
 
+const publicMetric = z.number().finite().nullish().transform((value) => value ?? null);
+
 export const opportunitySchema = z.looseObject({
   id: z.string(),
   name: z.string(),
   status: z.string(),
-  apr: z.number(),
-  totalApr: z.number(),
-  tvl: z.number(),
+  apr: publicMetric,
+  totalApr: publicMetric,
+  tvl: publicMetric,
   chainId: z.number(),
   chain: z.looseObject({
     id: z.number(),
@@ -28,7 +30,7 @@ export const opportunityTokenSchema = z.looseObject({
   symbol: z.string(),
   address: z.string(),
   decimals: z.number(),
-  price: z.number(),
+  price: publicMetric,
 });
 
 export const opportunityCampaignSchema = z.looseObject({
@@ -46,9 +48,9 @@ export const opportunityDetailSchema = opportunitySchema.extend({
   description: z.string(),
   action: z.string(),
   type: z.string(),
-  dailyRewards: z.number(),
-  liveCampaigns: z.number(),
-  nativeApr: z.number(),
+  dailyRewards: publicMetric,
+  liveCampaigns: z.number().nullish().transform((value) => value ?? 0),
+  nativeApr: publicMetric,
   explorerAddress: z.string(),
   howToSteps: z.array(z.string()),
   depositUrl: z.string(),

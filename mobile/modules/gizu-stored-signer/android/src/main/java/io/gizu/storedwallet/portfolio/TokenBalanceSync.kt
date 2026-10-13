@@ -3,6 +3,7 @@ package io.gizu.storedwallet.portfolio
 import io.gizu.storedwallet.*
 import java.math.BigInteger
 import javax.crypto.SecretKey
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -15,6 +16,13 @@ internal interface PortfolioRpc {
 
 internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> String)? = null) :
   PortfolioRpc {
+  private val chainId =
+    when (endpoint) {
+      "https://rpc.monad.xyz" -> 143L
+      "https://rpc.mainnet.chain.robinhood.com" -> 4663L
+      "https://ethereum-rpc.publicnode.com" -> 1L
+      else -> null
+    }
   private val transport = NativeRpcTransport(endpoint)
   private val send: suspend (String) -> String = post ?: { transport.post(it) }
 
@@ -30,6 +38,15 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
             .toString()
         )
       )
+    response.optJSONObject("error")?.let {
+      PortfolioDiagnostics.event(
+        PortfolioDiagnostics.Stage.RPC,
+        PortfolioDiagnostics.rpcReason(it),
+        chain = chainId,
+        method = method,
+        status = it.optInt("code"),
+      )
+    }
     check(
       response.get("id") is Number &&
         response.get("id").toString() == "1" &&
@@ -58,6 +75,15 @@ internal class NativePortfolioRpc(endpoint: String, post: (suspend (String) -> S
       val results = mutableMapOf<Int, Any>()
       for (i in 0 until response.length()) {
         val row = response.getJSONObject(i)
+        row.optJSONObject("error")?.let {
+          PortfolioDiagnostics.event(
+            PortfolioDiagnostics.Stage.RPC,
+            PortfolioDiagnostics.rpcReason(it),
+            chain = chainId,
+            method = "batch",
+            status = it.optInt("code"),
+          )
+        }
         val rawId = row.get("id")
         val id = rawId.toString().toIntOrNull()
         check(
@@ -160,11 +186,22 @@ internal class TokenBalanceSync(
     else snapshot
   }
 
-  suspend fun read(rawAddresses: List<String>, now: Long): TokenSnapshot {
+  suspend fun read(rawAddresses: List<String>, now: Long): TokenSnapshot =
+    withTimeoutOrNull(10_000L) { readAvailable(rawAddresses, now) }
+      ?: cachedSnapshot(rawAddresses, now)?.copy(stale = true)
+      ?: throw PortfolioReadTimeout()
+
+  private suspend fun readAvailable(rawAddresses: List<String>, now: Long): TokenSnapshot {
     val addresses = rawAddresses.map(String::lowercase).distinct()
     require(addresses.size <= 8192 && addresses.all { it.matches(Regex("0x[0-9a-f]{40}")) })
     val old = load()
     val values = old?.getJSONObject("balances")
+    PortfolioDiagnostics.event(
+      PortfolioDiagnostics.Stage.TOKEN_CACHE,
+      if (old == null) PortfolioDiagnostics.Reason.CACHE_EMPTY
+      else PortfolioDiagnostics.Reason.STARTED,
+      chainId,
+    )
     if (
       old != null &&
         now - old.getLong("checkedAt") in 0 until 30_000 &&
@@ -178,7 +215,14 @@ internal class TokenBalanceSync(
         !old.has("reconcile") &&
         old.getJSONArray("pending").length() == 0
     )
-      return view(old, addresses)
+      return view(old, addresses).also {
+        PortfolioDiagnostics.event(
+          PortfolioDiagnostics.Stage.TOKEN_CACHE,
+          PortfolioDiagnostics.Reason.CACHE_FRESH,
+          chainId,
+        )
+      }
+    var stage = PortfolioDiagnostics.Stage.TOKEN_CHAIN
     try {
       check(
         quantity(rpc.call("eth_chainId", JSONArray()).toString()) == BigInteger.valueOf(chainId)
@@ -189,6 +233,7 @@ internal class TokenBalanceSync(
       }
       // Robinhood's public endpoint prunes contract state at finalized heights. This mode is
       // strictly for display observations; execution and settlement retain their own gates.
+      stage = PortfolioDiagnostics.Stage.TOKEN_HEAD
       val head =
         rpc.call(
           "eth_getBlockByNumber",
@@ -231,6 +276,7 @@ internal class TokenBalanceSync(
           .put("reorg", true)
           .put("reconcile", JSONObject().put("block", hex(headNumber)).put("hash", headHash))
       }
+      stage = PortfolioDiagnostics.Stage.TOKEN_CHECKPOINT
       val activeReconcile = root.optJSONObject("reconcile")
       if (activeReconcile != null) {
         val target = quantity(activeReconcile.getString("block"))
@@ -271,6 +317,7 @@ internal class TokenBalanceSync(
           )
         }
       }
+      stage = PortfolioDiagnostics.Stage.TOKEN_LOGS
       val scan = root.optJSONObject("scan")
       if (scan != null) {
         check(scan.getString("from") == root.getString("block"))
@@ -339,12 +386,18 @@ internal class TokenBalanceSync(
         reconciliation?.getString("hash") ?: scan?.getString("hash") ?: root.getString("blockHash")
       // A frozen log range may span several openings. Read pending owners at available current
       // state without advancing that range's checkpoint past any unscanned owner bucket.
+      stage = PortfolioDiagnostics.Stage.TOKEN_SAMPLE
       val sample =
         if (chainId == 4663L)
           rpc.call("eth_getBlockByNumber", JSONArray().put("latest").put(false)) as JSONObject
         else null
       val sampleBlock = sample?.getString("number") ?: readBlock
       val sampleHash = sample?.let { validHeader(it, quantity(sampleBlock)) } ?: readHash
+      stage = PortfolioDiagnostics.Stage.TOKEN_BALANCES
+      // Small Robinhood catalogues fit the existing bounded balance budget. A full same-block
+      // observation also covers transfers after the log scan's head, even as latest advances.
+      if (chainId == 4663L && addresses.size in 1..80) pending.addAll(addresses)
+      val sampledOwners = mutableSetOf<String>()
       for (chunk in pending.take(80).chunked(40)) {
         val requests =
           chunk.map { address ->
@@ -362,8 +415,10 @@ internal class TokenBalanceSync(
         for ((index, address) in chunk.withIndex()) {
           stored.put(address, decodeBalance(results[index] as String))
           pending.remove(address)
+          sampledOwners.add(address)
         }
       }
+      stage = PortfolioDiagnostics.Stage.TOKEN_CANONICAL
       check(canonical(quantity(readBlock)) == readHash)
       if (sample != null)
         check(
@@ -373,10 +428,14 @@ internal class TokenBalanceSync(
           ) == sampleHash
         )
       val scanned = scan == null || scan.getInt("offset") == scan.getJSONArray("owners").length()
-      // Persist progress atomically. Never advance past an unscanned bucket or an unread dirty
-      // owner.
-      if (pending.isEmpty() && scanned) {
-        root.put("block", readBlock).put("blockHash", readHash)
+      // All owners at one canonically rechecked sample supersede the earlier log checkpoint.
+      // Partial catalogues retain the frozen scan; observing a subset must never skip transfers.
+      val fullySampled =
+        sample != null && addresses.isNotEmpty() && sampledOwners.size == addresses.size
+      if (pending.isEmpty() && (fullySampled || scanned)) {
+        root
+          .put("block", if (fullySampled) sampleBlock else readBlock)
+          .put("blockHash", if (fullySampled) sampleHash else readHash)
         root.remove("scan")
         root.remove("reconcile")
         root.remove("reorg")
@@ -392,17 +451,54 @@ internal class TokenBalanceSync(
             root.has("reconcile") ||
             quantity(root.getString("block")) < headNumber.max(quantity(sampleBlock)),
         )
+      stage = PortfolioDiagnostics.Stage.TOKEN_SAVE
       save(root)
+      val reason =
+        when {
+          pending.isNotEmpty() -> PortfolioDiagnostics.Reason.BALANCE_PENDING
+          root.has("scan") || root.has("reconcile") -> PortfolioDiagnostics.Reason.SCAN_PENDING
+          quantity(root.getString("block")) < quantity(sampleBlock) ->
+            PortfolioDiagnostics.Reason.SAMPLE_AHEAD
+          root.optBoolean("catchingUp") -> PortfolioDiagnostics.Reason.SYNC_PENDING
+          else -> PortfolioDiagnostics.Reason.READY
+        }
+      PortfolioDiagnostics.event(PortfolioDiagnostics.Stage.TOKEN_SYNC, reason, chainId)
       return view(root, addresses, root.optBoolean("reorg"))
     } catch (e: kotlinx.coroutines.CancellationException) {
+      PortfolioDiagnostics.event(
+        stage,
+        PortfolioDiagnostics.Reason.CANCELLED,
+        chainId,
+        method = stageMethod(stage),
+        failure = e,
+      )
       throw e
-    } catch (_: Exception) {
+    } catch (failure: Exception) {
+      PortfolioDiagnostics.event(
+        stage,
+        PortfolioDiagnostics.Reason.UNAVAILABLE,
+        chainId,
+        method = stageMethod(stage),
+        failure = failure,
+      )
       if (old == null) throw IllegalStateException("Portfolio balance unavailable. Retry.")
       return view(old, addresses, true)
     }
   }
 
   companion object {
+    private fun stageMethod(stage: PortfolioDiagnostics.Stage) =
+      when (stage) {
+        PortfolioDiagnostics.Stage.TOKEN_CHAIN -> "eth_chainId"
+        PortfolioDiagnostics.Stage.TOKEN_HEAD,
+        PortfolioDiagnostics.Stage.TOKEN_CHECKPOINT,
+        PortfolioDiagnostics.Stage.TOKEN_SAMPLE,
+        PortfolioDiagnostics.Stage.TOKEN_CANONICAL -> "eth_getBlockByNumber"
+        PortfolioDiagnostics.Stage.TOKEN_LOGS -> "eth_getLogs"
+        PortfolioDiagnostics.Stage.TOKEN_BALANCES -> "eth_call"
+        else -> "none"
+      }
+
     private const val TRANSFER =
       "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 

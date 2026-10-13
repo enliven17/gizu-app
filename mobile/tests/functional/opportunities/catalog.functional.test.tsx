@@ -13,6 +13,7 @@ import { OpportunityServiceContext } from "@/features/opportunities/useOpportuni
 import type { OpportunityPage, OpportunityService } from "@/domain/opportunities";
 import { deferred } from "../../support/renderApp";
 import { tvlRecords } from "../../support/opportunities";
+import { createOpportunityService } from "@/services/opportunities";
 import { VaultPreview } from "@/features/investments/components/VaultPreview";
 // The sparkline is decorative (hidden from assistive tech); query it explicitly.
 const hidden = { includeHiddenElements: true };
@@ -271,4 +272,84 @@ test("Home preview combines the configured chains without a chain selector", asy
   );
   expect(await screen.findByText("Home vault 1")).toBeVisible();
   expect(screen.getByText("Home vault 143")).toBeVisible();
+});
+
+test("production catalog shows featured vaults alongside executable vaults and hides ordinary unsupported deposits", async () => {
+  const originalFetch = global.fetch;
+  const pendle = {
+    ...page.list[0]!,
+    id: "pendle",
+    name: "Pendle USDC",
+    chainId: 1,
+    protocol: { id: "morpho", name: "Morpho" },
+    vaultAddress: "0x55C1B6e461a6334B567bAF0FEb5D728715446f05",
+  };
+  const steakhouse = {
+    ...pendle,
+    id: "steakhouse",
+    name: "Steakhouse USDG",
+    chainId: 4663,
+    vaultAddress: "0xBeEff033F34C046626B8D0A041844C5d1A5409dd",
+  };
+  const own = {
+    ...pendle,
+    id: "gizu-prime",
+    name: "Gizu Prime AUSD",
+    chainId: 143,
+    vaultAddress: "0x997D5064A7B48305c15C9D55AC2D94D7069Fc008",
+    featured: true,
+  };
+  const fetcher = jest.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    const list = url.includes("chainId=143")
+      ? [own]
+      : url.includes("chainId=4663")
+        ? [steakhouse]
+        : [
+            pendle,
+            {
+              ...pendle,
+              id: "unsupported",
+              name: "Unavailable deposit vault",
+              vaultAddress: "0x1111111111111111111111111111111111111111",
+            },
+          ];
+    return {
+      ok: true,
+      json: async () =>
+        url.endsWith("/v1/chains")
+          ? {
+              list: [
+                { id: 143, name: "Monad" },
+                { id: 1, name: "Ethereum" },
+                { id: 4663, name: "Robinhood" },
+              ],
+            }
+          : url.includes("tvl-records")
+            ? { list: [] }
+            : { list, page: 0, items: 8, total: url.includes("chainId=143") ? 1 : 123 },
+    } as Response;
+  });
+  global.fetch = fetcher;
+  try {
+    render(
+      <SafeAreaProvider>
+        <OpportunityServiceContext.Provider
+          value={createOpportunityService("https://backend.example")}
+        >
+          <MainnetVaults onOpen={jest.fn()} />
+          <VaultPreview onOpen={jest.fn()} onSeeAll={jest.fn()} />
+        </OpportunityServiceContext.Provider>
+      </SafeAreaProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByText("Pendle USDC")).toHaveLength(2));
+    expect(screen.getAllByText("Steakhouse USDG")).toHaveLength(2);
+    expect(screen.getAllByText("Gizu Prime AUSD")).toHaveLength(2);
+    expect(screen.getAllByText("Featured")).toHaveLength(2);
+    expect(screen.queryByText("Unavailable deposit vault")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(fetcher.mock.calls.some(([url]) => String(url).includes("chainId=143"))).toBe(true);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });

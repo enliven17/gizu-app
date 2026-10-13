@@ -496,7 +496,8 @@ internal class EarnWithdrawalEngine(
         .put("standard", "erc191")
         .put("payload", auth.payload)
         .put("signature", auth.signature)
-    val request = submission(op, signedData)
+    val request =
+      submission(op, signedData).put("submittedIntent", JSONObject(op.getString("signedData")))
     val privateQuote = gateway.decode(op.getString("preparedText"), false).reference
     var row = gateway.settlement(request)
     validateSettlement(row, p)

@@ -22,16 +22,29 @@ internal fun sponsoredSettlementExpected(op: JSONObject): JSONObject {
   earnHash(op.getString("transactionHash"))
   earnHash(proof.getString("authenticatedBodyHash"))
   earnNumberWord(proof.getString("minimumCreditAtoms"))
-  return JSONObject()
-    .put("operationId", op.getString("operationId"))
-    .put("revision", op.getInt("revision"))
-    .put("depositAddress", proof.getString("recipient"))
-    .put("sourceOwner", p.getString("expectedFrom"))
-    .put("confidentialAccount", proof.getString("confidentialAccount"))
-    .put("originAsset", proof.getString("originAsset"))
-    .put("amountAtoms", proof.getString("amountAtoms"))
-    .put("minimumCreditAtoms", proof.getString("minimumCreditAtoms"))
-    .put("transactionHash", op.getString("transactionHash"))
+  val expected =
+    JSONObject()
+      .put("operationId", op.getString("operationId"))
+      .put("revision", op.getInt("revision"))
+      .put("depositAddress", proof.getString("recipient"))
+      .put("sourceOwner", p.getString("expectedFrom"))
+      .put("confidentialAccount", proof.getString("confidentialAccount"))
+      .put("originAsset", proof.getString("originAsset"))
+      .put("amountAtoms", proof.getString("amountAtoms"))
+      .put("minimumCreditAtoms", proof.getString("minimumCreditAtoms"))
+      .put("transactionHash", op.getString("transactionHash"))
+  op.getJSONObject("stateBinding").optJSONObject("privateBaseline")?.let {
+    expected
+      .put("baselineEnvelope", it.getString("baselineEnvelope"))
+      .put("quoteEnvelope", proof.getString("recoveryEnvelope"))
+      .put("maximumCreditAtoms", proof.getString("maximumCreditAtoms"))
+  }
+  op
+    .optJSONObject("settlement")
+    ?.optString("settlementEnvelope")
+    ?.takeIf { it.isNotEmpty() }
+    ?.let { expected.put("settlementEnvelope", it) }
+  return expected
 }
 
 internal fun validateSponsoredSettlement(
@@ -54,8 +67,15 @@ internal fun validateSponsoredSettlement(
       row.getString("transactionHash").equals(expected.getString("transactionHash"), true)
   )
   check(now - row.getLong("timestampMs") in -5000L..60000L)
+  if (expected.has("baselineEnvelope")) {
+    check(row.getString("verification") == "balance-delta-v1")
+    if (row.getString("status") == "credited")
+      check(row.getString("settlementEnvelope").isNotEmpty())
+  }
   val credited = row.getString("creditedAtoms")
   earnNumberWord(credited)
+  if (expected.has("maximumCreditAtoms"))
+    check(credited.toBigInteger() <= expected.getString("maximumCreditAtoms").toBigInteger())
   when (row.getString("status")) {
     "credited" ->
       check(credited.toBigInteger() >= expected.getString("minimumCreditAtoms").toBigInteger())
@@ -98,4 +118,36 @@ internal suspend fun readNativeSponsoredSettlement(
       .put("expected", expected)
   val response = NativeRpcTransport("$EARN_NATIVE_BACKEND/settlement").post(request.toString())
   return validateSponsoredSettlement(response, expected)
+}
+
+/** Read-only authentication uses the same existing native authority, never another passkey. */
+internal suspend fun nativeCycleReadAuth(
+  store: WalletStore,
+  authority: () -> Unit,
+): EarnReadAuthentication {
+  authority()
+  val salt = ConfidentialBalance().salt()
+  val random = ByteArray(7).also { java.security.SecureRandom().nextBytes(it) }
+  val started = System.currentTimeMillis()
+  authority()
+  return store.load().use { record ->
+    requireSponsoredWallet(record, record.id)
+    cycleReadAuth(record, salt, random, started.toULong(), System.currentTimeMillis().toULong())
+  }
+}
+
+internal suspend fun readNativeSponsoredBaseline(
+  auth: EarnReadAuthentication,
+  address: String,
+): JSONObject {
+  val signed =
+    JSONObject()
+      .put("standard", "erc191")
+      .put("payload", auth.payload)
+      .put("signature", auth.signature)
+  val text =
+    NativeRpcTransport("$EARN_NATIVE_BACKEND/settlement-baseline")
+      .post(JSONObject().put("signedData", signed).toString())
+  ConfidentialBalance.publicBalance(text, address, System.currentTimeMillis())
+  return JSONObject(text).also { check(it.getString("baselineEnvelope").isNotEmpty()) }
 }

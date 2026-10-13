@@ -117,7 +117,8 @@ export class MonadFundingPlanner {
       const [supported,quotes,fees]=await Promise.all([pimlico.getSupportedEntryPoints(),pimlico.getTokenQuotes({tokens:[monadUsdc],chain:monad}),pimlico.getUserOperationGasPrice()]);
       if(!supported.some(a=>same(a,entryPoint08Address))||quotes.length!==1||!same(quotes[0]?.paymaster,tokenPaymaster)||!same(quotes[0]?.token,monadUsdc))throw new Error("Unsupported source sponsorship");
       const bundler=createSmartAccountClient({account,client,chain:monad,bundlerTransport:transport,paymaster:{getPaymasterStubData:pimlico.getPaymasterStubData,getPaymasterData:pimlico.getPaymasterStubData},userOperation:{estimateFeesPerGas:async()=>fees.standard,prepareUserOperation:prepareUserOperationForErc20Paymaster(pimlico)}});
-      const initial=await bundler.prepareUserOperation({account,paymasterContext:{token:monadUsdc},calls:[{to:monadUsdc,data:encodeFunctionData({abi:erc20Abi,functionName:"transfer",args:[recipient,amount]}),value:0n}]});
+      // Native signing/reconciliation uses EntryPoint lane zero; SDK defaults select a time-based lane.
+      const initial=await bundler.prepareUserOperation({account,nonce:await account.getNonce({key:0n}),paymasterContext:{token:monadUsdc},calls:[{to:monadUsdc,data:encodeFunctionData({abi:erc20Abi,functionName:"transfer",args:[recipient,amount]}),value:0n}]});
       if(!account.decodeCalls)throw new Error("Account call decoder unavailable");
       const allowance=await client.readContract({address:monadUsdc,abi:erc20Abi,functionName:"allowance",args:[owner,tokenPaymaster],blockNumber:block.number});
       const op=await stabilizeFundingApproval(initial,{owner,recipient,amount,budget,allowance},async(calls)=>account.encodeCalls(calls),async(operation)=>{

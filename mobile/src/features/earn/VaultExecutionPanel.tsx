@@ -137,7 +137,13 @@ function useVaultExecution(intent: EarnIntent) {
     refresh: () => run(refresh),
   };
 }
-export function VaultExecutionPanel({ intent }: { intent: EarnIntent }) {
+export function VaultExecutionPanel({
+  intent,
+  presentation = "legacy",
+}: {
+  intent: EarnIntent;
+  presentation?: "legacy" | "investment";
+}) {
   const v = useVaultExecution(intent),
     blocked = v.operations.some((op) => op.blocked),
     last = v.operations.at(-1),
@@ -169,12 +175,14 @@ export function VaultExecutionPanel({ intent }: { intent: EarnIntent }) {
             required.
           </Typography>
         )}
-        <Button
-          label="Review investment"
-          disabled={disabled || invested || withdrawn}
-          loading={v.busy}
-          onPress={() => void v.review("vaultDeposit")}
-        />
+        {presentation === "legacy" && (
+          <Button
+            label="Review investment"
+            disabled={disabled || invested || withdrawn}
+            loading={v.busy}
+            onPress={() => void v.review("vaultDeposit")}
+          />
+        )}
         {v.plan && (
           <>
             <Typography variant="row">

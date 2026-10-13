@@ -5,6 +5,15 @@ import io.gizu.storedwallet.*
 import java.math.BigInteger
 import java.security.MessageDigest
 import javax.crypto.SecretKey
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import uniffi.gizu_stored_signer_core.deriveAccountAddresses
@@ -196,6 +205,109 @@ internal class NativeOwnedConfidentialPortfolio(
           .put("timestampMs", validated.getValue("timestampMs")),
       )
     save(target.walletId, target.generation, root)
+  }
+
+  /** Salt and signed read proposals stay native; each success is persisted independently. */
+  suspend fun refresh(
+    record: WalletRecord,
+    authorized: Boolean,
+    salt: suspend () -> ByteArray,
+    timeoutMs: Long = 10_000L,
+    read: suspend (NativeConfidentialTarget, ByteArray) -> Map<String, Any>,
+  ): Map<String, Any?> {
+    var successful = 0
+    var failed = false
+    PortfolioDiagnostics.event(
+      PortfolioDiagnostics.Stage.PRIVATE_REFRESH,
+      if (authorized) PortfolioDiagnostics.Reason.STARTED
+      else PortfolioDiagnostics.Reason.AUTH_REQUIRED,
+      143L,
+    )
+    var stage = PortfolioDiagnostics.Stage.PRIVATE_REFRESH
+    if (authorized) {
+      try {
+        val targets = nextTargets(record)
+        if (targets.isNotEmpty()) {
+          stage = PortfolioDiagnostics.Stage.PRIVATE_SALT
+          // Salt discovery can be slow independently of the authenticated provider read.
+          // Give each phase a bounded window; all targets still share one read deadline.
+          val currentSalt = withTimeoutOrNull(minOf(5_000L, timeoutMs)) { salt() }
+          if (currentSalt == null) {
+            PortfolioDiagnostics.event(stage, PortfolioDiagnostics.Reason.REQUEST_TIMEOUT, 143L)
+            failed = true
+          } else {
+            stage = PortfolioDiagnostics.Stage.PRIVATE_READ
+            val finished =
+              withTimeoutOrNull(timeoutMs) {
+                val permits = Semaphore(2)
+                val writes = Mutex()
+                coroutineScope {
+                  targets
+                    .map { target ->
+                      async {
+                        permits.withPermit {
+                          try {
+                            val observation = read(target, currentSalt)
+                            writes.withLock {
+                              recordValidated(target, observation)
+                              successful++
+                            }
+                          } catch (cancelled: CancellationException) {
+                            throw cancelled
+                          } catch (failure: Exception) {
+                            PortfolioDiagnostics.event(
+                              PortfolioDiagnostics.Stage.PRIVATE_READ,
+                              PortfolioDiagnostics.Reason.UNAVAILABLE,
+                              143L,
+                              failure = failure,
+                            )
+                            failed = true
+                          }
+                        }
+                      }
+                    }
+                    .awaitAll()
+                }
+                true
+              }
+            if (finished == null) {
+              PortfolioDiagnostics.event(stage, PortfolioDiagnostics.Reason.REQUEST_TIMEOUT, 143L)
+              failed = true
+            }
+          }
+        }
+      } catch (cancelled: CancellationException) {
+        throw cancelled
+      } catch (failure: Exception) {
+        PortfolioDiagnostics.event(
+          stage,
+          PortfolioDiagnostics.Reason.UNAVAILABLE,
+          143L,
+          failure = failure,
+        )
+        failed = true
+      }
+    }
+    val snapshot = snapshot(record)
+    val complete = snapshot["confidentialComplete"] == true
+    val state =
+      when {
+        complete -> "ready"
+        !authorized -> "locked"
+        failed && successful == 0 -> "unavailable"
+        else -> "partial"
+      }
+    PortfolioDiagnostics.event(
+      PortfolioDiagnostics.Stage.PRIVATE_REFRESH,
+      when (state) {
+        "ready" -> PortfolioDiagnostics.Reason.READY
+        "locked" -> PortfolioDiagnostics.Reason.AUTH_REQUIRED
+        "partial" -> PortfolioDiagnostics.Reason.PARTIAL
+        else -> PortfolioDiagnostics.Reason.UNAVAILABLE
+      },
+      143L,
+    )
+    return snapshot + mapOf("confidentialReadState" to state)
   }
 
   fun snapshot(record: WalletRecord, now: Long = clock()): Map<String, Any?> {

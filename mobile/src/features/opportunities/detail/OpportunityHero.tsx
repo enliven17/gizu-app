@@ -3,6 +3,7 @@ import { Button } from "@/components/atoms/Button";
 import { Typography } from "@/components/atoms/Typography";
 import { Surface } from "@/components/molecules/Surface";
 import type { OpportunityDetail } from "@/domain/opportunities";
+import { catalogEarnProfile } from "@/domain/earn/catalog";
 import type { TvlLoad } from "../useTvlSeries";
 import { money, rate } from "../format";
 import { protocolLogo } from "../protocolLogos";
@@ -28,6 +29,7 @@ export function OpportunityHero({
   const tvl = money.format(opportunity.tvl);
   const label = opportunity.rateType === "apy" ? "Net APY" : "Total APR";
   const logo = protocolLogo(opportunity.protocol.name, opportunity.protocol.id);
+  const depositAvailable = catalogEarnProfile(opportunity) !== null;
   const showChart =
     opportunity.tvl !== null || (history.kind === "ready" && history.series.length >= 2);
   return (
@@ -67,6 +69,10 @@ export function OpportunityHero({
             </Typography>
           </View>
         </View>
+        {opportunity.asset && (
+          <Typography variant="micro">Underlying asset · {opportunity.asset.symbol}</Typography>
+        )}
+        {opportunity.featured && <Typography variant="micro">Featured vault</Typography>}
         <View className="flex-row flex-wrap items-end justify-between gap-3">
           <View accessible accessibilityLabel={`${label} ${apr}`} className="gap-1">
             <Typography variant="label11">{label}</Typography>
@@ -90,14 +96,19 @@ export function OpportunityHero({
           </View>
         </View>
         {showChart && <TvlChart history={history} />}
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Button label="Deposit" onPress={onDeposit} />
+        {(!opportunity.featured || depositAvailable) && (
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Button label="Deposit" disabled={!depositAvailable} onPress={onDeposit} />
+            </View>
+            <View className="flex-1">
+              <Button label="Withdraw" variant="secondary" onPress={onWithdraw} />
+            </View>
           </View>
-          <View className="flex-1">
-            <Button label="Withdraw" variant="secondary" onPress={onWithdraw} />
-          </View>
-        </View>
+        )}
+        {!depositAvailable && !opportunity.featured && (
+          <Typography variant="micro">In-app deposits are not supported for this vault.</Typography>
+        )}
       </View>
     </Surface>
   );

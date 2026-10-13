@@ -66,6 +66,10 @@ const source = z
     amountAtoms: atoms,
     minimumCreditAtoms: atoms,
     transactionHash: hash,
+    maximumCreditAtoms: atoms.optional(),
+    baselineEnvelope: z.string().min(1).max(16384).optional(),
+    quoteEnvelope: z.string().min(1).max(65536).optional(),
+    settlementEnvelope: z.string().min(1).max(131072).optional(),
   })
   .strict();
 export const payoutPrepareInput = z
@@ -106,6 +110,7 @@ export const payoutSettlementInput = z
     quoteId: hash,
     signedData: auth,
     destinationTransactionHash: hash.optional(),
+    submittedIntent: auth.optional(),
     recoveryEnvelope: recoveryEnvelope.optional(),
   })
   .strict();
@@ -364,6 +369,7 @@ export interface PayoutQuoteBinding {
   destinationToken: Address;
   destinationRecipient: Address;
   minimumDestinationAtoms: string;
+  maximumDestinationAtoms?: string;
   deadlineMs: number;
   observedAtMs: number;
   quoteCreatedAtMs: number;
@@ -479,6 +485,7 @@ export class PrivatePayoutGateway {
       config.auroraApiKey,
       this.fetcher,
       this.now,
+      config.recoveryKey,
     );
     this.fees = config.auroraFeeQualification
       ? parseAuroraFeeQualification(
@@ -1106,6 +1113,7 @@ export class PrivatePayoutGateway {
           destinationToken: token,
           destinationRecipient: recipient,
           minimumDestinationAtoms: minimum.toString(),
+          maximumDestinationAtoms: out.toString(),
           deadlineMs: date(message.deadline),
           observedAtMs: this.now(),
           quoteCreatedAtMs: observed,
@@ -1182,6 +1190,30 @@ export class PrivatePayoutGateway {
       throw new NativeGatewayError(409, "EARN_PAYOUT_UNKNOWN");
     return entry;
   }
+  private async verifySignedIntent(
+    entry: RecordEntry,
+    signedData: z.output<typeof auth>,
+  ) {
+    const q = entry.prepared.quote;
+    try {
+      if (signedData.payload !== entry.prepared.intent.payload)
+        throw new Error("Changed signed payload");
+      const bytes = base58.decode(signedData.signature.slice(10));
+      if (bytes.length !== 65 || bytes[64]! > 1)
+        throw new Error("Bad signature");
+      bytes[64]! += 27;
+      if (
+        !(await verifyMessage({
+          address: q.confidentialAccount,
+          message: signedData.payload,
+          signature: bytesToHex(bytes),
+        }))
+      )
+        throw new Error("Wrong confidential signer");
+    } catch {
+      throw new NativeGatewayError(400, "INVALID_SIGNED_PAYOUT");
+    }
+  }
   async submit(
     value: PayoutSubmitInput,
     client = "internal",
@@ -1210,24 +1242,7 @@ export class PrivatePayoutGateway {
     this.checkRate(client);
     const entry = this.entry(i),
       q = entry.prepared.quote;
-    try {
-      if (i.signedData.payload !== entry.prepared.intent.payload)
-        throw new Error("Changed signed payload");
-      const bytes = base58.decode(i.signedData.signature.slice(10));
-      if (bytes.length !== 65 || bytes[64]! > 1)
-        throw new Error("Bad signature");
-      bytes[64]! += 27;
-      if (
-        !(await verifyMessage({
-          address: q.confidentialAccount,
-          message: i.signedData.payload,
-          signature: bytesToHex(bytes),
-        }))
-      )
-        throw new Error("Wrong confidential signer");
-    } catch {
-      throw new NativeGatewayError(400, "INVALID_SIGNED_PAYOUT");
-    }
+    await this.verifySignedIntent(entry, i.signedData);
     const signedHash = digest(i.signedData);
     if (entry.signedHash && entry.signedHash !== signedHash)
       throw new NativeGatewayError(409, "EARN_SIGNED_PAYOUT_CHANGED");
@@ -1292,6 +1307,137 @@ export class PrivatePayoutGateway {
     }
     return this.reconcileRequest(input, client);
   }
+  private async confirmDestination(
+    q: PayoutQuoteBinding,
+    transactionHash: string,
+    received?: bigint,
+  ) {
+    const client = this.client(q.destinationChainId);
+    if ((await client.getChainId()) !== q.destinationChainId)
+      throw new Error("Wrong public chain");
+    const receipt = await client.getTransactionReceipt({
+      hash: transactionHash as Hex,
+    });
+    if (
+      receipt.status !== "success" ||
+      receipt.transactionHash.toLowerCase() !== transactionHash.toLowerCase() ||
+      receipt.blockNumber <= BigInt(q.referenceBlock)
+    )
+      throw new Error("Unconfirmed destination");
+    const [block, finalized, reference] = await Promise.all([
+      client.getBlock({ blockNumber: receipt.blockNumber }),
+      client.getBlock({ blockTag: "finalized" }),
+      client.getBlock({ blockNumber: BigInt(q.referenceBlock) }),
+    ]);
+    if (
+      block.hash !== receipt.blockHash ||
+      reference.hash !== q.referenceHash ||
+      finalized.number === null ||
+      finalized.number < receipt.blockNumber ||
+      Number(block.timestamp) * 1000 < q.quoteCreatedAtMs - 1000
+    )
+      throw new Error("Noncanonical payout");
+    const transfers = parseEventLogs({
+      abi: erc20Abi,
+      eventName: "Transfer",
+      logs: receipt.logs,
+      strict: true,
+    }).filter(
+      (v) =>
+        same(v.address, q.destinationToken) &&
+        same(v.args.to, q.destinationRecipient),
+    );
+    if (transfers.length !== 1)
+      throw new Error("Exact public payout transfer missing");
+    const actual = transfers[0]!.args.value;
+    if (
+      actual < BigInt(q.minimumDestinationAtoms) ||
+      (received !== undefined && actual !== received) ||
+      (q.maximumDestinationAtoms && actual > BigInt(q.maximumDestinationAtoms))
+    )
+      throw new Error("Payout value outside quote bounds");
+    const confirmed = await client.getBlock({
+      blockNumber: receipt.blockNumber,
+    });
+    if (confirmed.hash !== block.hash) throw new Error("Payout changed");
+    return { receipt, block, received: transfers[0]!.args.value };
+  }
+
+  private async reconcileWithoutHistory(
+    entry: RecordEntry,
+    i: z.output<typeof internalSettlementInput>,
+  ) {
+    const q = entry.prepared.quote;
+    if (!i.submittedIntent) throw new Error("Saved signed intent required");
+    await this.verifySignedIntent(entry, i.submittedIntent);
+    const signedHash = digest(i.submittedIntent);
+    if (entry.signedHash && entry.signedHash !== signedHash)
+      throw new Error("Signed payout changed");
+    entry.signedHash = signedHash;
+    const route = await auroraApi(
+      this.config.auroraApiKey!,
+      this.fetcher,
+      `status/{key}?depositAddress=${encodeURIComponent(q.depositId)}`,
+    );
+    const base = {
+      operationId: i.operationId,
+      revision: i.revision,
+      leg: i.leg,
+      quoteId: q.quoteId,
+      confidentialAccount: q.confidentialAccount,
+      destinationChainId: q.destinationChainId,
+      destinationToken: q.destinationToken,
+      destinationRecipient: q.destinationRecipient,
+      minimumDestinationAtoms: q.minimumDestinationAtoms,
+      observedAtMs: this.now(),
+      expiresAtMs: this.now() + 60000,
+      authenticated: true as const,
+      operationScoped: true as const,
+      verification: "signed-route-receipt-v1" as const,
+    };
+    if (route.status !== "SUCCESS") {
+      if (
+        ![
+          "KNOWN_DEPOSIT_TX",
+          "PENDING_DEPOSIT",
+          "INCOMPLETE_DEPOSIT",
+          "PROCESSING",
+        ].includes(String(route.status))
+      )
+        throw new Error("Payout route failed");
+      return {
+        ...base,
+        status: "awaitingSettlement" as const,
+        receivedAtoms: "0",
+      };
+    }
+    if (!i.destinationTransactionHash)
+      return {
+        ...base,
+        status: "awaitingDestinationConfirmation" as const,
+        receivedAtoms: "0",
+      };
+    const { receipt, block, received } = await this.confirmDestination(
+      q,
+      i.destinationTransactionHash,
+    );
+    return {
+      ...base,
+      status: "delivered" as const,
+      receivedAtoms: received.toString(),
+      destinationTransactionHash: receipt.transactionHash,
+      referenceBlock: receipt.blockNumber.toString(),
+      referenceHash: receipt.blockHash,
+      authenticatedBodyHash: digest({
+        signedHash,
+        depositId: q.depositId,
+        routeStatus: route.status,
+        transactionHash: receipt.transactionHash,
+        blockHash: block.hash,
+        receivedAtoms: received.toString(),
+      }),
+    };
+  }
   private async reconcileRequest(
     i: z.output<typeof internalSettlementInput>,
     client: string,
@@ -1306,6 +1452,8 @@ export class PrivatePayoutGateway {
         const C = await authenticateEarnRead(i.signedData, this.now);
         if (!same(C, q.confidentialAccount))
           throw new Error("Wrong read owner");
+        if (entry.request.source.settlementEnvelope)
+          return await this.reconcileWithoutHistory(entry, i);
         const session = await auroraApi(
           this.config.auroraApiKey!,
           this.fetcher,
@@ -1405,48 +1553,11 @@ export class PrivatePayoutGateway {
             receivedAtoms: "0",
             intentHash: actualIntent,
           };
-        const client = this.client(q.destinationChainId);
-        if ((await client.getChainId()) !== q.destinationChainId)
-          throw new Error("Wrong public chain");
-        const receipt = await client.getTransactionReceipt({
-          hash: i.destinationTransactionHash as Hex,
-        });
-        if (
-          receipt.status !== "success" ||
-          receipt.transactionHash.toLowerCase() !==
-            i.destinationTransactionHash.toLowerCase() ||
-          receipt.blockNumber <= BigInt(q.referenceBlock)
-        )
-          throw new Error("Unconfirmed destination");
-        const [block, finalized, reference] = await Promise.all([
-          client.getBlock({ blockNumber: receipt.blockNumber }),
-          client.getBlock({ blockTag: "finalized" }),
-          client.getBlock({ blockNumber: BigInt(q.referenceBlock) }),
-        ]);
-        if (
-          block.hash !== receipt.blockHash ||
-          reference.hash !== q.referenceHash ||
-          finalized.number === null ||
-          finalized.number < receipt.blockNumber ||
-          Number(block.timestamp) * 1000 < q.quoteCreatedAtMs - 1000
-        )
-          throw new Error("Noncanonical payout");
-        const transfers = parseEventLogs({
-          abi: erc20Abi,
-          eventName: "Transfer",
-          logs: receipt.logs,
-          strict: true,
-        }).filter(
-          (v) =>
-            same(v.address, q.destinationToken) &&
-            same(v.args.to, q.destinationRecipient),
+        const { receipt, block } = await this.confirmDestination(
+          q,
+          i.destinationTransactionHash,
+          received,
         );
-        if (transfers.length !== 1 || transfers[0]!.args.value !== received)
-          throw new Error("Exact public payout transfer missing");
-        const confirmed = await client.getBlock({
-          blockNumber: receipt.blockNumber,
-        });
-        if (confirmed.hash !== block.hash) throw new Error("Payout changed");
         return {
           ...base,
           status: "delivered" as const,

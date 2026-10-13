@@ -6,7 +6,11 @@ export type Opportunity = {
   symbol?: string;
   chainId: number;
   vaultAddress?: string;
+  /** Verified deposit underlying; receipt and reward tokens are separate. */
+  asset?: { address: string; name: string; symbol: string; decimals: number };
   rateType?: "apr" | "apy";
+  /** Server-configured promotion, independent from native signing/deposit eligibility. */
+  featured?: boolean;
   protocol: { id: string; name: string };
   status: string;
   totalApr: number | null;

@@ -301,7 +301,7 @@ test("catalog Deposit uses the exact supported vault and allocates only after ex
   expect(await screen.findByText("Ethereum · Pendle")).toBeVisible();
   expect(earn.prepare).not.toHaveBeenCalled();
   await userEvent.press(screen.getByRole("button", { name: "Prepare deposit wallets" }));
-  expect(await screen.findByText("Wallet 1 · Hold 10%")).toBeVisible();
+  expect(await screen.findByText("Pendle USDC")).toBeVisible();
   expect(earn.prepare).toHaveBeenCalledWith({ walletId, address }, "ethereum-usdc");
 });
 
@@ -331,6 +331,23 @@ test("catalog Deposit starts a fresh cycle rather than reusing an existing inves
   expect(screen.getByRole("button", { name: "Prepare deposit wallets" })).toBeDisabled();
   expect(prepareNew).toHaveBeenCalledWith({ walletId, address }, "ethereum-usdc");
   await act(async () => pending.resolve(next));
-  expect(await screen.findByText("Wallet 1 · Hold 10%")).toBeVisible();
+  expect(await screen.findByText("Pendle USDC")).toBeVisible();
   expect(earn.prepare).not.toHaveBeenCalled();
+});
+
+test("USDG vault Deposit opens the Robinhood native flow", async () => {
+  const vault = {
+    ...opportunityDetail(1),
+    name: "Steakhouse USDG",
+    chainId: 4663,
+    chain: { name: "Robinhood" },
+    vaultAddress: earnProfiles["robinhood-usdg"].vault,
+  };
+  const { earn } = setup(vault);
+  await userEvent.press(await screen.findByRole("button", { name: "Continue with passkey" }));
+  await userEvent.press(await screen.findByRole("button", { name: `View ${vault.name}` }));
+  await userEvent.press(await screen.findByRole("button", { name: "Deposit" }));
+  expect(await screen.findByLabelText("USDC deposit amount")).toBeVisible();
+  expect(earn.prepare).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Deposits to this vault are not available/)).toBeNull();
 });

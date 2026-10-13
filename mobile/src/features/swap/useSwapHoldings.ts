@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SwapHoldingsSnapshot } from "@/domain/wallet/storedSigner";
+import { useOptionalMainnetWallet } from "@/features/wallet/MainnetWalletProvider";
 import { loadSwapTokens, swapGateway, swapSigner, type ListedToken } from "./confidentialSwap";
 import { DEBUG_SWEEP_ADDRESS, DEBUG_SWEEP_ENABLED } from "./debugSweep";
 
 /** Public balances only. Native storage owns discovery and native review owns every sale. */
 export function useSwapHoldings(onSaleSettled?: () => void) {
+  const mainnet = useOptionalMainnetWallet();
   const [snapshot, setSnapshot] = useState<SwapHoldingsSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<"" | "holdings">("");
@@ -96,6 +98,7 @@ export function useSwapHoldings(onSaleSettled?: () => void) {
       if (alive.current) {
         setBusy(false);
         void refresh();
+        if (mainnet) void mainnet.refresh();
       }
       onSaleSettled?.();
     }
@@ -126,6 +129,7 @@ export function useSwapHoldings(onSaleSettled?: () => void) {
       if (alive.current) {
         setBusy(false);
         void refresh();
+        if (mainnet) void mainnet.refresh();
       }
       onSaleSettled?.();
     }

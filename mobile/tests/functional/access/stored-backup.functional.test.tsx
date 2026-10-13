@@ -28,13 +28,13 @@ function setup() {
     getSwapDeposit: jest.fn().mockResolvedValue({ fundingAddress: "0x" + "1".repeat(40) }),
     lock: jest.fn(),
   } satisfies StoredWalletBridge;
-  render(
+  const view = render(
     <AppRoot
       accessService={createStoredWalletAccess(() => native)}
       walletBalanceService={{ getBalance: jest.fn().mockResolvedValue("0") }}
     />,
   );
-  return native;
+  return { ...native, unmount: view.unmount };
 }
 beforeEach(() => jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null));
 afterEach(() => jest.restoreAllMocks());
@@ -146,4 +146,30 @@ test.each([
   await proceed();
   expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
   expect(native.createWallet).toHaveBeenCalledTimes(1);
+});
+
+test("successful passkey login preserves native balance-read permission until disconnect", async () => {
+  const native = setup();
+  native.getWalletState.mockResolvedValue(ready);
+  await access();
+  await proceed();
+  expect(await screen.findByRole("header", { name: "Your portfolio" })).toBeVisible();
+  expect(native.openWallet).toHaveBeenCalledTimes(1);
+  expect(native.lock).not.toHaveBeenCalled();
+  await userEvent.press(screen.getByLabelText("Settings tab"));
+  await userEvent.press(await screen.findByRole("button", { name: "Disconnect" }));
+  expect(await screen.findByRole("button", { name: "Continue with passkey" })).toBeVisible();
+  expect(native.lock).toHaveBeenCalledTimes(1);
+});
+test("leaving an unfinished passkey login still cancels native access", async () => {
+  const native = setup();
+  native.getWalletState.mockResolvedValue(ready);
+  const pending = deferred<StoredWalletState>();
+  native.openWallet.mockReturnValue(pending.promise);
+  await access();
+  await proceed();
+  native.unmount();
+  expect(native.lock).toHaveBeenCalledTimes(1);
+  await act(async () => pending.resolve(ready));
+  expect(native.getSwapDeposit).not.toHaveBeenCalled();
 });

@@ -14,6 +14,7 @@ const originalOS = Platform.OS;
 const originalVersion = Platform.Version;
 const readHoldings = jest.fn();
 const capabilities = jest.fn();
+const sellHolding = jest.fn();
 
 const address = "0x" + "1".repeat(40);
 const walletId = "7aafcc2e-0891-4e31-a7d4-03780d7b4f12";
@@ -25,11 +26,13 @@ const state = {
 beforeEach(() => {
   Object.defineProperty(Platform, "OS", { configurable: true, value: "ios" });
   Object.defineProperty(Platform, "Version", { configurable: true, value: "18.5" });
+  sellHolding.mockReset().mockResolvedValue({ phase: "COMPLETE" });
   capabilities.mockReset().mockResolvedValue({ contractVersion: 1, available: true, swaps: true });
   readHoldings.mockReset().mockResolvedValue({ checkedAt: 1, block: "0x123", holdings: [] });
   jest.mocked(requireOptionalNativeModule).mockReturnValue({
     getCapabilities: capabilities,
     getSwapHoldings: readHoldings,
+    sellSwapHolding: sellHolding,
   });
   jest.spyOn(Linking, "getInitialURL").mockResolvedValue(null);
   jest.spyOn(Linking, "addEventListener");
@@ -155,7 +158,7 @@ test("disconnect ignores late native snapshots from the previous session", async
   expect(native.lock).toHaveBeenCalled();
 });
 
-test("an incomplete native cache displays checking balances and cannot expose zero as spendable", async () => {
+test("a settled incomplete native cache is retryable and never exposes zero as spendable", async () => {
   const { portfolio } = setup();
   portfolio.getMainnetPortfolio.mockResolvedValue({
     ...mainnetPortfolio(walletId, address, "0"),
@@ -164,10 +167,14 @@ test("an incomplete native cache displays checking balances and cannot expose ze
     syncPending: true,
   });
   await open();
-  expect(await screen.findByText("Checking Monad mainnet balances…")).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Retry balance" })).toBeVisible();
+  expect(screen.queryByText("Checking Monad mainnet balances…")).toBeNull();
   expect(screen.queryByLabelText("0 USDC")).toBeNull();
   await openEarnLink();
-  expect(await screen.findByText("Checking source balance…")).toBeVisible();
+  expect(
+    await screen.findByText("Source balance unavailable. Refresh before investing."),
+  ).toBeVisible();
+  expect(screen.queryByText("Checking source balance…")).toBeNull();
 });
 
 test("owned token amounts and vault underlying values remain distinct when market prices are unavailable", async () => {
@@ -235,7 +242,8 @@ test("owned token amounts and vault underlying values remain distinct when marke
   expect(screen.queryByText("USDC value unavailable.")).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "WETH holding details", expanded: false }));
   expect(screen.getByText("USDC value unavailable.")).toBeVisible();
-  expect(screen.getByText("Checking NEW balance…")).toBeVisible();
+  expect(screen.getByText("NEW balance unavailable. Refresh to retry.")).toBeVisible();
+  expect(screen.queryByText("Checking NEW balance…")).toBeNull();
   expect(
     screen.getByText(
       "Some assets have no verified USDC value. Token amounts are shown separately.",
@@ -287,8 +295,8 @@ test("partial vault observations use underlying units and never relabel shares a
     await screen.findByRole("button", { name: "USDC position details", expanded: false }),
   );
   expect(screen.getByText("Previously observed: 2 USDC")).toBeVisible();
-  expect(screen.getByText("Checking USDC balance…")).toBeVisible();
-  expect(screen.getByText("Checking USDG balance…")).toBeVisible();
+  expect(screen.getByText("USDC balance unavailable. Refresh to retry.")).toBeVisible();
+  expect(screen.getByText("USDG balance unavailable. Refresh to retry.")).toBeVisible();
   expect(screen.queryByText(/Previously observed: .*USDG/)).toBeNull();
   expect(screen.queryByText(/1,?000,?000,?000,?000 (USDC|USDG)/)).toBeNull();
   expect(screen.getByLabelText("19.990574 USDC")).toBeVisible();
@@ -387,4 +395,189 @@ test("returning to Home reuses balances without refreshing portfolio or token ho
   fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
   await act(async () => {});
   expect(portfolio.getMainnetPortfolio).toHaveBeenCalledTimes(balanceReads + 1);
+});
+
+test("Home shows aggregate USDG once while retaining native sale batches and other account spaces", async () => {
+  const { portfolio } = setup();
+  const token = "0x" + "ab".repeat(20);
+  const asset = {
+    assetId: `4663:${token}`,
+    chainId: 4663,
+    token,
+    symbol: "USDG",
+    decimals: 6,
+    balanceAtoms: "10000000",
+    observedAtoms: "10000000",
+    complete: true,
+    stale: false,
+    checkedAt: Date.now(),
+    valueUsdcAtoms: null,
+    valuationUnavailable: true,
+  };
+  portfolio.getMainnetPortfolio.mockResolvedValue({
+    ...mainnetPortfolio(walletId, address),
+    // The owned USDG aggregate includes Earn wallets as well as swapped tokens.
+    ownedAssets: [
+      asset,
+      { ...asset, assetId: "1:other", chainId: 1, token: "0x" + "ef".repeat(20), symbol: "GOOGL" },
+    ],
+    positions: [
+      {
+        ...asset,
+        assetId: "4663:vault",
+        token: "0x" + "cd".repeat(20),
+        balanceAtoms: "20000000",
+        shareAtoms: "20000000",
+        underlyingAtoms: "20000000",
+      },
+    ],
+  });
+  readHoldings.mockResolvedValue({
+    checkedAt: 1,
+    block: "0x123",
+    holdings: [
+      {
+        token,
+        chainId: 4663,
+        symbol: "USDG",
+        decimals: 6,
+        balanceAtoms: "1234500",
+        batches: [{ id: `${token}:6`, balanceAtoms: "1234500" }],
+      },
+      {
+        token: "0x" + "ef".repeat(20),
+        chainId: 4663,
+        symbol: "GOOGL",
+        decimals: 6,
+        balanceAtoms: "5000000",
+        batches: [],
+      },
+    ],
+  });
+  await open();
+  fireEvent.press(await screen.findByRole("button", { name: "Tokens and vault positions" }));
+  expect(await screen.findByText("10 USDG")).toBeVisible();
+  expect(screen.getByText("20 USDG")).toBeVisible();
+  expect(screen.queryByText("1.2345 USDG")).toBeNull();
+  expect(screen.getByText("5 GOOGL")).toBeVisible();
+  fireEvent.press(await screen.findByRole("button", { name: "USDG swap tools" }));
+  const balanceReads = portfolio.getMainnetPortfolio.mock.calls.length;
+  fireEvent.press(screen.getByRole("button", { name: "Sell USDG back to Monad USDC" }));
+  await act(async () => {});
+  expect(sellHolding).toHaveBeenCalledWith(`${token}:6`, expect.any(String));
+  expect(portfolio.getMainnetPortfolio).toHaveBeenCalledTimes(balanceReads + 1);
+});
+
+test("private USDC retries a settled partial observation and checks only while its request runs", async () => {
+  const { portfolio } = setup();
+  const asset = {
+    assetId: "nep245:private-usdc",
+    chainId: 143,
+    token: "nep245:private-usdc",
+    symbol: "USDC",
+    decimals: 6,
+    balanceAtoms: null,
+    observedAtoms: "2500000",
+    complete: false,
+    stale: true,
+    checkedAt: 1,
+    valueUsdcAtoms: null,
+    valuationUnavailable: true,
+  };
+  const partial = {
+    ...mainnetPortfolio(walletId, address),
+    ownedAssets: [asset],
+    ownedBalanceComplete: false,
+  };
+  portfolio.getMainnetPortfolio.mockResolvedValue(partial);
+  await open();
+  fireEvent.press(await screen.findByRole("button", { name: "Tokens and vault positions" }));
+  expect(await screen.findByText("USDC balance unavailable. Refresh to retry.")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "USDC holding details" }));
+  expect(screen.getByText("Previously observed: 2.5 USDC")).toBeVisible();
+  expect(screen.queryByText("Checking USDC balance…")).toBeNull();
+  const pending = deferred<import("@/domain/wallet/storedSigner").MainnetPortfolioSnapshot>();
+  portfolio.getMainnetPortfolio.mockReturnValueOnce(pending.promise);
+  fireEvent.press(screen.getByRole("button", { name: "Retry token balances and positions" }));
+  expect(await screen.findByText("Checking USDC balance…")).toBeVisible();
+  expect(screen.queryByText("USDC balance unavailable. Refresh to retry.")).toBeNull();
+  await act(async () =>
+    pending.resolve({
+      ...partial,
+      ownedBalanceComplete: true,
+      ownedAssets: [{ ...asset, complete: true, stale: false, balanceAtoms: "2500000" }],
+    }),
+  );
+  expect(await screen.findByText("2.5 USDC")).toBeVisible();
+  expect(screen.queryByText("Checking USDC balance…")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Retry token balances and positions" })).toBeNull();
+});
+
+test("a successful swap balance remains visible when its owned aggregate is unavailable", async () => {
+  const { portfolio } = setup();
+  const token = "0x" + "ab".repeat(20);
+  portfolio.getMainnetPortfolio.mockResolvedValue({
+    ...mainnetPortfolio(walletId, address),
+    ownedBalanceComplete: false,
+    ownedAssets: [
+      {
+        assetId: `4663:${token}`,
+        chainId: 4663,
+        token,
+        symbol: "USDG",
+        decimals: 6,
+        balanceAtoms: null,
+        observedAtoms: "0",
+        complete: false,
+        stale: true,
+        checkedAt: 0,
+        valueUsdcAtoms: null,
+        valuationUnavailable: true,
+      },
+    ],
+  });
+  readHoldings.mockResolvedValue({
+    checkedAt: 1,
+    block: "0x123",
+    holdings: [
+      { token, chainId: 4663, symbol: "USDG", decimals: 6, balanceAtoms: "1234500", batches: [] },
+    ],
+  });
+  await open();
+  expect(await screen.findByText("1.2345 USDG")).toBeVisible();
+  expect(screen.getByText("Swap receiving wallets")).toBeVisible();
+  fireEvent.press(screen.getByRole("button", { name: "Tokens and vault positions" }));
+  expect(screen.getByText("USDG balance unavailable. Refresh to retry.")).toBeVisible();
+  expect(screen.queryByText("0 USDG")).toBeNull();
+});
+
+test("a locked private balance explains wallet unlock without claiming a provider outage", async () => {
+  const { portfolio } = setup();
+  portfolio.getMainnetPortfolio.mockResolvedValue({
+    ...mainnetPortfolio(walletId, address),
+    confidentialReadState: "locked",
+    ownedBalanceComplete: false,
+    ownedAssets: [
+      {
+        assetId: "nep245:private-usdc",
+        chainId: 143,
+        token: "confidential:monad-usdc",
+        symbol: "USDC (private)",
+        decimals: 6,
+        balanceAtoms: null,
+        observedAtoms: "0",
+        complete: false,
+        stale: true,
+        checkedAt: 0,
+        valueUsdcAtoms: null,
+        valuationUnavailable: true,
+      },
+    ],
+  });
+  await open();
+  fireEvent.press(await screen.findByRole("button", { name: "Tokens and vault positions" }));
+  expect(screen.getByText("Private USDC needs wallet unlock before refresh.")).toBeVisible();
+  expect(screen.queryByText("Checking USDC (private) balance…")).toBeNull();
+  expect(screen.queryByText("0 USDC (private)")).toBeNull();
+  expect(screen.getByLabelText("19.990574 USDC")).toBeVisible();
 });

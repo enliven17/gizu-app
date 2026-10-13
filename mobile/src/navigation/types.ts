@@ -15,6 +15,7 @@ export type RootStackParamList = {
   OpportunityDetail: { id: string };
   Activity: undefined;
   Earn: { opportunityId: string } | undefined;
+  EarnInvestment: { intentId: string };
   Notifications: undefined;
   AccountPage: { page: AccountPage };
   Transaction: { kind?: OperationKind; vaultId?: string; resume?: boolean };

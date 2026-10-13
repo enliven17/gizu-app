@@ -2,6 +2,7 @@ import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import { DomainError } from "../domain/errors/domain-error.ts";
 import { InfrastructureError } from "../domain/errors/infrastructure-error.ts";
+import { NotFoundError } from "../domain/errors/not-found-error.ts";
 
 export function mapRequestError(
   error: FastifyError,
@@ -18,6 +19,9 @@ export function mapRequestError(
       request.log.error({ event: "swap.error", code, route: request.routeOptions.url }, "swap request failed");
     } else request.log.error(error);
   };
+  if (error instanceof NotFoundError) {
+    return reply.code(404).send({ code: error.code, message: error.message });
+  }
   if (error instanceof DomainError) {
     return reply.code(400).send({ code: error.code, message: error.message });
   }

@@ -174,6 +174,13 @@ internal class EarnSponsoredEngine(
   private val reservations: FundingReservations? = null,
   private val sourceReplanner: suspend (WalletRecord, JSONObject) -> Pair<JSONObject, JSONObject> =
     EarnSourceReplanner(journal.quotes)::replan,
+  private val baselineReader: suspend (JSONObject, () -> Unit) -> JSONObject =
+    { proposal, authority ->
+      readNativeSponsoredBaseline(
+        nativeCycleReadAuth(store, authority),
+        proposal.getString("confidentialAccount"),
+      )
+    },
 ) : AutoCloseable {
   private var signer: NativeSponsoredSigner? = null
   private var delegation: EarnDelegationOperation? = null
@@ -445,7 +452,15 @@ internal class EarnSponsoredEngine(
     }
   }
 
-  suspend fun execute(review: SponsoredReview, authority: () -> Unit) {
+  suspend fun execute(review: SponsoredReview, authority: () -> Unit) =
+    executeBounded(review, authority) {}
+
+  /** Additional journey limits apply to the same freshly reconstructed native state. */
+  suspend fun executeBounded(
+    review: SponsoredReview,
+    authority: () -> Unit,
+    stateGuard: (NativeSponsoredState) -> Unit,
+  ) {
     check(displayed == review && journal.get(review.id).getInt("revision") == review.revision)
     authority()
     currentCoroutineContext().ensureActive()
@@ -453,7 +468,23 @@ internal class EarnSponsoredEngine(
     val op = journal.get(review.id)
     val p = op.getJSONObject("proposal")
     store.load().use { walletCheck(it, p) }
+    // Private reads can take several network round trips. Finish them before loading
+    // the final public signing state; Rust retains its 15-second freshness bound.
+    val route = preparedQuote
+    val baseline =
+      if (review.kind == "operation" && route?.maximumCreditAtoms != null) {
+        checkNotNull(route.recoveryEnvelope)
+        requireSequentialSourceCredit(journal.all(), op)
+        baselineReader(p, authority).also {
+          check(
+            it.getString("confidentialAddress").equals(p.getString("confidentialAccount"), true)
+          )
+          check(it.getBoolean("authenticated") && !it.getBoolean("operationScoped"))
+          authority()
+        }
+      } else null
     val state = stateReader(p)
+    stateGuard(state)
     if (p.getString("kind") == "hoodTokenReturn") check(state.shares == "0")
     authority()
     currentCoroutineContext().ensureActive()
@@ -527,6 +558,7 @@ internal class EarnSponsoredEngine(
                 signed.reviewHash == review.hash
             )
             val binding = sponsoredStateBinding(state)
+            if (baseline != null) binding.put("privateBaseline", baseline)
             if (routeProof != null)
               binding.put(
                 "routeProof",
@@ -541,6 +573,7 @@ internal class EarnSponsoredEngine(
                   .put("expiresAt", routeProof.binding.expiresAt.toLong())
                   .put("feePolicy", routeProof.binding.feePolicy?.let(::JSONObject))
                   .put("minimumCreditAtoms", routeProof.minimumCreditAtoms)
+                  .put("maximumCreditAtoms", routeProof.maximumCreditAtoms)
                   .put("originAsset", routeProof.originAsset)
                   .put("authenticatedBodyHash", routeProof.binding.authenticatedBodyHash)
                   .put("recoveryEnvelope", routeProof.recoveryEnvelope),
@@ -678,3 +711,26 @@ internal fun nativeJsonEqual(a: Any?, b: Any?): Boolean =
       a.toString().toBigDecimal().compareTo(b.toString().toBigDecimal()) == 0
     else -> a == b
   }
+
+/** A dedicated cycle account has at most one uncredited incoming route at a time. */
+internal fun requireSequentialSourceCredit(rows: List<JSONObject>, current: JSONObject) {
+  val p = current.getJSONObject("proposal")
+  val owner = p.getString("confidentialAccount")
+  for (other in rows) {
+    if (other.getString("operationId") == current.getString("operationId")) continue
+    val proposal = other.getJSONObject("proposal")
+    if (
+      proposal.optString("kind") !in
+        setOf("sourceFunding", "hoodTokenReturn", "returnUsdc", "returnEth")
+    )
+      continue
+    if (!proposal.optString("confidentialAccount").equals(owner, true)) continue
+    if (other.sponsoredSpendSaved() && other.getString("status") != "reverted")
+      check(
+        other.getString("status") == "finalized" &&
+          other.optJSONObject("settlement")?.optString("status") == "credited"
+      ) {
+        "Previous source credit must settle first"
+      }
+  }
+}

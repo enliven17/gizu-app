@@ -14,6 +14,7 @@ import { EarningsEstimate } from "./detail/EarningsEstimate";
 import { OpportunityHero } from "./detail/OpportunityHero";
 import { money, rate } from "./format";
 import { useOpportunityDetail } from "./useOpportunityDetail";
+import { catalogEarnProfile } from "@/domain/earn/catalog";
 
 /** Shape-matched placeholder for the summary card while the vault loads. */
 function DetailSkeleton() {
@@ -80,12 +81,14 @@ export function OpportunityDetailScreen({
               />
             </Card>
           </FadeIn>
-          <FadeIn delay={sectionDelay(3)}>
-            <EarningsEstimate
-              ratePercent={load.opportunity.totalApr}
-              rateType={load.opportunity.rateType ?? "apr"}
-            />
-          </FadeIn>
+          {(!load.opportunity.featured || catalogEarnProfile(load.opportunity) !== null) && (
+            <FadeIn delay={sectionDelay(3)}>
+              <EarningsEstimate
+                ratePercent={load.opportunity.totalApr}
+                rateType={load.opportunity.rateType ?? "apr"}
+              />
+            </FadeIn>
+          )}
         </>
       )}
     </Screen>

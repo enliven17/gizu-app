@@ -6,9 +6,21 @@ import {
   getStoredTransferSigner,
   getStoredSwapSigner,
   getStoredEarnVaultSigner,
+  getStoredEarnDepositSigner,
 } from "@/services/wallet/nativeBridge";
 
 jest.mock("expo", () => ({ requireOptionalNativeModule: jest.fn() }));
+
+test("iOS cannot advertise or start the Android deposit journey", async () => {
+  jest.mocked(requireOptionalNativeModule).mockReturnValue({
+    getCapabilities: jest
+      .fn()
+      .mockResolvedValue({ contractVersion: 1, available: true, earnDepositJourney: false }),
+  });
+  expect((await getSignerCapabilities()).earnDepositJourney).toBe(false);
+  expect((await getSignerCapabilities()).earnBalanceDeltaSettlement).toBe(false);
+  expect(getStoredEarnDepositSigner()).toBeNull();
+});
 
 test("iOS release reads public portfolio without enabling unsupported execution", async () => {
   const development = __DEV__;

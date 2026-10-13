@@ -40,53 +40,22 @@ operator backup; never print it or generate a new key automatically during start
 Recovery envelopes carry the original immutable unsigned quote/intent context;
 native storage retains the nonce/role guard and exact signed bytes for reconciliation.
 
-Use a versioned, operator-qualified registry with independent rules for `source`,
-`payoutEthereum`, `payoutRobinhood`, `returnUsdc`, `returnEth`, `returnRobinhood` and `withdrawal`.
-Each route lists the approved provider collectors, maximum basis points per collector,
-maximum total basis points, exact referral (or null), zero integrator fee, zero Gizu
-application charge, and a reference to the operator's qualification evidence. The
-following illustrates the schema; **it does not qualify a collector or API key**:
+The default Robinhood lifecycle policy is `gizu-portal-zero-2026-10-12`, based on the inspected API-key portal (zero integrator fee, no collection address/custom rules, confidential configuration inherits public) and captured local/Render quotes. It admits only these service-fee limits:
 
-```json
-{
-  "version": "verified-policy-2026-10-01",
-  "routes": {
-    "source": {
-      "collectors": [
-        { "recipient": "verified-provider.near", "maximumBps": 4 }
-      ],
-      "maximumTotalBps": 4,
-      "referral": null,
-      "integratorFeeBps": 0,
-      "applicationFeeAtoms": "0",
-      "qualificationReference": "operator-key-configuration-record"
-    }
-  }
-}
-```
+| Routes | Collectors and maximum bps | Total maximum |
+| --- | --- | --- |
+| source, withdrawal | `widget_collect.sputnik-dao.near`: 4 | 4 |
+| payoutRobinhood, returnRobinhood | `widget_collect.sputnik-dao.near`: 25; `2238fd089f1c92b206c218cd16b8676cb98964e0d50f8ab729c6396a81e07805`: 20 | 45 |
 
-Before configuring this variable, obtain the key's public and confidential fee rules,
-collector ownership/beneficiaries and referral commission terms from Aurora. Record
-why each charge is an established provider fee and why Gizu receives no integrator or
-application commission. A dry quote, an existing research key or a collector name is
-insufficient evidence. The `appFees` API field does not itself classify the beneficiary.
-Source funding requires rules for every payout/return route in the selected profile, including the separate `withdrawal` route to a newly allocated public Monad USDC recipient.
-Unknown collectors/referrals, duplicate collectors, changed routing and excessive fees
-remain rejected. Basis point totals describe listed quote fees, not all route costs.
-The executable minimum output and each separate gas/reserve review remain authoritative.
+The two observed referrals are `aurora-jh500bnyo9` and `aurora-1u3j2qzclc`. This policy bounds observed service charges; it does not claim the collectors' ultimate beneficiaries were independently established. Configured Gizu/integrator fee and application charge are zero. Listed fee bps exclude other costs already reflected in route output. Exact executable fee breakdown, minimum output, gas cap and withdrawal reserve remain bound to native review.
 
-The legacy exact-2-bps/no-referral JSON remains supported for existing qualified setups.
-It is not the global fee requirement. The policy version and **actual** executable fee
-breakdown are bound into quote identity/recovery and the native review; changes need
-new unsigned terms and user approval. Saved signed payloads remain immutable.
+`EARN_AURORA_FEE_QUALIFICATION_JSON` is optional and overrides this default. The existing versioned schema remains supported; a rule's `referral` may be a string, null, or an explicit list of accepted strings. Unknown collectors/referrals, duplicate collectors and excessive fees remain rejected. The default does not qualify Ethereum routes; those require an explicit route policy.
 
-Set `EARN_AURORA_HISTORY_QUALIFIED=true` only after verifying this key has authenticated,
-operation-scoped `account/history` access and validating its evidence against canonical
-receipts, actual amounts and concurrent activity. Default/missing/false blocks new
-funding and returns before signing. It is an operator qualification, not a bypass for
-invite-only history. Reconciliation still checks the live authenticated evidence and
-never substitutes balances or public SUCCESS. Dry source previews remain unsigned,
-uncached and unusable as quote bindings, and show the blockers on the existing screen.
+New native deposits do not use invitation-only `account/history`. Before each funding/return spend the native engine reads a private balance snapshot, saves it alongside the exact signed transaction, and reconciles the finalized origin receipt. The settlement adapter verifies the saved sealed quote, successful route status and authenticated balance delta within the quote's minimum/maximum. Source funding and payouts proceed sequentially. The server seals credit evidence under `EARN_GATEWAY_RECOVERY_KEY`; only encrypted native journals retain the operation ownership graph. Both payout legs can reuse the attestation after the balance is spent and after a backend restart.
+
+Outgoing payouts require the exact saved ERC-191 transfer signature, successful quote status, and a canonical finalized token transfer within the quote's output bounds. Native code independently checks receipts and prohibits reuse for the same recipient. Public balances alone do not confirm payouts. These checks trust Aurora's route status/balance service; they are not a cryptographic proof of a confidential ledger transaction.
+
+`EARN_AURORA_HISTORY_QUALIFIED` is now only legacy client admission. Missing/false rejects old clients lacking `settlementMode=balance-delta-v1` before new source/return quotes; current native clients need no invitation. Old signed journals without a pre-spend snapshot retain history reconciliation, because inventing their baseline would misattribute funds. Keep the recovery key unchanged. Only current Android builds advertise `earnBalanceDeltaSettlement`; updated JavaScript checks this explicit native capability before planning returns. Install the new APK alongside the backend deploy; no migration re-signs old spending bytes.
 
 ## Catalog validation and caching
 
@@ -94,9 +63,15 @@ Contract addresses must be real nonzero 20-byte EVM addresses.
 Optional `asset` metadata takes `{ "address": "0x…", "name": "USD Coin",
 "symbol": "USDC", "decimals": 6 }`, using that chain's actual underlying token.
 Duplicate chain IDs, duplicate chain/contract pairs, malformed JSON, invalid
-addresses and contracts on disabled chains stop startup with a field-specific error.
+addresses and unknown chains stop startup with a field-specific error.
+`VAULT_CHAINS=1,4663` selects Ethereum and Robinhood in that order, using built-in
+metadata plus optional `CATALOG_CHAINS_JSON` overrides. Known inactive vault
+configurations are filtered before adapter construction. Without `VAULT_CHAINS`,
+the JSON chain list retains its selection behavior and disabled-chain contracts
+still prevent startup. Resolved chains and active contracts enter the cache
+fingerprint, so changing the selection does not reuse a previous catalog cache.
 
-Only configured contracts are looked up through Morpho's public
+Built-in native profiles, explicit promotions, and Merkl contracts matching a vetted native deposit profile are looked up through Morpho's public
 [GraphQL API](https://docs.morpho.org/developers/earn/tutorials/get-data/).
 V1 and V2 are queried separately: a missing non-nullable version otherwise nulls
 the entire GraphQL result. Available API metadata wins; environment values fill
@@ -108,18 +83,43 @@ entries because this integration has no historical Morpho series.
 
 Configured rows have stable `configured:<chainId>:<lowercase address>` IDs,
 `vaultAddress` and share `symbol` in list/detail responses. Matching Merkl contract entries are merged
-once across pages. Chains without extra contracts retain Merkl's existing paging.
-For chains with extras, a shared five-minute snapshot loads at most ten 100-item
-Merkl pages under one shared eight-second provider deadline, then applies
-protocol/search/paging locally. Morpho lookups are also
-cached/coalesced for five minutes. A Merkl failure or a catalog exceeding that bound
+once across pages. `CATALOG_VAULTS_JSON` adds promoted entries with `featured: true`
+to the built-in profiles. An empty array disables promotions only. Duplicate
+chain/address configuration merges, with explicit metadata filling/overriding
+built-in fallback metadata; provider metadata still wins. Promotions are filtered
+by enabled chains and cannot remove the regular entries. Catalog cache namespace
+v4 separates the revised composition from older replacement-list responses.
+Chains with a native profile use a shared five-minute snapshot loading at most ten
+100-item Merkl pages under one shared eight-second provider deadline. Other enabled
+chains, including Monad, skip Merkl discovery but can load explicitly configured
+promotions. Before ordinary discovery metadata requests or local protocol/search/paging, exact chain/vault identity must
+match the deposit planners' `ETHEREUM_PROFILE` or `ROBINHOOD_PROFILE`. Only Pendle
+USDC (`1:0x55C1B6e461a6334B567bAF0FEb5D728715446f05`) and Steakhouse USDG
+(`4663:0xBeEff033F34C046626B8D0A041844C5d1A5409dd`) qualify. Duplicate Merkl
+rows for a supported contract merge once. Each vault's underlying contract must
+also match its native profile's exact asset, so another canonical stablecoin cannot
+substitute for it. Other legitimate USDC/USDG vaults, Aave/Curvance and raw markets
+are omitted from regular discovery. List/detail expose canonical `asset` metadata;
+detail/history enforce the same native identity and asset checks for regular entries.
+Promotions are an explicit presentation exception: lists/details may include their
+configured or Morpho underlying asset, even AUSD, or omit it if unknown. The mobile
+Featured label and informational view do not qualify a native deposit. Configured assets provide an outage
+fallback, but available Morpho asset metadata remains authoritative.
+Morpho lookups are limited to eligible native identities or explicit promotions and cached/coalesced for
+five minutes. Configured reads share a five-second deadline. A Merkl failure,
+unknown asset metadata or catalog exceeding provider bounds
 sets `partial: true`; the mobile screen explicitly marks the available subset.
 Persistent response caches are namespaced by configuration so removed chains or
 contracts cannot reappear from an earlier configuration's cache.
 
-Catalog configuration is read-only. It does not change the funded source network,
-native signing policies or the pinned Confidential Earn execution registry. Listing
-a contract does not enable investing into it through the native Earn flow.
+Catalog configuration cannot extend native signing policies or the pinned
+Confidential Earn execution registry. To support another vault, update and verify
+the backend deposit planner/profile, the native signer policies in
+`mobile/modules/gizu-stored-signer` and the mobile Earn profile registry together,
+then extend the catalog's profile mapping in `backend/src/adapters/catalog/native-catalog.ts`.
+The backend uses planner identities as its authority; the mobile client independently
+requires its native profile match before enabling a deposit. Response cache namespace
+`catalog:v4` prevents older replacement-list responses from reappearing after this change.
 
 ## Fork isolation and capacity
 
@@ -218,6 +218,6 @@ No documented generator deadline parameter was found, and the API does not inven
 one. Native deadline limits, protected nonce uniqueness and normal 2-basis-point
 provider fee qualification remain required.
 
-## Authenticated history access
+## Legacy authenticated history access
 
-The configured Aurora key must have authenticated `account/history` access for source credit, independent payouts and returns. A live read on 2026-09-30 rejected the research key with an invite-only history error even though balance authentication, quote preparation and a separately authorized research funding transfer worked. Obtain this provider entitlement before a funded phone test. Public status and aggregate balances cannot replace operation-specific settlement evidence. This requirement is separate from the existing fee collector/referral qualification and Render environment configuration.
+Old signed journals without balance snapshots still require authenticated history for reconciliation. The key returned an invite-only denial in a read-only October 12 probe. New native deposits and returns use the verification path described above and have no such entitlement dependency.

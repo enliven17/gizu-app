@@ -1,4 +1,4 @@
-import type { CatalogChain, CatalogVault } from "../../domain/catalog.ts";
+import type { CatalogChain, CatalogEntry } from "../../domain/catalog.ts";
 import { catalogAddress } from "../../domain/catalog.ts";
 import { DomainError } from "../../domain/errors/domain-error.ts";
 import { NotFoundError } from "../../domain/errors/not-found-error.ts";
@@ -10,11 +10,36 @@ import type {
   ListOpportunitiesQuery,
   TvlRecordsQuery,
 } from "../../ports/opportunities.port.ts";
-import type { VaultMetadataSource } from "./morpho-vaults.ts";
+import type { VaultMetadata, VaultMetadataSource } from "./morpho-vaults.ts";
+import {
+  nativeCatalogAsset,
+  nativeCatalogChain,
+  nativeCatalogProfile,
+} from "./native-catalog.ts";
 
 const TTL_MS = 5 * 60 * 1000;
 const SNAPSHOT_ITEMS = 100;
 const MAX_SNAPSHOT_PAGES = 10;
+const METADATA_CONCURRENCY = 8;
+async function mapConcurrent<T, U>(
+  rows: T[],
+  read: (row: T) => Promise<U>,
+): Promise<U[]> {
+  const result: U[] = new Array(rows.length);
+  let next = 0;
+  await Promise.all(
+    Array.from(
+      { length: Math.min(rows.length, METADATA_CONCURRENCY) },
+      async () => {
+        while (next < rows.length) {
+          const index = next++;
+          result[index] = await read(rows[index]!);
+        }
+      },
+    ),
+  );
+  return result;
+}
 export function contractAddress(row: Opportunity): string | undefined {
   const fields = row as Opportunity & {
     explorerAddress?: string;
@@ -29,10 +54,14 @@ export function contractAddress(row: Opportunity): string | undefined {
   }
   return undefined;
 }
-const configuredId = (vault: CatalogVault) =>
+const configuredId = (vault: CatalogEntry) =>
   `configured:${vault.chainId}:${vault.address.toLowerCase()}`;
 
 export class ConfiguredOpportunities implements Opportunities {
+  private readonly metadata = new Map<
+    string,
+    { expires: number; promise: Promise<VaultMetadata | null> }
+  >();
   private readonly snapshots = new Map<
     number,
     { expires: number; promise: Promise<OpportunityPage> }
@@ -43,7 +72,7 @@ export class ConfiguredOpportunities implements Opportunities {
   >();
   constructor(
     private readonly chains: CatalogChain[],
-    private readonly vaults: CatalogVault[],
+    private readonly vaults: CatalogEntry[],
     private readonly merkl: Opportunities,
     private readonly morpho: VaultMetadataSource,
   ) {}
@@ -61,26 +90,23 @@ export class ConfiguredOpportunities implements Opportunities {
   async list(query: ListOpportunitiesQuery): Promise<OpportunityPage> {
     this.chain(query.chainId);
     const configured = this.vaults.filter(
-      (vault) => vault.chainId === query.chainId,
+      (vault) =>
+        vault.chainId === query.chainId &&
+        (vault.featured === true ||
+          nativeCatalogProfile(vault.chainId, vault.address)),
     );
-    if (!configured.length) {
-      const page = await this.merkl.list(query);
-      return {
-        ...page,
-        list: page.list
-          .filter((row) => row.chainId === query.chainId)
-          .map((row) => ({ ...row, vaultAddress: contractAddress(row) })),
-      };
-    }
+    const metadataSignal = AbortSignal.timeout(5_000);
     const [snapshot, additions] = await Promise.all([
       this.snapshot(query.chainId),
-      Promise.all(configured.map((vault) => this.configuredDetail(vault))),
+      mapConcurrent(configured, (vault) =>
+        this.configuredDetail(vault, metadataSignal),
+      ),
     ]);
     const addresses = new Set(
       configured.map((vault) => vault.address.toLowerCase()),
     );
     const combined = [
-      ...additions,
+      ...additions.filter((row) => row.featured === true || row.asset),
       ...snapshot.list.filter(
         (row) => !addresses.has(contractAddress(row)?.toLowerCase() ?? ""),
       ),
@@ -105,6 +131,8 @@ export class ConfiguredOpportunities implements Opportunities {
   }
 
   private snapshot(chainId: number): Promise<OpportunityPage> {
+    if (!nativeCatalogChain(chainId))
+      return Promise.resolve({ list: [], total: 0 });
     const cached = this.snapshots.get(chainId);
     if (cached && cached.expires > Date.now()) return cached.promise;
     const promise = (async () => {
@@ -120,9 +148,23 @@ export class ConfiguredOpportunities implements Opportunities {
           signal,
         });
       const append = (result: OpportunityPage) => {
-        for (const row of result.list)
-          if (row.chainId === chainId)
-            rows.set(row.id, { ...row, vaultAddress: contractAddress(row) });
+        for (const row of result.list) {
+          const address = contractAddress(row);
+          if (
+            row.chainId !== chainId ||
+            row.protocol.id !== "morpho" ||
+            !address ||
+            !nativeCatalogProfile(chainId, address)
+          )
+            continue;
+          const key = address.toLowerCase();
+          if (!rows.has(key))
+            rows.set(key, {
+              ...row,
+              vaultAddress: address,
+              featured: undefined,
+            });
+        }
       };
       try {
         const first = await read(0);
@@ -143,28 +185,82 @@ export class ConfiguredOpportunities implements Opportunities {
             if (result.value.partial) partial = true;
           } else partial = true;
         }
+        const candidates = [...rows.values()];
+        const verified = await mapConcurrent(candidates, async (row) => {
+          if (signal.aborted) {
+            partial = true;
+            return null;
+          }
+          const metadata = await this.lookup(
+            chainId,
+            contractAddress(row)!,
+            signal,
+          );
+          const asset = nativeCatalogAsset(
+            chainId,
+            contractAddress(row)!,
+            metadata?.asset,
+          );
+          if (!metadata?.asset) partial = true;
+          return asset ? { ...row, asset } : null;
+        });
+        const list = verified.filter((row) => row !== null);
         return {
-          list: [...rows.values()],
-          total: rows.size,
+          list,
+          total: list.length,
           ...(partial ? { partial: true } : {}),
         };
       } catch {
         /* Keep configured entries accessible when Merkl is unavailable. */
       }
-      return { list: [...rows.values()], total: rows.size, partial: true };
+      return { list: [], total: 0, partial: true };
     })();
     this.snapshots.set(chainId, { expires: Date.now() + TTL_MS, promise });
     return promise;
   }
 
-  private configuredDetail(vault: CatalogVault): Promise<OpportunityDetail> {
+  private lookup(
+    chainId: number,
+    address: string,
+    signal = AbortSignal.timeout(5_000),
+  ): Promise<VaultMetadata | null> {
+    const key = `${chainId}:${address.toLowerCase()}`;
+    const cached = this.metadata.get(key);
+    if (cached && cached.expires > Date.now()) return cached.promise;
+    const promise = new Promise<VaultMetadata | null>((resolve) => {
+      const abort = () => resolve(null);
+      if (signal.aborted) {
+        resolve(null);
+        return;
+      }
+      signal.addEventListener("abort", abort, { once: true });
+      Promise.resolve()
+        .then(() => this.morpho.lookup(chainId, address, signal))
+        .catch(() => null)
+        .then((value) => {
+          signal.removeEventListener("abort", abort);
+          resolve(value);
+        });
+    });
+    this.metadata.set(key, { expires: Date.now() + TTL_MS, promise });
+    return promise;
+  }
+
+  private configuredDetail(
+    vault: CatalogEntry,
+    signal?: AbortSignal,
+  ): Promise<OpportunityDetail> {
     const id = configuredId(vault);
     const cached = this.details.get(id);
     if (cached && cached.expires > Date.now()) return cached.promise;
     const promise = (async (): Promise<OpportunityDetail> => {
-      const metadata = await this.morpho.lookup(vault.chainId, vault.address);
+      const metadata = await this.lookup(vault.chainId, vault.address, signal);
       const chain = this.chain(vault.chainId);
-      const asset = metadata?.asset ?? vault.asset;
+      const underlying = metadata?.asset ?? vault.asset;
+      const asset =
+        vault.featured === true
+          ? underlying
+          : nativeCatalogAsset(vault.chainId, vault.address, underlying);
       const rate =
         metadata?.netApy === undefined ? null : metadata.netApy * 100;
       return {
@@ -181,6 +277,8 @@ export class ConfiguredOpportunities implements Opportunities {
         chain,
         protocol: { id: "morpho", name: "Morpho" },
         vaultAddress: vault.address,
+        ...(vault.featured === true ? { featured: true } : {}),
+        asset,
         rateType: "apy",
         apr: rate,
         totalApr: rate,
@@ -208,11 +306,30 @@ export class ConfiguredOpportunities implements Opportunities {
     if (id.startsWith("configured:")) {
       const vault = this.vaults.find((vault) => configuredId(vault) === id);
       if (!vault) throw new NotFoundError({ name: "opportunity" }, id);
-      return this.configuredDetail(vault);
+      this.chain(vault.chainId);
+      if (
+        vault.featured !== true &&
+        !nativeCatalogProfile(vault.chainId, vault.address)
+      )
+        throw new NotFoundError({ name: "opportunity" }, id);
+      const detail = await this.configuredDetail(vault);
+      if (vault.featured !== true && !detail.asset)
+        throw new NotFoundError({ name: "opportunity" }, id);
+      return detail;
     }
     const detail = await this.merkl.getById(id);
     this.chain(detail.chainId);
-    return { ...detail, vaultAddress: contractAddress(detail) };
+    const address = contractAddress(detail);
+    if (
+      detail.protocol.id !== "morpho" ||
+      !address ||
+      !nativeCatalogProfile(detail.chainId, address)
+    )
+      throw new NotFoundError({ name: "opportunity" }, id);
+    const metadata = await this.lookup(detail.chainId, address);
+    const asset = nativeCatalogAsset(detail.chainId, address, metadata?.asset);
+    if (!asset) throw new NotFoundError({ name: "opportunity" }, id);
+    return { ...detail, vaultAddress: address, asset };
   }
 
   async tvlRecords(query: TvlRecordsQuery) {
