@@ -7,6 +7,44 @@ import org.junit.Test
 
 class EarnDepositCoordinatorTest {
   @Test
+  fun sponsorshipFailureIsReportedAndCannotBecomeCreditWaiting() = runBlocking {
+    DepositFixtures.record().use { record ->
+      val journal = testDepositJournal()
+      val id = journal.loadOrCreate(record, 4663, null).getString("journeyId")
+      val review = DepositFixtures.review(record).put("journeyId", id)
+      journal.saveReview(id, 1, review)
+      val engines = Engines(record).apply { sponsorshipFailure = true }
+      val coordinator = EarnDepositCoordinator(journal, engines)
+      val grant = EarnDepositApproval.fromReview(record, review).apply { approveAfterPasskey(1000) }
+      coordinator.confirmed(id, 2, grant)
+      assertEquals("sponsorshipUnavailable", journal.publicSnapshot(id)["pauseReason"])
+      coordinator.reconcile(id)
+      assertEquals("sponsorshipUnavailable", journal.publicSnapshot(id)["pauseReason"])
+      assertEquals(0, engines.signed)
+      assertEquals(0, engines.payoutCreates)
+    }
+  }
+
+  @Test
+  fun readOnlyStatusCannotReplaceTheActualStopWithGenericCreditWaiting() = runBlocking {
+    DepositFixtures.record().use { record ->
+      val journal = testDepositJournal()
+      val id = journal.loadOrCreate(record, 4663, null).getString("journeyId")
+      val review = DepositFixtures.review(record).put("journeyId", id)
+      journal.saveReview(id, 1, review)
+      val engines = Engines(record).apply { failedSignatureCommit = true }
+      val coordinator = EarnDepositCoordinator(journal, engines)
+      val grant = EarnDepositApproval.fromReview(record, review).apply { approveAfterPasskey(1000) }
+      coordinator.confirmed(id, 2, grant)
+      assertEquals("termsChanged", journal.publicSnapshot(id)["pauseReason"])
+      coordinator.reconcile(id)
+      assertEquals("termsChanged", journal.publicSnapshot(id)["pauseReason"])
+      assertEquals(0, engines.signed)
+      assertEquals(0, engines.payoutCreates)
+    }
+  }
+
+  @Test
   fun onlyExplicitResumeRetriesPersistedUnsubmittedPayoutBytes() = runBlocking {
     DepositFixtures.record().use { r ->
       val j = testDepositJournal()
@@ -21,7 +59,8 @@ class EarnDepositCoordinatorTest {
       val c = EarnDepositCoordinator(j, e)
       val grant = EarnDepositApproval.fromReview(r, review).apply { approveAfterPasskey(1000) }
       c.confirmed(id, 2, grant)
-      assertEquals("submissionUnknown", j.get(id).getString("pauseReason"))
+      assertEquals("payouts", j.get(id).getString("phase"))
+      assertFalse(j.get(id).has("pauseReason"))
       c.cancel(id, j.get(id).getInt("revision"))
       val restarted = EarnDepositCoordinator(j, e)
       restarted.reconcile(id)
@@ -49,6 +88,7 @@ class EarnDepositCoordinatorTest {
     var excessBudget = false
     var failedSource = false
     var failedSignatureCommit = false
+    var sponsorshipFailure = false
     var failedPayoutRead = false
     val readySources = mutableSetOf<String>()
     var now = 1002L
@@ -101,6 +141,7 @@ class EarnDepositCoordinatorTest {
 
     override suspend fun execute(stage: String, id: String, grant: EarnDepositApproval) {
       val row = child(stage, id)
+      if (sponsorshipFailure) throw EarnRpcRejection("pm_getPaymasterData", -32000, "REJECTED")
       check(!failedSignatureCommit) { "Atomic child commit failed before submission" }
       grant.assertPrepared(
         record,
@@ -173,7 +214,8 @@ class EarnDepositCoordinatorTest {
       val coordinator = EarnDepositCoordinator(j, engines)
       coordinator.confirmed(id, 2, a)
       assertEquals(0, engines.payoutCreates)
-      assertEquals("settlementPending", j.publicSnapshot(id)["pauseReason"])
+      assertEquals("settlingCredit", j.publicSnapshot(id)["phase"])
+      assertNull(j.publicSnapshot(id)["pauseReason"])
       engines.creditReady = true
       engines.investUnknown = true
       coordinator.advance(id, a)

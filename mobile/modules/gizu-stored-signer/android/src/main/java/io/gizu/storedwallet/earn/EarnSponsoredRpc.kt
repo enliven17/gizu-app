@@ -51,7 +51,10 @@ internal class EarnSponsoredBundlerRpc(chain: Int) : TransferRpc {
   }
 }
 
-private suspend fun nativeEarnRpc(
+internal class EarnRpcRejection(val method: String, val rpcCode: Long, val hint: String) :
+  Exception("Native RPC rejected a request")
+
+internal suspend fun nativeEarnRpc(
   transport: NativeRpcTransport,
   method: String,
   params: JSONArray,
@@ -67,9 +70,26 @@ private suspend fun nativeEarnRpc(
           .toString()
       )
     )
-  check(
-    response.getString("jsonrpc") == "2.0" && response.getInt("id") == 1 && !response.has("error")
-  )
+  check(response.getString("jsonrpc") == "2.0" && response.getInt("id") == 1)
+  response.optJSONObject("error")?.let { error ->
+    val code = error.optLong("code", 0)
+    val message = error.optString("message").lowercase(java.util.Locale.ROOT)
+    val aa = Regex("""\baa[0-9]{2}\b""").find(message)?.value?.uppercase(java.util.Locale.ROOT)
+    val hint =
+      when {
+        code == -32005L || "rate limit" in message || "too many requests" in message ->
+          "RATE_LIMITED"
+        code == -32601L -> "UNSUPPORTED_METHOD"
+        code == -32602L -> "INVALID_PARAMS"
+        "block not found" in message ||
+          "header not found" in message ||
+          "unknown block" in message -> "BLOCK_UNAVAILABLE"
+        aa != null -> aa
+        else -> "REJECTED"
+      }
+    throw EarnRpcRejection(method, code, hint)
+  }
+  check(!response.has("error"))
   return response.get("result")
 }
 

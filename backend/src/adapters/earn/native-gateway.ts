@@ -47,6 +47,9 @@ const bytes = (max: number) =>
     .string()
     .regex(/^0x(?:[0-9a-f]{2})*$/i)
     .max(2 + max * 2);
+// Simple7702 SDK simulation signature. Never accepted for submission or native signing.
+const simple7702SimulationSignature =
+  "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c";
 const impl = "0xe6Cae83BdE06E4c305530e199D7217f42808555B";
 const native = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const ethAsset = "nep141:eth.omft.near";
@@ -781,7 +784,23 @@ export class NativeEarnGateway {
           {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(req),
+            // The phone supplies an unsigned operation. Pimlico simulates account validation
+            // and needs the same non-authorizing 65-byte placeholder used by the SDK.
+            // Only this final-sponsorship request is adapted; signed sends stay byte-for-byte.
+            body: JSON.stringify(
+              req.method === "pm_getPaymasterData"
+                ? {
+                    ...req,
+                    params: [
+                      {
+                        ...object(req.params[0]),
+                        signature: simple7702SimulationSignature,
+                      },
+                      ...req.params.slice(1),
+                    ],
+                  }
+                : req,
+            ),
             signal: AbortSignal.timeout(12000),
             redirect: "error",
           },
@@ -830,19 +849,38 @@ export class NativeEarnGateway {
             .object({
               paymaster: address,
               paymasterData: bytes(4096),
-              paymasterPostOpGasLimit: qty,
-              paymasterVerificationGasLimit: qty,
+              paymasterPostOpGasLimit: qty.optional(),
+              paymasterVerificationGasLimit: qty.optional(),
               isFinal: z.literal(true).optional(),
             })
             .strict()
             .parse(result);
-          const { isFinal, ...sponsorship } = r;
+          const { isFinal, ...returned } = r;
+          const original = opSchema.parse(req.params[0]);
+          // EIP-7677 final data may omit gas limits. Keep the already estimated limits,
+          // as the SDK does, then validate the complete final operation before returning it.
+          const sponsorship = {
+            ...returned,
+            paymasterPostOpGasLimit:
+              returned.paymasterPostOpGasLimit ??
+              original.paymasterPostOpGasLimit,
+            paymasterVerificationGasLimit:
+              returned.paymasterVerificationGasLimit ??
+              original.paymasterVerificationGasLimit,
+          };
           await this.validateOperation(
             { ...object(req.params[0]), ...sponsorship, signature: "0x" },
             chain as 143 | 4663,
             false,
           );
-          return { jsonrpc: "2.0", id: req.id, result: r };
+          return {
+            jsonrpc: "2.0",
+            id: req.id,
+            result: {
+              ...sponsorship,
+              ...(isFinal === undefined ? {} : { isFinal }),
+            },
+          };
         }
         if (req.method === "eth_sendUserOperation") {
           hash.parse(result);

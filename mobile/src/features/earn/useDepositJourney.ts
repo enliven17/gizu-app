@@ -12,6 +12,8 @@ import { useEarn } from "./EarnProvider";
 export const depositPauseCopy: Record<DepositPauseCode, string> = {
   quoteUnavailable: "The route is unavailable. Review again when the provider recovers.",
   previewUnavailable: "A fresh fee estimate is unavailable. No new spending can be approved.",
+  sponsorshipUnavailable:
+    "Gas sponsorship is unavailable. Saved transactions remain tracked; review the remaining steps to retry.",
   insufficientFunds: "Your available USDC does not cover this budget and gas.",
   uneconomicAmount: "This amount is too small to cover routing, gas and the withdrawal reserve.",
   termsChanged:

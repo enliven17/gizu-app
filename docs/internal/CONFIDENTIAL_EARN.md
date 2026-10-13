@@ -501,3 +501,61 @@ prepare again using the same pair, while deposits with saved funded progress
 retain remaining-step recovery. The Render-targeted APK was installed with
 `adb install -r` and opened on the connected phone. Backend deployment and the
 user-authorized funded execution test remain separate steps.
+
+### Live settlement progress and Swap presentation
+
+The current Swap on `main` keeps expected Aurora/receipt waits inside its native
+execution loop and publishes progress. Earn's native host already had the same
+bounded polling behavior, but its coordinator incorrectly reported every missing
+credit or receipt as a paused recovery state while that approval was still active.
+This exposed a redundant remaining-review action during normal waiting.
+
+An active Earn grant now reports `funding` until the origin receipt is finalized,
+`settlingCredit` until authenticated private credit is verified, `payouts` until
+the destination receipts are verified, and `depositing` until vault settlement.
+The existing host polls and continues within the original 15-minute approval.
+Reconciliation without a spending grant still pauses for explicit recovery; actual
+failure, cancellation, backgrounding and expiry do not regain spending authority.
+No signed packet is replaced or automatically reapproved.
+
+The existing Earn page adopts Swap's presentation: status badges, an active-step
+spinner, highlighted stage rows, a count/bar of verified steps, a budget summary,
+and an open-screen note. Saved recovery limits are available under Details; fresh
+review limits remain visible before approval. No new component or coordinator is
+introduced. A native host regression demonstrates delayed credit and payout
+receipt continuation with exactly one approval; rendered coverage confirms no
+remaining-review action during an active wait.
+
+Swap's current core also contains a route-success/quoted-minimum fallback if its
+authenticated balance endpoint returns 401. Earn retains its operation-scoped
+authenticated settlement evidence rather than copying that different financial
+policy. This change corrects live progress reporting, not provider settlement speed.
+
+### Final sponsorship failure found on October 13
+
+The phone's native execution log identified `pm_getPaymasterData` returning the
+Earn gateway's generic `-32000` error. This happens before the source UserOperation
+is signed/submitted; reporting it as a confidential-credit wait was incorrect.
+Read-only reconciliation now preserves the real stop reason, and sponsorship RPC
+rejections display a separate gas-sponsorship message. Native diagnostics retain
+only the RPC method, numeric code, allowlisted classification and source location.
+They do not log request bodies, provider messages, wallet addresses or signatures.
+
+An authorized live **unsigned** Pimlico probe reproduced `AA23` with the empty
+UserOperation signature. Changing only that field to the installed Simple7702
+SDK's 65-byte simulation signature succeeded. The successful final response had
+only `paymaster` and `paymasterData`; the gateway previously required both gas-limit
+fields too. Swap's SDK already uses that simulation signature and merges final
+sponsorship fields into the estimated operation.
+
+The Earn gateway now validates the phone's unsigned packet first, uses the SDK
+simulation signature only in the outgoing `pm_getPaymasterData` request, and
+retains estimated paymaster gas limits when the final provider response omits them.
+The merged final operation is validated again. The placeholder is never returned
+as signing authority or accepted for submission; signed operations and native
+EIP-7702 authorizations retain their existing validation. The 10/90 split, fee caps,
+withdrawal reserves, source reservations and device-held keys are unchanged.
+
+Deploy this backend patch to Render before retrying the **same saved deposit**.
+No new environment variable or wallet pair is needed. The live probe did not sign
+or submit a transaction; successful sponsorship is not proof of final investment.

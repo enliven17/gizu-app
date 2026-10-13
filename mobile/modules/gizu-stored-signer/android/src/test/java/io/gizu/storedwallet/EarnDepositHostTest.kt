@@ -6,6 +6,87 @@ import org.junit.Test
 
 class EarnDepositHostTest {
   @Test
+  fun pendingCreditShowsLiveProgressAndContinuesWithinTheOriginalApproval() = runBlocking {
+    DepositFixtures.record().use { record ->
+      val journal = testDepositJournal()
+      val id = journal.loadOrCreate(record, 4663, null).getString("journeyId")
+      journal.saveReview(id, 1, DepositFixtures.review(record).put("journeyId", id))
+      val engines = EarnDepositCoordinatorTest.Engines(record)
+      val waiting = CompletableDeferred<Unit>()
+      val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+      var approvals = 0
+      val host =
+        EarnDepositHost(
+          scope,
+          journal,
+          { DepositFixtures.record() },
+          { EarnDepositCoordinator(journal, engines) },
+          { _, _, _ -> approvals++ },
+          {},
+          now = { 1002 },
+          wait = { waiting.await() },
+        )
+      try {
+        host.confirm(id, 2, false)
+        assertEquals("settlingCredit", host.status(id)["phase"])
+        assertNull(host.status(id)["pauseReason"])
+        assertTrue(host.busy)
+        assertEquals(0, engines.payoutCreates)
+        engines.creditReady = true
+        waiting.complete(Unit)
+        assertEquals("invested", host.status(id)["phase"])
+        assertEquals(1, approvals)
+        assertEquals(4, engines.signed)
+      } finally {
+        scope.cancel()
+      }
+    }
+  }
+
+  @Test
+  fun pendingPayoutKeepsProgressUntilTheSavedReceiptIsVerified() = runBlocking {
+    DepositFixtures.record().use { record ->
+      val journal = testDepositJournal()
+      val id = journal.loadOrCreate(record, 4663, null).getString("journeyId")
+      journal.saveReview(id, 1, DepositFixtures.review(record).put("journeyId", id))
+      val engines =
+        EarnDepositCoordinatorTest.Engines(record).apply {
+          creditReady = true
+          investUnknown = true
+        }
+      val waiting = CompletableDeferred<Unit>()
+      val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+      var approvals = 0
+      val host =
+        EarnDepositHost(
+          scope,
+          journal,
+          { DepositFixtures.record() },
+          { EarnDepositCoordinator(journal, engines) },
+          { _, _, _ -> approvals++ },
+          {},
+          now = { 1002 },
+          wait = { waiting.await() },
+        )
+      try {
+        host.confirm(id, 2, false)
+        assertEquals("payouts", host.status(id)["phase"])
+        assertNull(host.status(id)["pauseReason"])
+        assertEquals(3, engines.signed)
+        assertEquals(0, engines.depositCreates)
+        engines.rows.getValue("payout-source0-invest").put("status", "paid")
+        waiting.complete(Unit)
+        assertEquals("invested", host.status(id)["phase"])
+        assertEquals(1, approvals)
+        assertEquals(0, engines.savedPayoutRetries)
+        assertEquals(4, engines.signed)
+      } finally {
+        scope.cancel()
+      }
+    }
+  }
+
+  @Test
   fun screenOffAndHomeDuringCredentialApprovalCannotBeResumedByReturning() = runBlocking {
     for ((event, reason) in
       listOf(
@@ -191,7 +272,8 @@ class EarnDepositHostTest {
         )
       host.confirm(id, 2, false, nowMs = 1000)
       assertTrue(host.busy)
-      assertEquals("settlementPending", host.status(id)["pauseReason"])
+      assertEquals("settlingCredit", host.status(id)["phase"])
+      assertNull(host.status(id)["pauseReason"])
       try {
         host.confirm(id, j.get(id).getInt("revision"), false, nowMs = 1000)
         fail("Second confirmation accepted")

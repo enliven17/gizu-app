@@ -1875,6 +1875,9 @@ class GizuStoredSignerModule : Module() {
         cycle,
         { requireForeground(activity) },
       ),
+      reportFailure = { code, location ->
+        android.util.Log.w("GizuEarnDeposit", "execution stopped: code=$code location=$location")
+      },
     )
   }
 
@@ -1922,6 +1925,9 @@ class GizuStoredSignerModule : Module() {
       { requireForeground(activity) },
       releaseUnsigned = { journeyId ->
         releaseUnsignedDeposit(activity.applicationContext, journal, journeyId)
+      },
+      reportFailure = { code, location ->
+        android.util.Log.w("GizuEarnDeposit", "approval job stopped: code=$code location=$location")
       },
     )
   }

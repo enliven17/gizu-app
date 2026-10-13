@@ -320,6 +320,7 @@ private val depositPauseReasons =
   setOf(
     "quoteUnavailable",
     "previewUnavailable",
+    "sponsorshipUnavailable",
     "insufficientFunds",
     "uneconomicAmount",
     "termsChanged",
