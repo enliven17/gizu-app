@@ -595,6 +595,83 @@ test("historical receipts and ByHash return bounded verified fields without prov
   }
   clock = now;
 });
+test("ByHash accepts provider numeric 7702 authorization fields and returns hex quantities", async () => {
+  const { outgoing, expected } = await signedOperation(true);
+  const auth = outgoing.eip7702Auth!;
+  // Pimlico's live ByHash shape: chainId, nonce and yParity are JSON numbers.
+  const userOperation = {
+    ...outgoing,
+    eip7702Auth: {
+      ...auth,
+      chainId: 143,
+      nonce: 0,
+      yParity: Number(BigInt(auth.yParity)),
+    },
+  };
+  const gateway = new NativeEarnGateway(
+    { pimlicoApiKey: "server-key" },
+    {
+      now: () => now + 3600000,
+      fetcher: async (_url, init) =>
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: JSON.parse(String(init?.body)).id,
+            result: {
+              entryPoint: entryPoint08Address,
+              userOperation,
+              blockNumber: "0x1",
+              blockHash: "0x" + "22".repeat(32),
+              transactionHash: "0x" + "11".repeat(32),
+            },
+          }),
+        ),
+    },
+  );
+  const r = await gateway.bundler(143, {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_getUserOperationByHash",
+    params: [expected],
+  });
+  assert.equal(r.error, undefined);
+  const returned = (r.result as { userOperation: { eip7702Auth: object } })
+    .userOperation.eip7702Auth;
+  // Byte-identical to the signed record, so already installed native builds match it.
+  assert.deepEqual(returned, auth);
+  for (const changed of [{ chainId: 1 }, { nonce: -1 }, { yParity: 2 }]) {
+    const rejected = new NativeEarnGateway(
+      { pimlicoApiKey: "server-key" },
+      {
+        now: () => now + 3600000,
+        fetcher: async () =>
+          new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              result: {
+                entryPoint: entryPoint08Address,
+                userOperation: {
+                  ...userOperation,
+                  eip7702Auth: { ...userOperation.eip7702Auth, ...changed },
+                },
+              },
+            }),
+          ),
+      },
+    );
+    assert.ok(
+      (
+        await rejected.bundler(143, {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_getUserOperationByHash",
+          params: [expected],
+        })
+      ).error,
+    );
+  }
+});
 
 test("source and return original quotes recover after restart without provider requote", async () => {
   for (const kind of ["source", "return"] as const) {

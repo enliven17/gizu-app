@@ -191,6 +191,33 @@ class EarnSponsoredReconcilerTest {
     )
 
   @Test
+  fun byHashAuthorizationMatchesCanonicalOrNumericQuantities() {
+    fun auth(chainId: Any, nonce: Any, yParity: Any, address: String = EARN_IMPLEMENTATION) =
+      JSONObject()
+        .put("chainId", chainId)
+        .put("address", address)
+        .put("nonce", nonce)
+        .put("r", hash)
+        .put("s", block)
+        .put("yParity", yParity)
+    fun op(a: JSONObject) = JSONObject().put("sender", owner).put("eip7702Auth", a)
+    val saved = op(auth("0x8f", "0x0", "0x00"))
+    requireSameSignedUserOp(saved, op(auth("0x8f", "0x0", "0x0")))
+    requireSameSignedUserOp(saved, op(auth(143, 0, 0)))
+    for (changed in
+      listOf(
+        auth("0x8f", "0x1", "0x0"),
+        auth(1, 0, 0),
+        auth("0x8f", "0x0", "0x00", "0x" + "3".repeat(40)),
+      )) {
+      try {
+        requireSameSignedUserOp(saved, op(changed))
+        fail("Changed authorization must fail")
+      } catch (_: IllegalStateException) {}
+    }
+  }
+
+  @Test
   fun absentUserOpRemainsLockedAndConflictingNonceCannotResume() = runBlocking {
     val j = setup()
     val rpc = Rpc()

@@ -18,6 +18,21 @@ private fun sponsoredLogWords(log: JSONObject, count: Int): List<java.math.BigIn
 private fun sponsoredLogAddress(log: JSONObject, index: Int, address: String) =
   log.getJSONArray("topics").getString(index).equals("0x" + earnAddressWord(address), true)
 
+// Signed records store "0x00" yParity; bundlers return "0x0" or JSON numbers for the same value.
+private fun authorizationQuantity(value: Any): java.math.BigInteger =
+  when (value) {
+    is Int,
+    is Long -> {
+      check((value as Number).toLong() >= 0)
+      java.math.BigInteger.valueOf(value.toLong())
+    }
+    is String -> {
+      check(Regex("0x[0-9a-fA-F]{1,64}").matches(value))
+      value.drop(2).toBigInteger(16)
+    }
+    else -> error("Invalid authorization quantity")
+  }
+
 internal fun requireSameSignedUserOp(saved: JSONObject, received: JSONObject) {
   for (field in saved.keys().asSequence()) {
     if (field == "eip7702Auth" && !received.has(field))
@@ -27,7 +42,11 @@ internal fun requireSameSignedUserOp(saved: JSONObject, received: JSONObject) {
     if (field == "eip7702Auth") {
       val a = saved.getJSONObject(field)
       val b = received.getJSONObject(field)
-      for (key in a.keys().asSequence()) check(a.getString(key).equals(b.getString(key), true))
+      for (key in a.keys().asSequence()) check(
+        if (key in setOf("chainId", "nonce", "yParity"))
+          authorizationQuantity(a.get(key)) == authorizationQuantity(b.get(key))
+        else a.getString(key).equals(b.getString(key), true)
+      )
     } else
       check(saved.getString(field).equals(received.getString(field), true)) {
         "Bundler operation differs from signed record"
