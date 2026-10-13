@@ -148,6 +148,50 @@ test("shows the indicative 10/90 split while fees are prepared and cannot confir
     jest.useRealTimers();
   }
 });
+test("live credit waiting continues through progress without asking for another approval", async () => {
+  jest.useFakeTimers();
+  const waiting = { ...ready(), phase: "settlingCredit", revision: 3 } as DepositSnapshot;
+  const { service, snapshot, unmount } = setup({
+    confirm: jest.fn().mockResolvedValue(waiting),
+    status: jest.fn().mockResolvedValue(waiting),
+  });
+  try {
+    const user = await review();
+    await user.press(screen.getByRole("button", { name: "Confirm deposit" }));
+    expect(await screen.findByText("Deposit in progress")).toBeVisible();
+    expect(await screen.findByText("Verifying confidential credit")).toBeVisible();
+    expect(
+      screen.getByText(/Your deposit continues automatically within your approval limits/),
+    ).toBeVisible();
+    expect(screen.queryByText("Deposit paused")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Review remaining steps" })).toBeNull();
+    expect(screen.getByLabelText("Verify confidential credit: In progress")).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Verified deposit steps" })).toHaveProp(
+      "accessibilityValue",
+      { min: 0, max: 4, now: 0 },
+    );
+    jest.mocked(service.status).mockResolvedValue({
+      ...snapshot,
+      phase: "invested",
+      revision: 4,
+      completedSteps: ["funding", "credit", "payouts", "deposit"],
+      creditedAtoms: "2970000",
+      holdReceivedAtoms: "290000",
+      investReceivedAtoms: "2650000",
+      depositedAtoms: "2498000",
+      sharesAtoms: "2490000000000000000",
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(await screen.findByText("Invested")).toBeVisible();
+    expect(service.confirm).toHaveBeenCalledTimes(1);
+    expect(service.resume).not.toHaveBeenCalled();
+  } finally {
+    unmount();
+    jest.useRealTimers();
+  }
+});
 test("late preparation cannot authorize an edited amount; the same draft is reused", async () => {
   const pending = deferred<DepositSnapshot>();
   const prepare = jest.fn().mockReturnValueOnce(pending.promise).mockResolvedValue(ready());

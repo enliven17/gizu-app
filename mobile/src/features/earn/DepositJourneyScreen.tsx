@@ -4,6 +4,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Screen } from "@/components/templates/Screen";
 import { Typography } from "@/components/atoms/Typography";
 import { Button } from "@/components/atoms/Button";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Surface } from "@/components/molecules/Surface";
 import { BackAction } from "@/navigation/BackAction";
 import type { RootStackParamList } from "@/navigation/types";
@@ -28,6 +29,12 @@ const phaseCopy: Partial<Record<DepositPhase, string>> = {
   depositing: "Depositing into the vault",
   paused: "Deposit paused",
   invested: "Invested",
+};
+const currentStage: Partial<Record<DepositPhase, (typeof stages)[number][0]>> = {
+  funding: "funding",
+  settlingCredit: "credit",
+  payouts: "payouts",
+  depositing: "deposit",
 };
 function shareAmount(atoms: string, decimals: number) {
   const p = atoms.padStart(decimals + 1, "0");
@@ -104,7 +111,7 @@ export function DepositJourneyScreen({
           </View>
         </Surface>
       )}
-      {review && (row?.phase === "review" || paused) && (
+      {review && (row?.phase === "review" || (paused && v.details)) && (
         <Surface>
           <View className="gap-3 p-5">
             <Typography variant="heading">
@@ -159,17 +166,99 @@ export function DepositJourneyScreen({
       )}
       {row && !unsigned && (
         <Surface>
-          <View className="gap-3 p-5">
+          <View className="gap-4 p-5">
+            <View className="flex-row flex-wrap items-center gap-2">
+              <View className="rounded-full bg-neon-deep px-3 py-1.5">
+                <Typography variant="eyebrow" className="text-accent">
+                  {invested ? "INVESTED" : paused ? "NEEDS ATTENTION" : "INVESTING"}
+                </Typography>
+              </View>
+              <View className="rounded-full border border-cardEdge bg-well px-3 py-1.5">
+                <Typography variant="eyebrow">USDG · 10 / 90</Typography>
+              </View>
+            </View>
             <Typography variant="heading" accessibilityLiveRegion="polite">
               {v.authorizing
                 ? "Approve deposit on your device"
-                : (phaseCopy[row.phase] ?? "Deposit progress")}
+                : invested
+                  ? "Invested"
+                  : paused
+                    ? "Deposit paused"
+                    : "Deposit in progress"}
             </Typography>
-            {stages.map(([stage, label]) => (
-              <Typography key={stage} variant="caption">
-                {row.completedSteps.includes(stage) ? "✓" : "○"} {label}
+            {!paused && !invested && !v.authorizing && (
+              <View className="flex-row items-center gap-3" accessibilityLiveRegion="polite">
+                <Spinner size="sm" />
+                <Typography variant="row" className="flex-1">
+                  {phaseCopy[row.phase] ?? "Continuing your deposit"}
+                </Typography>
+              </View>
+            )}
+            {row.phase === "settlingCredit" && (
+              <Typography variant="caption" accessibilityLiveRegion="polite">
+                Waiting for confidential credit. Your deposit continues automatically within your
+                approval limits. Keep this page open.
               </Typography>
-            ))}
+            )}
+            <View className="gap-4 rounded-2xl bg-well p-4">
+              {stages.map(([stage, label], index) => {
+                const done = row.completedSteps.includes(stage),
+                  active = !v.authorizing && !done && currentStage[row.phase] === stage;
+                return (
+                  <View
+                    key={stage}
+                    className="flex-row items-center gap-3"
+                    accessible
+                    accessibilityLabel={`${label}: ${done ? "Verified" : active ? "In progress" : "Pending"}`}
+                  >
+                    <View
+                      className={`h-7 w-7 items-center justify-center rounded-full border ${done ? "border-neon bg-neon" : active ? "border-neon bg-neon-deep" : "border-cardEdge"}`}
+                    >
+                      <Typography
+                        variant="micro"
+                        className={done ? "text-ctaText" : active ? "text-accent" : "text-fg-35"}
+                      >
+                        {done ? "✓" : index + 1}
+                      </Typography>
+                    </View>
+                    <Typography
+                      variant="rowTitle"
+                      className={`flex-1 ${active ? "text-accent" : done ? "text-text" : "text-fg-45"}`}
+                    >
+                      {label}
+                    </Typography>
+                  </View>
+                );
+              })}
+            </View>
+            <View className="gap-3 rounded-2xl bg-well p-4">
+              <View className="flex-row items-center justify-between gap-3">
+                <Typography variant="rowTitle">Steps verified</Typography>
+                <Typography variant="rowValue">{row.completedSteps.length} / 4</Typography>
+              </View>
+              <View
+                className="h-1.5 overflow-hidden rounded-full bg-glassSoft"
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityLabel="Verified deposit steps"
+                accessibilityValue={{ min: 0, max: 4, now: row.completedSteps.length }}
+              >
+                <View
+                  className="h-full rounded-full bg-neon"
+                  style={{ width: `${row.completedSteps.length * 25}%` }}
+                />
+              </View>
+              <View className="flex-row flex-wrap items-center justify-between gap-2">
+                <Typography variant="caption">USDC budget</Typography>
+                <Typography variant="rowValue">{formatUsdc(row.budgetAtoms)} USDC</Typography>
+              </View>
+            </View>
+            {!paused && !invested && row.phase !== "settlingCredit" && (
+              <Typography variant="caption">
+                Keep this page open. The remaining steps continue automatically within your approval
+                limits.
+              </Typography>
+            )}
             {invested && (
               <>
                 <Typography>{formatUsdc(row.holdReceivedAtoms)} USDG held</Typography>
@@ -236,13 +325,13 @@ export function DepositJourneyScreen({
       {row && !unsigned && !invested && (
         <Button
           label="Check progress"
-          variant="secondary"
+          variant="quiet"
           disabled={v.busy}
           onPress={() => void v.refresh()}
         />
       )}
       {row && !invested && !unsigned && (
-        <Button label="Stop remaining approval" variant="quiet" onPress={v.cancel} />
+        <Button label="Pause deposit" variant="secondary" onPress={v.cancel} />
       )}
       {row && (
         <Button

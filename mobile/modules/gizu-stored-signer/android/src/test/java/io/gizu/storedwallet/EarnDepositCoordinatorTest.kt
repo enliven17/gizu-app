@@ -21,7 +21,8 @@ class EarnDepositCoordinatorTest {
       val c = EarnDepositCoordinator(j, e)
       val grant = EarnDepositApproval.fromReview(r, review).apply { approveAfterPasskey(1000) }
       c.confirmed(id, 2, grant)
-      assertEquals("submissionUnknown", j.get(id).getString("pauseReason"))
+      assertEquals("payouts", j.get(id).getString("phase"))
+      assertFalse(j.get(id).has("pauseReason"))
       c.cancel(id, j.get(id).getInt("revision"))
       val restarted = EarnDepositCoordinator(j, e)
       restarted.reconcile(id)
@@ -173,7 +174,8 @@ class EarnDepositCoordinatorTest {
       val coordinator = EarnDepositCoordinator(j, engines)
       coordinator.confirmed(id, 2, a)
       assertEquals(0, engines.payoutCreates)
-      assertEquals("settlementPending", j.publicSnapshot(id)["pauseReason"])
+      assertEquals("settlingCredit", j.publicSnapshot(id)["phase"])
+      assertNull(j.publicSnapshot(id)["pauseReason"])
       engines.creditReady = true
       engines.investUnknown = true
       coordinator.advance(id, a)

@@ -153,7 +153,12 @@ internal class EarnDepositCoordinator(
               credits.values.fold(BigInteger.ZERO) { n, a -> n + depositAtoms(a) }.toString(),
             )
           }
-          journal.pause(id, "settlementPending")
+          if (grant != null)
+            setPhase(
+              id,
+              if (row.getString("status") == "finalized") "settlingCredit" else "funding",
+            )
+          else journal.pause(id, "settlementPending")
           return
         }
         credits[sourceId] = credit
@@ -166,7 +171,8 @@ internal class EarnDepositCoordinator(
         )
       }
       if (credits.size != sources.size) {
-        journal.pause(id, "settlementPending")
+        if (grant != null) setPhase(id, "settlingCredit")
+        else journal.pause(id, "settlementPending")
         return
       }
       saveAmounts(id) { it.put("completedSteps", JSONArray(listOf("funding", "credit"))) }
@@ -216,7 +222,7 @@ internal class EarnDepositCoordinator(
                   .toString(),
               )
           }
-          journal.pause(id, "submissionUnknown")
+          if (grant != null) setPhase(id, "payouts") else journal.pause(id, "submissionUnknown")
           return
         }
         payoutAtoms.let { atoms ->
@@ -240,7 +246,7 @@ internal class EarnDepositCoordinator(
         it.put("holdReceivedAtoms", hold.toString()).put("investReceivedAtoms", invest.toString())
       }
       if (receipts.size != sources.size * 2) {
-        journal.pause(id, "submissionUnknown")
+        if (grant != null) setPhase(id, "payouts") else journal.pause(id, "submissionUnknown")
         return
       }
       saveAmounts(id) {
@@ -273,7 +279,7 @@ internal class EarnDepositCoordinator(
       val settled = reconcileAndExecute("deposit", depositId, grant)
       val investment = engines.investment(settled)
       if (investment == null) {
-        journal.pause(id, "submissionUnknown")
+        if (grant != null) setPhase(id, "depositing") else journal.pause(id, "submissionUnknown")
         return
       }
       val bound = review.getJSONObject("deposit")

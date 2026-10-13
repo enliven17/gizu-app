@@ -501,3 +501,32 @@ prepare again using the same pair, while deposits with saved funded progress
 retain remaining-step recovery. The Render-targeted APK was installed with
 `adb install -r` and opened on the connected phone. Backend deployment and the
 user-authorized funded execution test remain separate steps.
+
+### Live settlement progress and Swap presentation
+
+The current Swap on `main` keeps expected Aurora/receipt waits inside its native
+execution loop and publishes progress. Earn's native host already had the same
+bounded polling behavior, but its coordinator incorrectly reported every missing
+credit or receipt as a paused recovery state while that approval was still active.
+This exposed a redundant remaining-review action during normal waiting.
+
+An active Earn grant now reports `funding` until the origin receipt is finalized,
+`settlingCredit` until authenticated private credit is verified, `payouts` until
+the destination receipts are verified, and `depositing` until vault settlement.
+The existing host polls and continues within the original 15-minute approval.
+Reconciliation without a spending grant still pauses for explicit recovery; actual
+failure, cancellation, backgrounding and expiry do not regain spending authority.
+No signed packet is replaced or automatically reapproved.
+
+The existing Earn page adopts Swap's presentation: status badges, an active-step
+spinner, highlighted stage rows, a count/bar of verified steps, a budget summary,
+and an open-screen note. Saved recovery limits are available under Details; fresh
+review limits remain visible before approval. No new component or coordinator is
+introduced. A native host regression demonstrates delayed credit and payout
+receipt continuation with exactly one approval; rendered coverage confirms no
+remaining-review action during an active wait.
+
+Swap's current core also contains a route-success/quoted-minimum fallback if its
+authenticated balance endpoint returns 401. Earn retains its operation-scoped
+authenticated settlement evidence rather than copying that different financial
+policy. This change corrects live progress reporting, not provider settlement speed.
