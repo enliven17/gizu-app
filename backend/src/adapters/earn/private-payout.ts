@@ -1331,11 +1331,15 @@ export class PrivatePayoutGateway {
       client.getBlock({ blockTag: "finalized" }),
       client.getBlock({ blockNumber: BigInt(q.referenceBlock) }),
     ]);
+    // Like Swap, Robinhood payouts count once the exact receipt is canonical; Robinhood's L1
+    // finality trails by ~17 minutes. Other destinations keep finalized delivery.
+    const awaitFinality = q.destinationChainId !== 4663;
     if (
       block.hash !== receipt.blockHash ||
       reference.hash !== q.referenceHash ||
-      finalized.number === null ||
-      finalized.number < receipt.blockNumber ||
+      (awaitFinality &&
+        (finalized.number === null ||
+          finalized.number < receipt.blockNumber)) ||
       Number(block.timestamp) * 1000 < q.quoteCreatedAtMs - 1000
     )
       throw new Error("Noncanonical payout");

@@ -403,6 +403,7 @@ import { erc20Abi } from "viem";
 const actualIntentHash = base58.encode(Buffer.alloc(32, 7));
 function deliveredFixture(
   change?: (path: string, body: any, init?: RequestInit) => void,
+  profileChainId: 1 | 4663 = 1,
 ) {
   return fixture((path, b, init) => {
     if (
@@ -418,7 +419,8 @@ function deliveredFixture(
           createdAt: new Date(now).toISOString(),
           depositAddress: "payout-1.near",
           originAsset: monadUsdcAssetId,
-          destinationAsset: ethereumUsdcAssetId,
+          destinationAsset:
+            profileChainId === 4663 ? robinhoodUsdgAssetId : ethereumUsdcAssetId,
           recipient: hold,
           refundTo: C,
           amountInFormatted: "0.0995",
@@ -443,7 +445,10 @@ function deliveredFixture(
           type: "0x2",
           logs: [
             {
-              address: "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+              address:
+                profileChainId === 4663
+                  ? "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+                  : "0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
               data: toHex(99500n, { size: 32 }),
               topics: encodeEventTopics({
                 abi: erc20Abi,
@@ -475,7 +480,7 @@ function deliveredFixture(
         };
     }
     change?.(path, b, init);
-  });
+  }, profileChainId);
 }
 async function submitPlan(f: ReturnType<typeof fixture>) {
   const p = await f.gateway.prepare(await input());
@@ -1438,4 +1443,38 @@ test("Robinhood 10/90 payout quotes allow 5% slippage; other payouts keep exact 
   }
   assert.deepEqual(sent[4663], [500, 500]);
   assert.deepEqual(sent[1], [0, 0]);
+});
+
+test("Robinhood payouts are delivered from a canonical receipt before L1 finality, like Swap", async () => {
+  for (const chain of [4663, 1] as const) {
+    // The finalized head (0x64) is behind the payout receipt block (0x65).
+    const f = deliveredFixture((path, b, init) => {
+      if (path.includes("/account/history/")) throw Error("History unavailable");
+      if (path === "https://ethereum.test/") {
+        const req = JSON.parse(String(init?.body));
+        if (req.method === "eth_getBlockByNumber" && req.params[0] === "finalized")
+          b.result = { ...b.result, number: "0x64", hash: "0x" + "dd".repeat(32) };
+      }
+    }, chain);
+    const request = await input("hold", chain),
+      plan = await f.gateway.prepare({
+        ...request,
+        source: balanceAttestedSource(request.source),
+      });
+    const settle = f.restart().reconcile({
+      operationId: request.operationId,
+      revision: 1,
+      leg: "hold",
+      quoteId: plan.quote.quoteId,
+      recoveryEnvelope: plan.recoveryEnvelope,
+      signedData: await readAuth(),
+      submittedIntent: { ...plan.intent, signature: await signature(plan.intent.payload) },
+      destinationTransactionHash: "0x" + "aa".repeat(32),
+    });
+    if (chain === 4663) {
+      const result = await settle;
+      assert.equal(result.status, "delivered");
+      assert.equal(result.receivedAtoms, "99500");
+    } else await assert.rejects(settle);
+  }
 });

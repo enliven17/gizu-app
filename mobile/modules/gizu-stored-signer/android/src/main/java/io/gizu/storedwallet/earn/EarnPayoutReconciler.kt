@@ -31,6 +31,9 @@ private suspend fun payoutReference(rpc: TransferRpc, quote: JSONObject): BigInt
   return number
 }
 
+/** Like Swap, Robinhood payouts settle from canonical receipts; L1 finality trails ~17 minutes. */
+private fun payoutAwaitsFinality(quote: JSONObject) = quote.getInt("destinationChainId") != 4663
+
 private fun payoutTransfer(log: JSONObject, quote: JSONObject, event: String): BigInteger? {
   if (
     !log.getString("address").equals(quote.getString("destinationToken"), true) ||
@@ -62,9 +65,12 @@ internal suspend fun scanNativePayoutTransfers(
   val reference = payoutReference(rpc, quote)
   val from = start.toBigInteger()
   check(from > reference)
-  val final =
-    rpc.call("eth_getBlockByNumber", JSONArray().put("finalized").put(false)) as JSONObject
-  val last = quantity(final.getString("number"))
+  val head =
+    rpc.call(
+      "eth_getBlockByNumber",
+      JSONArray().put(if (payoutAwaitsFinality(quote)) "finalized" else "latest").put(false),
+    ) as JSONObject
+  val last = quantity(head.getString("number"))
   if (last < from) return NativePayoutScan(null, from.toString())
   val end = minOf(last, from + BigInteger.valueOf(4095))
   val event = topic("Transfer(address,address,uint256)")
@@ -137,9 +143,11 @@ internal suspend fun confirmNativePayoutReceipt(
     timestamp >=
       BigInteger.valueOf(quote.optLong("quoteCreatedAtMs", quote.getLong("observedAtMs")) - 1000)
   )
-  val final =
-    rpc.call("eth_getBlockByNumber", JSONArray().put("finalized").put(false)) as JSONObject
-  check(quantity(final.getString("number")) >= number)
+  if (payoutAwaitsFinality(quote)) {
+    val final =
+      rpc.call("eth_getBlockByNumber", JSONArray().put("finalized").put(false)) as JSONObject
+    check(quantity(final.getString("number")) >= number)
+  }
   val logs = receipt.getJSONArray("logs")
   check(logs.length() <= 4096)
   val event = topic("Transfer(address,address,uint256)")

@@ -182,6 +182,9 @@ internal class EarnDepositCoordinator(
       saveAmounts(id) { it.put("completedSteps", JSONArray(listOf("funding", "credit"))) }
       setPhase(id, "payouts")
       val receipts = linkedMapOf<String, String>()
+      // Like Swap, send every payout leg first, then verify receipts, so one leg's delivery
+      // never delays signing the other.
+      val sent = linkedMapOf<String, JSONObject>()
       for (source in sources) for (leg in listOf("hold", "invest")) {
         val sourceId = source.getString("operationId")
         val refs = journal.get(id).getJSONObject("children").optJSONArray(leg)
@@ -203,9 +206,12 @@ internal class EarnDepositCoordinator(
           )
           attach(id, leg, child.getString("operationId"))
         }
-        val settled =
+        sent["$sourceId:$leg"] =
           reconcileAndExecute("payouts", child.getString("operationId"), grant, retrySavedPayouts)
-        val payoutAtoms = engines.payoutReceipt(settled)
+      }
+      for (source in sources) for (leg in listOf("hold", "invest")) {
+        val sourceId = source.getString("operationId")
+        val payoutAtoms = engines.payoutReceipt(sent.getValue("$sourceId:$leg"))
         if (payoutAtoms == null) {
           saveAmounts(id) {
             it

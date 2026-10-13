@@ -93,6 +93,7 @@ class EarnDepositCoordinatorTest {
     val readySources = mutableSetOf<String>()
     var now = 1002L
     var onReconcile: (() -> Unit)? = null
+    var holdPending = false
 
     override suspend fun registerFunding(row: JSONObject) =
       row.also { rows[it.getString("operationId")] = it }
@@ -163,6 +164,8 @@ class EarnDepositCoordinatorTest {
               "status",
               if (investUnknown && row.getJSONObject("proposal").getString("leg") == "invest")
                 "submissionUnknown"
+              else if (holdPending && row.getJSONObject("proposal").getString("leg") == "hold")
+                "submitted"
               else "paid",
             )
             .put("receivedAtoms", row.getJSONObject("proposal").getString("amountAtoms"))
@@ -258,6 +261,33 @@ class EarnDepositCoordinatorTest {
       repeat(3) { coordinator.advance(id, a) }
       assertEquals(listOf("settlingCredit"), observed.distinct())
       assertEquals("settlingCredit", j.publicSnapshot(id)["phase"])
+    }
+  }
+
+  @Test
+  fun bothPayoutLegsAreSentBeforeEitherReceiptIsVerifiedLikeSwap() = runBlocking {
+    DepositFixtures.record().use { r ->
+      val j = testDepositJournal()
+      val draft = j.loadOrCreate(r, 4663, null)
+      val id = draft.getString("journeyId")
+      val review = DepositFixtures.review(r).put("journeyId", id)
+      j.saveReview(id, 1, review)
+      val a = EarnDepositApproval.fromReview(r, review)
+      a.approveAfterPasskey(1000)
+      val engines = Engines(r)
+      engines.creditReady = true
+      engines.holdPending = true
+      val coordinator = EarnDepositCoordinator(j, engines)
+      coordinator.confirmed(id, 2, a)
+      // The hold receipt is still unverified, yet the invest leg is already signed and sent.
+      assertEquals(2, engines.payoutCreates)
+      assertEquals(3, engines.signed)
+      assertEquals("payouts", j.publicSnapshot(id)["phase"])
+      engines.rows["payout-source0-hold"]!!.put("status", "paid")
+      coordinator.advance(id, a)
+      assertEquals(2, engines.payoutCreates)
+      assertEquals(4, engines.signed)
+      assertEquals("invested", j.publicSnapshot(id)["phase"])
     }
   }
 
