@@ -233,15 +233,14 @@ test("owned token amounts and vault underlying values remain distinct when marke
   expect(screen.queryByRole("button", { name: "Tokens and vault positions" })).toBeNull();
   expect(screen.queryByText("Checking owned token balances and positions…")).toBeNull();
   expect(await screen.findByText("0.5 WETH")).toBeVisible();
-  expect(screen.getByText("Vault position · Ethereum")).toBeVisible();
+  expect(screen.queryByText("Vault position · Ethereum")).toBeNull();
   expect(screen.getByText("Estimated underlying: 2 USDC")).toBeVisible();
   expect(screen.getByText("2 USDC")).toBeVisible();
   fireEvent.press(screen.getByRole("button", { name: "USDC performance" }));
   expect(screen.getByText("Performance history isn’t available yet.")).toBeVisible();
   expect(screen.queryByLabelText(/performance chart:/)).toBeNull();
   expect(screen.queryByText("USDC value unavailable.")).toBeNull();
-  fireEvent.press(screen.getByRole("button", { name: "WETH holding details", expanded: false }));
-  expect(screen.getByText("USDC value unavailable.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "WETH holding details" })).toBeNull();
   expect(screen.getByText("NEW balance unavailable. Refresh to retry.")).toBeVisible();
   expect(screen.queryByText("Checking NEW balance…")).toBeNull();
   expect(
@@ -289,10 +288,7 @@ test("partial vault observations use underlying units and never relabel shares a
   });
   await open();
   await screen.findByText("Tokens and vault positions");
-  fireEvent.press(
-    await screen.findByRole("button", { name: "USDC position details", expanded: false }),
-  );
-  expect(screen.getByText("Previously observed: 2 USDC")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "USDC position details" })).toBeNull();
   expect(screen.getByText("USDC balance unavailable. Refresh to retry.")).toBeVisible();
   expect(screen.getByText("USDG balance unavailable. Refresh to retry.")).toBeVisible();
   expect(screen.queryByText(/Previously observed: .*USDG/)).toBeNull();
@@ -500,8 +496,7 @@ test("private USDC retries a settled partial observation and checks only while i
   await open();
   await screen.findByText("Tokens and vault positions");
   expect(await screen.findByText("USDC balance unavailable. Refresh to retry.")).toBeVisible();
-  fireEvent.press(screen.getByRole("button", { name: "USDC holding details" }));
-  expect(screen.getByText("Previously observed: 2.5 USDC")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "USDC holding details" })).toBeNull();
   expect(screen.queryByText("Checking USDC balance…")).toBeNull();
   const pending = deferred<import("@/domain/wallet/storedSigner").MainnetPortfolioSnapshot>();
   portfolio.getMainnetPortfolio.mockReturnValueOnce(pending.promise);
@@ -554,7 +549,7 @@ test("a successful swap balance remains visible when its owned aggregate is unav
   await screen.findByText("Tokens and vault positions");
   expect(await screen.findByText("1.2345 USDG")).toBeVisible();
   expect(screen.getByText("Swap receiving wallets")).toBeVisible();
-  expect(screen.getAllByRole("button", { name: "USDG holding details" })).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: "USDG holding details" })).toBeNull();
   expect(screen.getByText("USDG balance unavailable. Refresh to retry.")).toBeVisible();
   expect(screen.queryByText("0 USDG")).toBeNull();
 });
