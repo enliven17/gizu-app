@@ -155,6 +155,11 @@ struct Plan {
     /// Relative payout weights, one per recipient. Absent: 3/3/4 for three wallets, else equal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     weights: Option<Vec<u32>>,
+    /// Sell only: random bytes (hex) the engine turns into the return-wallet count and shares once
+    /// the sale is priced. A sell without them is an older plan that pays each holder's proceeds
+    /// to the return wallet in the same position.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    legs_random: Option<String>,
     /// Debug sweep only: the public address that receives each wallet's USDG directly.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     destination: Option<Address>,
@@ -254,6 +259,10 @@ struct Order {
     /// A sale Fusion refuses as too small: nothing is signed for it and the other wallets go on.
     #[serde(default)]
     dust: bool,
+    /// The Aurora deposit request for this sale. Older sells kept it on the payout of the same
+    /// position, which only works while holders and payouts pair one to one.
+    #[serde(default)]
+    inbound_request: Option<QuoteRequest>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -283,6 +292,9 @@ struct Data {
     private_token_id: Option<String>,
     payouts: Vec<Payout>,
     orders: Vec<Order>,
+    /// Pooled sell: expected USDG from all sales, used to size the payouts before review.
+    #[serde(default)]
+    sale_estimate: U256,
     #[serde(default)]
     leg: usize,
 }
@@ -502,6 +514,19 @@ impl Engine {
     fn sell(&self) -> bool {
         self.m.plan.kind == "confidentialSell" || self.sweep()
     }
+    /// A sell that pools every holder's proceeds in C and then splits them over randomly sized
+    /// payouts, as a buy does. Older sells pay each holder's proceeds straight through.
+    fn pooled_sell(&self) -> bool {
+        self.m.plan.kind == "confidentialSell" && self.m.plan.legs_random.is_some()
+    }
+    /// Number of token sales (holder wallets) for a sell, or of buy orders otherwise.
+    fn sales(&self) -> usize {
+        if self.sell() {
+            self.m.holders.len()
+        } else {
+            self.legs()
+        }
+    }
     /// Temporary debug mode: sells each holder's tokens and pays the USDG straight to a chosen
     /// address. Aurora and the confidential balance are not used at all.
     fn sweep(&self) -> bool {
@@ -563,13 +588,13 @@ impl Engine {
                 .plan
                 .holder_indices
                 .as_ref()
-                .map_or(self.recipient_index(i), |h| h[i])
+                .map_or_else(|| self.recipient_index(i), |h| h[i])
         } else {
             self.recipient_index(i)
         }
     }
     fn next_sell_index(&self, from: usize) -> Option<usize> {
-        (from..self.legs()).find(|&i| {
+        (from..self.sales()).find(|&i| {
             let o = &self.m.data.orders[i];
             !o.amount.is_zero() && !o.complete && !o.dust
         })
@@ -621,7 +646,7 @@ impl Engine {
             Step::Holdings => {
                 let t = self.m.plan.target;
                 let mut calls = Vec::new();
-                for i in 0..self.legs() {
+                for i in 0..self.sales() {
                     let h = self.m.holders[i];
                     calls.push(("eth_call", Self::eth_call(t, call_data("balanceOf(address)", &[h]))));
                     calls.push(("eth_getBalance", json!([h.to_checksum(None), "latest"])));
@@ -743,7 +768,9 @@ impl Engine {
             }
             Step::PayoutQuote { index } => {
                 if self.sell() {
-                    let portion = d.available;
+                    // A pooled sell splits C's whole balance by the shares; an older one pays out
+                    // the single holder's credit.
+                    let portion = if self.pooled_sell() { self.portions(d.available)[index] } else { d.available };
                     let request = QuoteRequest::payout(self.m.confidential, self.m.recipients[index], &d.source_asset, &d.source_asset, portion);
                     self.m.data.payouts[index].portion = portion;
                     self.m.data.payouts[index].request = Some(request.clone());
@@ -805,7 +832,7 @@ impl Engine {
             Step::SellQuote { index } => {
                 let amount = d.orders[index].min_out;
                 let request = QuoteRequest::sell_in(self.m.confidential, self.holder(index), &d.destination_asset, &d.source_asset, amount);
-                self.m.data.payouts[index].request = Some(request.clone());
+                self.m.data.orders[index].inbound_request = Some(request.clone());
                 self.post("/v1/swap/aurora/quote", serde_json::to_value(request).map_err(|_| SignerError::InvalidInput)?)
             }
             Step::FusionPermit { index } => {
@@ -1052,7 +1079,7 @@ impl Engine {
             }
             (Step::Holdings, None) => {
                 let mut any = false;
-                for i in 0..self.legs() {
+                for i in 0..self.sales() {
                     let amount = rpc_uint(&value, (i * 2) as u64)?;
                     let eth = rpc_quantity(&value, (i * 2 + 1) as u64)?;
                     if !eth.is_zero() {
@@ -1231,6 +1258,9 @@ impl Engine {
                     return Ok(());
                 }
                 self.m.data.rate_end = end;
+                if self.pooled_sell() && self.m.plan.weights.is_none() {
+                    self.choose_returns()?;
+                }
                 self.go(Step::Review);
             }
             (Step::FundingSubmit, None) => {
@@ -1276,6 +1306,12 @@ impl Engine {
                 self.wait(now, POLL_MS);
             }
             (Step::Credit, None) => match text(&value, "status")? {
+                // A pooled sell banks each sale and moves on; payouts start after the last one.
+                "SUCCESS" if self.pooled_sell() => {
+                    let leg = self.m.data.leg;
+                    self.m.data.orders[leg].complete = true;
+                    self.after_order(leg);
+                }
                 "SUCCESS" => self.go(Step::AuthSalt),
                 "REFUNDED" | "FAILED" => {
                     self.m.paused = Some(format!("FUNDING_{}", text(&value, "status")?))
@@ -1420,7 +1456,7 @@ impl Engine {
                     self.m.data.payouts[index].intent_hash =
                         Some(text(&value, "intentHash")?.to_string());
                 }
-                if self.sell() {
+                if self.sell() && !self.pooled_sell() {
                     self.go(Step::PayoutStatus {
                         index,
                         polls: 0,
@@ -1481,6 +1517,18 @@ impl Engine {
                         return Ok(());
                     }
                     self.m.data.payouts[index].delivered = usdc_out;
+                    if self.pooled_sell() {
+                        self.go(if self.is_last_leg(index) {
+                            Step::Done
+                        } else {
+                            Step::PayoutStatus {
+                                index: index + 1,
+                                polls: 0,
+                                resubmitted: false,
+                            }
+                        });
+                        return Ok(());
+                    }
                     self.m.data.orders[index].complete = true;
                     self.m.data.orders[index].received_total = usdc_out;
                     self.after_order(index);
@@ -1567,9 +1615,17 @@ impl Engine {
                 self.go(Step::FusionPermit { index });
             }
             (Step::SellQuote { index }, None) => {
-                let request = self.m.data.payouts[index]
-                    .request
+                // A state saved before the request moved to the order still has it on the payout.
+                let request = self.m.data.orders[index]
+                    .inbound_request
                     .clone()
+                    .or_else(|| {
+                        self.m
+                            .data
+                            .payouts
+                            .get(index)
+                            .and_then(|p| p.request.clone())
+                    })
                     .ok_or(SignerError::InvalidInput)?;
                 let quote = aurora::check_quote(&request, &value, now)?;
                 let expected = self.m.data.orders[index].min_out;
@@ -1885,8 +1941,43 @@ impl Engine {
         self.m.data.credit_basis = Some(basis.into());
         self.m.data.access_token = None;
         self.go(Step::PayoutQuote {
-            index: if self.sell() { self.m.data.leg } else { 0 },
+            index: if self.sell() && !self.pooled_sell() {
+                self.m.data.leg
+            } else {
+                0
+            },
         });
+        Ok(())
+    }
+
+    /// Pooled sell: size the payouts from the priced sale, as a buy does from its budget, and drop
+    /// the reserved return wallets that are not needed. Runs once, before review.
+    fn choose_returns(&mut self) -> Result<(), SignerError> {
+        let d = &self.m.data;
+        let tokens = (0..self.sales())
+            .filter(|i| !d.orders[*i].dust)
+            .fold(U256::ZERO, |sum, i| sum + d.orders[i].amount);
+        let estimate = if d.rate_amount.is_zero() {
+            U256::ZERO
+        } else {
+            fusion::minimum_out(d.rate_end) * tokens / d.rate_amount
+        };
+        let random = alloy_primitives::hex::decode(
+            self.m
+                .plan
+                .legs_random
+                .as_deref()
+                .ok_or(SignerError::InvalidInput)?,
+        )
+        .map_err(|_| SignerError::InvalidInput)?;
+        let budget: u64 = estimate.min(U256::from(u64::MAX)).to();
+        let choice = super::legs::choose_for_budget(budget, &random, self.legs() as u32)?;
+        let count = choice.count as usize;
+        self.m.data.sale_estimate = estimate;
+        self.m.plan.recipient_indices.truncate(count);
+        self.m.recipients.truncate(count);
+        self.m.data.payouts.truncate(count);
+        self.m.plan.weights = Some(choice.weights);
         Ok(())
     }
 
@@ -1907,6 +1998,8 @@ impl Engine {
         if self.sell() {
             match self.next_sell_index(index + 1) {
                 Some(next) => self.go(Step::FusionPreview { index: next }),
+                // Every sale is banked in C: read the pooled balance and pay it out.
+                None if self.pooled_sell() => self.go(Step::AuthSalt),
                 None => self.go(Step::Done),
             }
         } else {
@@ -1943,6 +2036,9 @@ impl Engine {
     fn review(&self) -> String {
         if self.sweep() {
             return self.review_sweep();
+        }
+        if self.pooled_sell() {
+            return self.review_pooled_sell();
         }
         if self.sell() {
             return self.review_sell();
@@ -2024,7 +2120,7 @@ impl Engine {
     /// Wallets Fusion already refused as too small, so the user sees what stays behind.
     fn skipped_note(&self) -> String {
         let d = &self.m.data;
-        let skipped: Vec<String> = (0..self.legs())
+        let skipped: Vec<String> = (0..self.sales())
             .filter(|i| d.orders[*i].dust)
             .map(|i| {
                 format!(
@@ -2055,7 +2151,8 @@ impl Engine {
             target = self.m.plan.target.to_checksum(None),
             to = destination.to_checksum(None),
         );
-        for i in (0..self.legs()).filter(|i| !d.orders[*i].amount.is_zero() && !d.orders[*i].dust) {
+        for i in (0..self.sales()).filter(|i| !d.orders[*i].amount.is_zero() && !d.orders[*i].dust)
+        {
             out.push_str(&format!(
                 "\nWallet {holder}\n  {amount} {sym} → USDG\n",
                 holder = self.m.holders[i].to_checksum(None),
@@ -2068,10 +2165,52 @@ impl Engine {
         out
     }
 
+    fn review_pooled_sell(&self) -> String {
+        let d = &self.m.data;
+        let active: Vec<usize> = (0..self.sales())
+            .filter(|i| !d.orders[*i].amount.is_zero() && !d.orders[*i].dust)
+            .collect();
+        let mut out = format!(
+            "CONFIDENTIAL SELL · MAINNET\n{sym} → USDG (Fusion) → confidential balance → {count} new Monad USDC wallets\n\nSelling {sym} ({dec} decimals)\nContract {target}\nConfidential balance C {c}\n",
+            sym = d.target_symbol,
+            dec = d.target_decimals,
+            target = self.m.plan.target.to_checksum(None),
+            c = self.m.confidential.to_checksum(None),
+            count = count_word(self.legs()),
+        );
+        for i in &active {
+            out.push_str(&format!(
+                "\nWallet {holder}\n  {amount} {sym} sells for USDG into the confidential balance\n",
+                holder = self.m.holders[*i].to_checksum(None),
+                amount = units(d.orders[*i].amount, d.target_decimals),
+                sym = d.target_symbol,
+            ));
+        }
+        out.push_str(&format!(
+            "\nAll sales are pooled in C, then paid out as Monad USDC.\nExpected about {} USDC in total, before payout fees.\n",
+            usdc(d.sale_estimate)
+        ));
+        let split = percent_split(&leg_weights(&self.m.plan));
+        for (i, share) in self.portions(d.sale_estimate).iter().enumerate() {
+            out.push_str(&format!(
+                "\nPayout {} of {} ({}) to fresh wallet R{} {}\n  about {} USDC on Monad\n",
+                i + 1,
+                self.legs(),
+                split,
+                i + 1,
+                self.m.recipients[i].to_checksum(None),
+                usdc(*share),
+            ));
+        }
+        out.push_str(&self.skipped_note());
+        out.push_str(&format!("\nPRIVACY: The old Ai stock wallets stay public. Proceeds are pooled and split across {} fresh wallets that are never reused, so a sale cannot be matched to one payout. One app gateway key can still time-link the steps.\n\nOne approval authorizes the Fusion permits, orders and confidential payouts for 15 minutes. After 15 minutes you unlock again for this same plan. The operation expires in 24 hours. Steps cannot be undone once submitted.", count_word(self.legs())));
+        out
+    }
+
     fn review_sell(&self) -> String {
         let d = &self.m.data;
         // A holder group may include wallets with nothing to sell; only real legs are shown.
-        let active: Vec<usize> = (0..self.legs())
+        let active: Vec<usize> = (0..self.sales())
             .filter(|i| !d.orders[*i].amount.is_zero() && !d.orders[*i].dust)
             .collect();
         let mut out = format!(
@@ -2161,6 +2300,7 @@ impl Engine {
             "direction": if self.sell() { "sell" } else { "buy" },
             "kind": self.m.plan.kind,
             "legs": self.legs(),
+            "holders": self.sales(),
             // After approval funds may be in flight: the UI must pause, never cancel, on leave.
             "approved": self.m.approved_ms.is_some(),
             "authorizationUntilMs": self.m.session_until_ms,
@@ -2238,6 +2378,17 @@ impl SwapOperation {
         if sweep != plan.destination.is_some_and(|to| !to.is_zero()) {
             return Err(SignerError::InvalidInput);
         }
+        // Only a sell carries payout randomness, as exactly 32 bytes of hex.
+        let pooled = plan.legs_random.is_some();
+        if pooled
+            && (plan.kind != "confidentialSell"
+                || plan
+                    .legs_random
+                    .as_deref()
+                    .is_none_or(|r| r.len() != 64 || !r.bytes().all(|b| b.is_ascii_hexdigit())))
+        {
+            return Err(SignerError::InvalidInput);
+        }
         if let Some(weights) = &plan.weights {
             // A sell pays each return wallet its own holder's proceeds, so shares do not apply;
             // refusing them is better than showing a split the plan would never follow.
@@ -2257,8 +2408,13 @@ impl SwapOperation {
                 .holder_indices
                 .clone()
                 .ok_or(SignerError::InvalidInput)?;
-            // Each holder pairs with the return wallet of the same position.
-            if held.len() != legs || held.iter().any(|i| *i < FIRST_RECIPIENT) {
+            // A pooled sell sizes its payouts later from up to `legs` reserved wallets; an older
+            // sell pairs each holder with the return wallet of the same position.
+            if held.is_empty()
+                || held.len() > MAX_LEGS
+                || (!pooled && held.len() != legs)
+                || held.iter().any(|i| *i < FIRST_RECIPIENT)
+            {
                 return Err(SignerError::InvalidInput);
             }
             if sweep {
@@ -2269,7 +2425,7 @@ impl SwapOperation {
             } else {
                 let used: std::collections::HashSet<&u32> =
                     held.iter().chain(plan.recipient_indices.iter()).collect();
-                if used.len() != legs * 2 {
+                if used.len() != held.len() + legs {
                     return Err(SignerError::InvalidInput);
                 }
             }
@@ -2294,6 +2450,8 @@ impl SwapOperation {
             Some(held) => held.iter().map(|i| at(*i)).collect::<Result<Vec<_>, _>>()?,
             None => vec![Address::ZERO; legs],
         };
+        // One order per holder for a sell, per recipient otherwise.
+        let sales = holder_addrs.len();
         let recipient_addrs = plan
             .recipient_indices
             .iter()
@@ -2330,7 +2488,7 @@ impl SwapOperation {
             wait_until_ms: 0,
             data: Data {
                 payouts: vec![Payout::default(); legs],
-                orders: vec![Order::default(); legs],
+                orders: vec![Order::default(); sales],
                 ..Data::default()
             },
         };

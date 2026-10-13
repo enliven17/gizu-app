@@ -1,7 +1,7 @@
 //! How many wallets a swap spreads over and how big each share is.
 //!
-//! Only buys use it: a sell returns to its holder count and pays each return wallet its holder's
-//! own proceeds. Native code supplies fresh random bytes; this module turns them into a plan. The choice is made
+//! A buy chooses from its USDC budget. A sell chooses from its estimated proceeds once the sale
+//! is priced, from random bytes native code put in the plan. Native code supplies fresh random bytes; this module turns them into a plan. The choice is made
 //! once before review, written into the plan and shown to the user, so a restore or retry never
 //! rolls it again. The function is deterministic for given bytes, which keeps it testable.
 use crate::SignerError;
@@ -105,6 +105,25 @@ fn random_weights(count: u32, stream: &mut Stream) -> Vec<u32> {
     }
 }
 
+/// The budget (USDC atoms) picks the allowed counts, the random bytes pick one and the shares.
+/// `cap` bounds the count to the wallets the caller reserved.
+pub(crate) fn choose_for_budget(
+    budget: u64,
+    random: &[u8],
+    cap: u32,
+) -> Result<SwapLegChoice, SignerError> {
+    if cap == 0 {
+        return Err(SignerError::InvalidInput);
+    }
+    let mut stream = Stream::new(random)?;
+    let counts = buy_counts(budget);
+    let count = counts[stream.below(counts.len() as u64) as usize].min(cap);
+    Ok(SwapLegChoice {
+        count,
+        weights: random_weights(count, &mut stream),
+    })
+}
+
 /// A buy: the budget picks the allowed counts, the random bytes pick one and the shares.
 #[uniffi::export]
 pub fn choose_buy_legs(
@@ -117,13 +136,7 @@ pub fn choose_buy_legs(
     if budget == 0 {
         return Err(SignerError::InvalidInput);
     }
-    let mut stream = Stream::new(&random)?;
-    let counts = buy_counts(budget);
-    let count = counts[stream.below(counts.len() as u64) as usize];
-    Ok(SwapLegChoice {
-        count,
-        weights: random_weights(count, &mut stream),
-    })
+    choose_for_budget(budget, &random, u32::MAX)
 }
 
 #[cfg(test)]

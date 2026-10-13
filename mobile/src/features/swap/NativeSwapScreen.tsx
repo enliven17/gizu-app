@@ -3,13 +3,13 @@ import { useState } from "react";
 import { TextInput, View } from "react-native";
 import { ArrowDown } from "lucide-react-native";
 import { Button } from "@/components/atoms/Button";
-import { HoldingDetails } from "@/components/molecules/HoldingDetails";
 import { SwapTokenPicker } from "./SwapTokenPicker";
 import { SwapSellForm } from "./SwapSellForm";
 import { PressableScale } from "@/components/atoms/PressableScale";
 import { Typography } from "@/components/atoms/Typography";
 import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
+import { ActiveSwapCard, LastSwapButton, LastSwapSummary, isFinished } from "./SwapStatusPanel";
 import { Screen } from "@/components/templates/Screen";
 import { formatSwapAmount } from "@/domain/swap";
 import { groupDigits } from "@/domain/wallet/amounts";
@@ -19,6 +19,7 @@ import { useNativeSwap } from "./useNativeSwap";
 export function NativeSwapScreen() {
   const swap = useNativeSwap();
   const [mode, setMode] = useState<"buy" | "sell">("buy");
+  const [showLast, setShowLast] = useState(false);
   const wallet = useOptionalMainnetWallet();
   const maxAmount =
     wallet?.snapshot && wallet.snapshot.balanceComplete !== false
@@ -56,60 +57,22 @@ export function NativeSwapScreen() {
         if (!swap.busy) void swap.refresh();
       }}
     >
-      <View className="gap-1 pb-1">
-        <Typography variant="pageTitle" className="!text-[26px]">
+      <View className="flex-row items-start justify-between gap-3 pb-1">
+        <Typography variant="pageTitle" className="flex-1 !text-[26px]">
           Swap
         </Typography>
-        <Typography variant="micro">
-          {mode === "buy" ? "Buy tokens with USDC." : "Sell your tokens back to USDC."}
-        </Typography>
+        {isFinished(swap.status) ? (
+          <LastSwapButton
+            status={swap.status}
+            open={showLast}
+            onPress={() => setShowLast((value) => !value)}
+          />
+        ) : null}
       </View>
-      {swap.status ? (
-        <Surface>
-          <View className="gap-2 px-5 py-5">
-            <Typography variant="cardTitle">
-              {swap.status.phase === "COMPLETE"
-                ? "Swap completed"
-                : swap.status.phase === "CANCELLED"
-                  ? "Swap cancelled"
-                  : swap.status.phase === "PAUSED"
-                    ? "Swap paused"
-                    : "Swap in progress"}
-            </Typography>
-            <Typography variant="caption">
-              {swap.status.direction === "sell" ? "Selling" : "Buying"}{" "}
-              {swap.status.targetSymbol || "tokens"}
-            </Typography>
-            <HoldingDetails label="Swap details" accessibilityLabel="Swap details">
-              <Typography variant="micro">{swap.status.phase}</Typography>
-              <Typography variant="micro">
-                {swap.status.direction === "sell" ? "Sell" : "Buy"} ·{" "}
-                {swap.status.targetSymbol || "Target"} · step {swap.status.step || "—"}
-                {swap.status.pausedCode ? ` · ${swap.status.pausedCode}` : ""}
-              </Typography>
-              <Typography variant="micro">
-                Payouts {swap.status.payoutsSubmitted} · orders {swap.status.ordersComplete}
-              </Typography>
-              {/^[1-9]\d*$/.test(swap.status.creditedAtoms) ? (
-                <Typography variant="micro">
-                  Private balance · {formatSwapAmount(BigInt(swap.status.creditedAtoms))} USDC
-                </Typography>
-              ) : null}
-              {swap.status.returnAddresses.length > 0 ? (
-                <Typography variant="micro">
-                  Return wallets{"\n"}
-                  {swap.status.returnAddresses.join("\n")}
-                </Typography>
-              ) : null}
-            </HoldingDetails>
-          </View>
-        </Surface>
+      {isFinished(swap.status) && showLast ? (
+        <LastSwapSummary status={swap.status} canSell={swap.canSell} />
       ) : null}
-      {swap.canSell ? (
-        <Typography variant="micro">
-          Your purchased tokens are also available under Token holdings on Home.
-        </Typography>
-      ) : null}
+      {active && swap.status ? <ActiveSwapCard status={swap.status} /> : null}
       {!active && mode === "sell" && (
         <SwapSellForm flip={flip} onSettled={() => void swap.refresh()} />
       )}
@@ -195,16 +158,6 @@ export function NativeSwapScreen() {
         </View>
       ) : (
         <View className="gap-3">
-          {swap.canRecover ? (
-            <Button
-              label={
-                swap.busy ? "Working" : `Finish unfinished buys as ${selected?.symbol ?? "token"}`
-              }
-              variant="secondary"
-              onPress={swap.recover}
-              disabled={swap.busy}
-            />
-          ) : null}
           {swap.canPayout ? (
             <Button
               label={

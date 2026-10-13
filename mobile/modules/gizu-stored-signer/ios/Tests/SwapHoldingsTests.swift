@@ -5,7 +5,7 @@ import XCTest
 final class SwapHoldingsTests: WalletTestCase {
   private let token = "0x" + String(repeating: "1", count: 40)
   private let other = "0x" + String(repeating: "2", count: 40)
-  private let gateway = "https://gizu-backend.onrender.com"
+  private let gateway = "https://gizu-app.onrender.com"
   private func allocated(_ store: WalletStorage) throws -> WalletRecord {
     let initial = try record(verified: true)
     defer { initial.close() }
@@ -104,7 +104,9 @@ final class SwapHoldingsTests: WalletTestCase {
     let state = try saved.load()!["state"] as! String
     let plan = try swapObject(state)["plan"] as! [String: Any]
     XCTAssertEqual(plan["holderIndices"] as? [Int], [3, 4, 5])
-    XCTAssertEqual(plan["recipientIndices"] as? [Int], [6, 7, 8])
+    // Up to five fresh return wallets are reserved; the engine draws how many it pays.
+    XCTAssertEqual(plan["recipientIndices"] as? [Int], [6, 7, 8, 9, 10])
+    XCTAssertEqual((plan["legsRandom"] as? String)?.count, 64)
     let fresh = try store.load()
     defer { fresh.close() }
     let second = StoredSwapEngine(storage: store, saved: saved, gateway: gateway)

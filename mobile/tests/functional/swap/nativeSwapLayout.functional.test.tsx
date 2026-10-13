@@ -228,3 +228,149 @@ test("an approved swap that may have moved funds still offers only Resume", asyn
     view.unmount();
   }
 });
+
+const finished = (over: Record<string, unknown>) => ({
+  ...status,
+  targetSymbol: "AMZN",
+  direction: "buy",
+  ordersComplete: 2,
+  payoutsSubmitted: 2,
+  returnAddresses: [],
+  ...over,
+});
+
+test.each([
+  ["COMPLETE", "Last swap completed", /Bought AMZN/],
+  ["CANCELLED", "Last swap cancelled", /Swap cancelled/],
+])(
+  "a %s swap leaves the swap form in front and keeps its status behind an info button",
+  async (phase, label, summary) => {
+    readStatus.mockResolvedValue(finished({ phase }));
+    render(
+      <SafeAreaProvider>
+        <NativeSwapScreen />
+      </SafeAreaProvider>,
+    );
+    const info = await screen.findByRole("button", { name: label });
+    expect(screen.getByRole("button", { name: "Review swap" })).toBeVisible();
+    expect(screen.queryByText("Swap completed")).toBeNull();
+    expect(screen.queryByText("Swap cancelled")).toBeNull();
+    expect(screen.queryByText(summary)).toBeNull();
+    fireEvent.press(info);
+    expect(await screen.findByText(summary)).toBeVisible();
+    expect(screen.getByRole("button", { name: label, expanded: true })).toBeVisible();
+    fireEvent.press(screen.getByRole("button", { name: label }));
+    expect(screen.queryByText(summary)).toBeNull();
+  },
+);
+
+async function openSummary(label: string) {
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  fireEvent.press(await screen.findByRole("button", { name: label }));
+}
+
+test("a finished buy says what was paid, what arrived and how it was split, in plain words", async () => {
+  readStatus.mockResolvedValue(
+    finished({
+      phase: "COMPLETE",
+      sourceAtoms: "1997000",
+      receivedTargetAtoms: "2210000000000000",
+      targetDecimals: 18,
+      payoutsSubmitted: 2,
+      ordersComplete: 2,
+      legs: 2,
+    }),
+  );
+  await openSummary("Last swap completed");
+  expect(await screen.findByText("Bought 0.00221 AMZN")).toBeVisible();
+  expect(screen.getByText("You paid")).toBeVisible();
+  expect(screen.getByText("1.997 USDC")).toBeVisible();
+  expect(screen.getByText("Split across")).toBeVisible();
+  expect(screen.getByText("2 wallets")).toBeVisible();
+  expect(screen.queryByText(/payouts/i)).toBeNull();
+  expect(screen.queryByText(/orders/i)).toBeNull();
+});
+
+test("a swap cancelled before anything happened says nothing was bought", async () => {
+  readStatus.mockResolvedValue(
+    finished({ phase: "CANCELLED", ordersComplete: 0, payoutsSubmitted: 0 }),
+  );
+  await openSummary("Last swap cancelled");
+  expect(await screen.findByText("Swap cancelled")).toBeVisible();
+  expect(screen.getByText(/Nothing was bought and nothing is pending/)).toBeVisible();
+  expect(screen.queryByText("Finished")).toBeNull();
+});
+
+test("a swap cancelled partway reports how far it got", async () => {
+  readStatus.mockResolvedValue(
+    finished({
+      phase: "CANCELLED",
+      ordersComplete: 1,
+      payoutsSubmitted: 2,
+      legs: 3,
+      receivedTargetAtoms: "1000000000000000",
+      targetDecimals: 18,
+    }),
+  );
+  await openSummary("Last swap cancelled");
+  expect(await screen.findByText(/Stopped partway/)).toBeVisible();
+  expect(screen.getByText("1 of 3 wallets")).toBeVisible();
+  expect(screen.getByText("0.001 AMZN")).toBeVisible();
+});
+
+test("a finished sale names what was sold, where it went and tucks addresses away", async () => {
+  const address = "0x" + "c".repeat(40);
+  readStatus.mockResolvedValue(
+    finished({
+      phase: "COMPLETE",
+      direction: "sell",
+      ordersComplete: 2,
+      payoutsSubmitted: 2,
+      legs: 3,
+      returnAddresses: [address],
+    }),
+  );
+  await openSummary("Last swap completed");
+  expect(await screen.findByText("Sold AMZN")).toBeVisible();
+  expect(screen.getByText("2 of 3 wallets")).toBeVisible();
+  expect(screen.getByText("2 wallets on Monad")).toBeVisible();
+  expect(screen.queryByText(address)).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Wallet addresses" }));
+  expect(await screen.findByText(address)).toBeVisible();
+  expect(screen.getByText("0xcccc…cccc")).toBeVisible();
+});
+
+test("a swap that still needs attention keeps its prominent card and no info button", async () => {
+  readStatus.mockResolvedValue(finished({ phase: "PAUSED", pausedCode: "QUOTE_REJECTED" }));
+  render(
+    <SafeAreaProvider>
+      <NativeSwapScreen />
+    </SafeAreaProvider>,
+  );
+  expect(await screen.findByText("Swap paused")).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Last swap/ })).toBeNull();
+});
+
+test("a pooled sale reports how many wallets it sold from and how many it paid", async () => {
+  readStatus.mockResolvedValue(
+    finished({
+      phase: "COMPLETE",
+      direction: "sell",
+      ordersComplete: 3,
+      payoutsSubmitted: 2,
+      holders: 3,
+      legs: 2,
+      creditedAtoms: "29700000",
+    }),
+  );
+  await openSummary("Last swap completed");
+  expect(await screen.findByText("Sold AMZN")).toBeVisible();
+  expect(screen.getByText("3 of 3 wallets")).toBeVisible();
+  expect(screen.getByText("2 wallets on Monad")).toBeVisible();
+  expect(screen.getByText("Paid out")).toBeVisible();
+  expect(screen.getByText("29.7 USDC")).toBeVisible();
+});

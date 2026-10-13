@@ -100,18 +100,22 @@ internal final class StoredSwapEngine {
     try require(
       holders.count == 3 && Set(holders).count == 3 && holders.allSatisfy { owned.contains($0) })
     // A sell returns to as many fresh wallets as it sells from.
+    // Like a buy, a sell pays out to a randomly sized set of fresh wallets: reserve the most it
+    // can use and let the engine draw the count and shares once the sale is priced.
     let reserved: RecipientAllocation
     if Self.randomLegs {
-      reserved = try allocateSwapRecipientsN(
-        registry: record.roleRegistry, count: UInt32(holders.count))
+      reserved = try allocateSwapRecipientsN(registry: record.roleRegistry, count: 5)
     } else {
       reserved = try allocateSwapRecipients(registry: record.roleRegistry)
     }
     try storage.persistRegistry(reserved.registry, expectedId: record.id)
-    let next: [String: Any] = [
+    var next: [String: Any] = [
       "kind": "confidentialSell", "target": target, "holderIndices": holders,
       "recipientIndices": reserved.indices,
     ]
+    if Self.randomLegs {
+      next["legsRandom"] = try randomBytes(32).map { String(format: "%02x", $0) }.joined()
+    }
     fundingAddress = try deriveAccountAddressRange(entropy: record.entropy, start: 1, count: 1)
       .first
     operation = try SwapOperation.start(

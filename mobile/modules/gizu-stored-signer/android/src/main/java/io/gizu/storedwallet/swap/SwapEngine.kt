@@ -260,9 +260,10 @@ internal class SwapEngine(
       persist()
       return
     }
-    // A sell returns to as many fresh wallets as it sells from.
+    // Like a buy, a sell pays out to a randomly sized set of fresh wallets: reserve the most it
+    // can use and let the engine draw the count and shares once the sale is priced.
     val reserved =
-      if (RANDOM_LEGS) allocateSwapRecipientsN(record.roleRegistry, holders.length().toUInt())
+      if (RANDOM_LEGS) allocateSwapRecipientsN(record.roleRegistry, MAX_SALE_PAYOUTS)
       else allocateSwapRecipients(record.roleRegistry)
     store.persistRegistry(record.id, reserved.registry)
     val next =
@@ -271,6 +272,7 @@ internal class SwapEngine(
         .put("target", target)
         .put("holderIndices", holders)
         .put("recipientIndices", JSONArray(reserved.indices.map { it.toInt() }))
+    if (RANDOM_LEGS) next.put("legsRandom", randomBytes().joinToString("") { "%02x".format(it) })
     fundingAddress = deriveAccountAddressRange(record.entropy, 1u, 1u).single()
     operation = SwapOperation.start(next.toString(), record.entropy, gateway, now())
     persist()
@@ -707,6 +709,7 @@ internal class SwapEngine(
       "direction" to status.optString("direction", "buy"),
       "kind" to status.optString("kind", ""),
       "legs" to status.optInt("legs", 3),
+      "holders" to status.optInt("holders", status.optInt("legs", 3)),
       "approved" to status.optBoolean("approved"),
       "returnAddresses" to returnAddresses(),
       "fundingAddress" to checkNotNull(fundingAddress),
@@ -941,6 +944,9 @@ private constructor(
  * they sell from (sell). Turning this off restores the fixed three-wallet 30/30/40 plan.
  */
 private const val RANDOM_LEGS = true
+
+/** Most return wallets a sell may pay out to; the engine uses only as many as it draws. */
+private const val MAX_SALE_PAYOUTS = 5u
 
 private fun randomBytes(): ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
 

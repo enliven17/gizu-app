@@ -318,7 +318,7 @@ behavior; no simulator authentication bypass is included.
 ## Production builds and TestFlight distribution
 
 The `production` EAS profile builds **Gizu** with the production EAS environment
-and `https://gizu-backend.onrender.com` backend. iOS uses bundle ID `io.gizo.ios`,
+and `https://gizu-app.onrender.com` backend. iOS uses bundle ID `io.gizo.ios`,
 Apple team `588X2UZY3L` and App Store Connect app `6815255408`.
 `testflight` remains a compatibility alias of `production`, not a separate app.
 `preview` inherits the same configuration for internal distribution.

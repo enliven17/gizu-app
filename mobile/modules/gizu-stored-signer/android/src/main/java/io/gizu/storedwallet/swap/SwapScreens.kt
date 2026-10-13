@@ -252,6 +252,8 @@ internal object SwapScreens {
     val sell = view["direction"] == "sell"
     val kind = view["kind"] as? String ?: ""
     val legs = number(view, "legs", 3).coerceAtLeast(1)
+    // A sell sells from its holders and pays out to `legs` fresh wallets.
+    val sales = number(view, "holders", legs).coerceAtLeast(1)
     val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
     val badges = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -306,7 +308,7 @@ internal object SwapScreens {
       counter(context, paidLabel, number(view, "payoutsSubmitted"), legs)
     )
     counters.addView(
-      counter(context, filledLabel, number(view, "ordersComplete"), legs),
+      counter(context, filledLabel, number(view, "ordersComplete"), if (sell) sales else legs),
       params(context, 14),
     )
     if (kind == "debugSweep") counters.removeViewAt(0)
@@ -317,7 +319,7 @@ internal object SwapScreens {
       text(
         context,
         if (approved)
-          "Keep this screen open until it finishes. Leaving pauses the swap: nothing is cancelled and Resume continues from here."
+          "Keep this screen open until it finishes."
         else "Nothing is signed yet. Leaving now cancels this preparation.",
         13f,
       )

@@ -76,6 +76,11 @@ export type StoredSwapView = {
   /** Funds may be in flight once approved; the app pauses such operations, never cancels them. */
   approved: boolean;
   returnAddresses: string[];
+  /** How many wallets the swap spreads over; absent in states saved before it varied. */
+  legs?: number;
+  /** Holder wallets a sell sells from; differs from `legs` once a sell pools its proceeds. */
+  holders?: number;
+  kind?: string;
 };
 
 export type SwapHolding = {

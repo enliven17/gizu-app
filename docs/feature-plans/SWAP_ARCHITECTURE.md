@@ -93,8 +93,14 @@ deposit under 0.075 USDG and one rejected leg stops the whole operation. Each sh
 35%–65%. Shares are whole basis points and always add up exactly. The engine accepts one to
 five wallets and rejects plans outside that or with invalid weights.
 
-A sell uses as many return wallets as holder wallets and takes no weights: each return wallet
-receives the proceeds of its own holder (the engine rejects a sell plan that carries weights).
+A sell follows the same rule. Native code reserves up to five fresh return wallets and puts
+random bytes (`legsRandom`) in the plan. Once the sale is priced, the engine draws the payout
+count from the estimated proceeds with the table above and the shares with the same band, and
+drops the reserved wallets it does not need; the review shows the result. Every holder is sold
+and credited to C first, then C's pooled balance is split over the payouts, so no sale can be
+matched to one payout. Native code never sends weights for a sell. A sell saved before this
+change has no `legsRandom` and finishes the older way: each return wallet receives the proceeds
+of the holder in the same position.
 A buy from existing private balance has no budget to size from and keeps three wallets.
 
 Allocation reserves whole blocks of three indices and uses the first `count` of them, so every

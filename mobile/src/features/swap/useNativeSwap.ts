@@ -6,7 +6,6 @@ import {
   previewSwapOut,
   parseSwapView,
   sourceAtoms,
-  SWAP_RECOVERY_ENABLED,
   swapGateway,
   swapSigner,
   type ListedToken,
@@ -14,7 +13,7 @@ import {
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 
 type SwapAction =
-  "start" | "payout" | "recover" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
+  "start" | "payout" | "sell" | "resume" | "cancel" | "refresh" | "tokens" | "status";
 function diagnostic(action: SwapAction, outcome: "started" | "completed" | "failed") {
   if (__DEV__) console.info("[swap]", { action, outcome });
 }
@@ -156,16 +155,6 @@ export function useNativeSwap() {
     payout: () =>
       run("payout", async () => {
         setStatus(parseSwapView(await swapSigner().startPayout(target, swapGateway)));
-      }),
-    // Temporary recovery: no active operation to resume, and a token chosen for the leftover USDG.
-    canRecover:
-      SWAP_RECOVERY_ENABLED &&
-      (status === null || status.phase === "CANCELLED" || status.phase === "COMPLETE") &&
-      /^0x[0-9a-fA-F]{40}$/.test(target) &&
-      !busy,
-    recover: () =>
-      run("recover", async () => {
-        setStatus(parseSwapView(await swapSigner().startRecovery(target, swapGateway)));
       }),
     resume: () =>
       run("resume", async () =>

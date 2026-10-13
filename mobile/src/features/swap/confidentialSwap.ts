@@ -8,13 +8,6 @@ export const swapGateway =
 /** Native Swap represents each explicitly chosen budget as unsigned 64-bit USDC atoms. */
 export const MAX_SOURCE_ATOMS = (1n << 64n) - 1n;
 
-/**
- * Temporary: offers "finish unfinished buys" for recipient wallets an earlier operation left
- * holding USDG. Remove once operations keep their own leg history and cannot be replaced
- * while a leg is unfinished.
- */
-export const SWAP_RECOVERY_ENABLED = true;
-
 export type ListedToken = {
   address: string;
   symbol: string;
@@ -58,6 +51,9 @@ export function parseSwapView(value: unknown): StoredSwapView {
     returnAddresses: Array.isArray(view.returnAddresses)
       ? view.returnAddresses.filter((item): item is string => typeof item === "string")
       : [],
+    legs: typeof view.legs === "number" && view.legs > 0 ? view.legs : undefined,
+    holders: typeof view.holders === "number" && view.holders > 0 ? view.holders : undefined,
+    kind: typeof view.kind === "string" ? view.kind : undefined,
   };
 }
 

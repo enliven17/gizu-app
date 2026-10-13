@@ -59,6 +59,8 @@ struct World {
     dust_below: U256,
     /// Aurora refuses a USDG deposit under this many atoms as too small for the bridge.
     bridge_min: U256,
+    /// C accumulates every sale credit and each payout spends from it, as on mainnet.
+    pool_credit: bool,
     /// USDG a sale delivered to its receiver (an Aurora deposit or a sweep destination).
     delivered: HashMap<Address, U256>,
     target: HashMap<Address, U256>,
@@ -92,6 +94,7 @@ impl World {
             usdg: HashMap::new(),
             dust_below: U256::ZERO,
             bridge_min: U256::ZERO,
+            pool_credit: false,
             delivered: HashMap::new(),
             target: HashMap::new(),
             monad_usdc: HashMap::new(),
@@ -217,7 +220,11 @@ impl World {
                 let deposit = s(&message["intents"][0], "receiver_id");
                 if self.credited.insert(deposit.clone()) {
                     self.intents += 1;
-                    let (recipient, _, out, dest_usdg) = self.deposits[&deposit];
+                    let (recipient, spent, out, dest_usdg) = self.deposits[&deposit];
+                    if self.pool_credit {
+                        assert!(spent <= self.credit, "a payout spent more than C holds");
+                        self.credit -= spent;
+                    }
                     if dest_usdg {
                         *self.usdg.entry(recipient).or_default() += out;
                     } else {
@@ -398,7 +405,11 @@ impl World {
             } else {
                 amount - U256::from(20)
             };
-            self.credit = out;
+            if self.pool_credit && !destination {
+                self.credit += out;
+            } else {
+                self.credit = out;
+            }
             let recipient = request["recipient"].as_str().unwrap_or_default();
             let refund = request["refundTo"].as_str().unwrap_or_default();
             let mut seed = amount.to_be_bytes::<32>().to_vec();
@@ -2102,4 +2113,208 @@ fn a_sale_where_nothing_clears_the_bridge_minimum_stops_instead_of_completing_em
     );
     assert_eq!(world.orders, 0);
     assert_ne!(status(&sell)["phase"], "COMPLETE");
+}
+
+const RANDOM: &str = "11223344556677889900aabbccddeeff00112233445566778899aabbccddeeff";
+
+/// Holders 3, 4 and 5 hold `each` token wei; C pools credits like mainnet.
+fn pooled_world(each: u64) -> World {
+    let mut world = World::new();
+    world.credit_ready_ms = Some(T0);
+    world.pool_credit = true;
+    for i in [3u32, 4, 5] {
+        world.target.insert(addr(i), U256::from(each));
+    }
+    world
+}
+
+/// A sell from holders 3-5 that may pay out to up to five fresh wallets, 10-14.
+fn pooled_plan(random: &str) -> String {
+    json!({"kind": "confidentialSell", "target": AMZN.to_checksum(None),
+           "holderIndices": [3, 4, 5], "recipientIndices": [10, 11, 12, 13, 14],
+           "legsRandom": random})
+    .to_string()
+}
+
+#[test]
+fn a_pooled_sell_sells_everything_first_then_splits_the_pool_over_random_wallets() {
+    // 3 x 10 USDG of sales: the 20-100 USDC tier, so two or three payouts.
+    let (mut world, mut now) = (pooled_world(40_000_000_000_000_000), T0);
+    let sell = start_plan(pooled_plan(RANDOM));
+    let text = review(&sell, &mut world, &mut now);
+    let n = status(&sell)["legs"].as_u64().unwrap() as u32;
+    assert!((2..=3).contains(&n), "{n} payouts");
+    assert_eq!(status(&sell)["holders"], 3);
+    assert!(text.contains("All sales are pooled in C"), "{text}");
+    assert!(text.contains(&format!("Payout {n} of {n}")), "{text}");
+    assert!(!text.contains(&format!("Payout {} of", n + 1)));
+    for i in 10..10 + n {
+        assert!(
+            text.contains(&addr(i).to_checksum(None)),
+            "return {i} not shown"
+        );
+    }
+    for i in 10 + n..15 {
+        assert!(
+            !text.contains(&addr(i).to_checksum(None)),
+            "unused wallet {i} shown"
+        );
+    }
+    assert_eq!(
+        (world.orders, world.intents),
+        (0, 0),
+        "nothing is signed before approval"
+    );
+
+    sell.approve(now).unwrap();
+    // Every sale is banked before the first payout is signed.
+    let step = drive_until(&sell, &mut world, &mut now, |url| {
+        url.contains("generate-intent")
+    });
+    assert!(matches!(step, SwapStep::Request { .. }));
+    assert_eq!((world.orders, world.intents), (3, 0));
+    let pooled = world.credit;
+
+    assert_eq!(drive(&sell, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(status(&sell)["phase"], "COMPLETE");
+    assert_eq!(status(&sell)["ordersComplete"], 3);
+    assert_eq!(status(&sell)["payoutsSubmitted"], n);
+    assert_eq!(world.intents, n as usize);
+    for i in [3u32, 4, 5] {
+        assert!(world.target[&addr(i)].is_zero(), "holder {i} still holds");
+    }
+    let paid: Vec<U256> = (10..10 + n).map(|i| world.monad_usdc[&addr(i)]).collect();
+    assert!(paid.iter().all(|p| !p.is_zero()));
+    for i in 10 + n..15 {
+        assert!(world.monad_usdc.get(&addr(i)).is_none_or(|v| v.is_zero()));
+    }
+    // The whole pool was split and nothing is left behind in C.
+    assert!(world.credit.is_zero(), "{} left in C", world.credit);
+    assert!(paid.iter().fold(U256::ZERO, |a, b| a + *b) <= pooled);
+    // Shares are not equal: the payouts differ.
+    assert!(paid.windows(2).any(|w| w[0] != w[1]), "{paid:?}");
+}
+
+#[test]
+fn a_small_pooled_sell_pays_one_wallet() {
+    // 3 x 1 USDG: under 5 USDC, so one payout.
+    let (mut world, mut now) = (pooled_world(4_000_000_000_000_000), T0);
+    let sell = start_plan(pooled_plan(RANDOM));
+    let text = review(&sell, &mut world, &mut now);
+    assert_eq!(status(&sell)["legs"], 1);
+    assert!(text.contains("Payout 1 of 1 (100)"), "{text}");
+    sell.approve(now).unwrap();
+    assert_eq!(drive(&sell, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(world.intents, 1);
+    assert!(!world.monad_usdc[&addr(10)].is_zero());
+}
+
+#[test]
+fn pooled_sells_draw_different_wallet_counts_from_different_random_bytes() {
+    let mut counts = std::collections::HashSet::new();
+    for seed in 0u8..16 {
+        let (mut world, mut now) = (pooled_world(40_000_000_000_000_000), T0);
+        let random = hex::encode([seed; 32]);
+        let sell = start_plan(pooled_plan(&random));
+        review(&sell, &mut world, &mut now);
+        counts.insert(status(&sell)["legs"].as_u64().unwrap());
+    }
+    assert_eq!(counts, [2u64, 3].into_iter().collect());
+}
+
+#[test]
+fn a_pooled_sell_skips_a_dust_wallet_and_still_pays_out_the_rest() {
+    let mut world = pooled_world(40_000_000_000_000_000);
+    world.dust_below = U256::from(100_000_000_000_000u64);
+    world
+        .target
+        .insert(addr(4), U256::from(1_000_000_000_000u64));
+    let mut now = T0;
+    let sell = start_plan(pooled_plan(RANDOM));
+    let text = review(&sell, &mut world, &mut now);
+    assert!(!text.contains("TOO SMALL") || text.contains(&addr(4).to_checksum(None)));
+    sell.approve(now).unwrap();
+    assert_eq!(drive(&sell, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(status(&sell)["ordersComplete"], 2);
+    assert_eq!(world.target[&addr(4)], U256::from(1_000_000_000_000u64));
+    assert!(world.credit.is_zero());
+}
+
+#[test]
+fn a_pooled_sell_where_nothing_can_be_banked_stops_before_any_payout() {
+    let mut world = pooled_world(40_000_000_000_000_000);
+    world.bridge_min = U256::from(u64::MAX);
+    let mut now = T0;
+    let sell = start_plan(pooled_plan(RANDOM));
+    review(&sell, &mut world, &mut now);
+    sell.approve(now).unwrap();
+    assert_eq!(
+        drive(&sell, &mut world, &mut now),
+        SwapStep::Paused {
+            code: "NOTHING_SELLABLE".into()
+        }
+    );
+    assert_eq!((world.orders, world.intents), (0, 0));
+}
+
+#[test]
+fn a_pooled_sell_restored_between_sales_and_payouts_finishes_after_unlock() {
+    let (mut world, mut now) = (pooled_world(40_000_000_000_000_000), T0);
+    let sell = start_plan(pooled_plan(RANDOM));
+    review(&sell, &mut world, &mut now);
+    sell.approve(now).unwrap();
+    drive_until(&sell, &mut world, &mut now, |url| url.contains("auth-salt"));
+    let n = status(&sell)["legs"].clone();
+    let restored = SwapOperation::restore(sell.export_state().unwrap(), GATEWAY.into()).unwrap();
+    assert_eq!(
+        status(&restored)["legs"],
+        n,
+        "the drawn count survives a restore"
+    );
+    assert!(matches!(
+        drive(&restored, &mut world, &mut now),
+        SwapStep::Unlock
+    ));
+    restored.unlock(ENTROPY.to_vec(), now).unwrap();
+    assert_eq!(drive(&restored, &mut world, &mut now), SwapStep::Finished);
+    assert_eq!(world.orders, 3, "no sale was repeated");
+    assert!(world.credit.is_zero());
+}
+
+#[test]
+fn sell_plans_validate_their_randomness_and_wallet_counts() {
+    let bad = |plan: String| {
+        assert!(
+            SwapOperation::start(plan.clone(), ENTROPY.to_vec(), GATEWAY.into(), T0).is_err(),
+            "{plan}"
+        )
+    };
+    let mut p: Value = serde_json::from_str(&pooled_plan(RANDOM)).unwrap();
+    p["legsRandom"] = json!("zz");
+    bad(p.to_string());
+    p["legsRandom"] = json!(&RANDOM[..62]);
+    bad(p.to_string());
+    // Randomness belongs to sells only.
+    let mut buy: Value = serde_json::from_str(&plan(Some("2000000"))).unwrap();
+    buy["legsRandom"] = json!(RANDOM);
+    bad(buy.to_string());
+    let mut sweep = sweep_plan(&[3, 4, 5], Some(SWEEP_TO));
+    sweep["legsRandom"] = json!(RANDOM);
+    bad(sweep.to_string());
+    // Holders and return wallets may not overlap; shares are drawn by the engine, not given.
+    let mut p: Value = serde_json::from_str(&pooled_plan(RANDOM)).unwrap();
+    p["recipientIndices"] = json!([5, 11, 12]);
+    bad(p.to_string());
+    let mut p: Value = serde_json::from_str(&pooled_plan(RANDOM)).unwrap();
+    p["weights"] = json!([1, 1, 1, 1, 1]);
+    bad(p.to_string());
+    // An older sell without randomness still needs one return wallet per holder.
+    bad(
+        json!({"kind": "confidentialSell", "target": AMZN.to_checksum(None),
+               "holderIndices": [3, 4, 5], "recipientIndices": [10, 11]})
+        .to_string(),
+    );
+    assert!(
+        SwapOperation::start(pooled_plan(RANDOM), ENTROPY.to_vec(), GATEWAY.into(), T0).is_ok()
+    );
 }

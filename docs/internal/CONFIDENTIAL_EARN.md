@@ -40,7 +40,7 @@ Verification for this stage: 51 Swift simulator tests, 148 Rust tests with stric
 
 ## Runtime and deployment
 
-The hosted native API is `https://gizu-backend.onrender.com`; JavaScript uses `EXPO_PUBLIC_API_URL`. JavaScript updates load through Metro in the development app; native API changes require rebuilding and installing the APK. Local backend changes do not alter Render until deployed.
+The hosted native API is `https://gizu-app.onrender.com`; JavaScript uses `EXPO_PUBLIC_API_URL`. JavaScript updates load through Metro in the development app; native API changes require rebuilding and installing the APK. Local backend changes do not alter Render until deployed.
 
 For the requested pre-deployment phone test, `-PgizuEarnBackend=usb` builds Android debug with a fixed native `http://127.0.0.1:3000` backend. Set Metro's `EXPO_PUBLIC_API_URL` to the same origin and reverse ports 3000 and 8081 over USB. This is compile-time local testing; JavaScript cannot select a native endpoint. Omitting the property keeps the hosted backend; release always uses the hosted HTTPS backend. See [native USB setup](NATIVE_SIGNER_EARN.md#android-usb-backend-test-build).
 
