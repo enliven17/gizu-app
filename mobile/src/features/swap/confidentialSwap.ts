@@ -1,7 +1,13 @@
 import { parseSwapAmount } from "@/domain/swap";
 import type { StoredSwapView } from "@/domain/wallet/storedSigner";
 import { getStoredSwapSigner } from "@/services/wallet/nativeBridge";
-import { demoQuoteOut, demoSwapBridge, demoTokens, swapDemoEnabled } from "./demo/swapDemo";
+import {
+  demoQuoteOut,
+  demoSaleOut,
+  demoSwapBridge,
+  demoTokens,
+  swapDemoEnabled,
+} from "./demo/swapDemo";
 
 export const swapGateway =
   process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? "http://127.0.0.1:3000" : "");
@@ -107,6 +113,36 @@ export async function previewSwapOut(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ wallet, dstToken: target, amount: sourceAtomsValue, preset: "fast" }),
+  });
+  if (!response.ok) throw new Error("Estimate unavailable.");
+  const body = (await response.json()) as { marketOut?: unknown };
+  if (typeof body.marketOut !== "string" || !/^\d+$/.test(body.marketOut))
+    throw new Error("Estimate unavailable.");
+  return body.marketOut;
+}
+
+/** Robinhood USDG, the stable a sale settles into before it becomes Monad USDC. */
+const ROBINHOOD_USDG = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168";
+/** Any well-formed address: a price preview does not depend on the wallet. */
+const PREVIEW_WALLET = "0x000000000000000000000000000000000000dEaD";
+
+/** Market estimate, in USDC atoms, of selling `tokenAtoms` of `target` (before route fees). */
+export async function previewSaleOut(
+  target: string,
+  tokenAtoms: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  if (swapDemoEnabled()) return demoSaleOut(target, BigInt(tokenAtoms)).toString();
+  const response = await fetchImpl(`${swapGateway}/v1/swap/fusion/preview`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      wallet: PREVIEW_WALLET,
+      srcToken: target,
+      dstToken: ROBINHOOD_USDG,
+      amount: tokenAtoms,
+      preset: "fast",
+    }),
   });
   if (!response.ok) throw new Error("Estimate unavailable.");
   const body = (await response.json()) as { marketOut?: unknown };
