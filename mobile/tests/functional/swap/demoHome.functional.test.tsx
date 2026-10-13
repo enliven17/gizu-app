@@ -7,6 +7,7 @@ import {
 } from "@/features/wallet/MainnetWalletProvider";
 import { demoPortfolioSnapshot, demoSwapBridge, swapDemo } from "@/features/swap/demo/swapDemo";
 import type { MainnetWalletSession } from "@/services/access";
+import { demoVaults } from "@/services/demo/vaults";
 
 jest.mock("@/services/wallet/nativeBridge", () => ({
   getStoredSwapSigner: jest.fn(() => {
@@ -57,9 +58,11 @@ beforeEach(() => {
   process.env.EXPO_PUBLIC_SWAP_DEMO = "1";
   jest.useFakeTimers();
   swapDemo.reset();
+  demoVaults.reset();
 });
 afterEach(() => {
   swapDemo.reset();
+  demoVaults.reset();
   jest.useRealTimers();
   delete process.env.EXPO_PUBLIC_SWAP_DEMO;
 });
@@ -95,4 +98,21 @@ test("the demo snapshot passes the same validation as a native one", async () =>
   const snapshot = demoPortfolioSnapshot(session.walletId!, session.address);
   expect(() => validateMainnetPortfolio(snapshot, session.walletId)).not.toThrow();
   expect(snapshot.ownedAssets).toHaveLength(1);
+});
+
+test("the sample portfolio is valid and seeded stocks are sellable through the demo bridge", async () => {
+  swapDemo.reset(undefined, { sampleHoldings: true });
+  const snapshot = demoPortfolioSnapshot(session.walletId!, session.address);
+  expect(() => validateMainnetPortfolio(snapshot, session.walletId)).not.toThrow();
+  expect(snapshot.ownedAssets?.map((asset) => asset.symbol)).toEqual(["AMZN", "AAPL", "NVDA"]);
+  expect(snapshot.positions).toHaveLength(4);
+  expect(snapshot.positions?.every((position) => position.valueUsdcAtoms === "250000000")).toBe(
+    true,
+  );
+  const holdings = await demoSwapBridge.getSwapHoldings("");
+  expect(holdings.holdings.map((holding) => holding.symbol)).toEqual(["AMZN", "AAPL", "NVDA"]);
+  await complete(demoSwapBridge.sellSwapHolding(`${AMZN.toLowerCase()}:demo`, ""));
+  const after = demoPortfolioSnapshot(session.walletId!, session.address);
+  expect(after.ownedAssets?.map((asset) => asset.symbol)).toEqual(["AAPL", "NVDA"]);
+  expect(BigInt(after.totalAtoms)).toBeGreaterThan(250000000n);
 });

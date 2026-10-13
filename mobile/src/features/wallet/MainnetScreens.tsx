@@ -28,6 +28,8 @@ import { VaultPreview } from "@/features/investments/components/VaultPreview";
 import { SwapHoldingsSection, holdingAmount } from "@/features/swap/SwapHoldingsSection";
 import { useMainnetWallet } from "./MainnetWalletProvider";
 import { BalanceCard } from "./BalanceCard";
+import { demoModeEnabled } from "@/config/demo";
+import { demoVaultMetadata } from "@/services/demo/opportunities";
 
 function usePortfolio() {
   const wallet = useMainnetWallet();
@@ -157,6 +159,7 @@ function OwnedBalanceRow({
   asset: OwnedPortfolioAsset | OwnedPortfolioPosition;
   position?: boolean;
 }) {
+  const demoVault = position && demoModeEnabled() ? demoVaultMetadata(asset.assetId) : undefined;
   const estimated = position && "conversionEstimated" in asset && asset.conversionEstimated;
   const amount =
     position && "underlyingAtoms" in asset ? asset.underlyingAtoms : asset.balanceAtoms;
@@ -167,8 +170,12 @@ function OwnedBalanceRow({
     : asset.observedAtoms;
   return (
     <View className="gap-2 rounded-2xl bg-well p-4">
-      <Typography variant="rowTitle">{asset.symbol}</Typography>
-      {position && <Typography variant="micro">Vault position</Typography>}
+      <Typography variant="rowTitle">{demoVault?.name ?? asset.symbol}</Typography>
+      {position && (
+        <Typography variant="micro">
+          {demoVault ? `${demoVault.protocol.name} · ${demoVault.chain.name}` : "Vault position"}
+        </Typography>
+      )}
       <Typography>
         {asset.complete && amount !== null && asset.decimals !== null
           ? `${estimated ? "Estimated underlying: " : ""}${holdingAmount(amount, asset.decimals)} ${asset.symbol}`
@@ -188,9 +195,11 @@ function OwnedBalanceRow({
         accessibilityLabel={`${asset.symbol} ${position ? "position" : "holding"} details`}
       >
         <Typography variant="micro">Chain {asset.chainId}</Typography>
-        <Typography variant="micro" selectable>
-          {asset.token}
-        </Typography>
+        {asset.token && (
+          <Typography variant="micro" selectable>
+            {asset.token}
+          </Typography>
+        )}
         {!asset.complete &&
           typeof observedAmount === "string" &&
           observedAmount !== "0" &&

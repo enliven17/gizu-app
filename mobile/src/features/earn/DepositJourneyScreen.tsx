@@ -13,6 +13,8 @@ import { formatUsdc } from "@/domain/wallet/amounts";
 import { protocolLogo } from "@/features/opportunities/protocolLogos";
 import { depositPauseCopy, useDepositJourney } from "./useDepositJourney";
 import colors from "@/theme/colors.json";
+import { demoModeEnabled } from "@/config/demo";
+import { DemoDepositScreen } from "./demo/DemoDepositScreen";
 const stages = [
   ["funding", "Convert USDC to private balance"],
   ["credit", "Verify confidential credit"],
@@ -36,6 +38,26 @@ function shareAmount(atoms: string, decimals: number) {
   return p.slice(0, -decimals) + (fraction ? "." + fraction : "");
 }
 export function DepositJourneyScreen({
+  profileId,
+  savedJourneyId,
+}: {
+  profileId: EarnProfileId;
+  savedJourneyId?: string;
+}) {
+  return demoModeEnabled() ? (
+    <DemoDepositScreen
+      vaultId={
+        profileId === "robinhood-usdg" ? "demo-morpho-steakhouse-usdg" : "demo-morpho-pendle-usdc"
+      }
+      vaultName={profileId === "robinhood-usdg" ? "Steakhouse USDG" : "Pendle USDC"}
+      protocolName="Morpho"
+    />
+  ) : (
+    <NativeDepositJourneyScreen profileId={profileId} savedJourneyId={savedJourneyId} />
+  );
+}
+
+function NativeDepositJourneyScreen({
   profileId,
   savedJourneyId,
 }: {
@@ -96,10 +118,6 @@ export function DepositJourneyScreen({
                 : v.balanceUnavailable || v.balance === null
                   ? "Available USDC is unavailable. Refresh your wallet before investing."
                   : `Available: ${v.balance} USDC`}
-            </Typography>
-            <Typography variant="caption">
-              Two fresh wallets are created for this investment. The 10/90 split applies to verified
-              private credit after source fees.
             </Typography>
           </View>
         </Surface>

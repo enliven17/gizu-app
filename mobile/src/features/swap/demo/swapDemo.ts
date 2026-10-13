@@ -5,15 +5,14 @@ import type {
   SwapHoldingsSnapshot,
 } from "@/domain/wallet/storedSigner";
 import type { StoredSwapBridge } from "@/services/wallet/nativeBridge";
+import { demoVaults } from "@/services/demo/vaults";
 
 /**
  * Swap demo mode (`EXPO_PUBLIC_SWAP_DEMO=1`). Every swap flow runs against this in-memory
  * simulation instead of the native signer: no network, no funds, no passkey. It follows the real
  * rules (wallet count by amount, 70-130% shares, pooled sells) so a demo shows what users get.
  */
-export function swapDemoEnabled(): boolean {
-  return process.env.EXPO_PUBLIC_SWAP_DEMO === "1";
-}
+export { demoModeEnabled as swapDemoEnabled } from "@/config/demo";
 
 const USDC = 1_000_000n;
 const TOKEN = 10n ** 18n;
@@ -137,16 +136,31 @@ type Run = {
 };
 type Holding = { atoms: bigint; wallets: string[] };
 
+function sampleHoldings(): Map<string, Holding> {
+  const result = new Map<string, Holding>();
+  for (const [symbol, atoms] of [
+    ["AMZN", 1_250_000_000_000_000_000n],
+    ["AAPL", 800_000_000_000_000_000n],
+    ["NVDA", 3_000_000_000_000_000_000n],
+  ] as const) {
+    const token = demoTokens.find((entry) => entry.symbol === symbol)!;
+    result.set(token.address, { atoms, wallets: [freshAddress(), freshAddress()] });
+  }
+  return result;
+}
+
 type HistoryRow = MainnetPortfolioSnapshot["history"][number];
 const state = {
   usdcAtoms: STARTING_USDC,
-  holdings: new Map<string, Holding>(),
+  holdings: sampleHoldings(),
   history: [] as HistoryRow[],
   status: null as StoredSwapView | null,
   sheet: null as DemoSheet,
   run: null as Run | null,
 };
 const listeners = new Set<() => void>();
+const vaultWithdrawalCredits = new Set<string>();
+const vaultDepositDebits = new Set<string>();
 let version = 0;
 const emit = () => {
   version++;
@@ -164,11 +178,29 @@ export const swapDemo = {
   sheet: () => state.sheet,
   status: () => state.status,
   usdcAtoms: () => state.usdcAtoms,
-  /** Back to a fresh wallet; tests and the demo's own reset use it. */
-  reset(usdcAtoms: bigint = STARTING_USDC) {
+  /** Credit a simulated vault withdrawal once, so Home and Swap show the same cash balance. */
+  creditVaultWithdrawal(id: string, amountAtoms: bigint) {
+    if (amountAtoms <= 0n) throw new Error("Invalid demo withdrawal credit.");
+    if (vaultWithdrawalCredits.has(id)) return;
+    vaultWithdrawalCredits.add(id);
+    state.usdcAtoms += amountAtoms;
+    emit();
+  },
+  debitVaultDeposit(id: string, amountAtoms: bigint) {
+    if (vaultDepositDebits.has(id)) return;
+    if (amountAtoms <= 0n || amountAtoms > state.usdcAtoms)
+      throw new Error("Not enough demo USDC for this deposit.");
+    vaultDepositDebits.add(id);
+    state.usdcAtoms -= amountAtoms;
+    emit();
+  },
+  /** Tests can start empty; sampleHoldings restores the populated demo-day portfolio. */
+  reset(usdcAtoms: bigint = STARTING_USDC, options: { sampleHoldings?: boolean } = {}) {
     if (state.run?.timer) clearTimeout(state.run.timer);
     state.usdcAtoms = usdcAtoms;
-    state.holdings.clear();
+    state.holdings = options.sampleHoldings ? sampleHoldings() : new Map<string, Holding>();
+    vaultWithdrawalCredits.clear();
+    vaultDepositDebits.clear();
     state.history = [];
     state.status = null;
     state.sheet = null;
@@ -487,9 +519,9 @@ export function demoValue(target: string, tokenAtoms: bigint): bigint {
 }
 
 /**
- * Home's portfolio in demo mode, built from the simulated swaps: Total balance is the demo USDC
- * balance (it falls on a buy and rises on a sell) and every bought stock appears under Tokens and
- * vault positions with its demo value. It passes the same validation as a native snapshot.
+ * Home's sample holdings and simulated buys/sells share one cash and token store.
+ * Vault values come from the same account-scoped store used for demo withdrawals.
+ * Total balance is available USDC; invested assets are listed separately.
  */
 export function demoPortfolioSnapshot(walletId: string, address: string): MainnetPortfolioSnapshot {
   const now = Date.now();
@@ -525,7 +557,7 @@ export function demoPortfolioSnapshot(walletId: string, address: string): Mainne
     syncPending: false,
     confidentialReadState: "ready",
     ownedAssets,
-    positions: [],
+    positions: demoVaults.portfolioPositions({ walletId, address }),
     valuationComplete: true,
     ownedBalanceComplete: true,
     ownedStale: false,

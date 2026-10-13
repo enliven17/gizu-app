@@ -88,6 +88,7 @@ function TokenChoices({
       noun="tokens"
       unavailableMessage="Token catalog unavailable. Please retry."
       emptyMessage="No tokens found."
+      fixedHeader
       header={
         <>
           <View className="flex-row items-center justify-between gap-3">

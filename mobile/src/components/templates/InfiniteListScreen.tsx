@@ -13,6 +13,7 @@ export function InfiniteListScreen<T>({
   list,
   queryKey,
   header,
+  fixedHeader = false,
   renderItem,
   getIdentity,
   layout = "list",
@@ -23,6 +24,7 @@ export function InfiniteListScreen<T>({
   list: InfiniteListState<T>;
   queryKey: string;
   header: ReactElement;
+  fixedHeader?: boolean;
   renderItem: (item: T, index: number) => ReactElement;
   getIdentity: (item: T) => string;
   layout?: "list" | "grid" | "responsive-grid";
@@ -45,6 +47,7 @@ export function InfiniteListScreen<T>({
   const cellClass = layout === "list" ? "w-full" : layout === "grid" ? "w-1/2" : "w-full xs:w-1/2";
   return (
     <ScreenFrame>
+      {fixedHeader && <View className="gap-4 px-5 pb-4 pt-4">{header}</View>}
       <FlatList
         className="flex-1"
         ref={ref}
@@ -60,11 +63,11 @@ export function InfiniteListScreen<T>({
             ))}
           </View>
         )}
-        contentContainerClassName="grow px-5 py-4"
+        contentContainerClassName={fixedHeader ? "grow px-5 pb-4" : "grow px-5 py-4"}
         contentContainerStyle={
           bottomPadding === undefined ? undefined : { paddingBottom: bottomPadding }
         }
-        ListHeaderComponent={<View className="gap-4 pb-4">{header}</View>}
+        ListHeaderComponent={fixedHeader ? undefined : <View className="gap-4 pb-4">{header}</View>}
         ListEmptyComponent={
           list.loading ? (
             layout === "list" ? (

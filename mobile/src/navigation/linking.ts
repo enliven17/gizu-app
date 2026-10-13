@@ -8,6 +8,7 @@ export function createLinking(signedIn: boolean): LinkingOptions<RootStackParamL
         Welcome: "",
         VaultDetail: "vault/:id",
         OpportunityDetail: "opportunity/:id",
+        VaultWithdraw: "opportunity/:opportunityId/withdraw",
         Activity: "activity",
         Earn: "earn",
         EarnInvestment: "earn/investment/:intentId",
