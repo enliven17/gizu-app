@@ -22,7 +22,7 @@ const config: ExpoConfig = {
     bundleIdentifier: identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "10",
+    buildNumber: "11",
     infoPlist: {
       GizuWalletEnabled: release,
       // Standard cryptography only; France is excluded from distribution (see README).

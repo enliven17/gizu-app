@@ -41,18 +41,16 @@ function native() {
 afterEach(() => jest.restoreAllMocks());
 test("returns advertise balance settlement only when the native build explicitly supports it", async () => {
   for (const supported of [false, true]) {
-    jest
-      .mocked(getSignerCapabilities)
-      .mockResolvedValueOnce({
-        contractVersion: 1,
-        available: true,
-        walletStorage: true,
-        backup: true,
-        transfers: false,
-        swaps: false,
-        earnDepositJourney: true,
-        earnBalanceDeltaSettlement: supported,
-      });
+    jest.mocked(getSignerCapabilities).mockResolvedValueOnce({
+      contractVersion: 1,
+      available: true,
+      walletStorage: true,
+      backup: true,
+      transfers: false,
+      swaps: false,
+      earnDepositJourney: true,
+      earnBalanceDeltaSettlement: supported,
+    });
     const b = native();
     jest.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
       const body = JSON.parse(String(init?.body));
