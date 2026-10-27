@@ -26,6 +26,7 @@ const periodNames: Record<BalancePeriod, string> = {
 };
 const usd = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const dateLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 /** Flat line while there are fewer than two observations; nothing is invented. */
 const flat = [0, 0];
 
@@ -49,6 +50,11 @@ export function BalanceCard({
   const [period, setPeriod] = useState<BalancePeriod>("1M");
   const history = useBalanceHistory(snapshot);
   const series = balanceSeries(history, period, snapshot.checkedAt);
+  // Same window as balanceSeries, so labels line up with plotted samples.
+  const since = snapshot.checkedAt - balancePeriods[period] * 86_400_000;
+  const dates = history
+    .filter((point) => point.at >= since)
+    .map((point) => dateLabel.format(new Date(point.at)));
   const change = balanceChange(series);
   const up = !change || change.delta >= 0;
   const total = holdingAmount(snapshot.totalAtoms, 6);
@@ -131,6 +137,7 @@ export function BalanceCard({
                 up={up}
                 revealKey={period}
                 format={(value) => `$${usd.format(value)}`}
+                labels={series.length >= 2 ? dates : undefined}
               />
             </View>
             <Typography variant="micro">
