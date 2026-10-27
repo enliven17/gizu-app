@@ -19,6 +19,7 @@ import { useAccount } from "./AccountProvider";
 import { WalletBackupAction } from "./WalletBackupAction";
 import { SettingsGroup } from "./components/SettingsGroup";
 import { AccountInitials } from "./components/AccountInitials";
+import { AmbientMotionRow } from "./components/AmbientMotionRow";
 import type { AccountPage } from "./pages";
 
 type Row = { page: AccountPage; label: string; icon: LucideIcon };
@@ -103,6 +104,9 @@ export function AccountScreen({ navigation }: BottomTabScreenProps<MainTabParamL
           ))}
         </SettingsGroup>
       ))}
+      <SettingsGroup title="Display" delay={sectionDelay(groups.length + 2)}>
+        <AmbientMotionRow />
+      </SettingsGroup>
       {native && session.walletId && (
         <FadeIn delay={sectionDelay(groups.length + 2)} className="mt-3">
           <WalletBackupAction />
