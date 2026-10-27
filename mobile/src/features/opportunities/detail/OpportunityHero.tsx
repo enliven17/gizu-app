@@ -1,6 +1,7 @@
 import { Image, Text, View, useWindowDimensions } from "react-native";
 import { Button } from "@/components/atoms/Button";
 import { Typography } from "@/components/atoms/Typography";
+import { Notice } from "@/components/molecules/Notice";
 import { Surface } from "@/components/molecules/Surface";
 import type { OpportunityDetail } from "@/domain/opportunities";
 import { catalogEarnProfile } from "@/domain/earn/catalog";
@@ -103,15 +104,25 @@ export function OpportunityHero({
         {(!opportunity.featured || depositAvailable) && (
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <Button label="Deposit" disabled={!depositAvailable} onPress={onDeposit} />
+              <Button
+                label="Deposit"
+                variant={depositAvailable ? "primary" : "secondary"}
+                disabled={!depositAvailable}
+                onPress={onDeposit}
+              />
             </View>
             <View className="flex-1">
-              <Button label="Withdraw" variant="secondary" onPress={onWithdraw} />
+              {/* The available action leads when deposits are off. */}
+              <Button
+                label="Withdraw"
+                variant={depositAvailable ? "secondary" : "primary"}
+                onPress={onWithdraw}
+              />
             </View>
           </View>
         )}
         {!depositAvailable && !opportunity.featured && (
-          <Typography variant="micro">In-app deposits are not supported for this vault.</Typography>
+          <Notice message="In-app deposits are not supported for this vault." />
         )}
       </View>
     </Surface>
