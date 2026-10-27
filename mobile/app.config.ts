@@ -22,7 +22,7 @@ const config: ExpoConfig = {
     bundleIdentifier: identity.iosBundleIdentifier,
     appleTeamId: identity.appleTeamId,
     supportsTablet: false,
-    buildNumber: "11",
+    buildNumber: "12",
     infoPlist: {
       GizuWalletEnabled: release,
       // Standard cryptography only; France is excluded from distribution (see README).
@@ -30,7 +30,7 @@ const config: ExpoConfig = {
     },
     associatedDomains: [`webcredentials:${identity.rpId}`],
   },
-  android: { package: identity.androidPackage, versionCode: 8 },
+  android: { package: identity.androidPackage, versionCode: 9 },
   plugins: [
     [
       "expo-splash-screen",
