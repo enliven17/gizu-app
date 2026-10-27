@@ -340,6 +340,11 @@ For other hosts, set `EXPO_PUBLIC_API_URL` to a reachable backend URL and restar
 
 ### Swap demo mode
 
+For packaged demo releases, use EAS profile `demo` for the Android store AAB and
+`demo-preview` for the iOS ad hoc IPA. Both explicitly set `EXPO_PUBLIC_SWAP_DEMO=1`
+and inherit the release signing identity and remote backend configuration. Build
+with `EXPO_NO_DOTENV=1` so local `.env` files cannot change the packaged mode.
+
 Set `EXPO_PUBLIC_SWAP_DEMO=1` in `.env` and restart Metro to demo every swap flow without funds:
 buy (estimate, review, simulated passkey, step-by-step progress, result), sell from Swap or from
 Home holdings, Continue in background, and cancel. It starts from a simulated 250 USDC balance,

@@ -27,6 +27,16 @@
       "extends": "production",
       "distribution": "internal"
     },
+    "demo": {
+      "extends": "production",
+      "env": {
+        "EXPO_PUBLIC_SWAP_DEMO": "1"
+      }
+    },
+    "demo-preview": {
+      "extends": "demo",
+      "distribution": "internal"
+    },
     "production": {
       "distribution": "store",
       "developmentClient": false,
