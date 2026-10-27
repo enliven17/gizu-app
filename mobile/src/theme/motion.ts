@@ -12,7 +12,8 @@ export const easeInOut = Easing.bezier(0.42, 0, 0.58, 1);
 
 export const durations = {
   press: 120,
-  screen: 350,
+  screen: 380,
+  reveal: 560,
   fadeIn: 450,
   holdingExpand: 500,
 } as const;
@@ -20,6 +21,7 @@ export const durations = {
 export const timing = {
   screen: { duration: durations.screen, easing: easeOut, reduceMotion },
   fadeIn: { duration: durations.fadeIn, easing: easeOut, reduceMotion },
+  reveal: { duration: durations.reveal, easing: easeOut, reduceMotion },
   press: { duration: durations.press, easing: easeOut, reduceMotion },
 } as const;
 

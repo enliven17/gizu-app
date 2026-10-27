@@ -14,7 +14,14 @@ import { MainTabs } from "./MainTabs";
 import { EarnScreen } from "@/features/earn/EarnScreen";
 import { VaultWithdrawScreen } from "@/features/earn/VaultWithdrawScreen";
 import type { RootStackParamList } from "./types";
+import { Platform } from "react-native";
 import { durations } from "@/theme/motion";
+
+// Modals rise as a sheet on both platforms; iOS keeps its native card sheet.
+const modal = {
+  presentation: "modal",
+  animation: Platform.OS === "ios" ? "default" : "slide_from_bottom",
+} as const;
 const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const { session } = useSession();
@@ -22,13 +29,14 @@ export function RootNavigator() {
   return (
     <Stack.Navigator
       initialRouteName={session ? "Main" : "Welcome"}
-      // Frontend screens cross-fade in 350 ms (plus a small shift and blur that
-      // native stacks cannot express). Fade keeps native gestures and is motion-safe;
-      // modals keep their platform sheet transition and swipe-to-dismiss.
+      // Pushed screens slide in over a parallax-shifted parent (the iOS card motion,
+      // emulated on Android) while ScreenReveal lifts the new content into place.
+      // Native gestures, swipe-back and reduced motion keep working.
       screenOptions={{
         headerShown: false,
-        animation: "fade",
+        animation: "ios_from_right",
         animationDuration: durations.screen,
+        fullScreenGestureEnabled: true,
       }}
     >
       {session ? (
@@ -46,12 +54,12 @@ export function RootNavigator() {
             name="VaultWithdraw"
             component={native && session.chainId === 143 ? VaultWithdrawScreen : UnavailableScreen}
           />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen
-            name="Transaction"
-            component={TransactionScreen}
-            options={{ presentation: "modal", animation: "default" }}
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ animation: "fade_from_bottom" }}
           />
+          <Stack.Screen name="Transaction" component={TransactionScreen} options={modal} />
           <Stack.Screen
             name="VaultDetail"
             component={native ? UnavailableScreen : VaultDetailScreen}
@@ -67,16 +75,16 @@ export function RootNavigator() {
             component={ActivityScreen}
             options={{ title: "Activity" }}
           />
-          <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Main"
+            component={MainTabs}
+            options={{ headerShown: false, animation: "fade" }}
+          />
         </Stack.Group>
       ) : (
         <Stack.Group navigationKey="guest">
           <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ title: "Gizu" }} />
-          <Stack.Screen
-            name="RequestAccess"
-            component={RequestAccessScreen}
-            options={{ presentation: "modal", animation: "default" }}
-          />
+          <Stack.Screen name="RequestAccess" component={RequestAccessScreen} options={modal} />
         </Stack.Group>
       )}
     </Stack.Navigator>
